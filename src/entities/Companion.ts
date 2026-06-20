@@ -35,14 +35,15 @@ export class Companion extends Hero {
     time: number,
     delta: number,
     leader: Hero | null,
-    monsters: M[]
+    monsters: M[],
+    pathDir: { x: number; y: number } | null = null
   ): { castTarget: M | null } {
     const cfg = settings.get('companionAI');
     let castTarget: M | null = null;
 
     if (this.alive) {
       const manaRatio = this.stats.maxMana > 0 ? this.mana / this.stats.maxMana : 0;
-      const d = decideCompanion(this, leader, monsters, cfg, manaRatio, this.reach());
+      const d = decideCompanion(this, leader, monsters, cfg, manaRatio, this.reach(), pathDir);
       const ranged = this.weaponStyle() === 'ranged';
       if (d.target) {
         const dist = Math.hypot(d.target.x - this.x, d.target.y - this.y);

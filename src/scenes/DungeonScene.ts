@@ -17,7 +17,7 @@ import {
 import * as art from '../rendering/spriteArt';
 import { settings } from '../core/GameSettings';
 import { formatHudControls } from '../core/KeyBindings';
-import type { HeroClassId, LevelData, HudRegistryData, HudHeroSlot, ItemDefinition, ItemSlot } from '../core/types';
+import type { HeroClassId, LevelData, HudRegistryData, HudHeroSlot, ItemDefinition, ItemSlot, EnemyId } from '../core/types';
 import { Content } from '../content/ContentRegistry';
 import { ALL_CLASSES } from '../data/heroes';
 import { ITEMS } from '../data/items';
@@ -28,6 +28,7 @@ import { Monster } from '../entities/Monster';
 import { Generator } from '../entities/Generator';
 import { ShadowSystem } from '../systems/ShadowSystem';
 import { DungeonInput } from '../systems/DungeonInput';
+import { FlowField } from '../systems/Pathfinding';
 import { saveGame } from '../systems/SaveSystem';
 import type { SaveData, SaveAlly } from '../systems/SaveSystem';
 import { audio } from '../systems/AudioSystem';
@@ -44,6 +45,7 @@ interface Shrine { sprite: Phaser.GameObjects.Image; used: boolean; x: number; y
 interface Pickup { sprite: Phaser.GameObjects.Image | Phaser.GameObjects.Sprite; kind: 'coin' | 'food' | 'potion' | 'key' | 'item'; value: number; itemId?: string; id?: number; }
 interface LockedDoor { rect: Phaser.GameObjects.Rectangle; sprite: Phaser.GameObjects.Image; x: number; y: number; open: boolean; }
 interface Projectile { spr: Phaser.GameObjects.Sprite; vx: number; vy: number; dmg: number; crit: boolean; bornAt: number; ttl: number; owner: Hero; }
+interface EnemyProjectile { spr: Phaser.GameObjects.Sprite; vx: number; vy: number; dmg: number; bornAt: number; ttl: number; }
 
 export class DungeonScene extends Phaser.Scene {
   private level!: LevelData;
@@ -60,6 +62,7 @@ export class DungeonScene extends Phaser.Scene {
   private shrines: Shrine[] = [];
   private pickups: Pickup[] = [];
   private projectiles: Projectile[] = [];
+  private enemyProjectiles: EnemyProjectile[] = [];
   private torchLights: Phaser.GameObjects.Image[] = [];
   private partyLight!: Phaser.GameObjects.Image;
 
@@ -97,6 +100,8 @@ export class DungeonScene extends Phaser.Scene {
   private lavaTick = new Map<Hero, number>();
   private auraHealAt = 0;
   private collectedIds = new Set<number>();
+  private flow!: FlowField;
+  private nextFlowAt = 0;
 
   constructor() {
     super('DungeonScene');
@@ -106,7 +111,8 @@ export class DungeonScene extends Phaser.Scene {
     this.resetState();
     this.twoPlayer = this.registry.get('twoPlayer') ?? false;
     const save = this.registry.get('loadSave') as SaveData | undefined;
-    this.level = Content.getLevel('sunken_crypt');
+    const levelId = (save?.levelId as string) ?? (this.registry.get('levelId') as string) ?? 'sunken_crypt';
+    this.level = Content.getLevel(levelId);
 
     const wPx = this.level.width * TILE_SIZE;
     const hPx = this.level.height * TILE_SIZE;
@@ -124,7 +130,13 @@ export class DungeonScene extends Phaser.Scene {
     this.spawnWorldEntities();
     this.createHeroes();
     this.createCompanions();
+    const carry = this.registry.get('carryParty') as SaveAlly[] | undefined;
+    if (carry) {
+      this.applyPartyCarry(carry);
+      this.registry.remove('carryParty');
+    }
     this.setupColliders();
+    this.flow = new FlowField(this.level.width, this.level.height, (x, y) => this.isWalkable(x, y));
 
     this.cameraTarget = this.add.rectangle(this.players[0].x, this.players[0].y, 2, 2, 0, 0);
     this.cameras.main.startFollow(this.cameraTarget, true, 0.12, 0.12);
@@ -179,7 +191,7 @@ export class DungeonScene extends Phaser.Scene {
     audio.playMusic('dungeon');
     this.startTime = this.time.now;
 
-    this.quest = 'Destroy the generators and slay the Grave Warden.';
+    this.quest = `Clear ${this.level.name}: destroy the generators and slay its master.`;
     if (!save) void aiService.generateQuest(this.level.name).then((q) => { if (q) this.quest = q; });
     void aiService.generateBark('the heroes enter the sunken crypt').then((b) => this.showBark(b));
 
@@ -200,6 +212,7 @@ export class DungeonScene extends Phaser.Scene {
     this.shrines = [];
     this.pickups = [];
     this.projectiles = [];
+    this.enemyProjectiles = [];
     this.torchLights = [];
     this.generatorsDestroyed = 0;
     this.generatorsTotal = 0;
@@ -215,6 +228,13 @@ export class DungeonScene extends Phaser.Scene {
 
   private tileCenter(tx: number, ty: number): { x: number; y: number } {
     return { x: tx * TILE_SIZE + TILE_SIZE / 2, y: ty * TILE_SIZE + TILE_SIZE / 2 };
+  }
+
+  /** Tile is steppable for pathfinding (open doors count, walls/closed doors don't). */
+  private isWalkable(tx: number, ty: number): boolean {
+    if (ty < 0 || ty >= this.level.height || tx < 0 || tx >= this.level.width) return false;
+    const t = this.level.tiles[ty][tx];
+    return t !== Tile.WALL && t !== Tile.LOCKED_DOOR && t !== Tile.VOID;
   }
 
   private renderLevel(): void {
@@ -392,12 +412,10 @@ export class DungeonScene extends Phaser.Scene {
           break;
         }
         case 'boss': {
-          const boss = new Monster(this, c.x, c.y, sp.enemyId ?? 'grave_warden');
+          const boss = this.makeMonster(c.x, c.y, sp.enemyId ?? 'grave_warden');
           this.boss = boss;
           this.bossAlive = true;
           boss.onDeath = () => this.onBossDeath();
-          this.monsters.push(boss);
-          this.monsterGroup.add(boss);
           break;
         }
       }
@@ -413,13 +431,8 @@ export class DungeonScene extends Phaser.Scene {
     maxAlive = Math.max(1, Math.round(maxAlive * mc));
     interval = Math.max(700, Math.round(interval / mc));
     const gen = new Generator(this, c.x, c.y, enemyId as never, interval, maxAlive, hp);
-    gen.onSpawn = (g) => {
-      const m = new Monster(this, g.x + Phaser.Math.Between(-8, 8), g.y + Phaser.Math.Between(-4, 10), g.enemyId);
-      this.monsters.push(m);
-      this.monsterGroup.add(m);
-      this.shadows.add(m, 4);
-      return m;
-    };
+    gen.onSpawn = (g) =>
+      this.makeMonster(g.x + Phaser.Math.Between(-8, 8), g.y + Phaser.Math.Between(-4, 10), g.enemyId as EnemyId);
     gen.onDestroyed = () => {
       this.generatorsDestroyed++;
       this.showBark('A generator is destroyed!');
@@ -506,6 +519,7 @@ export class DungeonScene extends Phaser.Scene {
       this.updateGenerators(time);
       this.resolveCombat(time);
       this.updateProjectiles(time, delta);
+      this.updateEnemyProjectiles(time, delta);
       this.updateAuras(time);
       this.handleHazards(time);
       this.handlePickups();
@@ -645,7 +659,18 @@ export class DungeonScene extends Phaser.Scene {
   private updateCompanions(time: number, delta: number): void {
     const liveMonsters = this.monsters.filter((m) => m.active && m.alive);
     const leader = this.leader();
-    for (const comp of this.companions) comp.aiTick(time, delta, leader, liveMonsters);
+    if (leader) {
+      const ltx = Math.floor(leader.x / TILE_SIZE);
+      const lty = Math.floor(leader.y / TILE_SIZE);
+      if (this.flow.needsRecompute(ltx, lty) || time >= this.nextFlowAt) {
+        this.flow.compute(ltx, lty);
+        this.nextFlowAt = time + 400;
+      }
+    }
+    for (const comp of this.companions) {
+      const pathDir = leader && comp.alive ? this.flow.sample(comp.x, comp.y) : null;
+      comp.aiTick(time, delta, leader, liveMonsters, pathDir);
+    }
   }
 
   private updateMonsters(time: number, delta: number): void {
@@ -755,6 +780,89 @@ export class DungeonScene extends Phaser.Scene {
     }
   }
 
+  /** Create a monster with all combat callbacks wired (ranged/summon/nova). */
+  private makeMonster(x: number, y: number, enemyId: EnemyId): Monster {
+    const m = new Monster(this, x, y, enemyId);
+    m.onRanged = (mm, ux, uy) => this.spawnEnemyShot(mm, ux, uy);
+    m.onSummon = (mm) => this.summonAdds(mm);
+    m.onNova = (mm, radius) => this.enemyNova(mm, radius);
+    this.monsters.push(m);
+    this.monsterGroup.add(m);
+    this.shadows.add(m, 4);
+    return m;
+  }
+
+  private spawnEnemyShot(m: Monster, ux: number, uy: number): void {
+    const speed = m.def.projectileSpeed ?? 200;
+    const spr = this.add
+      .sprite(m.x + ux * 14, m.y + uy * 12, 'fx-bolt')
+      .setDepth(m.y + 6)
+      .setScale(1.5)
+      .setTint(0xff7a3a);
+    this.enemyProjectiles.push({ spr, vx: ux * speed, vy: uy * speed, dmg: m.def.damage, bornAt: this.time.now, ttl: 2400 });
+  }
+
+  private summonAdds(m: Monster): void {
+    const id = m.def.summons;
+    if (!id) return;
+    const n = 2 + (Math.random() < 0.5 ? 1 : 0);
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * Math.PI * 2;
+      this.makeMonster(m.x + Math.cos(a) * 30, m.y + Math.sin(a) * 30, id);
+    }
+    const fx = this.add.sprite(m.x, m.y, 'fx-magic').setDepth(m.y + 20).setScale(2).setTint(0xb58aff);
+    fx.play('fx-magic');
+    fx.once('animationcomplete', () => fx.destroy());
+    audio.sfx('portal');
+    this.showBark(`${m.def.name} summons reinforcements!`);
+  }
+
+  private enemyNova(m: Monster, radius: number): void {
+    const time = this.time.now;
+    const dmg = Math.round(m.def.damage * 0.8);
+    for (const a of this.allies) {
+      if (!a.alive) continue;
+      if (Phaser.Math.Distance.Between(m.x, m.y, a.x, a.y) <= radius) {
+        const dealt = a.takeDamage(dmg, time);
+        this.floatDamage(a.x, a.y, dealt, false);
+      }
+    }
+    const ring = this.add.sprite(m.x, m.y, 'fx-magic').setDepth(m.y + 20).setScale((radius * 2) / 32).setTint(0xff5a2a);
+    ring.play('fx-magic');
+    ring.once('animationcomplete', () => ring.destroy());
+    audio.sfx('boss_roar');
+  }
+
+  private updateEnemyProjectiles(time: number, delta: number): void {
+    const dt = delta / 1000;
+    for (let i = this.enemyProjectiles.length - 1; i >= 0; i--) {
+      const p = this.enemyProjectiles[i];
+      p.spr.x += p.vx * dt;
+      p.spr.y += p.vy * dt;
+      p.spr.setDepth(p.spr.y + 6);
+      let dead = time - p.bornAt > p.ttl;
+      if (!dead) {
+        const tile = this.tileAt(p.spr.x, p.spr.y);
+        if (tile === Tile.WALL || tile === Tile.VOID) dead = true;
+      }
+      if (!dead) {
+        for (const a of this.allies) {
+          if (!a.alive) continue;
+          if (Phaser.Math.Distance.Between(p.spr.x, p.spr.y, a.x, a.y) <= 12) {
+            const dealt = a.takeDamage(p.dmg, time);
+            this.floatDamage(a.x, a.y, dealt, false);
+            dead = true;
+            break;
+          }
+        }
+      }
+      if (dead) {
+        p.spr.destroy();
+        this.enemyProjectiles.splice(i, 1);
+      }
+    }
+  }
+
   private onMonsterKilled(killer: Hero, m: Monster): void {
     const mult = settings.get('gameplay').xpMultiplier;
     killer.gainXP(Math.round(m.def.xp * mult));
@@ -786,6 +894,22 @@ export class DungeonScene extends Phaser.Scene {
       .setOrigin(0.5)
       .setDepth(y + 30);
     this.tweens.add({ targets: t, y: y - 28, alpha: 0, duration: 560, ease: 'Quad.easeOut', onComplete: () => t.destroy() });
+  }
+
+  private floatPickup(x: number, y: number, text: string, color: string): void {
+    const t = this.add
+      .text(x, y - 12, text, {
+        fontFamily: 'Trebuchet MS, sans-serif',
+        fontSize: '11px',
+        color,
+        fontStyle: 'bold',
+        align: 'center',
+        stroke: '#000',
+        strokeThickness: 3,
+      })
+      .setOrigin(0.5, 1)
+      .setDepth(y + 40);
+    this.tweens.add({ targets: t, y: y - 40, alpha: 0, duration: 1100, ease: 'Quad.easeOut', onComplete: () => t.destroy() });
   }
 
   private tileAt(x: number, y: number): number {
@@ -820,25 +944,30 @@ export class DungeonScene extends Phaser.Scene {
         collector.inventory.addGold(p.value);
         collector.addScore(p.value);
         audio.sfx('coin');
+        this.floatPickup(p.sprite.x, p.sprite.y, `+${p.value} gold`, '#ffd24a');
       } else if (p.kind === 'food') {
         collector.heal(p.value);
         audio.sfx('coin');
+        this.floatPickup(p.sprite.x, p.sprite.y, `Crypt Ration  +${p.value} HP`, '#7dffa0');
       } else if (p.kind === 'potion' && p.itemId) {
         const item = ITEMS[p.itemId];
         if (item) collector.inventory.add(item);
         audio.sfx('coin');
+        this.floatPickup(p.sprite.x, p.sprite.y, item ? describeItem(item) : 'Potion', '#ff9ad0');
       } else if (p.kind === 'item' && p.itemId) {
         const item = ITEMS[p.itemId];
         if (item) {
           collector.inventory.add(item);
           collector.refreshStats();
           this.showBark(`Picked up ${describeItem(item)}`);
+          this.floatPickup(p.sprite.x, p.sprite.y, describeItem(item), '#ffe9a8');
         }
         audio.sfx('chest');
       } else if (p.kind === 'key') {
         collector.inventory.addKey(p.value);
         audio.sfx('key');
         this.showBark('A rusted key - a door waits somewhere.');
+        this.floatPickup(p.sprite.x, p.sprite.y, 'Rusted Key', '#ffe07a');
       }
       if (p.id !== undefined) this.collectedIds.add(p.id);
       const spr = p.sprite;
@@ -975,6 +1104,11 @@ export class DungeonScene extends Phaser.Scene {
   private win(): void {
     this.won = true;
     audio.sfx('portal');
+    const nextId = Content.nextLevel(this.level.id);
+    if (nextId) {
+      this.advanceToLevel(nextId);
+      return;
+    }
     audio.stopMusic();
     audio.sfx('victory');
     this.add.rectangle(PLAY_AREA_WIDTH / 2, GAME_HEIGHT / 2, PLAY_AREA_WIDTH, GAME_HEIGHT, 0x05060a, 0.7).setScrollFactor(0).setDepth(DEPTH.OVERLAY);
@@ -984,11 +1118,36 @@ export class DungeonScene extends Phaser.Scene {
       .setScrollFactor(0)
       .setDepth(DEPTH.OVERLAY + 1);
     this.add
-      .text(PLAY_AREA_WIDTH / 2, GAME_HEIGHT / 2 + 36, 'You escaped the Sunken Crypt. Returning to menu...', { fontFamily: 'Trebuchet MS, sans-serif', fontSize: '14px', color: '#dfe6ff' })
+      .text(PLAY_AREA_WIDTH / 2, GAME_HEIGHT / 2 + 36, 'You have conquered the depths. Returning to menu...', { fontFamily: 'Trebuchet MS, sans-serif', fontSize: '14px', color: '#dfe6ff' })
       .setOrigin(0.5)
       .setScrollFactor(0)
       .setDepth(DEPTH.OVERLAY + 1);
     this.time.delayedCall(3600, () => this.quitToMenu());
+  }
+
+  private advanceToLevel(nextId: string): void {
+    const next = Content.getLevel(nextId);
+    this.add.rectangle(PLAY_AREA_WIDTH / 2, GAME_HEIGHT / 2, PLAY_AREA_WIDTH, GAME_HEIGHT, 0x05060a, 0.7).setScrollFactor(0).setDepth(DEPTH.OVERLAY);
+    this.add
+      .text(PLAY_AREA_WIDTH / 2, GAME_HEIGHT / 2 - 10, 'LEVEL CLEARED', { fontFamily: 'Trebuchet MS, sans-serif', fontSize: '44px', color: '#ffe9a8', fontStyle: 'bold', stroke: '#000', strokeThickness: 6 })
+      .setOrigin(0.5)
+      .setScrollFactor(0)
+      .setDepth(DEPTH.OVERLAY + 1);
+    this.add
+      .text(PLAY_AREA_WIDTH / 2, GAME_HEIGHT / 2 + 36, `Descending into ${next.name}...`, { fontFamily: 'Trebuchet MS, sans-serif', fontSize: '15px', color: '#dfe6ff' })
+      .setOrigin(0.5)
+      .setScrollFactor(0)
+      .setDepth(DEPTH.OVERLAY + 1);
+    this.registry.set('carryParty', this.allies.map((a) => this.allyToSave(a)));
+    this.registry.set('levelId', nextId);
+    this.registry.set('twoPlayer', this.twoPlayer);
+    this.registry.remove('loadSave');
+    audio.sfx('victory');
+    this.cameras.main.fadeOut(800, 0, 0, 0);
+    this.time.delayedCall(1100, () => {
+      this.scene.stop('HudScene');
+      this.scene.start('DungeonScene');
+    });
   }
 
   private checkGameOver(): void {
@@ -1102,8 +1261,8 @@ export class DungeonScene extends Phaser.Scene {
     audio.sfx('ui_select');
   }
 
-  private buildSave(): SaveData {
-    const toSave = (a: Hero): SaveAlly => ({
+  private allyToSave(a: Hero): SaveAlly {
+    return {
       classId: a.classId,
       isPlayer: a.isPlayer,
       playerNum: a.playerNum,
@@ -1127,7 +1286,34 @@ export class DungeonScene extends Phaser.Scene {
           .map(([slot, it]) => [slot, (it as ItemDefinition).id])
       ),
       bag: a.inventory.bag.map((it) => it.id),
-    });
+    };
+  }
+
+  /** Restore party progression + inventory to matching allies (no world state). */
+  private applyPartyCarry(saved: SaveAlly[]): void {
+    for (const a of this.allies) {
+      const sv = saved.find((m) => m.classId === a.classId);
+      if (!sv) continue;
+      a.level = sv.level;
+      a.xp = sv.xp;
+      a.score = sv.score;
+      a.skillSet.ranks = { ...sv.skillRanks };
+      a.skillSet.points = sv.skillPoints;
+      a.attributes.ranks = { ...sv.attrRanks };
+      a.attributes.points = sv.attrPoints;
+      a.inventory.gold = sv.gold;
+      a.inventory.keys = sv.keys;
+      a.inventory.bag = sv.bag.map((id) => ITEMS[id]).filter(Boolean);
+      a.inventory.equipped = {};
+      for (const [slot, id] of Object.entries(sv.equipped)) {
+        const it = ITEMS[id];
+        if (it) a.inventory.equipped[slot as ItemSlot] = it;
+      }
+      a.recompute();
+    }
+  }
+
+  private buildSave(): SaveData {
     return {
       version: 1,
       savedAt: Date.now(),
@@ -1143,7 +1329,7 @@ export class DungeonScene extends Phaser.Scene {
       shrinesUsed: this.shrines.map((s) => s.used),
       doorsOpen: this.lockedDoors.map((d) => d.open),
       collectedPickups: [...this.collectedIds],
-      allies: this.allies.map(toSave),
+      allies: this.allies.map((a) => this.allyToSave(a)),
     };
   }
 

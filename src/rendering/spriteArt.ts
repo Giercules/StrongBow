@@ -579,6 +579,131 @@ export function drawVignette(ctx: Ctx, w: number, h: number): void {
   ctx.fillRect(0, 0, w, h);
 }
 
+export function drawBoneArcher(ctx: Ctx, ox: number, frame: number, r: MonsterRamp): void {
+  const cx = ox + MON_FW / 2;
+  const bob = frame === 1 || frame === 2 ? -1 : 0;
+  const draw = frame === 3;
+  // skull
+  R(ctx, cx - 3, 4 + bob, 6, 5, r.body2);
+  R(ctx, cx - 3, 4 + bob, 6, 1, r.body1);
+  R(ctx, cx - 2, 6 + bob, 2, 2, r.detail);
+  R(ctx, cx + 1, 6 + bob, 2, 2, r.detail);
+  PX(ctx, cx - 2, 6 + bob, r.eye);
+  PX(ctx, cx + 1, 6 + bob, r.eye);
+  R(ctx, cx - 2, 9 + bob, 4, 1, r.body1);
+  // ribcage torso
+  R(ctx, cx - 4, 10 + bob, 8, 7, r.body1);
+  R(ctx, cx - 4, 10 + bob, 8, 1, r.body2);
+  for (let i = 0; i < 3; i++) R(ctx, cx - 3, 11 + bob + i * 2, 6, 1, r.detail);
+  R(ctx, cx - 1, 11 + bob, 2, 6, r.body0);
+  // legs
+  R(ctx, cx - 3, 17 + bob, 2, 3, r.body0);
+  R(ctx, cx + 1, 17 + bob, 2, 3, r.body0);
+  // bow on the left limb
+  const bx = cx - 6;
+  R(ctx, bx, 7 + bob, 1, 11, r.accent);
+  PX(ctx, bx - 1, 8 + bob, r.accent);
+  PX(ctx, bx - 1, 16 + bob, r.accent);
+  if (draw) {
+    R(ctx, bx + 1, 12 + bob, 7, 1, '#e6dfba');
+    PX(ctx, bx + 8, 12 + bob, r.eye);
+  } else {
+    R(ctx, bx + 1, 12 + bob, 4, 1, '#e6dfba');
+  }
+}
+
+export function drawBrute(ctx: Ctx, ox: number, frame: number, r: MonsterRamp): void {
+  const cx = ox + MON_FW / 2;
+  const bob = frame === 1 ? -1 : 0;
+  const lunge = frame === 3 ? 2 : 0;
+  // hulking shoulders
+  R(ctx, cx - 7, 8 + bob, 14, 10, r.body1);
+  R(ctx, cx - 7, 8 + bob, 14, 1, r.body2);
+  R(ctx, cx - 7, 8 + bob, 2, 10, r.body2);
+  R(ctx, cx + 5, 8 + bob, 2, 10, r.body0);
+  // chest armour plate
+  R(ctx, cx - 4, 11 + bob, 8, 5, r.detail);
+  R(ctx, cx - 4, 11 + bob, 8, 1, r.accent);
+  // small sunken head + horns
+  R(ctx, cx - 3, 4 + bob, 6, 5, r.body2);
+  R(ctx, cx - 2, 6 + bob, 2, 2, r.eye);
+  R(ctx, cx + 1, 6 + bob, 2, 2, r.eye);
+  PX(ctx, cx - 4, 3 + bob, r.detail);
+  PX(ctx, cx + 3, 3 + bob, r.detail);
+  // arms + fists
+  R(ctx, cx - 9 - lunge, 12 + bob, 3, 5, r.body1);
+  R(ctx, cx + 6 + lunge, 12 + bob, 3, 5, r.body1);
+  R(ctx, cx - 9 - lunge, 16 + bob, 3, 2, r.accent);
+  R(ctx, cx + 6 + lunge, 16 + bob, 3, 2, r.accent);
+  // legs
+  R(ctx, cx - 4, 18 + bob, 3, 3, r.body0);
+  R(ctx, cx + 1, 18 + bob, 3, 3, r.body0);
+  if (frame === 3) R(ctx, cx - 2, 10 + bob, 4, 1, '#ffffff');
+}
+
+export function drawImp(ctx: Ctx, ox: number, frame: number, r: MonsterRamp): void {
+  const cx = ox + MON_FW / 2;
+  const bob = [0, -2, -1, -2][frame % 4];
+  const wing = frame % 2 === 0 ? 2 : 0;
+  // bat wings
+  R(ctx, cx - 7 - wing, 8 + bob, 3, 5, r.body0);
+  R(ctx, cx + 4 + wing, 8 + bob, 3, 5, r.body0);
+  PX(ctx, cx - 7 - wing, 7 + bob, r.detail);
+  PX(ctx, cx + 6 + wing, 7 + bob, r.detail);
+  // body
+  R(ctx, cx - 3, 9 + bob, 6, 6, r.body1);
+  R(ctx, cx - 3, 9 + bob, 6, 1, r.body2);
+  R(ctx, cx - 2, 11 + bob, 4, 3, r.accent);
+  // head + horns
+  R(ctx, cx - 3, 5 + bob, 6, 4, r.body2);
+  PX(ctx, cx - 3, 4 + bob, r.detail);
+  PX(ctx, cx + 2, 4 + bob, r.detail);
+  R(ctx, cx - 2, 6 + bob, 2, 1, r.eye);
+  R(ctx, cx + 1, 6 + bob, 2, 1, r.eye);
+  // tail
+  R(ctx, cx + 3, 14 + bob, 3, 1, r.body0);
+  PX(ctx, cx + 6, 13 + bob, r.accent);
+  // legs
+  R(ctx, cx - 2, 15 + bob, 2, 3, r.body0);
+  R(ctx, cx + 1, 15 + bob, 2, 3, r.body0);
+}
+
+export function drawColossus(ctx: Ctx, ox: number, frame: number, r: MonsterRamp): void {
+  const cx = ox + BOSS_FW / 2;
+  const bob = [0, -1, -2, 0][frame % 4];
+  const cast = frame === 3;
+  // legs
+  R(ctx, cx - 9, 30 + bob, 6, 8, r.body0);
+  R(ctx, cx + 3, 30 + bob, 6, 8, r.body0);
+  // massive torso
+  R(ctx, cx - 12, 12 + bob, 24, 20, r.body1);
+  R(ctx, cx - 12, 12 + bob, 24, 2, r.body2);
+  R(ctx, cx - 12, 12 + bob, 3, 20, r.body2);
+  R(ctx, cx + 9, 12 + bob, 3, 20, r.body0);
+  // glowing molten fissures
+  for (let i = 0; i < 5; i++) R(ctx, cx - 9 + i * 4, 16 + bob + (i % 2) * 4, 2, 6, r.accent);
+  R(ctx, cx - 6, 22 + bob, 12, 2, C.fireCore);
+  // shoulders + arms
+  R(ctx, cx - 16, 14 + bob, 5, 10, r.body0);
+  R(ctx, cx + 11, 14 + bob, 5, 10, r.body0);
+  R(ctx, cx - 16, 23 + bob, 5, 3, r.accent);
+  R(ctx, cx + 11, 23 + bob, 5, 3, r.accent);
+  // head
+  R(ctx, cx - 5, 4 + bob, 10, 9, r.body2);
+  R(ctx, cx - 5, 4 + bob, 10, 1, '#ffffff');
+  R(ctx, cx - 4, 7 + bob, 3, 3, r.detail);
+  R(ctx, cx + 1, 7 + bob, 3, 3, r.detail);
+  R(ctx, cx - 4, 7 + bob, 3, 2, r.eye);
+  R(ctx, cx + 1, 7 + bob, 3, 2, r.eye);
+  R(ctx, cx - 3, 11 + bob, 6, 2, C.fireCore);
+  // flame crown when casting
+  if (cast) {
+    for (let i = 0; i < 5; i++) R(ctx, cx - 5 + i * 2, 1 + bob, 1, 3, C.fireCore);
+    R(ctx, cx - 14, 18 + bob, 4, 4, r.accent);
+    R(ctx, cx + 10, 18 + bob, 4, 4, r.accent);
+  }
+}
+
 export function drawRadialLight(ctx: Ctx, w: number, h: number, inner = 'rgba(255,206,130,0.95)', outer = 'rgba(255,150,40,0)'): void {
   const g = ctx.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, Math.min(w, h) / 2);
   g.addColorStop(0, inner);

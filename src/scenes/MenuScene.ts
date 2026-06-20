@@ -113,6 +113,8 @@ export class MenuScene extends Phaser.Scene {
     const ps = save.allies.filter((a) => a.isPlayer).sort((a, b) => a.playerNum - b.playerNum);
     this.registry.set('p1Class', ps[0]?.classId ?? 'vanguard');
     if (ps[1]) this.registry.set('p2Class', ps[1].classId);
+    this.registry.set('levelId', save.levelId ?? 'sunken_crypt');
+    this.registry.remove('carryParty');
     this.registry.set('loadSave', save);
     this.cameras.main.fadeOut(220, 0, 0, 0);
     this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start('DungeonScene'));
@@ -127,6 +129,9 @@ export class MenuScene extends Phaser.Scene {
     this.enableAudio();
     audio.sfx('ui_select');
     this.registry.set('twoPlayer', twoPlayer);
+    this.registry.set('levelId', 'sunken_crypt');
+    this.registry.remove('carryParty');
+    this.registry.remove('loadSave');
     this.cameras.main.fadeOut(220, 0, 0, 0);
     this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start('CharacterSelectScene'));
   }

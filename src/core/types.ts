@@ -1,12 +1,22 @@
 // ----------------------------------------------------------------------------
-// StrongBow — shared types
+// StrongBow -- shared types
 // ----------------------------------------------------------------------------
 
 export type HeroClassId = 'vanguard' | 'strider' | 'arcanist' | 'warden';
 export type Direction = 'down' | 'up' | 'left' | 'right';
 export type Rarity = 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary';
 export type ItemSlot = 'weapon' | 'armor' | 'trinket' | 'consumable';
-export type EnemyId = 'grunt' | 'ghost' | 'demon' | 'grave_warden';
+export type EnemyId =
+  | 'grunt'
+  | 'ghost'
+  | 'demon'
+  | 'grave_warden'
+  | 'bone_archer'
+  | 'brute'
+  | 'imp'
+  | 'molten_colossus';
+
+export type EnemyBehavior = 'melee' | 'ranged' | 'charger' | 'boss';
 
 export interface StatBlock {
   maxHealth: number;
@@ -45,6 +55,15 @@ export interface EnemyDef {
   isBoss?: boolean;
   sheet: string;
   scale?: number;
+  behavior?: EnemyBehavior;
+  /** ranged/charger: ms between special attacks. */
+  specialCooldown?: number;
+  /** ranged: pixel speed of fired projectiles. */
+  projectileSpeed?: number;
+  /** ranged: distance the enemy tries to keep from its target. */
+  preferredRange?: number;
+  /** boss: enemy id summoned during the summon pattern. */
+  summons?: EnemyId;
 }
 
 export interface ItemDefinition {

@@ -48,6 +48,14 @@ export class AnimationRegistry {
     add(scene, 'demon-attack', 'monster-demon-sheet', [3], 1, 0);
     add(scene, 'grave_warden-walk', 'monster-boss-sheet', [0, 1, 2, 1], 5, -1);
     add(scene, 'grave_warden-attack', 'monster-boss-sheet', [3], 1, 0);
+    add(scene, 'bone_archer-walk', 'monster-bone_archer-sheet', [0, 1, 2, 1], 6, -1);
+    add(scene, 'bone_archer-attack', 'monster-bone_archer-sheet', [3], 1, 0);
+    add(scene, 'brute-walk', 'monster-brute-sheet', [0, 1, 2, 1], 5, -1);
+    add(scene, 'brute-attack', 'monster-brute-sheet', [3], 1, 0);
+    add(scene, 'imp-walk', 'monster-imp-sheet', [0, 1, 2, 3], 10, -1);
+    add(scene, 'imp-attack', 'monster-imp-sheet', [3], 1, 0);
+    add(scene, 'molten_colossus-walk', 'monster-molten_colossus-sheet', [0, 1, 2, 1], 5, -1);
+    add(scene, 'molten_colossus-attack', 'monster-molten_colossus-sheet', [3], 1, 0);
 
     // ---- animated tiles ----
     add(scene, 'water', 'water-sheet', [0, 1, 2, 3], 4, -1);

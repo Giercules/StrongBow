@@ -22,7 +22,7 @@ function dist(a: Vec, b: Vec): number {
 
 /**
  * Decide a companion's movement and combat intent for this frame.
- * Priority: snap back if past leash → assist nearby fight → follow leader.
+ * Priority: snap back if past leash -> assist nearby fight -> follow leader.
  */
 export function decideCompanion<M extends MonsterLike>(
   self: Vec,
@@ -30,8 +30,14 @@ export function decideCompanion<M extends MonsterLike>(
   monsters: M[],
   cfg: CompanionAISettings,
   manaRatio: number,
-  attackRange = 22
+  attackRange = 22,
+  pathDir: Vec | null = null
 ): CompanionDecision<M> {
+  // Prefer a precomputed path step (routes around wall corners) when supplied.
+  const towardLeader = (fallbackX: number, fallbackY: number): Vec => {
+    if (pathDir && (pathDir.x !== 0 || pathDir.y !== 0)) return { x: pathDir.x, y: pathDir.y };
+    return { x: fallbackX, y: fallbackY };
+  };
   const none: CompanionDecision<M> = {
     dirX: 0,
     dirY: 0,
@@ -54,11 +60,12 @@ export function decideCompanion<M extends MonsterLike>(
 
   const toLeader = leader ? dist(self, leader) : 0;
 
-  // 1) leashed too far — return to the leader
+  // 1) leashed too far -- return to the leader (path-routed)
   if (leader && toLeader > cfg.leashDistance) {
     const ux = (leader.x - self.x) / (toLeader || 1);
     const uy = (leader.y - self.y) / (toLeader || 1);
-    return { dirX: ux, dirY: uy, wantAttack: false, wantMagic: false, target: null };
+    const p = towardLeader(ux, uy);
+    return { dirX: p.x, dirY: p.y, wantAttack: false, wantMagic: false, target: null };
   }
 
   // 2) assist if a monster is within the aggression-scaled assist range
@@ -77,11 +84,12 @@ export function decideCompanion<M extends MonsterLike>(
     };
   }
 
-  // 3) follow the leader, keeping a comfortable distance
+  // 3) follow the leader, keeping a comfortable distance (path-routed)
   if (leader && toLeader > cfg.followDistance) {
     const ux = (leader.x - self.x) / (toLeader || 1);
     const uy = (leader.y - self.y) / (toLeader || 1);
-    return { dirX: ux, dirY: uy, wantAttack: false, wantMagic: false, target };
+    const p = towardLeader(ux, uy);
+    return { dirX: p.x, dirY: p.y, wantAttack: false, wantMagic: false, target };
   }
 
   return none;

@@ -147,6 +147,14 @@ export class TextureFactory {
     count++;
     makeMonsterSheet(scene, 'monster-boss-sheet', MONSTER_RAMPS.grave_warden, art.drawBoss, BOSS_FW, BOSS_FH);
     count++;
+    makeMonsterSheet(scene, 'monster-bone_archer-sheet', MONSTER_RAMPS.bone_archer, art.drawBoneArcher);
+    count++;
+    makeMonsterSheet(scene, 'monster-brute-sheet', MONSTER_RAMPS.brute, art.drawBrute);
+    count++;
+    makeMonsterSheet(scene, 'monster-imp-sheet', MONSTER_RAMPS.imp, art.drawImp);
+    count++;
+    makeMonsterSheet(scene, 'monster-molten_colossus-sheet', MONSTER_RAMPS.molten_colossus, art.drawColossus, BOSS_FW, BOSS_FH);
+    count++;
 
     // ---- decorative NPC (outlined) ----
     img('npc-elder', HERO_FW, HERO_FH, (c) => {

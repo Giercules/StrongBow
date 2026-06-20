@@ -3,6 +3,7 @@ import { ENEMIES } from '../data/enemies';
 import { ITEMS } from '../data/items';
 import { SKILLS } from '../data/skills';
 import { LEVEL1 } from '../data/level1';
+import { LEVEL2 } from '../data/level2';
 import type {
   HeroClassDef,
   HeroClassId,
@@ -16,7 +17,8 @@ import type {
 // Central read-only lookup for all game content.
 class Registry {
   readonly classes: HeroClassId[] = ALL_CLASSES;
-  readonly levels: Record<string, LevelData> = { sunken_crypt: LEVEL1 };
+  readonly levels: Record<string, LevelData> = { sunken_crypt: LEVEL1, molten_deep: LEVEL2 };
+  readonly levelOrder: string[] = ['sunken_crypt', 'molten_deep'];
 
   hero(id: HeroClassId): HeroClassDef {
     return HEROES[id];
@@ -40,6 +42,13 @@ class Registry {
 
   getLevel(id: string): LevelData {
     return this.levels[id] ?? LEVEL1;
+  }
+
+  /** Next level id in sequence, or null if this is the final level. */
+  nextLevel(id: string): string | null {
+    const i = this.levelOrder.indexOf(id);
+    if (i < 0 || i >= this.levelOrder.length - 1) return null;
+    return this.levelOrder[i + 1];
   }
 
   getMonsterSheetId(enemyId: EnemyId): string {

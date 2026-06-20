@@ -1,5 +1,5 @@
 // ----------------------------------------------------------------------------
-// StrongBow — master palette
+// StrongBow -- master palette
 // A cohesive arcade dungeon palette. All art references these so the whole
 // game stays colour-consistent. Values are 0xRRGGBB (or '#rrggbb' strings).
 // ----------------------------------------------------------------------------
@@ -189,5 +189,37 @@ export const MONSTER_RAMPS: Record<string, MonsterRamp> = {
     accent: '#b58aff',
     eye: '#3affd0',
     detail: '#0c0814',
+  },
+  bone_archer: {
+    body0: '#7d7660',
+    body1: '#c9c2a6',
+    body2: '#efe9cf',
+    accent: '#9b3a2a',
+    eye: '#ff5a3a',
+    detail: '#4a4636',
+  },
+  brute: {
+    body0: '#3a2418',
+    body1: '#6e4326',
+    body2: '#9c6a3c',
+    accent: '#c0392b',
+    eye: '#ffd24a',
+    detail: '#1f120a',
+  },
+  imp: {
+    body0: '#6a1408',
+    body1: '#c4361a',
+    body2: '#ff7a2a',
+    accent: '#ffd24a',
+    eye: '#fff4b0',
+    detail: '#360a04',
+  },
+  molten_colossus: {
+    body0: '#2a1410',
+    body1: '#6e2414',
+    body2: '#c4451c',
+    accent: '#ffae2a',
+    eye: '#fff0a0',
+    detail: '#140805',
   },
 };

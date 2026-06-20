@@ -42,6 +42,10 @@ const ENEMY_DESC: Record<EnemyId, string> = {
   ghost: 'A wailing shade that drifts from the walls. Fast, fragile, and chilling.',
   demon: 'A winged pit-fiend wreathed in embers. Hits hard - beware its claws.',
   grave_warden: 'The crowned lord of the crypt. Felling it unseals the exit portal.',
+  bone_archer: 'A skeletal marksman that looses arrows from afar. Close the gap fast.',
+  brute: 'A hulking armoured horror. It winds up, then charges - sidestep the rush.',
+  imp: 'A darting cinder-imp. Tiny and frail, but they swarm in deadly numbers.',
+  molten_colossus: 'The molten heart of the deep. Survive its volleys and flame novas.',
 };
 
 function bestiaryPage(): ManualPage {
