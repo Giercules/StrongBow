@@ -38,30 +38,66 @@ npm run preview      # serve the production build
 | Inventory | I / Tab | M |
 | Growth | K | \ |
 
-Global: O settings - H manual - 2 add Player 2 - Esc close menu / quit.
-Game over: C continue / M quit.
+Global: **O** settings - **H** manual - **F2** quick-save - **2** add Player 2 -
+**Esc** close menu / quit. Game over: **C** continue / **M** quit.
 
 Camera zoom is fixed for a consistent arcade frame (no slider).
 
-## How to win
+## The descent: two levels
 
-Destroy at least **3 of the 8 generators**, slay the **Grave Warden** boss, then
-step on the **exit portal**. Find the key to open the locked door guarding the
-boss. Lava burns over time but never traps you — keep moving and walk out.
+Fight down through two hand-tuned procedural levels:
+
+1. **The Sunken Crypt** (120x84) — flooded catacombs of the restless dead, ruled
+   by the **Grave Warden**.
+2. **The Molten Deep** (132x96) — a sprawling magma cavern guarded by the
+   **Molten Colossus**.
+
+Clear a level's objective and step on its exit portal to **descend to the next
+level with your whole party's levels, skills, attributes, gold, and gear intact**.
+Survive the Molten Deep for the true victory.
+
+### How to win a level
+
+Destroy at least **3 generators**, slay the level **boss**, then step on the
+**exit portal**. Find the **key** to open the locked door guarding the boss. Lava
+burns over time but never traps you — keep moving and walk out.
+
+## Bestiary
+
+Six foes plus two bosses, each with distinct behaviour:
+
+- **Crypt Grunt / Wailing Shade / Pit Demon** — melee swarmers of increasing menace.
+- **Bone Archer** — keeps its distance and looses arrows; close the gap fast.
+- **Crypt Brute** — armoured bruiser that telegraphs, then **charges**.
+- **Cinder Imp** — tiny, fast, and deadly in swarms.
+- **Grave Warden / Molten Colossus** (bosses) — cycle telegraphed attack
+  patterns as their health drops: a **radial volley**, **summoning**
+  reinforcements, and a close-range **flame nova**. Watch for the wind-up flash.
 
 ## Progression
 
-- Kills grant XP. Each level gives a **skill point** and an **attribute point**.
+- Kills grant XP (shared a little with the whole party). Each level gives a
+  **skill point** and an **attribute point**.
 - **Growth (K):** raise class skills (1-3) and attributes Might / Vitality / Focus (4-6).
 - **Inventory (I):** equip backpack gear (1-9), unequip (Up/Down + U), drink a potion (C). Bonuses apply instantly.
 - **Character sheet (P):** full stats, growth, and equipped gear.
-- Solo play gives 3 AI companions; co-op gives 2. They follow the active player and fight; tune them in Settings -> Companions.
+- **Every pickup announces itself** — gold, rations, potions, keys, and gear show
+  a floating label so you always know what you grabbed.
+- Solo play gives 3 AI companions; co-op gives 2. They follow the active player,
+  **path intelligently around corners**, and fight; tune them in Settings -> Companions.
+
+## Save & restore
+
+- Press **F2** in the dungeon to quick-save your run (party, inventory, world
+  progress, and current level) to the browser.
+- A **CONTINUE** button appears on the title screen whenever a save exists; it
+  drops you straight back into the saved level with your party restored.
 
 ## In-game manual
 
 Press **H** on the title screen or in the dungeon (or Settings -> Manual) for a
-Nintendo-style manual: story, controls, growth guide, AI setup, and a dossier for
-each hero class.
+Nintendo-style manual: story, controls, growth guide, AI setup, a dossier for
+each hero class, and an illustrated bestiary + armory.
 
 ## Epic audio (optional real tracks)
 
@@ -83,5 +119,6 @@ The title screen shows a green indicator when the proxy + provider are reachable
 
 See `PROJECT_OVERVIEW.md` for the full architecture. Key folders: `src/core`
 (constants, types, settings, KeyBindings), `src/rendering` (procedural art),
-`src/systems` (audio, stats, skills, attributes, input, companion AI),
-`src/entities`, `src/scenes`, `src/ui`, `src/data`, `src/ai`, `server/`.
+`src/systems` (audio, stats, skills, attributes, input, companion AI,
+pathfinding, save), `src/entities`, `src/scenes`, `src/ui`, `src/data`
+(levels + content), `src/ai`, `server/`.
