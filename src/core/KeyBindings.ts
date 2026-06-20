@@ -121,6 +121,7 @@ export function formatHudControls(b: GameBindings, twoPlayer: boolean): string[]
     `${keyLabel(p1.attack)} atk  ${keyLabel(p1.magic)} mag  ${keyLabel(p1.use)} use`,
     `${keyLabel(p1.sheet)} sheet  ${keyLabel(p1.inventory)} bag  ${keyLabel(p1.growth)} grow`,
     `${keyLabel(b.global.settings)} set  ${keyLabel(b.global.manual)} help  ${keyLabel(b.global.joinP2)} join P2`,
+    'F2 save  ·  restore on title screen',
   ];
   if (twoPlayer) {
     const p2 = b.p2;

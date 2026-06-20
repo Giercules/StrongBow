@@ -335,8 +335,8 @@ export class DungeonScene extends Phaser.Scene {
           this.add.sprite(c.x, c.y + 6, 'torch-sheet').play('torch').setDepth(c.y + 2);
           const light = this.add
             .image(c.x, c.y + 16, 'fx-light')
-            .setScale(1.7)
-            .setAlpha(0.5)
+            .setScale(1.2)
+            .setAlpha(0.26)
             .setBlendMode(Phaser.BlendModes.ADD)
             .setDepth(DEPTH.VIGNETTE - 1);
           light.setData('ph', Math.random() * 6.28);
@@ -1024,8 +1024,8 @@ export class DungeonScene extends Phaser.Scene {
   private updateLighting(time: number): void {
     for (const L of this.torchLights) {
       const ph = (L.getData('ph') as number) || 0;
-      const f = 0.46 + Math.sin(time * 0.009 + ph) * 0.12 + (Math.random() - 0.5) * 0.06;
-      L.setAlpha(Phaser.Math.Clamp(f, 0.22, 0.66));
+      const f = 0.22 + Math.sin(time * 0.009 + ph) * 0.06 + (Math.random() - 0.5) * 0.035;
+      L.setAlpha(Phaser.Math.Clamp(f, 0.1, 0.32));
     }
     if (this.partyLight) {
       this.partyLight.setPosition(this.cameraTarget.x, this.cameraTarget.y);

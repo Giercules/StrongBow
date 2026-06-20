@@ -93,7 +93,7 @@ export class SkillTreeUI {
     }
     this.label(left + PANEL_W - 96, yy + 6, `${rank}/${max}`, C.ink, 10);
     this.content!.add(
-      makeButton(this.scene, left + PANEL_W - 66, yy + 24, 40, 28, rank >= max ? 'MAX' : '+', onUp, { fill: canUp ? C.ivy : C.hudPanel2, size: 15 })
+      makeButton(this.scene, left + PANEL_W - 60, yy + 24, 28, 22, rank >= max ? 'MAX' : '+', onUp, { fill: canUp ? C.ivy : C.hudPanel2, size: 12 })
     );
   }
 
