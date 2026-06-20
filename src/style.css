@@ -1,0 +1,107 @@
+:root {
+  --bg: #05060a;
+  --bg2: #0b0e18;
+  --gold: #f5c451;
+  --gold-dim: #9a7b2e;
+  --ink: #d9e2ff;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  background:
+    radial-gradient(120% 120% at 50% -10%, #161a2e 0%, var(--bg2) 38%, var(--bg) 100%);
+  overflow: hidden;
+  font-family: "Trebuchet MS", "Segoe UI", system-ui, sans-serif;
+  color: var(--ink);
+}
+
+#app {
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Phaser injects a <canvas> into #app. Keep crisp pixels and add an arcade frame. */
+#app canvas {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  border-radius: 10px;
+  box-shadow:
+    0 0 0 2px #2a2f48,
+    0 0 0 6px #11131f,
+    0 0 60px 4px rgba(0, 0, 0, 0.8),
+    0 0 120px 8px rgba(64, 40, 8, 0.25);
+  max-width: 100vw;
+  max-height: 100vh;
+}
+
+/* ---------- Loading screen (shown until Phaser boots) ---------- */
+#loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  animation: fade 0.6s ease;
+}
+
+#loading .logo {
+  font-weight: 800;
+  letter-spacing: 0.42em;
+  font-size: 40px;
+  text-indent: 0.42em;
+  background: linear-gradient(180deg, #ffe9a8 0%, var(--gold) 45%, #b07d1e 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  text-shadow: 0 2px 14px rgba(245, 196, 81, 0.25);
+}
+
+#loading .bar {
+  width: 240px;
+  height: 8px;
+  background: #15182a;
+  border: 1px solid #2a2f48;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+#loading .bar span {
+  display: block;
+  height: 100%;
+  width: 30%;
+  background: linear-gradient(90deg, var(--gold-dim), var(--gold));
+  border-radius: 6px;
+  animation: load 1.2s ease-in-out infinite;
+}
+
+#loading .tip {
+  font-size: 13px;
+  letter-spacing: 0.2em;
+  color: #6f7aa8;
+  text-transform: uppercase;
+}
+
+.booted #loading {
+  display: none;
+}
+
+@keyframes load {
+  0% { width: 8%; transform: translateX(0); }
+  50% { width: 60%; }
+  100% { width: 8%; transform: translateX(220px); }
+}
+
+@keyframes fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
