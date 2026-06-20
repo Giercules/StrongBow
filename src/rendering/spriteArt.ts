@@ -261,6 +261,103 @@ export function drawPortal(ctx: Ctx, ox: number, frame: number): void {
   R(ctx, cx - 1, cy - 1, 2, 2, C.portalCore);
 }
 
+// Frozen sheet — static, baked over a floor tile. Cracked, glassy, with a sheen.
+export function drawIce(ctx: Ctx, ox: number, oy: number, seed: number): void {
+  const r = rng(seed * 2246822519 + 3);
+  ctx.globalAlpha = 0.82;
+  R(ctx, ox, oy, 16, 16, C.iceMid);
+  ctx.globalAlpha = 1;
+  // frosted mottling
+  for (let y = 0; y < 16; y++)
+    for (let x = 0; x < 16; x++) {
+      const n = r();
+      if (n < 0.12) PX(ctx, ox + x, oy + y, C.iceDark);
+      else if (n < 0.2) PX(ctx, ox + x, oy + y, C.iceHi);
+    }
+  // diagonal cracks
+  let cx = ox + 2 + Math.floor(r() * 6);
+  let cy = oy + 2 + Math.floor(r() * 4);
+  for (let i = 0; i < 9; i++) {
+    PX(ctx, cx, cy, C.iceDark);
+    PX(ctx, cx, cy + 1, C.iceWhite);
+    cx += 1;
+    cy += r() < 0.5 ? 1 : 0;
+    if (cy > oy + 14) break;
+  }
+  // glossy highlight streak (light from upper-left)
+  ctx.globalAlpha = 0.5;
+  R(ctx, ox + 1, oy + 1, 7, 1, C.iceWhite);
+  R(ctx, ox + 1, oy + 1, 1, 6, C.iceWhite);
+  ctx.globalAlpha = 1;
+  PX(ctx, ox + 11, oy + 3, C.iceWhite);
+  PX(ctx, ox + 4, oy + 11, C.iceHi);
+}
+
+// Toxic sludge — animated bubbling pool (4-frame sheet, y baked at 0).
+export function drawPoison(ctx: Ctx, ox: number, frame: number): void {
+  R(ctx, ox, 0, 16, 16, C.poisonDark);
+  const r = rng(29);
+  for (let y = 0; y < 16; y++)
+    for (let x = 0; x < 16; x++) if (r() < 0.34) PX(ctx, ox + x, y, C.poisonMid);
+  // drifting surface scum
+  for (let i = 0; i < 3; i++) {
+    const y = (i * 5 + frame * 2) % 16;
+    ctx.globalAlpha = 0.7;
+    R(ctx, ox + 2, y, 5, 1, C.poisonHi);
+    R(ctx, ox + 9, (y + 7) % 16, 4, 1, C.poisonHi);
+    ctx.globalAlpha = 1;
+  }
+  // rising bubbles that pop on the last frame
+  const bubbles = [
+    [4, 11, 0],
+    [11, 8, 1],
+    [7, 13, 2],
+  ];
+  for (const [bx, by, ph] of bubbles) {
+    const f = (frame + ph) % 4;
+    const yy = by - f * 2;
+    if (f === 3) {
+      PX(ctx, ox + bx - 1, yy, C.poisonGas);
+      PX(ctx, ox + bx + 1, yy, C.poisonGas);
+    } else {
+      R(ctx, ox + bx, yy, 2, 2, C.poisonHi);
+      PX(ctx, ox + bx, yy, C.poisonGas);
+    }
+  }
+}
+
+// Spike trap — telegraphed retract/extend cycle (4-frame sheet, y baked at 0).
+// frame 0 = flush plate (safe-looking), 3 = fully extended steel.
+export function drawSpikes(ctx: Ctx, ox: number, frame: number): void {
+  // recessed floor plate
+  R(ctx, ox, 0, 16, 16, C.spikeBase);
+  R(ctx, ox + 1, 1, 14, 14, '#222a3c');
+  // bolt holes
+  PX(ctx, ox + 2, 2, '#0a0e18');
+  PX(ctx, ox + 13, 2, '#0a0e18');
+  PX(ctx, ox + 2, 13, '#0a0e18');
+  PX(ctx, ox + 13, 13, '#0a0e18');
+  const ext = [0, 3, 6, 8][frame % 4]; // how far spikes protrude
+  if (ext === 0) {
+    // flush — a faint warning grid
+    ctx.globalAlpha = 0.5;
+    for (let x = 3; x < 14; x += 4) R(ctx, ox + x, 3, 1, 10, '#39435c');
+    ctx.globalAlpha = 1;
+    return;
+  }
+  const cols = [3, 7, 11];
+  for (const c of cols) {
+    const topY = 14 - ext;
+    // triangular spike
+    for (let i = 0; i < ext; i++) {
+      const w = Math.max(1, Math.round((i / ext) * 3));
+      R(ctx, ox + c - (w >> 1) + 1, 14 - i, w, 1, C.spikeSteel);
+    }
+    PX(ctx, ox + c + 1, topY, C.spikeHi);
+    if (frame === 3) PX(ctx, ox + c + 1, 14, C.spikeBlood);
+  }
+}
+
 // ============================================================================
 // OBJECTS / DECOR
 // ============================================================================
@@ -359,6 +456,92 @@ export function drawBanner(ctx: Ctx, ox: number, oy: number): void {
   R(ctx, ox + 7, oy + 3, 2, 5, C.coinHi);
   R(ctx, ox + 5, oy + 12, 2, 2, C.hudBg);
   R(ctx, ox + 9, oy + 12, 2, 2, C.hudBg);
+}
+
+// Ice crystal cluster — frost set-piece decor.
+export function drawCrystal(ctx: Ctx, ox: number, oy: number): void {
+  // back shard
+  R(ctx, ox + 9, oy + 5, 2, 9, C.crystalDk);
+  R(ctx, ox + 9, oy + 4, 2, 2, C.crystal);
+  // main shard
+  R(ctx, ox + 5, oy + 6, 3, 8, C.crystal);
+  R(ctx, ox + 5, oy + 6, 1, 8, C.crystalHi);
+  R(ctx, ox + 6, oy + 3, 1, 4, C.crystal);
+  PX(ctx, ox + 6, oy + 2, C.crystalHi);
+  // small shard
+  R(ctx, ox + 3, oy + 10, 2, 4, C.crystalDk);
+  PX(ctx, ox + 3, oy + 9, C.crystal);
+  // base frost
+  ctx.globalAlpha = 0.6;
+  R(ctx, ox + 2, oy + 13, 11, 2, C.iceHi);
+  ctx.globalAlpha = 1;
+}
+
+// Brass cog — clockwork set-piece decor.
+export function drawCog(ctx: Ctx, ox: number, oy: number): void {
+  const cx = ox + 8;
+  const cy = oy + 8;
+  // teeth
+  for (let a = 0; a < 8; a++) {
+    const ang = (a / 8) * Math.PI * 2;
+    const tx = Math.round(cx + Math.cos(ang) * 6);
+    const ty = Math.round(cy + Math.sin(ang) * 6);
+    R(ctx, tx - 1, ty - 1, 2, 2, C.cog);
+  }
+  // body
+  ctx.fillStyle = C.cog;
+  ctx.beginPath();
+  ctx.arc(cx, cy, 5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = C.cogHi;
+  ctx.beginPath();
+  ctx.arc(cx - 1, cy - 1, 2.4, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = C.cogDk;
+  ctx.beginPath();
+  ctx.arc(cx, cy, 1.6, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+// Hanging vines / toxic growth — toxic set-piece decor.
+export function drawVines(ctx: Ctx, ox: number, oy: number): void {
+  for (const [vx, len] of [
+    [4, 11],
+    [8, 14],
+    [12, 9],
+  ] as [number, number][]) {
+    for (let i = 0; i < len; i++) {
+      PX(ctx, ox + vx + (i % 2 === 0 ? 0 : 1), oy + i, i % 3 === 0 ? C.vineHi : C.vine);
+    }
+    R(ctx, ox + vx - 1, oy + len - 1, 3, 2, C.vineHi);
+  }
+}
+
+// Blood stain — arena set-piece decor (floor splat).
+export function drawBloodStain(ctx: Ctx, ox: number, oy: number): void {
+  ctx.fillStyle = C.bloodDark;
+  ctx.beginPath();
+  ctx.ellipse(ox + 8, oy + 9, 5.5, 3.5, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = C.bloodMid;
+  ctx.beginPath();
+  ctx.ellipse(ox + 7, oy + 8, 3, 1.8, 0, 0, Math.PI * 2);
+  ctx.fill();
+  PX(ctx, ox + 13, oy + 6, C.bloodMid);
+  PX(ctx, ox + 3, oy + 12, C.bloodDark);
+  PX(ctx, ox + 12, oy + 12, C.bloodDark);
+}
+
+// Skull on a pike — arena/crypt set-piece decor.
+export function drawSkullPike(ctx: Ctx, ox: number, oy: number): void {
+  const b = '#d8dce8';
+  R(ctx, ox + 7, oy + 6, 2, 9, '#5a4a2a'); // pole
+  R(ctx, ox + 5, oy + 2, 6, 5, b); // cranium
+  R(ctx, ox + 6, oy + 7, 4, 2, b); // jaw
+  PX(ctx, ox + 6, oy + 4, '#202433'); // eye
+  PX(ctx, ox + 9, oy + 4, '#202433'); // eye
+  PX(ctx, ox + 7, oy + 6, '#202433'); // nose
+  R(ctx, ox + 5, oy + 2, 6, 1, '#f2f4fa');
 }
 
 // ============================================================================

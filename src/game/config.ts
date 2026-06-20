@@ -3,6 +3,8 @@ import { GAME_WIDTH, GAME_HEIGHT } from '../core/constants';
 import { BootScene } from '../scenes/BootScene';
 import { MenuScene } from '../scenes/MenuScene';
 import { CharacterSelectScene } from '../scenes/CharacterSelectScene';
+import { ForgeScene } from '../scenes/ForgeScene';
+import { LevelSelectScene } from '../scenes/LevelSelectScene';
 import { DungeonScene } from '../scenes/DungeonScene';
 import { HudScene } from '../scenes/HudScene';
 
@@ -29,5 +31,5 @@ export const gameConfig: Phaser.Types.Core.GameConfig = {
       debug: false,
     },
   },
-  scene: [BootScene, MenuScene, CharacterSelectScene, DungeonScene, HudScene],
+  scene: [BootScene, MenuScene, CharacterSelectScene, ForgeScene, LevelSelectScene, DungeonScene, HudScene],
 };

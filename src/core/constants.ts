@@ -39,6 +39,9 @@ export enum Tile {
   WATER = 5,
   LAVA = 6,
   EXIT = 7,
+  ICE = 8,
+  POISON = 9,
+  SPIKES = 10,
 }
 
 export const WALKABLE_TILES: ReadonlySet<number> = new Set([
@@ -47,10 +50,25 @@ export const WALKABLE_TILES: ReadonlySet<number> = new Set([
   Tile.WATER,
   Tile.LAVA,
   Tile.EXIT,
+  Tile.ICE,
+  Tile.POISON,
+  Tile.SPIKES,
 ]);
 
 export const WATER_SPEED_MULT = 0.7;
 export const LAVA_DPS = 14;
+
+// ---- New hazard tuning ----
+// Ice: slick footing — you skate faster but with less control (handled as a
+// momentum slide in Hero movement). No damage.
+export const ICE_SPEED_MULT = 1.32;
+export const ICE_SLIP = 0.86; // 0 = instant stop, 1 = frictionless; higher = slippier
+// Poison sludge: wades slow and ticks corrosive damage.
+export const POISON_SPEED_MULT = 0.78;
+export const POISON_DPS = 9;
+// Spike traps: telegraphed, then a burst of damage while stood upon.
+export const SPIKE_DAMAGE = 15; // per tick
+export const SPIKE_TICK_MS = 650;
 
 export const DEPTH = {
   FLOOR: 0,

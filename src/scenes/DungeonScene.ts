@@ -9,6 +9,12 @@ import {
   GENERATORS_TO_DESTROY,
   WATER_SPEED_MULT,
   LAVA_DPS,
+  ICE_SPEED_MULT,
+  ICE_SLIP,
+  POISON_SPEED_MULT,
+  POISON_DPS,
+  SPIKE_DAMAGE,
+  SPIKE_TICK_MS,
   OPTIMAL_ZOOM,
   AURA_RADIUS,
   WARDEN_HEAL_INTERVAL,
@@ -250,6 +256,10 @@ export class DungeonScene extends Phaser.Scene {
     bgCanvas.height = H * TILE_SIZE;
     const bgCtx = bgCanvas.getContext('2d')!;
     bgCtx.imageSmoothingEnabled = false;
+    // Optional external tile art (externalAssets.ts). If a 'ext-floor' / 'ext-wall'
+    // image is loaded it retiles the dungeon; otherwise the procedural tiles draw.
+    const extFloor = this.textures.exists('ext-floor') ? (this.textures.get('ext-floor').getSourceImage() as CanvasImageSource) : null;
+    const extWall = this.textures.exists('ext-wall') ? (this.textures.get('ext-wall').getSourceImage() as CanvasImageSource) : null;
     for (let y = 0; y < H; y++) {
       for (let x = 0; x < W; x++) {
         const tile = t[y][x];
@@ -257,11 +267,14 @@ export class DungeonScene extends Phaser.Scene {
         const py = y * TILE_SIZE;
         if (tile === Tile.VOID) continue;
         if (tile === Tile.WALL) {
-          art.drawWall(bgCtx, px, py, !isWall(x, y - 1), x * 7 + y * 13);
+          if (extWall) bgCtx.drawImage(extWall, px, py, TILE_SIZE, TILE_SIZE);
+          else art.drawWall(bgCtx, px, py, !isWall(x, y - 1), x * 7 + y * 13);
           continue;
         }
-        art.drawFloor(bgCtx, px, py, x * 131 + y * 17 + 1000);
+        if (extFloor) bgCtx.drawImage(extFloor, px, py, TILE_SIZE, TILE_SIZE);
+        else art.drawFloor(bgCtx, px, py, x * 131 + y * 17 + 1000);
         if (tile === Tile.DOOR) art.drawDoor(bgCtx, px, py, false);
+        else if (tile === Tile.ICE) art.drawIce(bgCtx, px, py, x * 131 + y * 17 + 7);
       }
     }
 
@@ -319,7 +332,9 @@ export class DungeonScene extends Phaser.Scene {
     const bgKey = 'level-bg';
     if (this.textures.exists(bgKey)) this.textures.remove(bgKey);
     this.textures.addCanvas(bgKey, bgCanvas);
-    this.add.image(0, 0, bgKey).setOrigin(0, 0).setDepth(DEPTH.FLOOR);
+    const bgImg = this.add.image(0, 0, bgKey).setOrigin(0, 0).setDepth(DEPTH.FLOOR);
+    // Cheap, strong theme identity: multiply-tint the whole baked floor/wall layer.
+    if (this.level.themeTint != null) bgImg.setTint(this.level.themeTint);
 
     for (let y = 0; y < H; y++) {
       let runStart = -1;
@@ -343,6 +358,15 @@ export class DungeonScene extends Phaser.Scene {
         } else if (tile === Tile.LAVA) {
           this.add.sprite(c.x, c.y, 'lava-sheet').play('lava').setDepth(DEPTH.FLOOR + 1);
           this.add.image(c.x, c.y, 'fx-glow-warm').setScale(1.6).setAlpha(0.4).setBlendMode(Phaser.BlendModes.ADD).setDepth(DEPTH.FLOOR + 2);
+        } else if (tile === Tile.POISON) {
+          const ps = this.add.sprite(c.x, c.y, 'poison-sheet').play('poison').setDepth(DEPTH.FLOOR + 1);
+          ps.anims.setProgress(((x * 7 + y * 13) % 5) / 5);
+          this.add.image(c.x, c.y, 'fx-glow-green').setScale(1.4).setAlpha(0.32).setBlendMode(Phaser.BlendModes.ADD).setDepth(DEPTH.FLOOR + 2);
+        } else if (tile === Tile.SPIKES) {
+          const ss = this.add.sprite(c.x, c.y, 'spikes-sheet').play('spikes').setDepth(DEPTH.FLOOR + 1);
+          ss.anims.setProgress(((x * 5 + y * 11) % 9) / 9);
+        } else if (tile === Tile.ICE) {
+          this.add.image(c.x, c.y, 'fx-glow-magic').setScale(1.1).setAlpha(0.12).setBlendMode(Phaser.BlendModes.ADD).setDepth(DEPTH.FLOOR + 2);
         } else if (tile === Tile.EXIT) {
           this.add.sprite(c.x, c.y, 'portal-sheet').play('portal').setScale(1.2).setDepth(DEPTH.FLOOR + 3);
           this.add.image(c.x, c.y, 'fx-glow-magic').setScale(3).setAlpha(0.5).setBlendMode(Phaser.BlendModes.ADD).setDepth(DEPTH.FLOOR + 2);
@@ -367,6 +391,21 @@ export class DungeonScene extends Phaser.Scene {
           if (hsh === 0) this.add.image(c.x, c.y, 'bones').setDepth(c.y - 4).setAlpha(0.9);
           else if (hsh === 7) this.add.image(c.x, c.y, 'rubble').setDepth(c.y - 4).setAlpha(0.9);
         }
+      }
+    }
+
+    // ---- hand-placed set-piece decor ----
+    for (const d of this.level.decor ?? []) {
+      const dc = this.tileCenter(d.x, d.y);
+      if (d.key === 'blood-stain') {
+        this.add.image(dc.x, dc.y, d.key).setDepth(DEPTH.FLOOR + 1).setAlpha(0.85);
+      } else if (d.key === 'crystal' || d.key === 'cog') {
+        const s = this.add.image(dc.x, dc.y, d.key).setDepth(dc.y - 2);
+        const glow = d.key === 'crystal' ? 'fx-glow-magic' : 'fx-glow-warm';
+        this.add.image(dc.x, dc.y, glow).setScale(1.2).setAlpha(0.28).setBlendMode(Phaser.BlendModes.ADD).setDepth(dc.y - 3);
+        this.floatBob(s);
+      } else {
+        this.add.image(dc.x, dc.y, d.key).setDepth(dc.y - 2);
       }
     }
   }
@@ -923,12 +962,26 @@ export class DungeonScene extends Phaser.Scene {
     for (const ally of this.allies) {
       if (!ally.alive) continue;
       const tile = this.tileAt(ally.x, ally.y);
-      ally.speedMult = tile === Tile.WATER ? WATER_SPEED_MULT : 1;
-      if (tile === Tile.LAVA) {
+
+      // --- footing (speed + slip) ---
+      ally.slip = 0;
+      if (tile === Tile.WATER) ally.speedMult = WATER_SPEED_MULT;
+      else if (tile === Tile.POISON) ally.speedMult = POISON_SPEED_MULT;
+      else if (tile === Tile.ICE) {
+        ally.speedMult = ICE_SPEED_MULT;
+        ally.slip = ICE_SLIP;
+      } else ally.speedMult = 1;
+
+      // --- damage-over-time hazards & traps ---
+      const isDamaging = tile === Tile.LAVA || tile === Tile.POISON || tile === Tile.SPIKES;
+      if (isDamaging) {
+        const cadence = tile === Tile.SPIKES ? SPIKE_TICK_MS : 500;
         const next = this.lavaTick.get(ally) ?? 0;
         if (time >= next) {
-          this.lavaTick.set(ally, time + 500);
-          const dealt = ally.takeEnvironmentalDamage(LAVA_DPS * 0.5);
+          this.lavaTick.set(ally, time + cadence);
+          const raw =
+            tile === Tile.SPIKES ? SPIKE_DAMAGE : (tile === Tile.POISON ? POISON_DPS : LAVA_DPS) * 0.5;
+          const dealt = ally.takeEnvironmentalDamage(raw);
           this.floatDamage(ally.x, ally.y, dealt, false);
         }
       }
@@ -982,13 +1035,33 @@ export class DungeonScene extends Phaser.Scene {
       const c = this.tileCenter(d.x, d.y);
       const opener = this.players.find((p) => p.alive && p.inventory.keys > 0 && Phaser.Math.Distance.Between(p.x, p.y, c.x, c.y) < 26);
       if (opener && opener.inventory.useKey()) {
+        this.openDoorCluster(d);
+        audio.sfx('door');
+        this.showBark('The locked door grinds open.');
+      }
+    }
+  }
+
+  /** Open a locked door and every locked door orthogonally connected to it, so a
+   *  single key opens a full multi-tile gate (corridors are now 3 wide). */
+  private openDoorCluster(start: LockedDoor): void {
+    const stack: LockedDoor[] = [start];
+    const seen = new Set<LockedDoor>([start]);
+    while (stack.length) {
+      const d = stack.pop()!;
+      if (!d.open) {
         d.open = true;
         const body = d.rect.body as Phaser.Physics.Arcade.StaticBody | null;
         if (body) body.enable = false;
         this.level.tiles[d.y][d.x] = Tile.FLOOR;
         this.tweens.add({ targets: d.sprite, alpha: 0, duration: 250, onComplete: () => d.sprite.destroy() });
-        audio.sfx('door');
-        this.showBark('The locked door grinds open.');
+      }
+      for (const o of this.lockedDoors) {
+        if (seen.has(o) || o.open) continue;
+        if (Math.abs(o.x - d.x) + Math.abs(o.y - d.y) === 1) {
+          seen.add(o);
+          stack.push(o);
+        }
       }
     }
   }

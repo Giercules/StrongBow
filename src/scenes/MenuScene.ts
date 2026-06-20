@@ -63,15 +63,17 @@ export class MenuScene extends Phaser.Scene {
       .setOrigin(0.5)
       .setDepth(10);
 
-    makeButton(this, cx - 120, 240, 210, 52, '1  PLAYER', () => this.startGame(false), { fill: C.ivy, size: 18 }).setDepth(11);
-    makeButton(this, cx + 120, 240, 210, 52, '2  PLAYERS', () => this.startGame(true), { size: 18 }).setDepth(11);
+    makeButton(this, cx - 120, 236, 210, 50, '1  PLAYER', () => this.startGame(false), { fill: C.ivy, size: 18 }).setDepth(11);
+    makeButton(this, cx + 120, 236, 210, 50, '2  PLAYERS', () => this.startGame(true), { size: 18 }).setDepth(11);
+    makeButton(this, cx - 120, 292, 210, 40, 'LEVEL  SELECT', () => this.goScene('LevelSelectScene'), { size: 15 }).setDepth(11);
+    makeButton(this, cx + 120, 292, 210, 40, 'FORGE  A  LEVEL', () => this.goScene('ForgeScene'), { fill: C.hudPanel2, size: 15 }).setDepth(11);
     const manual = new GameManualUI(this);
-    let by = 300;
+    let by = 340;
     if (hasSave()) {
-      makeButton(this, cx, by, 230, 40, 'CONTINUE  (load save)', () => this.continueGame(), { fill: C.hudBorderDk, size: 14 }).setDepth(11);
-      by += 46;
+      makeButton(this, cx, by, 230, 34, 'CONTINUE  (load save)', () => this.continueGame(), { fill: C.hudBorderDk, size: 13 }).setDepth(11);
+      by += 40;
     }
-    makeButton(this, cx, by, 200, 38, 'MANUAL  (H)', () => manual.toggle(), { size: 14 }).setDepth(11);
+    makeButton(this, cx, by, 190, 32, 'MANUAL  (H)', () => manual.toggle(), { size: 13 }).setDepth(11);
 
     // AI connection status - large, glowing, below the characters
     const aiText = this.add
@@ -100,8 +102,17 @@ export class MenuScene extends Phaser.Scene {
     this.input.keyboard?.on('keydown-ONE', () => this.startGame(false));
     this.input.keyboard?.on('keydown-TWO', () => this.startGame(true));
     this.input.keyboard?.on('keydown-H', () => manual.toggle());
+    this.input.keyboard?.on('keydown-L', () => this.goScene('LevelSelectScene'));
+    this.input.keyboard?.on('keydown-F', () => this.goScene('ForgeScene'));
     this.input.once('pointerdown', () => this.enableAudio());
     this.input.keyboard?.once('keydown', () => this.enableAudio());
+  }
+
+  private goScene(key: string): void {
+    this.enableAudio();
+    audio.sfx('ui_select');
+    this.cameras.main.fadeOut(200, 0, 0, 0);
+    this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start(key));
   }
 
   private continueGame(): void {

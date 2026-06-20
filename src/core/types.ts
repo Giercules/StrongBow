@@ -126,6 +126,16 @@ export interface PickupDef {
   kind: 'coin' | 'item' | 'food' | 'potion';
 }
 
+/** A purely cosmetic, hand-placed decoration stamped at a tile. */
+export interface DecorDef {
+  x: number;
+  y: number;
+  /** Texture key, e.g. 'crystal' | 'cog' | 'vines' | 'blood-stain' | 'skull-pike' | 'pillar' | 'banner'. */
+  key: string;
+}
+
+export type ThemeId = 'crypt' | 'molten' | 'frost' | 'toxic' | 'clockwork' | 'arena';
+
 export interface LevelData {
   id: string;
   name: string;
@@ -135,6 +145,14 @@ export interface LevelData {
   spawns: SpawnDef[];
   pickups: PickupDef[];
   ambientColor?: number;
+  /** Visual theme tag — drives the floor/wall tint and ambient mood. */
+  theme?: ThemeId;
+  /** Multiply-tint applied to the baked floor/wall layer for instant theme identity. */
+  themeTint?: number;
+  /** Hand-placed cosmetic decorations. */
+  decor?: DecorDef[];
+  /** One-line subtitle shown on the loading/quest banner (AI- or theme-authored). */
+  subtitle?: string;
 }
 
 export interface HudHeroSlot {

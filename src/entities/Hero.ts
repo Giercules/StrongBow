@@ -33,6 +33,8 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
   protected moveX = 0;
   protected moveY = 0;
   speedMult = 1;
+  /** 0 = firm footing; higher = slippier (set by ice tiles each frame). */
+  slip = 0;
 
   // transient group-aura buffs, recomputed each frame by DungeonScene.updateAuras
   auraDamageReduction = 0;
@@ -123,7 +125,16 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
       this.faceTo(dx, dy);
     }
     const spd = this.stats.speed * this.speedMult;
-    body.setVelocity(dx * spd, dy * spd);
+    const targetVx = dx * spd;
+    const targetVy = dy * spd;
+    if (this.slip > 0) {
+      // Icy footing: ease velocity toward the target so the hero skates and
+      // keeps gliding briefly after the stick is released.
+      const k = 1 - this.slip;
+      body.setVelocity(body.velocity.x + (targetVx - body.velocity.x) * k, body.velocity.y + (targetVy - body.velocity.y) * k);
+    } else {
+      body.setVelocity(targetVx, targetVy);
+    }
   }
 
   faceTo(dx: number, dy: number): void {

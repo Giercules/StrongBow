@@ -66,13 +66,18 @@ function makeMonsterSheet(
 }
 
 export class TextureFactory {
-  static generateAll(scene: Phaser.Scene): number {
+  // `provided` lists texture keys already supplied by external art (see
+  // externalAssets.ts). Those are skipped here so the loaded image wins; every
+  // other key is generated procedurally exactly as before.
+  static generateAll(scene: Phaser.Scene, provided: ReadonlySet<string> = new Set()): number {
     let count = 0;
     const img = (k: string, w: number, h: number, d: (c: Ctx) => void, outline = false) => {
+      if (provided.has(k)) return;
       addImg(scene, k, w, h, d, outline);
       count++;
     };
     const sheet = (k: string, fw: number, fh: number, n: number, d: (c: Ctx, ox: number, f: number) => void, outline = false) => {
+      if (provided.has(k)) return;
       addSheet(scene, k, fw, fh, n, d, outline);
       count++;
     };
@@ -85,6 +90,9 @@ export class TextureFactory {
     img('locked-door', 16, 16, (c) => art.drawDoor(c, 0, 0, true));
     sheet('water-sheet', 16, 16, 4, (c, ox, f) => art.drawWater(c, ox, f));
     sheet('lava-sheet', 16, 16, 4, (c, ox, f) => art.drawLava(c, ox, f));
+    sheet('poison-sheet', 16, 16, 4, (c, ox, f) => art.drawPoison(c, ox, f));
+    sheet('spikes-sheet', 16, 16, 4, (c, ox, f) => art.drawSpikes(c, ox, f));
+    img('ice', 16, 16, (c) => art.drawIce(c, 0, 0, 4242));
     sheet('portal-sheet', 16, 16, 6, (c, ox, f) => art.drawPortal(c, ox, f));
 
     // ---- objects / decor (outlined) ----
@@ -98,6 +106,11 @@ export class TextureFactory {
     img('bones', 16, 16, (c) => art.drawBones(c, 0, 0), true);
     img('rubble', 16, 16, (c) => art.drawRubble(c, 0, 0), true);
     img('banner', 16, 16, (c) => art.drawBanner(c, 0, 0), true);
+    img('crystal', 16, 16, (c) => art.drawCrystal(c, 0, 0), true);
+    img('cog', 16, 16, (c) => art.drawCog(c, 0, 0), true);
+    img('vines', 16, 16, (c) => art.drawVines(c, 0, 0), true);
+    img('blood-stain', 16, 16, (c) => art.drawBloodStain(c, 0, 0));
+    img('skull-pike', 16, 16, (c) => art.drawSkullPike(c, 0, 0), true);
 
     // ---- pickups (outlined) ----
     sheet('coin-sheet', 16, 16, 4, (c, ox, f) => art.drawCoin(c, ox, f), true);
@@ -134,27 +147,31 @@ export class TextureFactory {
 
     // ---- heroes (outlined) ----
     for (const cls of ['vanguard', 'strider', 'arcanist', 'warden']) {
+      if (provided.has(`hero-${cls}-sheet`)) continue;
       makeHeroSheet(scene, cls);
       count++;
     }
 
     // ---- monsters (outlined) ----
-    makeMonsterSheet(scene, 'monster-grunt-sheet', MONSTER_RAMPS.grunt, art.drawGrunt);
-    count++;
-    makeMonsterSheet(scene, 'monster-ghost-sheet', MONSTER_RAMPS.ghost, art.drawGhost);
-    count++;
-    makeMonsterSheet(scene, 'monster-demon-sheet', MONSTER_RAMPS.demon, art.drawDemon);
-    count++;
-    makeMonsterSheet(scene, 'monster-boss-sheet', MONSTER_RAMPS.grave_warden, art.drawBoss, BOSS_FW, BOSS_FH);
-    count++;
-    makeMonsterSheet(scene, 'monster-bone_archer-sheet', MONSTER_RAMPS.bone_archer, art.drawBoneArcher);
-    count++;
-    makeMonsterSheet(scene, 'monster-brute-sheet', MONSTER_RAMPS.brute, art.drawBrute);
-    count++;
-    makeMonsterSheet(scene, 'monster-imp-sheet', MONSTER_RAMPS.imp, art.drawImp);
-    count++;
-    makeMonsterSheet(scene, 'monster-molten_colossus-sheet', MONSTER_RAMPS.molten_colossus, art.drawColossus, BOSS_FW, BOSS_FH);
-    count++;
+    const mon = (
+      key: string,
+      ramp: MonsterRamp,
+      drawer: (ctx: Ctx, ox: number, frame: number, r: MonsterRamp) => void,
+      fw = MON_FW,
+      fh = MON_FH
+    ): void => {
+      if (provided.has(key)) return;
+      makeMonsterSheet(scene, key, ramp, drawer, fw, fh);
+      count++;
+    };
+    mon('monster-grunt-sheet', MONSTER_RAMPS.grunt, art.drawGrunt);
+    mon('monster-ghost-sheet', MONSTER_RAMPS.ghost, art.drawGhost);
+    mon('monster-demon-sheet', MONSTER_RAMPS.demon, art.drawDemon);
+    mon('monster-boss-sheet', MONSTER_RAMPS.grave_warden, art.drawBoss, BOSS_FW, BOSS_FH);
+    mon('monster-bone_archer-sheet', MONSTER_RAMPS.bone_archer, art.drawBoneArcher);
+    mon('monster-brute-sheet', MONSTER_RAMPS.brute, art.drawBrute);
+    mon('monster-imp-sheet', MONSTER_RAMPS.imp, art.drawImp);
+    mon('monster-molten_colossus-sheet', MONSTER_RAMPS.molten_colossus, art.drawColossus, BOSS_FW, BOSS_FH);
 
     // ---- decorative NPC (outlined) ----
     img('npc-elder', HERO_FW, HERO_FH, (c) => {

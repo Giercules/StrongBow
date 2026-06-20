@@ -60,6 +60,9 @@ export class AnimationRegistry {
     // ---- animated tiles ----
     add(scene, 'water', 'water-sheet', [0, 1, 2, 3], 4, -1);
     add(scene, 'lava', 'lava-sheet', [0, 1, 2, 3], 6, -1);
+    add(scene, 'poison', 'poison-sheet', [0, 1, 2, 3], 5, -1);
+    // spikes: long dwell flush, quick stab, hold, retract — a readable telegraph
+    add(scene, 'spikes', 'spikes-sheet', [0, 0, 0, 1, 2, 3, 3, 2, 1], 6, -1);
     add(scene, 'portal', 'portal-sheet', [0, 1, 2, 3, 4, 5], 10, -1);
     add(scene, 'torch', 'torch-sheet', [0, 1, 2, 3], 8, -1);
     add(scene, 'generator', 'generator-sheet', [0, 1, 2, 3], 6, -1);
