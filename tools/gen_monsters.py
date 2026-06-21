@@ -163,9 +163,10 @@ def molten_colossus(fr,P):
 
 MOBS = {'grunt':(grunt,22),'ghost':(ghost,22),'demon':(demon,22),'bone_archer':(bone_archer,22),
         'brute':(brute,22),'imp':(imp,22),'grave_warden':(grave_warden,40),'molten_colossus':(molten_colossus,40)}
-for name,(fn,S) in MOBS.items():
-    sheet=Image.new('RGBA',(S*4,S),(0,0,0,0))
-    for fr in range(4): sheet.alpha_composite(fn(fr,RAMP[name]),(fr*S,0))
-    fname='monster-'+name+'.png'
-    sheet.save(os.path.join(OUT,fname)); print('wrote',fname,sheet.size)
-print('DONE')
+if __name__ == "__main__":
+    for name,(fn,S) in MOBS.items():
+        sheet=Image.new('RGBA',(S*4,S),(0,0,0,0))
+        for fr in range(4): sheet.alpha_composite(fn(fr,RAMP[name]),(fr*S,0))
+        fname='monster-'+name+'.png'
+        sheet.save(os.path.join(OUT,fname)); print('wrote',fname,sheet.size)
+    print('DONE')

@@ -226,5 +226,7 @@ def build(cls):
     sheet.save(path)
     print("wrote", cls+".png", sheet.size)
 
-for c in SPECS: build(c)
-print("DONE")
+if __name__ == "__main__":
+    for c in SPECS:
+        build(c)
+    print("DONE")
