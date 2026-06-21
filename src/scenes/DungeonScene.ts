@@ -45,6 +45,8 @@ import { SaveLoadUI } from '../ui/SaveLoadUI';
 import { audio } from '../systems/AudioSystem';
 import { aiService } from '../ai/AIService';
 import { InventoryUI } from '../ui/InventoryUI';
+import { ShopUI } from '../ui/ShopUI';
+import type { ShopKind } from '../core/types';
 import { SkillTreeUI } from '../ui/SkillTreeUI';
 import { SettingsUI } from '../ui/SettingsUI';
 import { GameOverUI } from '../ui/GameOverUI';
@@ -80,6 +82,7 @@ const ATMOSPHERE: Record<ThemeId, Atmosphere> = {
   storm: { lightTint: 0xb0c8ff, particleTint: 0xcfe0ff, flameTint: 0xcfe0ff, portalTint: 0xcfe0ff, edgeTint: 0x222a5a, mode: 'fall', frequency: 110 },
   shadow: { lightTint: 0x9a7ab0, particleTint: 0x8a6ab0, flameTint: 0xb58aff, portalTint: 0xc79bff, edgeTint: 0x281a44, mode: 'drift', frequency: 300 },
   sanctum: { lightTint: 0xffe0a0, particleTint: 0xffd24a, flameTint: 0xffd24a, portalTint: 0xffe7a0, edgeTint: 0x5a4a1e, mode: 'rise', frequency: 220 },
+  town: { lightTint: 0xfff2d8, particleTint: 0xffe6b0, flameTint: 0xffb46a, portalTint: 0xc79bff, edgeTint: 0x3a2e18, mode: 'drift', frequency: 640 },
 };
 
 // ---- DnD-flavored examine text for hand-placed decor + hazards + the NPC ----
@@ -198,6 +201,21 @@ export class DungeonScene extends Phaser.Scene {
   /** Per-companion timer tracking how long it has been beyond teleport range. */
   private compFarSince = new Map<Companion, number>();
 
+  // ---- town-square hub state (only populated when this.level.town) ----
+  private shopUI!: ShopUI;
+  private townNpcs: {
+    sprite: Phaser.GameObjects.Sprite;
+    homeX: number;
+    homeY: number;
+    vx: number;
+    vy: number;
+    nextTurn: number;
+    label: string;
+    role: string;
+  }[] = [];
+  private portals: { sprite: Phaser.GameObjects.Sprite; realmId: string; label: string; x: number; y: number }[] = [];
+  private merchants: { sprite: Phaser.GameObjects.Sprite; shop: ShopKind; label: string; x: number; y: number }[] = [];
+
   constructor() {
     super('DungeonScene');
   }
@@ -268,6 +286,7 @@ export class DungeonScene extends Phaser.Scene {
     this.gameOverUI = new GameOverUI(this);
     this.saveLoadUI = new SaveLoadUI(this);
     this.settingsUI = new SettingsUI(this, { input: this.input2, onOpenManual: () => this.manualUI.open() });
+    this.shopUI = new ShopUI(this);
     const kb = this.input.keyboard!;
     this.escKey = kb.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
     this.continueKey = kb.addKey(Phaser.Input.Keyboard.KeyCodes.C);
@@ -311,14 +330,21 @@ export class DungeonScene extends Phaser.Scene {
     audio.playMusic('dungeon');
     this.startTime = this.time.now;
 
-    this.quest = `Clear ${this.level.name}: destroy the altars and slay its warden.`;
-    if (!save) void aiService.generateQuest(this.level.name).then((q) => { if (q) this.quest = q; });
+    if (this.level.town) {
+      // first arrival unlocks the first realm; clearing realms unlocks the rest.
+      if (this.registry.get('unlockedRealms') === undefined) this.registry.set('unlockedRealms', 1);
+      this.quest = 'Hearthwatch — gear up, then step through a gate to descend. (Use near a gate or shopkeeper.)';
+    } else {
+      this.quest = `Clear ${this.level.name}: destroy the altars and slay its warden.`;
+      if (!save) void aiService.generateQuest(this.level.name).then((q) => { if (q) this.quest = q; });
+    }
     // Lead with the chapter's own story beat, then let the AI narrator layer on top.
     const chapterTag = this.level.chapter ? `${this.level.chapter} — ` : '';
-    if (this.level.story) this.showBark(`${chapterTag}${this.level.story}`);
-    void aiService
-      .generateBark(`the heroes enter ${this.level.name}`)
-      .then((b) => { if (b) this.showBark(b); });
+    if (this.level.story) this.showBark(`${chapterTag}${this.level.story}`, 8000);
+    if (!this.level.town)
+      void aiService
+        .generateBark(`the heroes enter ${this.level.name}`)
+        .then((b) => { if (b) this.showBark(b, 8000); });
 
     this.scene.launch('HudScene');
     this.syncHudData();
@@ -352,6 +378,9 @@ export class DungeonScene extends Phaser.Scene {
     this.compFarSince = new Map();
     this.lastRightDown = 0;
     this.magicQueued = false;
+    this.townNpcs = [];
+    this.portals = [];
+    this.merchants = [];
   }
 
   private tileCenter(tx: number, ty: number): { x: number; y: number } {
@@ -649,8 +678,62 @@ export class DungeonScene extends Phaser.Scene {
           this.startTile = { x: sp.x, y: sp.y };
           break;
         case 'npc': {
-          const npc = this.add.sprite(c.x, c.y, 'npc-elder').setDepth(c.y);
-          this.shadows.add(npc);
+          if (this.level.town) {
+            const classes: HeroClassId[] = ['vanguard', 'strider', 'arcanist', 'warden'];
+            const cls = classes[(sp.x + sp.y) % classes.length];
+            const spr = this.add.sprite(c.x, c.y, `hero-${cls}-sheet`).setDepth(c.y).setTint(0xe8d8c0);
+            try {
+              spr.play(`${cls}-idle-down`);
+            } catch {
+              /* idle anim is optional */
+            }
+            this.shadows.add(spr);
+            this.townNpcs.push({ sprite: spr, homeX: c.x, homeY: c.y, vx: 0, vy: 0, nextTurn: 0, label: sp.label ?? 'Townsfolk', role: sp.npcRole ?? 'a townsperson' });
+          } else {
+            const npc = this.add.sprite(c.x, c.y, 'npc-elder').setDepth(c.y);
+            this.shadows.add(npc);
+          }
+          break;
+        }
+        case 'portal': {
+          const idx = Content.levelOrder.indexOf(sp.realmId ?? '');
+          const unlocked = idx >= 0 && idx < this.unlockedRealms();
+          const tint = unlocked ? 0xc79bff : 0x4a4a52;
+          const spr = this.add.sprite(c.x, c.y, 'portal-sheet').play('portal').setScale(1.2).setDepth(c.y).setTint(tint);
+          const glow = this.add
+            .image(c.x, c.y, 'fx-glow-white')
+            .setScale(2.4)
+            .setAlpha(unlocked ? 0.45 : 0.16)
+            .setBlendMode(Phaser.BlendModes.ADD)
+            .setDepth(c.y - 1)
+            .setTint(tint);
+          this.tweens.add({ targets: glow, alpha: { from: unlocked ? 0.3 : 0.1, to: unlocked ? 0.62 : 0.2 }, duration: 1500, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+          const cap = `${idx + 1}. ${sp.label ?? 'Realm'}${unlocked ? '' : '  (sealed)'}`;
+          this.add
+            .text(c.x, c.y - 30, cap, { fontFamily: 'MedievalSharp, "Trebuchet MS", cursive', fontSize: '11px', color: unlocked ? '#ffe9a8' : '#9a9aa6', align: 'center', stroke: '#000', strokeThickness: 3 })
+            .setOrigin(0.5)
+            .setDepth(c.y + 40);
+          this.shadows.add(spr);
+          this.portals.push({ sprite: spr, realmId: sp.realmId ?? '', label: sp.label ?? 'Realm', x: sp.x, y: sp.y });
+          break;
+        }
+        case 'merchant': {
+          const tintByShop: Record<ShopKind, number> = { blacksmith: 0x9fb6d8, apothecary: 0x9fe07a, tavern: 0xffce6a, home: 0xff9a6a };
+          const shop = sp.shop ?? 'home';
+          const spr = this.add.sprite(c.x, c.y, 'npc-elder').setDepth(c.y).setTint(tintByShop[shop]);
+          this.shadows.add(spr);
+          this.add
+            .image(c.x, c.y - 6, 'fx-glow-warm')
+            .setScale(1.2)
+            .setAlpha(0.25)
+            .setBlendMode(Phaser.BlendModes.ADD)
+            .setDepth(c.y - 1)
+            .setTint(tintByShop[shop]);
+          this.add
+            .text(c.x, c.y - 24, sp.label ?? 'Merchant', { fontFamily: 'MedievalSharp, "Trebuchet MS", cursive', fontSize: '11px', color: '#ffe9a8', align: 'center', stroke: '#000', strokeThickness: 3 })
+            .setOrigin(0.5)
+            .setDepth(c.y + 40);
+          this.merchants.push({ sprite: spr, shop, label: sp.label ?? 'Merchant', x: sp.x, y: sp.y });
           break;
         }
         case 'generator':
@@ -783,18 +866,24 @@ export class DungeonScene extends Phaser.Scene {
     if (!this.paused && !this.won) {
       this.handlePlayerInput(time, delta);
       this.updateCompanions(time, delta);
-      this.updateMonsters(time, delta);
-      this.updateGenerators(time);
-      this.resolveCombat(time);
-      this.updateProjectiles(time, delta);
-      this.updateEnemyProjectiles(time, delta);
-      this.updateAuras(time);
-      this.handleHazards(time);
-      this.handlePickups();
-      this.handleAutoInteractions();
-      this.updateBossMusic();
-      this.checkExit();
-      this.checkGameOver();
+      if (this.level.town) {
+        // peaceful hub: no monsters, generators, hazards or boss — just life.
+        this.updateTown(time, delta);
+        this.handlePickups();
+      } else {
+        this.updateMonsters(time, delta);
+        this.updateGenerators(time);
+        this.resolveCombat(time);
+        this.updateProjectiles(time, delta);
+        this.updateEnemyProjectiles(time, delta);
+        this.updateAuras(time);
+        this.handleHazards(time);
+        this.handlePickups();
+        this.handleAutoInteractions();
+        this.updateBossMusic();
+        this.checkExit();
+        this.checkGameOver();
+      }
     } else if (this.gameOverUI.isOpen()) {
       if (Phaser.Input.Keyboard.JustDown(this.continueKey)) this.continueAfterDeath();
       else if (Phaser.Input.Keyboard.JustDown(this.menuKey)) this.quitToMenu();
@@ -815,7 +904,8 @@ export class DungeonScene extends Phaser.Scene {
       this.gameOverUI.isOpen() ||
       this.sheetUI.isOpen() ||
       this.manualUI.isOpen() ||
-      this.saveLoadUI.isOpen()
+      this.saveLoadUI.isOpen() ||
+      this.shopUI.isOpen()
     );
   }
 
@@ -826,6 +916,7 @@ export class DungeonScene extends Phaser.Scene {
     if (this.sheetUI.isOpen()) this.sheetUI.close();
     if (this.manualUI.isOpen()) this.manualUI.close();
     if (this.saveLoadUI.isOpen()) this.saveLoadUI.close();
+    if (this.shopUI.isOpen()) this.shopUI.close();
   }
 
   private pollMenus(): void {
@@ -1532,34 +1623,61 @@ export class DungeonScene extends Phaser.Scene {
   }
 
   private floatDamage(x: number, y: number, amount: number, crit: boolean): void {
+    // Arcade-style hit number: pops in with an overshoot, colour-tiers by size,
+    // crits land BIG, tilted and gold with a warm glow + a punchy "!".
+    const big = !crit && amount >= 30;
+    let color = '#ffffff';
+    if (crit) color = '#ffe23a';
+    else if (amount >= 30) color = '#ff7a1e';
+    else if (amount >= 15) color = '#ffd24a';
+    const size = crit ? 30 : big ? 23 : 16;
+    const jitterX = Phaser.Math.Between(-6, 6);
     const t = this.add
-      .text(x, y - 10, `${amount}`, {
-        fontFamily: 'MedievalSharp, "Trebuchet MS", cursive',
-        fontSize: crit ? '16px' : '12px',
-        color: crit ? '#ffd24a' : '#ffffff',
+      .text(x + jitterX, y - 12, crit ? `${amount}!` : `${amount}`, {
+        fontFamily: 'Cinzel, Georgia, serif',
+        fontSize: `${size}px`,
+        color,
         fontStyle: 'bold',
-        stroke: '#000',
-        strokeThickness: 3,
+        stroke: '#1a0a00',
+        strokeThickness: crit ? 6 : 4,
       })
       .setOrigin(0.5)
-      .setDepth(y + 30);
-    this.tweens.add({ targets: t, y: y - 28, alpha: 0, duration: 560, ease: 'Quad.easeOut', onComplete: () => t.destroy() });
+      .setDepth(y + 50)
+      .setScale(0.4);
+    t.setShadow(0, 3, crit ? '#7a2200' : '#000000', crit ? 6 : 4, true, true);
+    if (crit) t.setAngle(Phaser.Math.Between(-9, 9));
+    // pop -> overshoot -> settle -> rise + fade
+    this.tweens.add({ targets: t, scale: crit ? 1.4 : 1.18, duration: 130, ease: 'Back.easeOut' });
+    this.tweens.add({ targets: t, scale: 1, delay: 130, duration: 110, ease: 'Quad.easeOut' });
+    this.tweens.add({
+      targets: t,
+      y: y - (crit ? 48 : 34),
+      alpha: 0,
+      delay: crit ? 380 : 240,
+      duration: crit ? 640 : 480,
+      ease: 'Quad.easeIn',
+      onComplete: () => t.destroy(),
+    });
   }
 
   private floatPickup(x: number, y: number, text: string, color: string): void {
     const t = this.add
       .text(x, y - 12, text, {
-        fontFamily: 'MedievalSharp, "Trebuchet MS", cursive',
-        fontSize: '11px',
+        fontFamily: 'Cinzel, Georgia, serif',
+        fontSize: '13px',
         color,
         fontStyle: 'bold',
         align: 'center',
         stroke: '#000',
-        strokeThickness: 3,
+        strokeThickness: 4,
       })
       .setOrigin(0.5, 1)
-      .setDepth(y + 40);
-    this.tweens.add({ targets: t, y: y - 40, alpha: 0, duration: 1100, ease: 'Quad.easeOut', onComplete: () => t.destroy() });
+      .setDepth(y + 40)
+      .setScale(0.5);
+    t.setShadow(0, 2, '#000000', 3, true, true);
+    this.tweens.add({ targets: t, scale: 1.12, duration: 150, ease: 'Back.easeOut' });
+    this.tweens.add({ targets: t, scale: 1, delay: 150, duration: 100, ease: 'Quad.easeOut' });
+    this.tweens.add({ targets: t, y: y - 46, alpha: 0, delay: 280, duration: 1000, ease: 'Quad.easeOut', onComplete: () => t.destroy() });
   }
 
   private tileAt(x: number, y: number): number {
@@ -1678,7 +1796,126 @@ export class DungeonScene extends Phaser.Scene {
     }
   }
 
+  // ------------------------------------------------------------- town-square hub
+  private unlockedRealms(): number {
+    return (this.registry.get('unlockedRealms') as number) ?? 1;
+  }
+
+  private updateTown(time: number, delta: number): void {
+    const dt = delta / 1000;
+    for (const n of this.townNpcs) {
+      if (time >= n.nextTurn) {
+        n.nextTurn = time + 1100 + Math.random() * 2600;
+        if (Math.random() < 0.4) {
+          n.vx = 0;
+          n.vy = 0;
+        } else {
+          const a = Math.random() * Math.PI * 2;
+          const sp = 12 + Math.random() * 12;
+          n.vx = Math.cos(a) * sp;
+          n.vy = Math.sin(a) * sp;
+        }
+      }
+      if (n.vx === 0 && n.vy === 0) continue;
+      const nx = n.sprite.x + n.vx * dt;
+      const ny = n.sprite.y + n.vy * dt;
+      const farFromHome = Phaser.Math.Distance.Between(nx, ny, n.homeX, n.homeY) > 60;
+      if (farFromHome || !this.isWalkable(Math.floor(nx / TILE_SIZE), Math.floor(ny / TILE_SIZE))) {
+        n.vx *= -1;
+        n.vy *= -1;
+        continue;
+      }
+      n.sprite.x = nx;
+      n.sprite.y = ny;
+      n.sprite.setDepth(ny);
+      if (Math.abs(n.vx) > 1) n.sprite.setFlipX(n.vx < 0);
+    }
+  }
+
+  private townInteract(player: Hero): boolean {
+    let bestP: (typeof this.portals)[number] | null = null;
+    let bd = 34;
+    for (const p of this.portals) {
+      const d = Phaser.Math.Distance.Between(player.x, player.y, p.sprite.x, p.sprite.y);
+      if (d < bd) {
+        bd = d;
+        bestP = p;
+      }
+    }
+    if (bestP) {
+      this.usePortal(bestP);
+      return true;
+    }
+    let bestM: (typeof this.merchants)[number] | null = null;
+    let bm = 38;
+    for (const m of this.merchants) {
+      const d = Phaser.Math.Distance.Between(player.x, player.y, m.sprite.x, m.sprite.y);
+      if (d < bm) {
+        bm = d;
+        bestM = m;
+      }
+    }
+    if (bestM) {
+      this.useMerchant(bestM, player);
+      return true;
+    }
+    return false;
+  }
+
+  private usePortal(p: { realmId: string; label: string }): void {
+    const idx = Content.levelOrder.indexOf(p.realmId);
+    if (idx < 0 || idx >= this.unlockedRealms()) {
+      audio.sfx('ui_move');
+      this.showBark(`The gate to ${p.label} is sealed — clear the realm before it to break the seal.`, 5200);
+      return;
+    }
+    this.enterRealm(p.realmId, p.label);
+  }
+
+  private enterRealm(realmId: string, label: string): void {
+    if (this.won) return;
+    this.won = true; // lock input during the transition
+    audio.sfx('portal');
+    this.showBark(`Descending into ${label}...`, 3000);
+    this.registry.set('carryParty', this.allies.map((a) => this.allyToSave(a)));
+    this.registry.set('levelId', realmId);
+    this.registry.set('twoPlayer', this.twoPlayer);
+    this.registry.set('fromTown', true);
+    this.registry.remove('loadSave');
+    this.cameras.main.fadeOut(700, 0, 0, 0);
+    this.time.delayedCall(900, () => {
+      this.scene.stop('HudScene');
+      this.scene.start('DungeonScene');
+    });
+  }
+
+  private useMerchant(m: { shop: ShopKind; label: string }, player: Hero): void {
+    if (m.shop === 'home') {
+      for (const a of this.allies) {
+        a.heal(a.stats.maxHealth);
+        a.restoreMana(a.stats.maxMana);
+      }
+      audio.sfx('shrine');
+      this.showBark('You rest at your lodge. The whole party is restored to full.', 5000);
+      this.floatPickup(player.x, player.y - 8, 'Rested', '#9fe0ff');
+      return;
+    }
+    this.shopUI.open(m.shop, player, m.label);
+  }
+
+  private townLine(role: string): string {
+    const lines = [
+      `Well met. ${role.replace(/^(a|an|the) /, '')} like me hears all sorts in this square.`,
+      'Mind the gates — what climbs up from the Undermaw never climbs up kind.',
+      'Spend your gold while you draw breath. The dead carry no coin.',
+      'They say each realm you clear loosens the seal on the next.',
+      'Rest at your lodge before you descend. You will need it.',
+    ];
+    return lines[Math.floor(Math.random() * lines.length)];
+  }
+
   private interact(player: Hero): void {
+    if (this.level.town && this.townInteract(player)) return;
     for (const ch of this.chests) {
       if (ch.opened) continue;
       const c = this.tileCenter(ch.x, ch.y);
@@ -1717,6 +1954,28 @@ export class DungeonScene extends Phaser.Scene {
 
   /** Look at the nearest feature/NPC/tile and report DnD-flavored lore (AI-augmented). */
   private examine(player: Hero): void {
+    if (this.level.town) {
+      let nearN: (typeof this.townNpcs)[number] | null = null;
+      let nd = 30;
+      for (const n of this.townNpcs) {
+        const d = Phaser.Math.Distance.Between(player.x, player.y, n.sprite.x, n.sprite.y);
+        if (d < nd) {
+          nd = d;
+          nearN = n;
+        }
+      }
+      if (nearN) {
+        const who = nearN;
+        this.showBark(`${who.label}: "${this.townLine(who.role)}"`, 7200);
+        audio.sfx('ui_move');
+        void aiService
+          .generateBark(`${who.role} named ${who.label} chatting with an adventurer in the town of Hearthwatch above the Undermaw`)
+          .then((b) => {
+            if (b) this.showBark(`${who.label}: ${b}`, 7200);
+          });
+        return;
+      }
+    }
     let best: { key: string; d: number } | null = null;
     for (const d of this.level.decor ?? []) {
       const c = this.tileCenter(d.x, d.y);
@@ -1743,11 +2002,11 @@ export class DungeonScene extends Phaser.Scene {
       flavor = TILE_FLAVOR[t] ?? FLOOR_FLAVOR;
       subject = 'the ground';
     }
-    this.showBark(flavor);
+    this.showBark(flavor, 7200);
     audio.sfx('ui_move');
     // AI-augmented examination, kept in the game's grim DnD voice (replaces if it returns)
     void aiService.generateBark(`a weary adventurer examines ${subject} deep in ${this.level.name}`).then((b) => {
-      if (b) this.showBark(b);
+      if (b) this.showBark(b, 7200);
     });
   }
 
@@ -1827,10 +2086,21 @@ export class DungeonScene extends Phaser.Scene {
   private win(): void {
     this.won = true;
     audio.sfx('portal');
-    const nextId = Content.nextLevel(this.level.id);
-    if (nextId) {
-      this.advanceToLevel(nextId);
+    const fromTown = (this.registry.get('fromTown') as boolean) ?? false;
+    const idx = Content.levelOrder.indexOf(this.level.id);
+    const isLast = idx === Content.levelOrder.length - 1;
+    if (fromTown && !isLast) {
+      // unlock the next gate back in town, then walk the party home.
+      this.registry.set('unlockedRealms', Math.max(this.unlockedRealms(), idx + 2));
+      this.returnToTown();
       return;
+    }
+    if (!fromTown) {
+      const nextId = Content.nextLevel(this.level.id);
+      if (nextId) {
+        this.advanceToLevel(nextId);
+        return;
+      }
     }
     audio.stopMusic();
     audio.sfx('victory');
@@ -1868,6 +2138,31 @@ export class DungeonScene extends Phaser.Scene {
     audio.sfx('victory');
     this.cameras.main.fadeOut(800, 0, 0, 0);
     this.time.delayedCall(1100, () => {
+      this.scene.stop('HudScene');
+      this.scene.start('DungeonScene');
+    });
+  }
+
+  private returnToTown(): void {
+    this.add.rectangle(PLAY_AREA_WIDTH / 2, GAME_HEIGHT / 2, PLAY_AREA_WIDTH, GAME_HEIGHT, 0x05060a, 0.7).setScrollFactor(0).setDepth(DEPTH.OVERLAY);
+    this.add
+      .text(PLAY_AREA_WIDTH / 2, GAME_HEIGHT / 2 - 10, 'REALM CLEARED', { fontFamily: 'Cinzel, Georgia, serif', fontSize: '44px', color: '#ffe9a8', fontStyle: 'bold', stroke: '#000', strokeThickness: 6 })
+      .setOrigin(0.5)
+      .setScrollFactor(0)
+      .setDepth(DEPTH.OVERLAY + 1);
+    this.add
+      .text(PLAY_AREA_WIDTH / 2, GAME_HEIGHT / 2 + 36, 'A new gate opens. Returning to Hearthwatch...', { fontFamily: 'MedievalSharp, "Trebuchet MS", cursive', fontSize: '15px', color: '#dfe6ff' })
+      .setOrigin(0.5)
+      .setScrollFactor(0)
+      .setDepth(DEPTH.OVERLAY + 1);
+    this.registry.set('carryParty', this.allies.map((a) => this.allyToSave(a)));
+    this.registry.set('levelId', 'town');
+    this.registry.set('twoPlayer', this.twoPlayer);
+    this.registry.set('fromTown', false);
+    this.registry.remove('loadSave');
+    audio.sfx('victory');
+    this.cameras.main.fadeOut(900, 0, 0, 0);
+    this.time.delayedCall(1200, () => {
       this.scene.stop('HudScene');
       this.scene.start('DungeonScene');
     });
@@ -1928,11 +2223,11 @@ export class DungeonScene extends Phaser.Scene {
     this.cameraTarget.setPosition(sx / group.length, sy / group.length);
   }
 
-  private showBark(text: string): void {
+  private showBark(text: string, holdMs = 3400): void {
     if (!text || !this.barkText) return;
     this.barkText.setText(text).setAlpha(1);
     this.tweens.killTweensOf(this.barkText);
-    this.tweens.add({ targets: this.barkText, alpha: 0, delay: 2600, duration: 700 });
+    this.tweens.add({ targets: this.barkText, alpha: 0, delay: holdMs, duration: 800 });
   }
 
   private formatTime(): string {
@@ -2039,6 +2334,8 @@ export class DungeonScene extends Phaser.Scene {
     this.registry.set('p1Class', ps[0]?.classId ?? 'vanguard');
     if (ps[1]) this.registry.set('p2Class', ps[1].classId);
     this.registry.set('levelId', save.levelId);
+    this.registry.set('unlockedRealms', save.unlockedRealms ?? 1);
+    this.registry.set('fromTown', save.levelId !== 'town');
     this.registry.remove('carryParty');
     this.registry.set('loadSave', save);
     audio.stopMusic();
@@ -2104,6 +2401,7 @@ export class DungeonScene extends Phaser.Scene {
       version: 2,
       savedAt: Date.now(),
       levelId: this.level.id,
+      unlockedRealms: this.unlockedRealms(),
       levelName: this.level.name,
       chapter: this.level.chapter,
       twoPlayer: this.twoPlayer,

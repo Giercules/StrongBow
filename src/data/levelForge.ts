@@ -39,6 +39,7 @@ const THEME_NAMES: Record<ThemeId, string> = {
   storm: 'The Howling Spire',
   shadow: 'The Black Warren',
   sanctum: 'The Hollow Sanctum',
+  town: 'Hearthwatch',
 };
 
 function hash(s: string): number {
@@ -95,6 +96,7 @@ const FORGE_LOOT: Record<ThemeId, string[]> = {
   storm: ['shade_cloak', 'oak_staff', 'amulet_of_focus'],
   shadow: ['shade_cloak', 'ember_blade', 'amulet_of_focus'],
   sanctum: ['crypt_plate', 'ember_blade', 'amulet_of_focus'],
+  town: ['iron_sword', 'leather_jerkin', 'warding_ring'],
 };
 
 /** Build a one-off level from a description, register it, and return it. */

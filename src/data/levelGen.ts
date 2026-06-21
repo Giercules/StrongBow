@@ -4,6 +4,8 @@ import { getTheme } from './gen/themes';
 import type { RoomShape, HazardKind, SetPieceId } from './gen/themes';
 import { PREFABS } from './gen/prefabs';
 import type { Room, PrefabCtx } from './gen/prefabs';
+import { placeLayout } from './gen/layouts';
+import type { LayoutId } from './gen/layouts';
 
 // Generic room+corridor dungeon generator shared by every level. Deterministic
 // for a given seed so layouts are stable across reloads and saves. A `theme`
@@ -29,6 +31,7 @@ export interface DungeonOptions {
   startWeapon?: string;
   // ---- theme-driven extras (all optional) ----
   theme?: ThemeId;
+  layout?: LayoutId;
   roomShapes?: RoomShape[];
   setPieces?: SetPieceId[];
   traps?: boolean;
@@ -64,6 +67,7 @@ export function buildDungeon(opts: DungeonOptions): LevelData {
   const setPieces = opts.setPieces ?? theme.setPieces;
   const traps = opts.traps ?? theme.traps;
   const subtitle = opts.subtitle ?? theme.subtitle;
+  const layout = opts.layout ?? theme.layout ?? 'grid';
 
   const tiles: number[][] = [];
   for (let y = 0; y < H; y++) tiles.push(new Array(W).fill(Tile.WALL));
@@ -127,40 +131,26 @@ export function buildDungeon(opts: DungeonOptions): LevelData {
     for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) setFloor(cx + dx, cy + dy);
   };
 
-  // ---- build the room grid ----
-  const cellW = Math.floor(W / cols);
-  const cellH = Math.floor(H / rows);
-  const grid: Room[] = [];
-  const gridShape: RoomShape[] = [];
-  for (let r = 0; r < rows; r++) {
-    for (let c = 0; c < cols; c++) {
-      const rw = 10 + Math.floor(rng() * 6);
-      const rh = 7 + Math.floor(rng() * 4);
-      const baseX = c * cellW;
-      const baseY = r * cellH;
-      const rx = Math.min(W - rw - 2, baseX + 2 + Math.floor(rng() * Math.max(1, cellW - rw - 3)));
-      const ry = Math.min(H - rh - 2, baseY + 2 + Math.floor(rng() * Math.max(1, cellH - rh - 3)));
-      const room: Room = { x: rx, y: ry, w: rw, h: rh, cx: rx + (rw >> 1), cy: ry + (rh >> 1) };
-      const shape = shapes[(r * cols + c) % shapes.length] ?? 'rect';
-      carveShape(room, shape);
-      grid.push(room);
-      gridShape.push(shape);
-    }
-  }
+  // ---- macro-layout: place + carve the rooms in a theme-specific topology ----
+  // (grid catacomb, cavern blobs, cathedral nave, gear-rings, spire, hub, ...).
+  const { path, pillars } = placeLayout(layout, {
+    W,
+    H,
+    cols,
+    rows,
+    rng,
+    tiles,
+    themeShapes: shapes,
+    inB,
+    setFloor,
+    corridorH,
+    corridorV,
+    carveShape,
+  });
 
-  // ---- snake ordering: one long path through every room ----
-  const path: Room[] = [];
-  const pathIdx: number[] = [];
-  for (let r = 0; r < rows; r++) {
-    const order: number[] = [];
-    for (let c = 0; c < cols; c++) order.push(r * cols + c);
-    if (r % 2 === 1) order.reverse();
-    for (const gi of order) {
-      path.push(grid[gi]);
-      pathIdx.push(gi);
-    }
-  }
-
+  // GUARANTEED connectivity: thread corridors through the path in order, so the
+  // boss room is always reachable whatever silhouette the layout drew. Bespoke
+  // layout corridors only ever add extra (prettier) links on top of this spine.
   for (let i = 0; i < path.length - 1; i++) {
     const a = path[i];
     const b = path[i + 1];
@@ -172,23 +162,11 @@ export function buildDungeon(opts: DungeonOptions): LevelData {
       corridorH(a.cx, b.cx, b.cy);
     }
   }
-  // a couple of extra cross links so the map is not a single thread
-  if (rows > 1) {
-    corridorV(grid[0].cy, grid[cols].cy, grid[0].cx);
-    corridorH(grid[cols].cx, grid[cols + 1].cx, grid[cols].cy);
-  }
 
   const at = (frac: number) => path[Math.max(1, Math.min(path.length - 2, Math.floor(path.length * frac)))];
 
-  // hall rooms get pillar rows (decor only)
-  for (let i = 0; i < path.length; i++) {
-    if (gridShape[pathIdx[i]] !== 'hall') continue;
-    const room = path[i];
-    for (let x = room.x + 2; x < room.x + room.w - 2; x += 3) {
-      decor.push({ x, y: room.y + 1, key: 'pillar' });
-      decor.push({ x, y: room.y + room.h - 2, key: 'pillar' });
-    }
-  }
+  // decorative pillar rows the layout asked for (nave colonnades, spire shaft)
+  for (const p of pillars) decor.push({ x: p.x, y: p.y, key: 'pillar' });
 
   // ---- hazards (theme-driven) ----
   const carvePool = (room: Room, tile: number) => {

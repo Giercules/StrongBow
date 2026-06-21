@@ -4,6 +4,7 @@ import { ITEMS } from '../data/items';
 import { SKILLS } from '../data/skills';
 import { LEVEL1 } from '../data/level1';
 import { LEVEL2 } from '../data/level2';
+import { TOWN } from '../data/town';
 import {
   LEVEL_FROST,
   LEVEL_TOXIC,
@@ -28,6 +29,7 @@ import type {
 class Registry {
   readonly classes: HeroClassId[] = ALL_CLASSES;
   readonly levels: Record<string, LevelData> = {
+    town: TOWN,
     sunken_crypt: LEVEL1,
     molten_deep: LEVEL2,
     frozen_cathedral: LEVEL_FROST,

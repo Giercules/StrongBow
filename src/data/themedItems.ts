@@ -64,6 +64,12 @@ export const THEME_BASES: Record<ThemeId, ItemDefinition[]> = {
     base('sanctum', { id: 'base_sanctum_a', name: 'Sealkeeper’s Plate', slot: 'armor', icon: 'icon-armor', mods: { armor: 5, maxHealth: 28, regen: 0.3 }, flavor: 'Worn by the last to hold the final door.' }),
     base('sanctum', { id: 'base_sanctum_t', name: 'Undermaw Relic', slot: 'trinket', icon: 'icon-amulet', mods: { damage: 4, luck: 8, maxMana: 14 }, flavor: 'A shard of the hunger, turned against it.' }),
   ],
+  // Town smith stock (the town itself never drops loot; these back the shops).
+  town: [
+    base('town', { id: 'base_town_w', name: 'Hearthwatch Arming Sword', slot: 'weapon', icon: 'icon-sword', mods: { damage: 6 }, flavor: 'Honest steel from the town forge.' }),
+    base('town', { id: 'base_town_a', name: "Watchman's Brigandine", slot: 'armor', icon: 'icon-armor', mods: { armor: 3, maxHealth: 12 }, flavor: 'Sturdy kit for the road below.' }),
+    base('town', { id: 'base_town_t', name: "Traveler's Token", slot: 'trinket', icon: 'icon-ring', mods: { luck: 3 }, flavor: 'For luck on the descent.' }),
+  ],
 };
 
 /** Flat list of every themed base (used by the manual armory page). */

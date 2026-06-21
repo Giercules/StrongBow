@@ -184,8 +184,11 @@ export class MenuScene extends Phaser.Scene {
     this.enableAudio();
     audio.sfx('ui_select');
     this.registry.set('twoPlayer', twoPlayer);
-    this.registry.set('levelId', 'sunken_crypt');
+    // New game begins in the town hub; the campaign starts locked to realm I.
+    this.registry.set('levelId', 'town');
+    this.registry.set('unlockedRealms', 1);
     this.registry.remove('carryParty');
+    this.registry.remove('fromTown');
     this.registry.remove('loadSave');
     this.cameras.main.fadeOut(220, 0, 0, 0);
     this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start('CharacterSelectScene'));

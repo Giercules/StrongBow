@@ -198,6 +198,7 @@ const THEME_SONGS: Record<ThemeId, Song> = {
   storm: FINALE,
   shadow: ETHEREAL,
   sanctum: FINALE,
+  town: MENU,
 };
 
 class AudioSystem {

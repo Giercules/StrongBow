@@ -36,6 +36,8 @@ export interface SaveData {
   version: number;
   savedAt: number;
   levelId: string;
+  /** How many realms the party has unlocked (town-hub gate progression). */
+  unlockedRealms?: number;
   levelName?: string;
   chapter?: string;
   twoPlayer: boolean;

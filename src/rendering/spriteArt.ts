@@ -300,6 +300,7 @@ export function drawWallArt(ctx: Ctx, ox: number, oy: number, theme: ThemeId, se
     storm: '#c0d4ff',
     shadow: '#c79bff',
     sanctum: '#ffe07a',
+    town: '#e0bd84',
   };
   const col = accents[theme] ?? '#9ab0e8';
   const cx = ox + 8;

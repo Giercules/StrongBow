@@ -141,8 +141,12 @@ export type SpawnKind =
   | 'key'
   | 'npc'
   | 'portal'
+  | 'merchant'
   | 'boss'
   | 'playerStart';
+
+/** Town merchant flavours — each opens a different shop / interaction. */
+export type ShopKind = 'blacksmith' | 'apothecary' | 'tavern' | 'home';
 
 export interface SpawnDef {
   kind: SpawnKind;
@@ -153,6 +157,14 @@ export interface SpawnDef {
   interval?: number;
   maxAlive?: number;
   hp?: number;
+  /** portal: campaign level id this gate descends into. */
+  realmId?: string;
+  /** merchant: which shop/interaction this keeper offers. */
+  shop?: ShopKind;
+  /** npc/merchant/portal: display + examine label. */
+  label?: string;
+  /** npc: role word used for examine flavour + AI barks. */
+  npcRole?: string;
 }
 
 export interface PickupDef {
@@ -181,7 +193,8 @@ export type ThemeId =
   | 'bog'
   | 'storm'
   | 'shadow'
-  | 'sanctum';
+  | 'sanctum'
+  | 'town';
 
 export interface LevelData {
   id: string;
@@ -204,6 +217,8 @@ export interface LevelData {
   chapter?: string;
   /** Story beat narrated when the party enters this level. */
   story?: string;
+  /** True for the town-square hub: no combat, portals descend into realms. */
+  town?: boolean;
 }
 
 export interface HudHeroSlot {

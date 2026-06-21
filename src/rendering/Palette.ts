@@ -228,6 +228,12 @@ export const THEME_ART: Record<ThemeId, ThemeArt> = {
     floor: { f0: '#2e2a20', f1: '#3e3a2c', f2: '#504a38', f3: '#645c46', hi: '#9a8e68', crack: '#1a160e', moss: '#b0962e' },
     face: { main: '#3a3426', top: '#ecdca6', upper: '#726a52', lower: '#524a3a', line: '#161208' },
   },
+  // Town square — warm timbered stone + sunlit cobblestone (a safe, lived-in hub).
+  town: {
+    wall: { base: '#5a4632', mortar: '#241a10', mid: '#6e5a40', lit: '#9c8050', hi: '#e0bd84', dark: '#34281a', topLit: '#8a7048', topDark: '#3a2c1c' },
+    floor: { f0: '#3a3024', f1: '#4a3e2e', f2: '#5a4c38', f3: '#6a5a42', hi: '#8c7858', crack: '#241a10', moss: '#5a7a3a' },
+    face: { main: '#34281a', top: '#e0bd84', upper: '#6e5a40', lower: '#5a4632', line: '#160e06' },
+  },
 };
 
 export function getThemeArt(id: ThemeId | undefined): ThemeArt {

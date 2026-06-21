@@ -76,6 +76,7 @@ export class LevelSelectScene extends Phaser.Scene {
     this.registry.set('twoPlayer', this.twoPlayer);
     this.registry.set('levelId', id);
     this.registry.remove('carryParty');
+    this.registry.remove('fromTown');
     this.registry.remove('loadSave');
     this.cameras.main.fadeOut(220, 0, 0, 0);
     this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start('CharacterSelectScene'));

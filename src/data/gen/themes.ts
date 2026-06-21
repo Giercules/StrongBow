@@ -1,4 +1,5 @@
 import type { ThemeId, EnemyId } from '../../core/types';
+import type { LayoutId } from './layouts';
 
 // ----------------------------------------------------------------------------
 // Theme bundles — the creative DNA of a level. A theme decides the mood
@@ -42,6 +43,8 @@ export interface ThemeDef {
   boss: EnemyId;
   /** Set-pieces this theme likes to stamp into feature rooms. */
   setPieces: SetPieceId[];
+  /** Macro-layout that decides the level's overall topology / silhouette. */
+  layout: LayoutId;
   /** One-line flavour shown on the quest banner. */
   subtitle: string;
 }
@@ -58,6 +61,7 @@ export const THEMES: Record<ThemeId, ThemeDef> = {
     enemies: ['grunt', 'ghost', 'demon', 'bone_archer', 'grunt', 'ghost'],
     boss: 'grave_warden',
     setPieces: ['guardianHall', 'treasureVault'],
+    layout: 'grid',
     subtitle: 'The dead do not rest easy here.',
   },
   molten: {
@@ -71,6 +75,7 @@ export const THEMES: Record<ThemeId, ThemeDef> = {
     enemies: ['imp', 'demon', 'brute', 'bone_archer', 'imp', 'demon'],
     boss: 'molten_colossus',
     setPieces: ['guardianHall', 'treasureVault'],
+    layout: 'caverns',
     subtitle: 'Fire wells up from the world’s wound.',
   },
   frost: {
@@ -84,6 +89,7 @@ export const THEMES: Record<ThemeId, ThemeDef> = {
     enemies: ['frost_shade', 'rime_archer', 'frost_shade', 'ghost', 'rime_archer', 'frost_shade'],
     boss: 'rime_cantor',
     setPieces: ['frozenAltar', 'crystalCluster', 'treasureVault'],
+    layout: 'cathedral',
     subtitle: 'Frostbound nave of the shattered choir.',
   },
   toxic: {
@@ -97,6 +103,7 @@ export const THEMES: Record<ThemeId, ThemeDef> = {
     enemies: ['plague_ooze', 'spore_imp', 'plague_ooze', 'brute', 'spore_imp', 'mire_lurker'],
     boss: 'rot_sovereign',
     setPieces: ['plaguePit', 'guardianHall', 'treasureVault'],
+    layout: 'warren',
     subtitle: 'Plague-drowned vaults beneath the city.',
   },
   clockwork: {
@@ -110,6 +117,7 @@ export const THEMES: Record<ThemeId, ThemeDef> = {
     enemies: ['gear_knight', 'brass_sentinel', 'gear_knight', 'demon', 'brass_sentinel', 'imp'],
     boss: 'brass_magnus',
     setPieces: ['spikeGauntlet', 'treasureVault', 'guardianHall'],
+    layout: 'rings',
     subtitle: 'The guarded treasury of gears and greed.',
   },
   arena: {
@@ -123,6 +131,7 @@ export const THEMES: Record<ThemeId, ThemeDef> = {
     enemies: ['gladiator', 'brute', 'gladiator', 'demon', 'imp', 'gladiator'],
     boss: 'arena_champion',
     setPieces: ['arenaRing', 'spikeGauntlet'],
+    layout: 'arena',
     subtitle: 'Bleed for the roar of the crowd.',
   },
   bog: {
@@ -136,6 +145,7 @@ export const THEMES: Record<ThemeId, ThemeDef> = {
     enemies: ['mire_lurker', 'plague_ooze', 'spore_imp', 'mire_lurker', 'bone_archer', 'plague_ooze'],
     boss: 'mire_leviathan',
     setPieces: ['plaguePit', 'guardianHall', 'treasureVault'],
+    layout: 'scatter',
     subtitle: 'The marsh remembers everyone it swallowed.',
   },
   storm: {
@@ -149,6 +159,7 @@ export const THEMES: Record<ThemeId, ThemeDef> = {
     enemies: ['storm_wisp', 'sky_lancer', 'storm_wisp', 'sky_lancer', 'imp', 'storm_wisp'],
     boss: 'tempest_herald',
     setPieces: ['crystalCluster', 'guardianHall', 'spikeGauntlet'],
+    layout: 'spire',
     subtitle: 'Climb into the eye of the endless gale.',
   },
   shadow: {
@@ -162,6 +173,7 @@ export const THEMES: Record<ThemeId, ThemeDef> = {
     enemies: ['shadow_stalker', 'void_imp', 'shadow_stalker', 'ghost', 'void_imp', 'shadow_stalker'],
     boss: 'umbral_devourer',
     setPieces: ['guardianHall', 'treasureVault', 'spikeGauntlet'],
+    layout: 'warren',
     subtitle: 'Where the light goes to be eaten.',
   },
   sanctum: {
@@ -175,7 +187,24 @@ export const THEMES: Record<ThemeId, ThemeDef> = {
     enemies: ['hollow_knight', 'void_imp', 'shadow_stalker', 'gladiator', 'brass_sentinel', 'hollow_knight'],
     boss: 'hollow_king',
     setPieces: ['guardianHall', 'treasureVault', 'arenaRing', 'spikeGauntlet'],
+    layout: 'hub',
     subtitle: 'The last door before the hunger itself.',
+  },
+  // The town square is hand-built (see data/town.ts), so most of this is unused;
+  // it exists only to satisfy the per-theme art/music/atmosphere lookups.
+  town: {
+    id: 'town',
+    name: 'Hearthwatch',
+    ambientColor: 0x1a1610,
+    primaryHazard: 'none',
+    traps: false,
+    roomShapes: ['rect'],
+    decorKeys: ['brazier', 'banner', 'pillar', 'candle'],
+    enemies: ['grunt'],
+    boss: 'grave_warden',
+    setPieces: [],
+    layout: 'grid',
+    subtitle: 'Hearthwatch — the last free town above the Undermaw.',
   },
 };
 
