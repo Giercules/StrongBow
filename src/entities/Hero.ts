@@ -232,11 +232,27 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
   }
 
   private spawnSlash(): void {
+    const dir = this.attackDir;
+    const ang = Math.atan2(dir.y, dir.x);
     const dist = this.reach() * 0.6;
-    const fx = this.scene.add.sprite(this.x + this.attackDir.x * dist, this.y + this.attackDir.y * dist, 'fx-slash');
-    fx.setDepth(this.y + 5);
-    fx.setRotation(Math.atan2(this.attackDir.y, this.attackDir.x));
-    if (this.classId === 'warden') fx.setScale(1.35).setTint(0xffcf5a);
+    const fx = this.scene.add.sprite(this.x + dir.x * dist, this.y + dir.y * dist, 'fx-slash');
+    fx.setDepth(this.y + 6).setRotation(ang);
+    if (this.classId === 'vanguard') {
+      // a great sweeping broadsword arc
+      fx.setScale(2.3, 2.1).setTint(0xeaf0ff);
+      const trail = this.scene.add
+        .sprite(this.x + dir.x * dist * 1.35, this.y + dir.y * dist * 1.35, 'fx-slash')
+        .setDepth(this.y + 5)
+        .setRotation(ang)
+        .setScale(1.7)
+        .setAlpha(0.5)
+        .setTint(0xffffff);
+      trail.play('fx-slash');
+      trail.once('animationcomplete', () => trail.destroy());
+    } else {
+      // warden mace bash
+      fx.setScale(1.7).setTint(0xffcf5a);
+    }
     fx.play('fx-slash');
     fx.once('animationcomplete', () => fx.destroy());
   }

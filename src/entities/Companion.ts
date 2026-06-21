@@ -36,7 +36,8 @@ export class Companion extends Hero {
     delta: number,
     leader: Hero | null,
     monsters: M[],
-    pathDir: { x: number; y: number } | null = null
+    pathDir: { x: number; y: number } | null = null,
+    sep: { x: number; y: number } = { x: 0, y: 0 }
   ): { castTarget: M | null } {
     const cfg = settings.get('companionAI');
     let castTarget: M | null = null;
@@ -45,21 +46,30 @@ export class Companion extends Hero {
       const manaRatio = this.stats.maxMana > 0 ? this.mana / this.stats.maxMana : 0;
       const d = decideCompanion(this, leader, monsters, cfg, manaRatio, this.reach(), pathDir);
       const ranged = this.weaponStyle() === 'ranged';
+      let mx = d.dirX;
+      let my = d.dirY;
       if (d.target) {
         const dist = Math.hypot(d.target.x - this.x, d.target.y - this.y);
         this.faceTo(d.target.x - this.x, d.target.y - this.y);
         if (ranged && dist <= this.reach() && dist > 10) {
           // hold position and loose shots from range
-          this.setMoveInput(d.dirX * 0.15, d.dirY * 0.15);
+          mx = d.dirX * 0.15;
+          my = d.dirY * 0.15;
           this.tryMelee(time);
-        } else {
-          this.setMoveInput(d.dirX, d.dirY);
-          if (d.wantAttack) this.tryMelee(time);
+        } else if (d.wantAttack) {
+          this.tryMelee(time);
         }
         if (d.wantMagic && this.tryMagic(time)) castTarget = d.target;
-      } else {
-        this.setMoveInput(d.dirX, d.dirY);
       }
+      // separation: ease away from crowding allies so the party fans out
+      mx += sep.x;
+      my += sep.y;
+      const len = Math.hypot(mx, my);
+      if (len > 1) {
+        mx /= len;
+        my /= len;
+      }
+      this.setMoveInput(mx, my);
     } else {
       this.setMoveInput(0, 0);
     }

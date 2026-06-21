@@ -37,10 +37,11 @@ export class Generator extends Phaser.Physics.Arcade.Sprite {
 
     scene.add.existing(this);
     scene.physics.add.existing(this);
-    this.setOrigin(0.5, 0.7);
+    this.setOrigin(0.5, 0.74);
+    this.setScale(1.5); // a big, imposing summoning rift
     const body = this.body as Phaser.Physics.Arcade.Body;
-    body.setSize(14, 12);
-    body.setOffset(1, 4);
+    body.setSize(15, 12);
+    body.setOffset(4, 9);
     body.immovable = true;
     this.setDepth(y);
     this.play('generator');

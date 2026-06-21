@@ -43,12 +43,12 @@ export class ForgeScene extends Phaser.Scene {
     }
 
     this.add
-      .text(cx, 64, 'FORGE A DUNGEON', { fontFamily: 'Trebuchet MS, sans-serif', fontSize: '46px', color: C.hudBorder, fontStyle: 'bold' })
+      .text(cx, 64, 'FORGE A DUNGEON', { fontFamily: 'MedievalSharp, "Trebuchet MS", cursive', fontSize: '46px', color: C.hudBorder, fontStyle: 'bold' })
       .setOrigin(0.5)
       .setShadow(0, 4, '#000', 10);
     this.add
       .text(cx, 104, 'Pick a vibe — or describe your own — and a level is built to match.', {
-        fontFamily: 'Trebuchet MS, sans-serif',
+        fontFamily: 'MedievalSharp, "Trebuchet MS", cursive',
         fontSize: '14px',
         color: C.inkDim,
       })

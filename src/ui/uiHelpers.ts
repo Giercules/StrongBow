@@ -53,7 +53,7 @@ export function framedPanel(scene: Phaser.Scene, w: number, h: number, title: st
   addPinned(container, g);
 
   const titleText = scene.add
-    .text(cx, y0 + 12, title, { fontFamily: 'Trebuchet MS, sans-serif', fontSize: '15px', color: '#1a1206', fontStyle: 'bold' })
+    .text(cx, y0 + 12, title, { fontFamily: 'MedievalSharp, "Trebuchet MS", cursive', fontSize: '15px', color: '#1a1206', fontStyle: 'bold' })
     .setOrigin(0.5);
   addPinned(container, titleText);
 
@@ -95,7 +95,7 @@ export function makeButton(
   draw(false);
   cont.add(g);
   const t = scene.add
-    .text(0, 0, label, { fontFamily: 'Trebuchet MS, sans-serif', fontSize: `${opts.size ?? 13}px`, color: opts.text ?? C.ink, fontStyle: 'bold' })
+    .text(0, 0, label, { fontFamily: 'MedievalSharp, "Trebuchet MS", cursive', fontSize: `${opts.size ?? 13}px`, color: opts.text ?? C.ink, fontStyle: 'bold' })
     .setOrigin(0.5);
   cont.add(t);
   const zone = scene.add.zone(0, 0, w, h).setInteractive({ useHandCursor: true });

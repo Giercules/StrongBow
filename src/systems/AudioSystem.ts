@@ -39,20 +39,26 @@ const bA = 33, bF = 29, bC = 36, bG = 31, bD = 38, bE = 40, bBb = 34;
 // HEROIC — the main overworld march. A long 8-bar tune (Am F C G Am Dm E Am)
 // with a rising fanfare that develops, in the spirit of a classic adventure
 // overworld theme. This is the default dungeon song.
+// A long 12-bar heroic ballad in C major — an A / A' / B arc that soars and
+// resolves, in the spirit of a classic NES overworld theme.
 const HEROIC: Song = {
   bpm: 116,
-  steps: 128,
-  chords: [Am, F, C, G, Am, Dm, E, Am],
-  bass: [bA, bF, bC, bG, bA, bD, bE, bA],
+  steps: 192,
+  chords: [C, G, Am, F, C, G, Dm, G, Am, F, G, C],
+  bass: [bC, bG, bA, bF, bC, bG, bD, bG, bA, bF, bG, bC],
   lead: [
-    69, 0, 0, 0, 72, 0, 0, 0, 76, 0, 74, 0, 72, 0, 71, 0,
-    72, 0, 0, 0, 69, 0, 0, 0, 65, 0, 69, 0, 72, 0, 0, 0,
-    76, 0, 0, 0, 72, 0, 0, 0, 67, 0, 72, 0, 76, 0, 79, 0,
-    74, 0, 71, 0, 67, 0, 71, 0, 74, 0, 0, 0, 0, 0, 0, 0,
-    69, 0, 72, 0, 76, 0, 72, 0, 81, 0, 0, 0, 79, 0, 76, 0,
-    77, 0, 0, 0, 74, 0, 0, 0, 69, 0, 74, 0, 77, 0, 0, 0,
-    76, 0, 75, 0, 76, 0, 80, 0, 83, 0, 80, 0, 76, 0, 71, 0,
-    69, 0, 0, 0, 72, 0, 71, 0, 69, 0, 67, 0, 69, 0, 0, 0,
+    72, 0, 0, 0, 76, 0, 0, 0, 79, 0, 0, 0, 76, 0, 74, 0,
+    74, 0, 0, 0, 71, 0, 0, 0, 74, 0, 79, 0, 0, 0, 0, 0,
+    72, 0, 0, 0, 76, 0, 0, 0, 81, 0, 0, 0, 79, 0, 76, 0,
+    77, 0, 0, 0, 74, 0, 0, 0, 72, 0, 0, 0, 0, 0, 0, 0,
+    72, 0, 0, 0, 76, 0, 79, 0, 84, 0, 0, 0, 79, 0, 0, 0,
+    83, 0, 0, 0, 79, 0, 0, 0, 74, 0, 0, 0, 0, 0, 0, 0,
+    77, 0, 0, 0, 81, 0, 0, 0, 77, 0, 74, 0, 72, 0, 0, 0,
+    74, 0, 0, 0, 79, 0, 0, 0, 71, 0, 74, 0, 0, 0, 0, 0,
+    81, 0, 0, 0, 84, 0, 0, 0, 88, 0, 0, 0, 84, 0, 81, 0,
+    79, 0, 0, 0, 77, 0, 0, 0, 81, 0, 0, 0, 0, 0, 0, 0,
+    79, 0, 0, 0, 74, 0, 71, 0, 74, 0, 79, 0, 83, 0, 0, 0,
+    84, 0, 0, 0, 79, 0, 0, 0, 72, 0, 0, 0, 0, 0, 0, 0,
   ],
   swing: 0,
   intensity: 0.62,
@@ -509,6 +515,8 @@ class AudioSystem {
       });
       this.tone(mtof(note), t, 0.18, 'triangle', 0.06, this.musicBus, { release: 0.12 });
       this.tone(mtof(note + 12), t, 0.1, 'square', 0.03, this.musicBus, { release: 0.06 });
+      // harmony a fifth below — the classic two-voice NES "ballad" fullness
+      this.tone(mtof(note - 7), t, 0.16, 'triangle', 0.05, this.musicBus, { attack: 0.01, release: 0.12 });
     }
 
     // --- drums ---

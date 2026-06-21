@@ -22,7 +22,7 @@ export class LevelSelectScene extends Phaser.Scene {
     g.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
 
     this.add
-      .text(cx, 28, 'CHOOSE A DUNGEON', { fontFamily: 'Trebuchet MS, sans-serif', fontSize: '30px', color: C.hudBorder, fontStyle: 'bold' })
+      .text(cx, 28, 'CHOOSE A DUNGEON', { fontFamily: 'MedievalSharp, "Trebuchet MS", cursive', fontSize: '30px', color: C.hudBorder, fontStyle: 'bold' })
       .setOrigin(0.5)
       .setShadow(0, 3, '#000', 8);
 
@@ -37,7 +37,7 @@ export class LevelSelectScene extends Phaser.Scene {
       const sub = lv.chapter ? `${lv.chapter} · ${lv.subtitle ?? ''}` : lv.subtitle ?? '';
       this.add
         .text(x, y + 18, sub, {
-          fontFamily: 'Trebuchet MS, sans-serif',
+          fontFamily: 'MedievalSharp, "Trebuchet MS", cursive',
           fontSize: '10px',
           color: C.inkDim,
           align: 'center',

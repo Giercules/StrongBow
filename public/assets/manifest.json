@@ -1,26 +1,4 @@
 {
-  "_comment": "External art overrides for StrongBow. Each entry replaces the built-in PROCEDURAL texture of `key` with an image file. Remove an entry (or delete its PNG) to instantly revert that piece to procedural art. Drop new PNGs into public/assets/sprites/. Special keys: ext-floor / ext-wall retile the whole dungeon. Character sheets use keys like hero-vanguard-sheet, hero-strider-sheet, hero-arcanist-sheet, hero-warden-sheet (kind:'spritesheet' with frameWidth/frameHeight).",
-  "sprites": [
-    { "key": "ext-floor", "path": "assets/sprites/floor.png", "kind": "image", "license": "CC0", "credit": "StrongBow demo tiles (original, public domain)" },
-    { "key": "ext-wall", "path": "assets/sprites/wall.png", "kind": "image", "license": "CC0", "credit": "StrongBow demo tiles (original, public domain)" },
-    { "key": "chest", "path": "assets/sprites/chest.png", "kind": "image", "license": "CC0", "credit": "StrongBow demo art" },
-    { "key": "chest-open", "path": "assets/sprites/chest-open.png", "kind": "image", "license": "CC0", "credit": "StrongBow demo art" },
-    { "key": "crystal", "path": "assets/sprites/crystal.png", "kind": "image", "license": "CC0", "credit": "StrongBow demo art" },
-    { "key": "cog", "path": "assets/sprites/cog.png", "kind": "image", "license": "CC0", "credit": "StrongBow demo art" },
-    { "key": "skull-pike", "path": "assets/sprites/skull-pike.png", "kind": "image", "license": "CC0", "credit": "StrongBow demo art" },
-
-    { "key": "hero-vanguard-sheet", "path": "assets/sprites/warrior.png", "kind": "spritesheet", "frameWidth": 20, "frameHeight": 24, "license": "CC0", "credit": "StrongBow original heroes (warrior)" },
-    { "key": "hero-strider-sheet", "path": "assets/sprites/elf.png", "kind": "spritesheet", "frameWidth": 20, "frameHeight": 24, "license": "CC0", "credit": "StrongBow original heroes (elf/ranger)" },
-    { "key": "hero-arcanist-sheet", "path": "assets/sprites/wizard.png", "kind": "spritesheet", "frameWidth": 20, "frameHeight": 24, "license": "CC0", "credit": "StrongBow original heroes (wizard)" },
-    { "key": "hero-warden-sheet", "path": "assets/sprites/valkyrie.png", "kind": "spritesheet", "frameWidth": 20, "frameHeight": 24, "license": "CC0", "credit": "StrongBow original heroes (valkyrie)" },
-
-    { "key": "monster-grunt-sheet", "path": "assets/sprites/monster-grunt.png", "kind": "spritesheet", "frameWidth": 22, "frameHeight": 22, "license": "CC0", "credit": "StrongBow original monsters" },
-    { "key": "monster-ghost-sheet", "path": "assets/sprites/monster-ghost.png", "kind": "spritesheet", "frameWidth": 22, "frameHeight": 22, "license": "CC0", "credit": "StrongBow original monsters" },
-    { "key": "monster-demon-sheet", "path": "assets/sprites/monster-demon.png", "kind": "spritesheet", "frameWidth": 22, "frameHeight": 22, "license": "CC0", "credit": "StrongBow original monsters" },
-    { "key": "monster-bone_archer-sheet", "path": "assets/sprites/monster-bone_archer.png", "kind": "spritesheet", "frameWidth": 22, "frameHeight": 22, "license": "CC0", "credit": "StrongBow original monsters" },
-    { "key": "monster-brute-sheet", "path": "assets/sprites/monster-brute.png", "kind": "spritesheet", "frameWidth": 22, "frameHeight": 22, "license": "CC0", "credit": "StrongBow original monsters" },
-    { "key": "monster-imp-sheet", "path": "assets/sprites/monster-imp.png", "kind": "spritesheet", "frameWidth": 22, "frameHeight": 22, "license": "CC0", "credit": "StrongBow original monsters" },
-    { "key": "monster-boss-sheet", "path": "assets/sprites/monster-grave_warden.png", "kind": "spritesheet", "frameWidth": 40, "frameHeight": 40, "license": "CC0", "credit": "StrongBow original monsters (grave warden boss)" },
-    { "key": "monster-molten_colossus-sheet", "path": "assets/sprites/monster-molten_colossus.png", "kind": "spritesheet", "frameWidth": 40, "frameHeight": 40, "license": "CC0", "credit": "StrongBow original monsters (molten colossus boss)" }
-  ]
+  "_comment": "External art overrides for StrongBow. Each entry replaces the built-in PROCEDURAL texture of `key` with an image file. The list is intentionally EMPTY so the game uses the full procedural art set (redesigned heroes, themed per-level walls/floors, recoloured monsters, etc.). To override a piece with a PNG, add an entry like { \"key\": \"hero-vanguard-sheet\", \"path\": \"assets/sprites/warrior.png\", \"kind\": \"spritesheet\", \"frameWidth\": 20, \"frameHeight\": 24 }. Special keys: ext-floor / ext-wall retile the whole dungeon.",
+  "sprites": []
 }

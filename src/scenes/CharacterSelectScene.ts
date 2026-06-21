@@ -33,7 +33,7 @@ export class CharacterSelectScene extends Phaser.Scene {
     g.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
 
     this.prompt = this.add
-      .text(GAME_WIDTH / 2, 44, '', { fontFamily: 'Trebuchet MS, sans-serif', fontSize: '24px', color: C.ink, fontStyle: 'bold' })
+      .text(GAME_WIDTH / 2, 44, '', { fontFamily: 'MedievalSharp, "Trebuchet MS", cursive', fontSize: '24px', color: C.ink, fontStyle: 'bold' })
       .setOrigin(0.5);
 
     this.highlight = this.add.graphics().setDepth(20);
@@ -50,7 +50,7 @@ export class CharacterSelectScene extends Phaser.Scene {
 
     this.add
       .text(GAME_WIDTH / 2, GAME_HEIGHT - 24, '◀ ▶ / A D to move   ·   ENTER or click to choose   ·   1–4 quick pick', {
-        fontFamily: 'Trebuchet MS, sans-serif',
+        fontFamily: 'MedievalSharp, "Trebuchet MS", cursive',
         fontSize: '12px',
         color: C.inkDim,
       })
@@ -83,8 +83,8 @@ export class CharacterSelectScene extends Phaser.Scene {
     bg.fillRoundedRect(0, 0, w, 64, 8);
     cont.add(bg);
 
-    cont.add(this.add.text(w / 2, 14, def.name, { fontFamily: 'Trebuchet MS, sans-serif', fontSize: '20px', color: numHex(color), fontStyle: 'bold' }).setOrigin(0.5, 0));
-    cont.add(this.add.text(w / 2, 40, def.role.toUpperCase(), { fontFamily: 'Trebuchet MS, sans-serif', fontSize: '12px', color: C.inkDim }).setOrigin(0.5, 0));
+    cont.add(this.add.text(w / 2, 14, def.name, { fontFamily: 'MedievalSharp, "Trebuchet MS", cursive', fontSize: '20px', color: numHex(color), fontStyle: 'bold' }).setOrigin(0.5, 0));
+    cont.add(this.add.text(w / 2, 40, def.role.toUpperCase(), { fontFamily: 'MedievalSharp, "Trebuchet MS", cursive', fontSize: '12px', color: C.inkDim }).setOrigin(0.5, 0));
 
     const spr = this.add.sprite(w / 2, 130, `hero-${cls}-sheet`).setScale(4.2);
     spr.play(`${cls}-idle-down`);
@@ -101,7 +101,7 @@ export class CharacterSelectScene extends Phaser.Scene {
     ];
     stats.forEach((st, i) => {
       const sy = 196 + i * 22;
-      cont.add(this.add.text(14, sy, st[0], { fontFamily: 'Trebuchet MS, sans-serif', fontSize: '11px', color: C.inkDim }).setOrigin(0, 0.5));
+      cont.add(this.add.text(14, sy, st[0], { fontFamily: 'MedievalSharp, "Trebuchet MS", cursive', fontSize: '11px', color: C.inkDim }).setOrigin(0, 0.5));
       const bar = this.add.graphics();
       bar.fillStyle(0x000000, 0.5);
       bar.fillRect(46, sy - 5, w - 60, 9);
@@ -112,12 +112,12 @@ export class CharacterSelectScene extends Phaser.Scene {
 
     cont.add(
       this.add
-        .text(w / 2, 292, def.signature, { fontFamily: 'Trebuchet MS, sans-serif', fontSize: '10.5px', color: C.ink, align: 'center', wordWrap: { width: w - 24 } })
+        .text(w / 2, 292, def.signature, { fontFamily: 'MedievalSharp, "Trebuchet MS", cursive', fontSize: '10.5px', color: C.ink, align: 'center', wordWrap: { width: w - 24 } })
         .setOrigin(0.5, 0)
     );
     cont.add(
       this.add
-        .text(w / 2, 326, def.blurb, { fontFamily: 'Trebuchet MS, sans-serif', fontSize: '10px', color: C.inkDim, align: 'center', wordWrap: { width: w - 24 } })
+        .text(w / 2, 326, def.blurb, { fontFamily: 'MedievalSharp, "Trebuchet MS", cursive', fontSize: '10px', color: C.inkDim, align: 'center', wordWrap: { width: w - 24 } })
         .setOrigin(0.5, 0)
     );
 

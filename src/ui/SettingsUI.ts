@@ -110,7 +110,7 @@ export class SettingsUI {
 
   private text(x: number, y: number, str: string, color: string, size = 12, origin = 0): Phaser.GameObjects.Text {
     const t = this.scene.add
-      .text(x, y, str, { fontFamily: 'Trebuchet MS, sans-serif', fontSize: `${size}px`, color })
+      .text(x, y, str, { fontFamily: 'MedievalSharp, "Trebuchet MS", cursive', fontSize: `${size}px`, color })
       .setOrigin(origin, 0.5);
     addPinned(this.content!, t);
     return t;

@@ -22,7 +22,7 @@ export class GameOverUI {
 
     const title = this.scene.add
       .text(m.cx, m.cy - 44, 'YOU DIED', {
-        fontFamily: 'Trebuchet MS, sans-serif',
+        fontFamily: 'MedievalSharp, "Trebuchet MS", cursive',
         fontSize: '34px',
         color: C.hpLow,
         fontStyle: 'bold',
@@ -33,7 +33,7 @@ export class GameOverUI {
 
     const sub = this.scene.add
       .text(m.cx, m.cy - 6, `Score ${stats.score}    Time ${stats.time}`, {
-        fontFamily: 'Trebuchet MS, sans-serif',
+        fontFamily: 'MedievalSharp, "Trebuchet MS", cursive',
         fontSize: '14px',
         color: C.inkDim,
       })

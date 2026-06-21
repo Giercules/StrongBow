@@ -82,6 +82,52 @@ const ATMOSPHERE: Record<ThemeId, Atmosphere> = {
   sanctum: { lightTint: 0xffe0a0, particleTint: 0xffd24a, flameTint: 0xffd24a, portalTint: 0xffe7a0, edgeTint: 0x5a4a1e, mode: 'rise', frequency: 220 },
 };
 
+// ---- DnD-flavored examine text for hand-placed decor + hazards + the NPC ----
+const DECOR_FLAVOR: Record<string, string> = {
+  bones: 'Old bones, picked clean. Something still gnaws in the dark.',
+  rubble: 'Shattered masonry. The keep did not fall gently.',
+  gravestone: 'A worn epitaph reads "He held the line." The rest is lost.',
+  candle: 'A votive candle gutters. Someone still prays down here.',
+  pillar: 'A great pillar, carved with deeds no one remembers.',
+  banner: 'A tattered banner of a house long dead.',
+  'frost-banner': 'A frost-stiffened banner, its sigil rimed white.',
+  crystal: 'A humming crystal, cold and thick with stored magic.',
+  'sky-crystal': 'A shard of sky-glass, crackling faintly with power.',
+  cog: 'Brass gears tick on, driven by no hand you can see.',
+  gauge: 'A dial twitches toward a pressure that should not exist.',
+  pipe: 'Old conduits groan, venting steam and older secrets.',
+  vines: 'Choking vines, fat with damp. They twitch when you look away.',
+  'blood-stain': 'Dried blood, black with age. A great deal of it.',
+  'skull-pike': 'A skull on a pike — a warning, or a trophy.',
+  'lava-crack': 'A glowing fissure breathes heat and brimstone.',
+  obsidian: 'Glassy black stone, sharp enough to draw blood.',
+  icicle: 'Daggers of ice hang overhead. Tread softly.',
+  'toxic-mushroom': 'Bruise-purple fungi. Their spores sting the eyes.',
+  'weapon-rack': 'A rack of pitted arms — none worth the carrying.',
+  'dead-tree': 'A petrified tree, its roots clutching at nothing.',
+  cattail: 'Reeds rustle though no wind stirs the bog.',
+  'storm-rod': 'A rod crackling with caged lightning. Do not touch.',
+  'storm-orb': 'An orb of bound thunder, humming behind your teeth.',
+  'void-rift': 'A wound in the world, leaking violet dark.',
+  'rune-circle': 'A circle of runes, half-faded, still warm with intent.',
+  'sanctum-glyph': 'A holy sigil, its gold light steady against the gloom.',
+  idol: 'A gilded idol regards you with patient, empty eyes.',
+  altar: 'An altar of pale stone, worn smooth by ten thousand prayers.',
+  brazier: 'A standing brazier, its sacred flame refusing the dark.',
+  'bog-stump': 'A rotted stump, soft as flesh, weeping black water.',
+  lilypad: 'Lilies float on water too still to trust.',
+};
+const TILE_FLAVOR: Record<number, string> = {
+  [Tile.LAVA]: 'Molten rock churns. It would unmake you in moments.',
+  [Tile.WATER]: 'Black water, still as glass. Best not to wade deep.',
+  [Tile.ICE]: 'Treacherous ice — your footing is anyone’s guess.',
+  [Tile.POISON]: 'A sludge of corruption bubbles and reeks.',
+  [Tile.SPIKES]: 'Rusted spikes, set to spring. Mind your step.',
+  [Tile.EXIT]: 'A portal yawns — the way deeper, or the way out.',
+};
+const FLOOR_FLAVOR = 'Cold flagstones, slick with the dungeon’s breath.';
+const NPC_FLAVOR = 'Elder Mora, last warden of the gate, watches in silence. "Descend," she rasps, "and end it."';
+
 export class DungeonScene extends Phaser.Scene {
   private level!: LevelData;
   private twoPlayer = false;
@@ -128,6 +174,8 @@ export class DungeonScene extends Phaser.Scene {
   private mmY = 0;
   private mmCW = 0;
   private mmCH = 0;
+  private lastRightDown = 0;
+  private magicQueued = false;
 
   private barkText!: Phaser.GameObjects.Text;
 
@@ -227,11 +275,20 @@ export class DungeonScene extends Phaser.Scene {
     this.dodgeKey = kb.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
     this.abilityKey = kb.addKey(Phaser.Input.Keyboard.KeyCodes.F);
     kb.on('keydown-F2', () => this.toggleSaveLoad());
+    // mouse combat: right = attack, double right-click = magic
+    this.input.mouse?.disableContextMenu();
+    this.input.on('pointerdown', (p: Phaser.Input.Pointer) => {
+      if (p.rightButtonDown()) {
+        const now = this.time.now;
+        if (now - this.lastRightDown < 300) this.magicQueued = true;
+        this.lastRightDown = now;
+      }
+    });
     this.buildMinimap();
 
     this.barkText = this.add
       .text(PLAY_AREA_WIDTH / 2, GAME_HEIGHT - 40, '', {
-        fontFamily: 'Trebuchet MS, sans-serif',
+        fontFamily: 'MedievalSharp, "Trebuchet MS", cursive',
         fontSize: '15px',
         color: '#ffe9a8',
         align: 'center',
@@ -293,6 +350,8 @@ export class DungeonScene extends Phaser.Scene {
     this.lavaTick = new Map();
     this.collectedIds = new Set();
     this.compFarSince = new Map();
+    this.lastRightDown = 0;
+    this.magicQueued = false;
   }
 
   private tileCenter(tx: number, ty: number): { x: number; y: number } {
@@ -336,6 +395,10 @@ export class DungeonScene extends Phaser.Scene {
           else {
             art.drawWall(bgCtx, px, py, !isWall(x, y - 1), x * 7 + y * 13, ta.wall);
             art.drawWallRoof(bgCtx, px, py, this.level.theme ?? 'crypt', x * 13 + y * 7 + 3);
+            // occasional themed mural on a visible (front-facing) wall
+            if (y + 1 < H && t[y + 1][x] === Tile.FLOOR && (x * 7 + y * 11) % 17 === 0 && (x * 5 + y) % 5 !== 0) {
+              art.drawWallArt(bgCtx, px, py, this.level.theme ?? 'crypt', x * 3 + y);
+            }
           }
           continue;
         }
@@ -373,11 +436,11 @@ export class DungeonScene extends Phaser.Scene {
             bgCtx.fillRect(mx, py + 1, 1, 3);
             bgCtx.fillRect(mx + 3, py + 5, 1, 3);
           }
-          const grd = bgCtx.createLinearGradient(0, py + 9, 0, py + 15);
-          grd.addColorStop(0, 'rgba(0,0,0,0.5)');
+          const grd = bgCtx.createLinearGradient(0, py + 9, 0, py + 16);
+          grd.addColorStop(0, 'rgba(0,0,0,0.62)');
           grd.addColorStop(1, 'rgba(0,0,0,0)');
           bgCtx.fillStyle = grd;
-          bgCtx.fillRect(px, py + 9, TILE_SIZE, 6);
+          bgCtx.fillRect(px, py + 9, TILE_SIZE, 7);
         }
         if (x > 0 && t[y][x - 1] === Tile.WALL) {
           const grd = bgCtx.createLinearGradient(px, 0, px + 7, 0);
@@ -455,6 +518,11 @@ export class DungeonScene extends Phaser.Scene {
           light.setData('ph', Math.random() * 6.28);
           this.torchLights.push(light);
         }
+        // pulsing arcane glow over the baked wall murals (active motion on walls)
+        if (tile === Tile.WALL && y + 1 < H && t[y + 1][x] === Tile.FLOOR && (x * 7 + y * 11) % 17 === 0 && (x * 5 + y) % 5 !== 0) {
+          const gl = this.add.image(c.x, c.y, 'fx-glow-white').setScale(0.85).setAlpha(0.26).setBlendMode(Phaser.BlendModes.ADD).setDepth(c.y + 1).setTint(atmo.particleTint);
+          this.tweens.add({ targets: gl, alpha: { from: 0.12, to: 0.34 }, duration: 1500 + Math.random() * 900, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+        }
         if (tile === Tile.FLOOR) {
           const hsh = (x * 17 + y * 31) % 53;
           if (hsh === 0) this.add.image(c.x, c.y, 'bones').setDepth(c.y - 4).setAlpha(0.9);
@@ -463,9 +531,9 @@ export class DungeonScene extends Phaser.Scene {
       }
     }
 
-    // ---- hand-placed set-piece decor ----
+    // ---- hand-placed set-piece decor (larger + livelier for a richer world) ----
     const flatDecor = new Set(['blood-stain', 'lilypad', 'sanctum-glyph', 'void-rift', 'lava-crack', 'rune-circle']);
-    const swayDecor = new Set(['banner', 'vines', 'frost-banner', 'cloth']);
+    const swayDecor = new Set(['banner', 'vines', 'frost-banner', 'cloth', 'cattail', 'toxic-mushroom']);
     const glowDecor: Record<string, string> = {
       crystal: 'fx-glow-magic',
       cog: 'fx-glow-warm',
@@ -476,27 +544,38 @@ export class DungeonScene extends Phaser.Scene {
       'storm-orb': 'fx-glow-magic',
       'gauge': 'fx-glow-warm',
     };
+    const US = 1.5; // upright decor scale — bigger, more present
+    const FS = 1.3; // flat (floor) decor scale
     for (const d of this.level.decor ?? []) {
       const dc = this.tileCenter(d.x, d.y);
       if (flatDecor.has(d.key)) {
-        this.add.image(dc.x, dc.y, d.key).setDepth(DEPTH.FLOOR + 1).setAlpha(0.85);
+        this.add.image(dc.x, dc.y, d.key).setDepth(DEPTH.FLOOR + 1).setAlpha(0.9).setScale(FS);
+        let glowKey = '';
+        let ga = 0;
         if (d.key === 'void-rift') {
-          this.add.image(dc.x, dc.y, 'fx-glow-magic').setScale(1.3).setAlpha(0.3).setBlendMode(Phaser.BlendModes.ADD).setDepth(DEPTH.FLOOR + 2);
+          glowKey = 'fx-glow-magic';
+          ga = 0.34;
         } else if (d.key === 'sanctum-glyph' || d.key === 'rune-circle') {
-          this.add.image(dc.x, dc.y, 'fx-glow-warm').setScale(1.2).setAlpha(0.32).setBlendMode(Phaser.BlendModes.ADD).setDepth(DEPTH.FLOOR + 2);
+          glowKey = 'fx-glow-warm';
+          ga = 0.34;
         } else if (d.key === 'lava-crack') {
-          this.add.image(dc.x, dc.y, 'fx-glow-warm').setScale(1.2).setAlpha(0.4).setBlendMode(Phaser.BlendModes.ADD).setDepth(DEPTH.FLOOR + 2);
+          glowKey = 'fx-glow-warm';
+          ga = 0.42;
+        }
+        if (glowKey) {
+          const gl = this.add.image(dc.x, dc.y, glowKey).setScale(1.7).setAlpha(ga).setBlendMode(Phaser.BlendModes.ADD).setDepth(DEPTH.FLOOR + 2);
+          this.tweens.add({ targets: gl, alpha: { from: ga * 0.6, to: ga }, scale: { from: 1.5, to: 2 }, duration: 1200 + Math.random() * 700, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
         }
       } else if (glowDecor[d.key]) {
-        const s = this.add.image(dc.x, dc.y, d.key).setDepth(dc.y - 2);
-        const glow = this.add.image(dc.x, dc.y, glowDecor[d.key]).setScale(1.2).setAlpha(0.28).setBlendMode(Phaser.BlendModes.ADD).setDepth(dc.y - 3);
-        this.tweens.add({ targets: glow, alpha: { from: 0.16, to: 0.4 }, scale: { from: 1.1, to: 1.35 }, duration: 1100 + Math.random() * 600, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+        const s = this.add.image(dc.x, dc.y, d.key).setDepth(dc.y - 2).setScale(US);
+        const glow = this.add.image(dc.x, dc.y, glowDecor[d.key]).setScale(1.7).setAlpha(0.3).setBlendMode(Phaser.BlendModes.ADD).setDepth(dc.y - 3);
+        this.tweens.add({ targets: glow, alpha: { from: 0.18, to: 0.42 }, scale: { from: 1.4, to: 2 }, duration: 1100 + Math.random() * 600, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
         this.floatBob(s);
       } else if (swayDecor.has(d.key)) {
-        const s = this.add.image(dc.x, dc.y, d.key).setDepth(dc.y - 2);
-        this.tweens.add({ targets: s, scaleX: { from: 1, to: 0.9 }, duration: 1400 + Math.random() * 700, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+        const s = this.add.image(dc.x, dc.y, d.key).setDepth(dc.y - 2).setScale(US);
+        this.tweens.add({ targets: s, scaleX: { from: US, to: US * 0.9 }, duration: 1400 + Math.random() * 700, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
       } else {
-        this.add.image(dc.x, dc.y, d.key).setDepth(dc.y - 2);
+        this.add.image(dc.x, dc.y, d.key).setDepth(dc.y - 2).setScale(US);
       }
     }
   }
@@ -787,6 +866,17 @@ export class DungeonScene extends Phaser.Scene {
       }
       p1.setMoveInput(mvx, mvy);
       if (mvx || mvy) this.activeIdx = 0;
+      // right mouse = attack toward the cursor; double right-click = magic
+      if (ptr.rightButtonDown() && ptr.x < PLAY_AREA_WIDTH) {
+        const wp = this.cameras.main.getWorldPoint(ptr.x, ptr.y);
+        p1.faceTo(wp.x - p1.x, wp.y - p1.y);
+        p1.tryMelee(time);
+        this.activeIdx = 0;
+      }
+      if (this.magicQueued) {
+        this.magicQueued = false;
+        p1.tryMagic(time);
+      }
       if (this.input2.isDown('p1', 'attack')) p1.tryMelee(time);
       if (this.input2.justDown('p1', 'magic')) p1.tryMagic(time);
       if (this.input2.justDown('p1', 'use')) this.interact(p1);
@@ -818,6 +908,8 @@ export class DungeonScene extends Phaser.Scene {
 
   private updateCompanions(time: number, delta: number): void {
     const liveMonsters = this.monsters.filter((m) => m.active && m.alive);
+    // companions also seek out and smash the spawning altars (generators)
+    const targets = [...liveMonsters, ...this.generators.filter((g) => g.alive)];
     const leader = this.leader();
     if (leader) {
       const ltx = Math.floor(leader.x / TILE_SIZE);
@@ -844,8 +936,26 @@ export class DungeonScene extends Phaser.Scene {
           this.compFarSince.delete(comp);
         }
       }
+      // separation steering: push away from any ally crowding this companion
+      let sx = 0;
+      let sy = 0;
+      if (comp.alive) {
+        const SEP_R = 22;
+        for (const a of this.allies) {
+          if (a === comp || !a.alive) continue;
+          const dx = comp.x - a.x;
+          const dy = comp.y - a.y;
+          const d2 = dx * dx + dy * dy;
+          if (d2 > 0.01 && d2 < SEP_R * SEP_R) {
+            const dd = Math.sqrt(d2);
+            const push = (SEP_R - dd) / SEP_R;
+            sx += (dx / dd) * push;
+            sy += (dy / dd) * push;
+          }
+        }
+      }
       const pathDir = leader && comp.alive ? this.flow.sample(comp.x, comp.y) : null;
-      comp.aiTick(time, delta, leader, liveMonsters, pathDir);
+      comp.aiTick(time, delta, leader, targets, pathDir, { x: sx * 0.9, y: sy * 0.9 });
     }
   }
 
@@ -1054,6 +1164,7 @@ export class DungeonScene extends Phaser.Scene {
             this.floatDamage(m.x, m.y, dmg, crit);
             if (died) this.onMonsterKilled(ally, m);
             else this.applyHitEffects(ally, m, dir.x, dir.y, crit, time);
+            if (ally.isPlayer) this.meleeImpact(ally, m, crit);
           }
         }
         for (const g of this.generators) {
@@ -1109,6 +1220,22 @@ export class DungeonScene extends Phaser.Scene {
     if (crit) m.applyStatus('shock', 1200, time);
   }
 
+  /** Weighty melee feedback for the player: screen shake, crit zoom-punch, burst. */
+  private meleeImpact(attacker: Hero, m: Monster, crit: boolean): void {
+    const cam = this.cameras.main;
+    cam.shake(crit ? 130 : 70, crit ? 0.006 : 0.0028);
+    if (crit) {
+      this.tweens.killTweensOf(cam);
+      this.tweens.add({
+        targets: cam, zoom: OPTIMAL_ZOOM * 1.06, duration: 70, yoyo: true, ease: 'Quad.easeOut',
+        onComplete: () => cam.setZoom(OPTIMAL_ZOOM),
+      });
+    }
+    const col = attacker.classId === 'vanguard' ? 0xeaf0ff : attacker.classId === 'warden' ? 0xffcf5a : 0xffffff;
+    const burst = this.add.image(m.x, m.y, 'fx-glow-white').setTint(col).setBlendMode(Phaser.BlendModes.ADD).setScale(0.6).setDepth(m.y + 12);
+    this.tweens.add({ targets: burst, scale: 1.9, alpha: 0, duration: 190, onComplete: () => burst.destroy() });
+  }
+
   private fireProjectile(owner: Hero, dir: { x: number; y: number }, time: number): void {
     const arrow = owner.classId === 'strider';
     const tex = arrow ? 'fx-arrow' : 'fx-bolt';
@@ -1118,6 +1245,14 @@ export class DungeonScene extends Phaser.Scene {
       .setDepth(owner.y + 6)
       .setScale(arrow ? 1 : 1.4);
     if (arrow) spr.setRotation(Math.atan2(dir.y, dir.x));
+    // weapon flourish: bow twang flash / arcane cast burst at the hands
+    const flash = this.add
+      .image(owner.x + dir.x * 10, owner.y + dir.y * 10 - 4, arrow ? 'fx-glow-white' : 'fx-glow-magic')
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setScale(arrow ? 0.5 : 0.75)
+      .setDepth(owner.y + 7)
+      .setTint(arrow ? 0xffffff : 0xb98cff);
+    this.tweens.add({ targets: flash, alpha: 0, scale: arrow ? 0.95 : 1.5, duration: 170, onComplete: () => flash.destroy() });
     const { dmg, crit } = owner.attackDamage();
     this.projectiles.push({ spr, vx: dir.x * speed, vy: dir.y * speed, dmg, crit, bornAt: time, ttl: arrow ? 850 : 600, owner });
   }
@@ -1145,6 +1280,18 @@ export class DungeonScene extends Phaser.Scene {
               const l = Math.hypot(p.vx, p.vy) || 1;
               this.applyHitEffects(p.owner, m, p.vx / l, p.vy / l, p.crit, time);
             }
+            dead = true;
+            break;
+          }
+        }
+      }
+      if (!dead) {
+        // arrows/bolts can also break the spawning altars
+        for (const g of this.generators) {
+          if (!g.alive) continue;
+          if (Phaser.Math.Distance.Between(p.spr.x, p.spr.y, g.x, g.y) <= 16) {
+            g.takeDamage(p.dmg, time);
+            this.floatDamage(g.x, g.y, p.dmg, p.crit);
             dead = true;
             break;
           }
@@ -1321,7 +1468,7 @@ export class DungeonScene extends Phaser.Scene {
   private floatDamage(x: number, y: number, amount: number, crit: boolean): void {
     const t = this.add
       .text(x, y - 10, `${amount}`, {
-        fontFamily: 'Trebuchet MS, sans-serif',
+        fontFamily: 'MedievalSharp, "Trebuchet MS", cursive',
         fontSize: crit ? '16px' : '12px',
         color: crit ? '#ffd24a' : '#ffffff',
         fontStyle: 'bold',
@@ -1336,7 +1483,7 @@ export class DungeonScene extends Phaser.Scene {
   private floatPickup(x: number, y: number, text: string, color: string): void {
     const t = this.add
       .text(x, y - 12, text, {
-        fontFamily: 'Trebuchet MS, sans-serif',
+        fontFamily: 'MedievalSharp, "Trebuchet MS", cursive',
         fontSize: '11px',
         color,
         fontStyle: 'bold',
@@ -1498,6 +1645,44 @@ export class DungeonScene extends Phaser.Scene {
         return;
       }
     }
+    // nothing to use — examine the surroundings instead
+    this.examine(player);
+  }
+
+  /** Look at the nearest feature/NPC/tile and report DnD-flavored lore (AI-augmented). */
+  private examine(player: Hero): void {
+    let best: { key: string; d: number } | null = null;
+    for (const d of this.level.decor ?? []) {
+      const c = this.tileCenter(d.x, d.y);
+      const dist = Phaser.Math.Distance.Between(player.x, player.y, c.x, c.y);
+      if (dist < 28 && (!best || dist < best.d)) best = { key: d.key, d: dist };
+    }
+    let npcNear = false;
+    for (const s of this.level.spawns) {
+      if (s.kind !== 'npc') continue;
+      const c = this.tileCenter(s.x, s.y);
+      if (Phaser.Math.Distance.Between(player.x, player.y, c.x, c.y) < 30) npcNear = true;
+    }
+
+    let flavor: string;
+    let subject: string;
+    if (npcNear) {
+      flavor = NPC_FLAVOR;
+      subject = 'the old gate-warden';
+    } else if (best) {
+      flavor = DECOR_FLAVOR[best.key] ?? 'You study it a while, but glean little.';
+      subject = best.key.replace(/-/g, ' ');
+    } else {
+      const t = this.tileAt(player.x, player.y);
+      flavor = TILE_FLAVOR[t] ?? FLOOR_FLAVOR;
+      subject = 'the ground';
+    }
+    this.showBark(flavor);
+    audio.sfx('ui_move');
+    // AI-augmented examination, kept in the game's grim DnD voice (replaces if it returns)
+    void aiService.generateBark(`a weary adventurer examines ${subject} deep in ${this.level.name}`).then((b) => {
+      if (b) this.showBark(b);
+    });
   }
 
   private joinPlayer2(): void {
@@ -1585,12 +1770,12 @@ export class DungeonScene extends Phaser.Scene {
     audio.sfx('victory');
     this.add.rectangle(PLAY_AREA_WIDTH / 2, GAME_HEIGHT / 2, PLAY_AREA_WIDTH, GAME_HEIGHT, 0x05060a, 0.7).setScrollFactor(0).setDepth(DEPTH.OVERLAY);
     this.add
-      .text(PLAY_AREA_WIDTH / 2, GAME_HEIGHT / 2 - 10, 'VICTORY!', { fontFamily: 'Trebuchet MS, sans-serif', fontSize: '52px', color: '#ffe9a8', fontStyle: 'bold', stroke: '#000', strokeThickness: 6 })
+      .text(PLAY_AREA_WIDTH / 2, GAME_HEIGHT / 2 - 10, 'VICTORY!', { fontFamily: 'MedievalSharp, "Trebuchet MS", cursive', fontSize: '52px', color: '#ffe9a8', fontStyle: 'bold', stroke: '#000', strokeThickness: 6 })
       .setOrigin(0.5)
       .setScrollFactor(0)
       .setDepth(DEPTH.OVERLAY + 1);
     this.add
-      .text(PLAY_AREA_WIDTH / 2, GAME_HEIGHT / 2 + 36, 'You have conquered the depths. Returning to menu...', { fontFamily: 'Trebuchet MS, sans-serif', fontSize: '14px', color: '#dfe6ff' })
+      .text(PLAY_AREA_WIDTH / 2, GAME_HEIGHT / 2 + 36, 'You have conquered the depths. Returning to menu...', { fontFamily: 'MedievalSharp, "Trebuchet MS", cursive', fontSize: '14px', color: '#dfe6ff' })
       .setOrigin(0.5)
       .setScrollFactor(0)
       .setDepth(DEPTH.OVERLAY + 1);
@@ -1601,12 +1786,12 @@ export class DungeonScene extends Phaser.Scene {
     const next = Content.getLevel(nextId);
     this.add.rectangle(PLAY_AREA_WIDTH / 2, GAME_HEIGHT / 2, PLAY_AREA_WIDTH, GAME_HEIGHT, 0x05060a, 0.7).setScrollFactor(0).setDepth(DEPTH.OVERLAY);
     this.add
-      .text(PLAY_AREA_WIDTH / 2, GAME_HEIGHT / 2 - 10, 'LEVEL CLEARED', { fontFamily: 'Trebuchet MS, sans-serif', fontSize: '44px', color: '#ffe9a8', fontStyle: 'bold', stroke: '#000', strokeThickness: 6 })
+      .text(PLAY_AREA_WIDTH / 2, GAME_HEIGHT / 2 - 10, 'LEVEL CLEARED', { fontFamily: 'MedievalSharp, "Trebuchet MS", cursive', fontSize: '44px', color: '#ffe9a8', fontStyle: 'bold', stroke: '#000', strokeThickness: 6 })
       .setOrigin(0.5)
       .setScrollFactor(0)
       .setDepth(DEPTH.OVERLAY + 1);
     this.add
-      .text(PLAY_AREA_WIDTH / 2, GAME_HEIGHT / 2 + 36, `Descending into ${next.name}...`, { fontFamily: 'Trebuchet MS, sans-serif', fontSize: '15px', color: '#dfe6ff' })
+      .text(PLAY_AREA_WIDTH / 2, GAME_HEIGHT / 2 + 36, `Descending into ${next.name}...`, { fontFamily: 'MedievalSharp, "Trebuchet MS", cursive', fontSize: '15px', color: '#dfe6ff' })
       .setOrigin(0.5)
       .setScrollFactor(0)
       .setDepth(DEPTH.OVERLAY + 1);

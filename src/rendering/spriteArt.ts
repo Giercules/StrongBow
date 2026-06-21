@@ -285,6 +285,44 @@ export function drawWallRoof(ctx: Ctx, ox: number, oy: number, theme: ThemeId, s
   }
 }
 
+// A carved, glowing arcane sigil set into a wall — themed per realm. Baked onto
+// occasional front-facing wall tiles to give the dungeons mystical wall art.
+export function drawWallArt(ctx: Ctx, ox: number, oy: number, theme: ThemeId, seed: number): void {
+  const accents: Record<ThemeId, string> = {
+    crypt: '#8aa0e0',
+    molten: '#ff8a1e',
+    frost: '#bfe9ff',
+    toxic: '#9fd05a',
+    clockwork: '#e6c264',
+    arena: '#ff7a3a',
+    bog: '#82a85a',
+    storm: '#b0c8ff',
+    shadow: '#b58aff',
+    sanctum: '#ffd24a',
+  };
+  const col = accents[theme] ?? '#8aa0e0';
+  const cx = ox + 8;
+  const cy = oy + 7;
+  const r = rng(seed * 2654435761 + 7);
+  // carved recess
+  ctx.fillStyle = 'rgba(0,0,0,0.42)';
+  ctx.fillRect(ox + 3, oy + 1, 10, 12);
+  ctx.fillStyle = 'rgba(255,255,255,0.07)';
+  ctx.fillRect(ox + 3, oy + 1, 10, 1);
+  // rune ring + sigil
+  ctx.strokeStyle = col;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.arc(cx, cy, 3.4, 0, Math.PI * 2);
+  ctx.stroke();
+  R(ctx, cx - 2, cy, 5, 1, col);
+  R(ctx, cx, cy - 2, 1, 5, col);
+  PX(ctx, cx, cy, '#ffffff');
+  // spokes / glyph dots vary a little per tile
+  const spokes: [number, number][] = [[-3, -3], [3, -3], [-3, 3], [3, 3]];
+  for (const [dx, dy] of spokes) if (r() < 0.85) PX(ctx, cx + dx, cy + dy, col);
+}
+
 export function drawDoor(ctx: Ctx, ox: number, oy: number, locked: boolean): void {
   R(ctx, ox, oy, 16, 16, C.wallDark);
   R(ctx, ox + 1, oy, 14, 16, C.wallMid);
@@ -482,21 +520,58 @@ export function drawTorch(ctx: Ctx, ox: number, frame: number): void {
   PX(ctx, ox + 8 + sway, 0 + (frame % 2), '#eaeaf2');
 }
 
+// A 24x24 arcane summoning rift: a runed stone altar flanked by obelisks, with a
+// swirling portal core orbited by rune-motes. Four frames pulse + rotate it.
 export function drawGenerator(ctx: Ctx, ox: number, frame: number): void {
-  R(ctx, ox + 1, 9, 14, 6, C.wallDark);
-  R(ctx, ox + 1, 9, 14, 1, C.wallMid);
-  R(ctx, ox + 2, 11, 12, 4, C.wallBase);
-  R(ctx, ox + 1, 7, 3, 3, '#cdd2e0');
-  R(ctx, ox + 12, 7, 3, 3, '#cdd2e0');
-  PX(ctx, ox + 2, 8, '#202433');
-  PX(ctx, ox + 13, 8, '#202433');
-  const glow = ['#56b85a', '#7adf6a', '#aef58a', '#7adf6a'][frame % 4];
-  R(ctx, ox + 5, 4, 6, 6, '#0c2a10');
-  R(ctx, ox + 6, 5, 4, 4, glow);
-  R(ctx, ox + 7, 4 - (frame % 2), 2, 3, glow);
-  PX(ctx, ox + 7, 3, '#dffbb0');
-  PX(ctx, ox + 4, 6 - (frame % 3), '#aef58a');
-  PX(ctx, ox + 11, 5 - ((frame + 1) % 3), '#aef58a');
+  const cx = ox + 12;
+  const pulse = [0, 1, 2, 1][frame % 4];
+  const rot = (frame / 4) * Math.PI;
+
+  // ---- stone plinth ----
+  R(ctx, cx - 8, 17, 16, 5, '#241f38');
+  R(ctx, cx - 8, 17, 16, 1, '#4a4068');
+  R(ctx, cx - 8, 21, 16, 1, '#120e20');
+  R(ctx, cx - 8, 17, 1, 5, '#3a3056');
+  R(ctx, cx + 7, 17, 1, 5, '#120e20');
+  for (let i = -2; i <= 2; i++) PX(ctx, cx + i * 3, 19, i % 2 === 0 ? '#c79bff' : '#7fe4ff'); // rune row
+
+  // ---- flanking obelisks with glyph glints ----
+  R(ctx, cx - 11, 7, 3, 11, '#1c1830');
+  R(ctx, cx - 11, 7, 1, 11, '#3a3056');
+  R(ctx, cx + 8, 7, 3, 11, '#1c1830');
+  R(ctx, cx + 10, 7, 1, 11, '#120e20');
+  PX(ctx, cx - 10, 10, '#7fe4ff');
+  PX(ctx, cx + 9, 10, '#7fe4ff');
+  PX(ctx, cx - 10, 14, '#c79bff');
+  PX(ctx, cx + 9, 14, '#c79bff');
+
+  // ---- swirling rift core ----
+  const ccy = 10;
+  ctx.save();
+  ctx.strokeStyle = '#4a18a8';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.ellipse(cx, ccy, 6 + pulse, 6 + pulse, rot, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.strokeStyle = '#8a3cff';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.ellipse(cx, ccy, 4 + pulse * 0.5, 5 + pulse * 0.5, rot + 1, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.strokeStyle = '#c79bff';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.ellipse(cx, ccy, 2.5, 3.5, rot, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.restore();
+  R(ctx, cx - 1, ccy - 1, 2, 2, '#ffffff'); // bright core
+
+  // ---- orbiting rune motes ----
+  for (let i = 0; i < 4; i++) {
+    const a = (i / 4) * Math.PI * 2 + (frame / 4) * Math.PI * 2;
+    PX(ctx, Math.round(cx + Math.cos(a) * 8), Math.round(ccy + Math.sin(a) * 7), i % 2 ? '#7fe4ff' : '#c79bff');
+  }
+  PX(ctx, cx + [-2, 1, 0, 2][frame % 4], 4 - (frame % 2), '#dffaff'); // rising spark
 }
 
 export function drawChest(ctx: Ctx, ox: number, oy: number, open: boolean): void {
@@ -1474,17 +1549,16 @@ export function drawWeapon(
   const cx = ox + HERO_FW / 2;
   const handY = 14;
   if (cls === 'vanguard') {
+    // a great barbarian broadsword (no shield)
     const hx = facing === 'side' ? cx + 6 : cx + 5;
-    const len = attack ? 11 : 8;
-    const top = attack ? 4 : 6;
-    R(ctx, hx, top, 2, len, ramp.trim);
-    R(ctx, hx, top, 1, len, ramp.trimHi);
-    R(ctx, hx - 1, top + len, 4, 1, C.coinMid);
-    if (facing !== 'up') {
-      R(ctx, cx - 8, 10, 3, 6, ramp.cloth1);
-      R(ctx, cx - 8, 10, 3, 1, ramp.trimHi);
-      PX(ctx, cx - 7, 13, C.coinMid);
-    }
+    const len = attack ? 13 : 10;
+    const top = attack ? 2 : 4;
+    R(ctx, hx, top, 3, len, ramp.trim); // broad blade
+    R(ctx, hx, top, 1, len, ramp.trimHi); // edge shine
+    R(ctx, hx + 1, top, 1, len, '#5a5a6a'); // fuller
+    R(ctx, hx - 1, top + len, 5, 1, C.coinMid); // crossguard
+    R(ctx, hx, top + len + 1, 3, 2, ramp.cloth1); // grip
+    PX(ctx, hx + 1, top + len + 3, C.coinHi); // pommel
   } else if (cls === 'strider') {
     const hx = cx + (attack ? 7 : 6);
     ctx.strokeStyle = ramp.trim;
@@ -1526,69 +1600,166 @@ export function drawHumanoid(
 
   if (facing === 'up') drawWeapon(ctx, ox, cls, ramp, facing, pose);
 
-  if (cls === 'arcanist' || cls === 'warden') {
-    R(ctx, cx - 5, 9 + bob, 10, 13, ramp.cloth0);
-    R(ctx, cx - 5, 9 + bob, 1, 13, ramp.cloth1);
-  }
-
-  const legTop = 16 + bob;
-  R(ctx, cx - 4 + ll, legTop, 3, 6, ramp.cloth0);
-  R(ctx, cx + 1 + rl, legTop, 3, 6, ramp.cloth0);
-  R(ctx, cx - 4 + ll, legTop + 5, 3, 2, ramp.trim);
-  R(ctx, cx + 1 + rl, legTop + 5, 3, 2, ramp.trim);
-
   const tTop = 9 + bob;
-  R(ctx, cx - 5, tTop, 10, 8, ramp.cloth1);
-  R(ctx, cx - 5, tTop, 10, 1, ramp.cloth2);
-  R(ctx, cx - 5, tTop, 2, 8, ramp.cloth2);
-  R(ctx, cx + 3, tTop, 2, 8, ramp.cloth0);
-  R(ctx, cx - 5, tTop + 6, 10, 2, ramp.trim);
-  PX(ctx, cx, tTop + 6, C.coinMid);
-  R(ctx, cx - 1, tTop + 2, 2, 3, ramp.trimHi);
+  const legTop = 16 + bob;
+  const hTop = 3 + bob;
+  const sway = pose === 1 ? -1 : pose === 3 ? 1 : 0;
 
-  if (cls === 'vanguard') {
-    R(ctx, cx - 6, tTop, 2, 3, ramp.trim);
-    R(ctx, cx + 4, tTop, 2, 3, ramp.trim);
-    R(ctx, cx - 6, tTop, 2, 1, ramp.trimHi);
+  // ---- cloak / robe behind the body ----
+  if (cls === 'vanguard' || cls === 'strider') {
+    R(ctx, cx - 4, 10 + bob, 8, 11, ramp.cloth0);
+    R(ctx, cx - 4, 10 + bob, 1, 11, ramp.cloth1);
+    R(ctx, cx + 3, 10 + bob, 1, 11, '#00000033');
+    PX(ctx, cx - 3 + sway, 21 + bob, ramp.cloth0);
+    PX(ctx, cx + sway, 21 + bob, ramp.cloth1);
+    PX(ctx, cx + 2 + sway, 21 + bob, ramp.cloth0);
+  } else {
+    R(ctx, cx - 5, 9 + bob, 10, 13, ramp.cloth0); // full robe
+    R(ctx, cx - 5, 9 + bob, 1, 13, ramp.cloth1);
+    R(ctx, cx + 4, 9 + bob, 1, 13, '#00000030');
+    R(ctx, cx - 5, 20 + bob, 10, 1, ramp.trim); // hem
   }
 
-  R(ctx, cx - 6, tTop + 1, 2, 5, ramp.cloth1);
-  R(ctx, cx + 4, tTop + 1, 2, 5, ramp.cloth1);
-  R(ctx, cx - 6, tTop + 5, 2, 1, ramp.skin);
-  R(ctx, cx + 4, tTop + 5, 2, 1, ramp.skin);
+  // ---- legs / lower body ----
+  if (cls === 'arcanist' || cls === 'warden') {
+    R(ctx, cx - 4 + ll, legTop + 3, 3, 3, ramp.cloth0); // robe skirt feet
+    R(ctx, cx + 1 + rl, legTop + 3, 3, 3, ramp.cloth0);
+    R(ctx, cx - 4 + ll, legTop + 6, 3, 1, '#0a0a12');
+    R(ctx, cx + 1 + rl, legTop + 6, 3, 1, '#0a0a12');
+  } else if (cls === 'vanguard') {
+    R(ctx, cx - 4 + ll, legTop, 3, 5, ramp.skin); // bare legs
+    R(ctx, cx + 1 + rl, legTop, 3, 5, ramp.skin);
+    R(ctx, cx - 4 + ll, legTop, 1, 5, ramp.skinHi);
+    R(ctx, cx + 1 + rl, legTop, 1, 5, ramp.skinHi);
+    R(ctx, cx - 4 + ll, legTop + 4, 3, 3, ramp.cloth1); // fur boots
+    R(ctx, cx + 1 + rl, legTop + 4, 3, 3, ramp.cloth1);
+  } else {
+    R(ctx, cx - 4 + ll, legTop, 3, 6, ramp.cloth1); // leather legs
+    R(ctx, cx + 1 + rl, legTop, 3, 6, ramp.cloth1);
+    R(ctx, cx - 4 + ll, legTop, 1, 6, ramp.cloth2);
+    R(ctx, cx + 1 + rl, legTop, 1, 6, ramp.cloth2);
+    R(ctx, cx - 4 + ll, legTop + 5, 3, 2, ramp.trim); // boots
+    R(ctx, cx + 1 + rl, legTop + 5, 3, 2, ramp.trim);
+  }
 
-  const hTop = 3 + bob;
+  // ---- torso (per class) ----
+  if (cls === 'vanguard') {
+    // bare, muscled chest + fur loincloth
+    R(ctx, cx - 5, tTop, 10, 8, ramp.skin);
+    R(ctx, cx - 5, tTop, 10, 1, ramp.skinHi);
+    R(ctx, cx - 5, tTop, 2, 8, ramp.skinHi);
+    R(ctx, cx + 3, tTop, 2, 8, '#00000022');
+    R(ctx, cx - 1, tTop + 1, 1, 5, '#00000022'); // sternum
+    R(ctx, cx - 4, tTop + 3, 3, 1, '#0000001c'); // pecs
+    R(ctx, cx + 1, tTop + 3, 3, 1, '#0000001c');
+    R(ctx, cx - 3, tTop + 5, 6, 1, '#00000014'); // ab line
+    R(ctx, cx - 4, tTop + 1, 8, 1, ramp.trim); // baldric strap
+    PX(ctx, cx, tTop + 1, ramp.trimHi);
+    R(ctx, cx - 5, tTop + 6, 10, 2, ramp.cloth1); // fur loincloth/belt
+    R(ctx, cx - 5, tTop + 6, 10, 1, ramp.cloth2);
+    R(ctx, cx - 1, tTop + 6, 2, 2, ramp.trim); // buckle
+  } else if (cls === 'strider') {
+    // dark leather ranger tunic with a baldric
+    R(ctx, cx - 5, tTop, 10, 8, ramp.cloth1);
+    R(ctx, cx - 5, tTop, 10, 1, ramp.cloth2);
+    R(ctx, cx - 5, tTop, 2, 8, ramp.cloth2);
+    R(ctx, cx + 3, tTop, 2, 8, ramp.cloth0);
+    R(ctx, cx - 4, tTop + 1, 8, 1, ramp.trim);
+    R(ctx, cx - 4, tTop + 4, 8, 1, ramp.cloth0);
+    R(ctx, cx - 1, tTop + 2, 2, 3, ramp.cloth2);
+  } else {
+    // robe upper body
+    R(ctx, cx - 5, tTop, 10, 8, ramp.cloth1);
+    R(ctx, cx - 5, tTop, 10, 1, ramp.cloth2);
+    R(ctx, cx - 5, tTop, 2, 8, ramp.cloth2);
+    R(ctx, cx + 3, tTop, 2, 8, ramp.cloth0);
+    if (cls === 'warden') {
+      R(ctx, cx - 1, tTop + 2, 2, 4, ramp.trim); // gold holy symbol
+      R(ctx, cx - 2, tTop + 3, 4, 2, ramp.trim);
+      PX(ctx, cx, tTop + 3, ramp.trimHi);
+    } else {
+      R(ctx, cx - 5, tTop + 6, 10, 1, ramp.trim); // sash + arcane glow
+      PX(ctx, cx, tTop + 3, C.magicCore);
+      PX(ctx, cx - 3, tTop + 4, ramp.trim);
+      PX(ctx, cx + 2, tTop + 4, ramp.trim);
+    }
+  }
+
+  // ---- shoulders ----
+  if (cls === 'vanguard') {
+    R(ctx, cx - 6, tTop, 2, 3, ramp.cloth1); // fur pauldron
+    R(ctx, cx - 6, tTop, 2, 1, ramp.cloth2);
+    R(ctx, cx + 4, tTop, 2, 3, ramp.skin); // bare shoulder
+  }
+
+  // ---- arms + hands ----
+  if (cls === 'arcanist' || cls === 'warden') {
+    R(ctx, cx - 7, tTop + 1, 2, 6, ramp.cloth1); // wide sleeves
+    R(ctx, cx + 5, tTop + 1, 2, 6, ramp.cloth1);
+    R(ctx, cx - 7, tTop + 1, 2, 1, ramp.cloth2);
+    R(ctx, cx - 7, tTop + 6, 2, 1, ramp.skin); // hands
+    R(ctx, cx + 5, tTop + 6, 2, 1, ramp.skin);
+  } else {
+    const armC = cls === 'vanguard' ? ramp.skin : ramp.cloth1;
+    R(ctx, cx - 6, tTop + 1, 2, 5, armC);
+    R(ctx, cx + 4, tTop + 1, 2, 5, armC);
+    R(ctx, cx - 6, tTop + 5, 2, 1, ramp.skin); // hands
+    R(ctx, cx + 4, tTop + 5, 2, 1, ramp.skin);
+    if (cls === 'vanguard') {
+      R(ctx, cx - 6, tTop + 4, 2, 1, ramp.trim); // bracers
+      R(ctx, cx + 4, tTop + 4, 2, 1, ramp.trim);
+    }
+  }
+
+  // ---- head ----
   R(ctx, cx - 3, hTop, 6, 6, ramp.skin);
   R(ctx, cx - 3, hTop, 6, 1, ramp.skinHi);
   R(ctx, cx + 2, hTop + 1, 1, 5, '#00000022');
 
   if (cls === 'vanguard') {
-    R(ctx, cx - 4, hTop - 1, 8, 3, ramp.trim);
+    // black mane + red headband
+    R(ctx, cx - 4, hTop - 1, 8, 2, ramp.hair);
+    R(ctx, cx - 4, hTop, 1, 5, ramp.hair);
+    R(ctx, cx + 3, hTop, 1, 5, ramp.hair);
+    R(ctx, cx - 4, hTop + 1, 8, 1, C.hpLow); // headband
+    PX(ctx, cx - 4, hTop + 1, '#ff8a7a');
+  } else if (cls === 'strider') {
+    // long flowing white hair
+    R(ctx, cx - 4, hTop - 1, 8, 2, ramp.hair);
+    R(ctx, cx - 5, hTop, 2, 8, ramp.hair); // long side locks
+    R(ctx, cx + 3, hTop, 2, 8, ramp.hair);
     R(ctx, cx - 4, hTop - 1, 8, 1, ramp.trimHi);
-    R(ctx, cx - 1, hTop - 3, 2, 2, C.hpLow);
-    R(ctx, cx - 3, hTop + 2, 1, 3, ramp.trim);
   } else if (cls === 'arcanist') {
+    // tall hat + long white beard
     R(ctx, cx - 4, hTop - 1, 8, 2, ramp.cloth2);
-    R(ctx, cx - 2, hTop - 5, 5, 4, ramp.cloth2);
-    R(ctx, cx + 1, hTop - 7, 2, 3, ramp.cloth1);
-    R(ctx, cx - 4, hTop, 8, 1, ramp.trim);
-    PX(ctx, cx + 2, hTop - 6, C.magicCore);
-  } else if (cls === 'warden') {
-    R(ctx, cx - 4, hTop - 1, 8, 3, ramp.cloth2);
-    R(ctx, cx - 4, hTop + 1, 1, 4, ramp.cloth1);
-    R(ctx, cx + 3, hTop + 1, 1, 4, ramp.cloth1);
+    R(ctx, cx - 4, hTop - 1, 8, 1, ramp.trimHi);
+    R(ctx, cx - 3, hTop - 3, 6, 3, ramp.cloth2);
+    R(ctx, cx - 3, hTop - 3, 1, 3, ramp.cloth1);
+    PX(ctx, cx, hTop - 3, C.magicCore);
+    R(ctx, cx - 4, hTop + 1, 8, 1, ramp.trim);
+    R(ctx, cx - 3, hTop + 4, 6, 4, ramp.hair); // beard
+    R(ctx, cx - 2, hTop + 8, 4, 2, ramp.hair);
+    R(ctx, cx - 3, hTop + 4, 6, 1, '#ffffff');
   } else {
-    R(ctx, cx - 4, hTop - 1, 8, 2, ramp.cloth2);
-    R(ctx, cx - 3, hTop, 6, 1, ramp.hair);
-    R(ctx, cx + 3, hTop, 1, 4, ramp.cloth1);
+    // hooded cleric + halo
+    R(ctx, cx - 4, hTop - 2, 8, 4, ramp.cloth2);
+    R(ctx, cx - 4, hTop - 2, 8, 1, ramp.trimHi);
+    R(ctx, cx - 5, hTop, 1, 6, ramp.cloth1);
+    R(ctx, cx + 4, hTop, 1, 6, ramp.cloth1);
+    PX(ctx, cx - 2, hTop - 3, '#fff4c0');
+    PX(ctx, cx + 1, hTop - 3, '#fff4c0');
   }
 
-  if (facing === 'down') {
-    PX(ctx, cx - 2, hTop + 3, '#2a3b6a');
-    PX(ctx, cx + 1, hTop + 3, '#2a3b6a');
-  } else if (facing === 'side') {
-    PX(ctx, cx + 1, hTop + 3, '#1a1024');
-    R(ctx, cx + 2, hTop + 2, 1, 2, ramp.skinHi);
+  // ---- eyes ----
+  if (cls !== 'arcanist') {
+    const eye = cls === 'strider' ? '#c08aff' : '#2a3b6a'; // drow lavender eyes
+    if (facing === 'down') {
+      PX(ctx, cx - 2, hTop + 3, eye);
+      PX(ctx, cx + 1, hTop + 3, eye);
+    } else if (facing === 'side') {
+      PX(ctx, cx + 1, hTop + 3, cls === 'strider' ? '#c08aff' : '#1a1024');
+      R(ctx, cx + 2, hTop + 2, 1, 2, ramp.skinHi);
+    }
   }
 
   if (facing !== 'up') drawWeapon(ctx, ox, cls, ramp, facing, pose);

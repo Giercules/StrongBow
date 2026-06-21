@@ -7,7 +7,7 @@ import { audio } from '../systems/AudioSystem';
 // Legend-of-Zelda-NES-style manual: parchment pages, ornate border, serif text,
 // illustrated bestiary + armory galleries.
 const hx = (s: string): number => parseInt(s.replace('#', ''), 16);
-const SERIF = 'Georgia, "Times New Roman", serif';
+const SERIF = 'MedievalSharp, Georgia, serif';
 const PANEL_W = 600;
 const PANEL_H = 488;
 const PAGE = '#e9dcc0';

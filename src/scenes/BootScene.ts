@@ -44,6 +44,27 @@ export class BootScene extends Phaser.Scene {
     AnimationRegistry.register(this);
     // eslint-disable-next-line no-console
     console.log(`StrongBow: ${count} procedural texture sets · ${provided.size} external override(s) active`);
-    this.scene.start('MenuScene');
+    this.waitForFonts(() => this.scene.start('MenuScene'));
+  }
+
+  /** Let the web fonts load so canvas text renders in them; never hang offline. */
+  private waitForFonts(done: () => void): void {
+    let finished = false;
+    const go = (): void => {
+      if (finished) return;
+      finished = true;
+      done();
+    };
+    const fonts = (document as Document & { fonts?: FontFaceSet }).fonts;
+    if (fonts && typeof fonts.load === 'function') {
+      Promise.all([
+        fonts.load('800 24px "Cinzel"').catch(() => undefined),
+        fonts.load('16px "MedievalSharp"').catch(() => undefined),
+      ])
+        .then(() => fonts.ready)
+        .then(go)
+        .catch(go);
+    }
+    this.time.delayedCall(1800, go); // hard fallback for slow/offline loads
   }
 }

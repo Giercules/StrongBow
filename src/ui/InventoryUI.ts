@@ -95,7 +95,7 @@ export class InventoryUI {
 
   private label(x: number, y: number, str: string, color: string, size = 12, bold = false): Phaser.GameObjects.Text {
     const t = this.scene.add
-      .text(x, y, str, { fontFamily: 'Trebuchet MS, sans-serif', fontSize: `${size}px`, color, fontStyle: bold ? 'bold' : 'normal' })
+      .text(x, y, str, { fontFamily: 'MedievalSharp, "Trebuchet MS", cursive', fontSize: `${size}px`, color, fontStyle: bold ? 'bold' : 'normal' })
       .setOrigin(0, 0);
     addPinned(this.content!, t);
     return t;

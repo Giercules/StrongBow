@@ -72,7 +72,7 @@ export class GauntletHUD {
   }
 
   private mkText(x: number, y: number, size: number, color: string, opts: Partial<Phaser.Types.GameObjects.Text.TextStyle> = {}): Phaser.GameObjects.Text {
-    return this.scene.add.text(x, y, '', { fontFamily: 'Trebuchet MS, sans-serif', fontSize: `${size}px`, color, ...opts }).setDepth(8);
+    return this.scene.add.text(x, y, '', { fontFamily: 'MedievalSharp, "Trebuchet MS", cursive', fontSize: `${size}px`, color, ...opts }).setDepth(8);
   }
 
   private buildText(): void {

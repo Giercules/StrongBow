@@ -247,45 +247,49 @@ export interface HeroRamp {
 }
 
 export const HERO_RAMPS: Record<string, HeroRamp> = {
+  // Vanguard — Conan-style barbarian: bronzed skin, fur + leather, black mane.
   vanguard: {
-    skin: '#c98d5a',
-    skinHi: '#e6b27e',
-    cloth0: '#15356e',
-    cloth1: '#2b59b0',
-    cloth2: '#4f8af0',
-    trim: '#b9c4dd',
-    trimHi: '#eef3ff',
-    hair: '#3a2a18',
+    skin: '#c97e44',
+    skinHi: '#e6a86a',
+    cloth0: '#2e1d10', // dark fur cloak
+    cloth1: '#6e4423', // fur
+    cloth2: '#9c6a3c', // lit fur
+    trim: '#c8a25e', // bronze / leather
+    trimHi: '#f0d79a',
+    hair: '#1f160e', // black mane
   },
+  // Strider — Drizzt-style drow ranger: ashen grey skin, white hair, dark cloak.
   strider: {
-    skin: '#cf9763',
-    skinHi: '#eeb886',
-    cloth0: '#15401f',
-    cloth1: '#2c7a38',
-    cloth2: '#56c264',
-    trim: '#caa56a',
-    trimHi: '#f2dca0',
-    hair: '#241a10',
+    skin: '#6e6e80',
+    skinHi: '#a0a0b6',
+    cloth0: '#171326', // black cloak
+    cloth1: '#2c2442', // dark leather
+    cloth2: '#4a3a66', // lavender-shadow
+    trim: '#b6b6cc', // silver
+    trimHi: '#eef0ff',
+    hair: '#eef2ff', // white-silver hair
   },
+  // Arcanist — Merlin: deep blue robe, gold trim, long white hair + beard.
   arcanist: {
     skin: '#d6a07a',
     skinHi: '#f0c39c',
-    cloth0: '#34146e',
-    cloth1: '#6a2cc0',
-    cloth2: '#a865ff',
-    trim: '#ffd45a',
+    cloth0: '#161f52', // deep robe shadow
+    cloth1: '#26368c', // blue robe
+    cloth2: '#4f6ad6', // lit blue
+    trim: '#ffd45a', // gold
     trimHi: '#fff0b0',
-    hair: '#e8e2ff',
+    hair: '#eef0f4', // white hair/beard
   },
+  // Warden — holy cleric: cream + gold robe, hooded, sacred light.
   warden: {
     skin: '#cf9763',
     skinHi: '#efb98a',
-    cloth0: '#5a4410',
-    cloth1: '#a07f1e',
-    cloth2: '#ecc23e',
-    trim: '#dfe6ff',
-    trimHi: '#ffffff',
-    hair: '#6a5230',
+    cloth0: '#6a5a2e', // robe shadow
+    cloth1: '#c7ba8e', // cream robe
+    cloth2: '#efe6c8', // lit cream
+    trim: '#e6c24a', // gold
+    trimHi: '#fff4c0',
+    hair: '#7a6a4a',
   },
 };
 

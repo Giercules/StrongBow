@@ -100,7 +100,7 @@ export class TextureFactory {
 
     // ---- objects / decor (outlined) ----
     sheet('torch-sheet', 16, 16, 4, (c, ox, f) => art.drawTorch(c, ox, f));
-    sheet('generator-sheet', 16, 16, 4, (c, ox, f) => art.drawGenerator(c, ox, f));
+    sheet('generator-sheet', 24, 24, 4, (c, ox, f) => art.drawGenerator(c, ox, f));
     img('chest', 16, 16, (c) => art.drawChest(c, 0, 0, false), true);
     img('chest-open', 16, 16, (c) => art.drawChest(c, 0, 0, true), true);
     img('shrine', 16, 16, (c) => art.drawShrine(c, 0, 0, false), true);

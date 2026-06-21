@@ -160,14 +160,20 @@ export const MANUAL_PAGES: ManualPage[] = [
     title: 'How to Play',
     kind: 'text',
     body: [
-      'Move with WASD (Player 1) or the Arrow keys (Player 2).',
-      'Hold attack to strike. Each hero fights differently: the Vanguard cleaves, the Warden bludgeons, the Strider looses arrows, and the Arcanist hurls bolts.',
+      'Move with WASD (Player 1) or the Arrow keys (Player 2). Or hold the left mouse button in the play area to walk toward the cursor.',
+      'Hold attack to strike — each hero differs: Vanguard cleaves, Warden bludgeons, Strider looses arrows, Arcanist hurls bolts.',
       'Tap magic for an area blast (costs mana). Use / interact opens chests and lights shrines.',
-      'Press SPACE to dodge-roll (brief invulnerability), and F for your class ability: Vanguard Shield Slam, Strider Multishot, Arcanist Arcane Nova, Warden Sanctuary.',
+      'Press SPACE to dodge-roll (brief invulnerability), and F for your class ability: Shield Slam, Multishot, Arcane Nova, or Sanctuary.',
+    ],
+  },
+  {
+    title: 'How to Play (cont.)',
+    kind: 'text',
+    body: [
       'Hit foes with elements: fire weapons BURN, magic CHILLS (slows), and critical hits SHOCK (extra damage). Big hits knock enemies back.',
-      'Beware gold-glowing CHAMPIONS — tougher and harder-hitting, but they always drop strong gear. A minimap (top-right) shows the party, altars, and the boss.',
-      'WIN: destroy at least 3 spawning altars, slay the realm’s warden, then stand on the exit portal to descend.',
-      'Hazards hurt but never trap you — keep moving and walk out of the fire, ice, sludge and spikes.',
+      'Beware gold-glowing CHAMPIONS — tougher and harder-hitting, but they always drop strong gear.',
+      'A minimap (top-right) shows the party, altars, and the boss. Press F2 to open the save/load window.',
+      'WIN: destroy at least 3 spawning altars, slay the realm’s warden, then stand on the exit portal to descend. Hazards hurt but never trap you — keep moving.',
     ],
   },
   {

@@ -34,7 +34,7 @@ export class ControlsPanel {
 
     lines.forEach((ln, i) => {
       const t = scene.add.text(8, 7 + i * 15, ln, {
-        fontFamily: 'Trebuchet MS, sans-serif',
+        fontFamily: 'MedievalSharp, "Trebuchet MS", cursive',
         fontSize: '11px',
         color: i === 0 || (i === 3 && twoPlayer) ? C.hudBorder : C.inkDim,
       });
