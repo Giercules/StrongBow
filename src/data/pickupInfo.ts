@@ -9,6 +9,7 @@ const LABELS: { key: keyof StatMods; fmt: (v: number) => string }[] = [
   { key: 'speed', fmt: (v) => `${sign(v)}${v} speed` },
   { key: 'critChance', fmt: (v) => `${sign(v)}${Math.round(v * 100)}% crit` },
   { key: 'regen', fmt: (v) => `${sign(v)}${v} regen` },
+  { key: 'luck', fmt: (v) => `${sign(v)}${v} luck` },
 ];
 
 function sign(v: number): string {

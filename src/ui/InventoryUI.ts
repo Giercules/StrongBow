@@ -11,6 +11,7 @@ import type { ItemDefinition, ItemSlot } from '../core/types';
 const PANEL_W = 480;
 const PANEL_H = 430;
 const SLOTS: ItemSlot[] = ['weapon', 'armor', 'trinket'];
+const BAG_PER_PAGE = 9; // keeps the 1-9 hotkeys mapped to exactly one page
 const numHex = (n: number): string => '#' + n.toString(16).padStart(6, '0');
 
 export class InventoryUI {
@@ -19,6 +20,7 @@ export class InventoryUI {
   private content: Phaser.GameObjects.Container | null = null;
   private hero: Hero | null = null;
   private sel = 0;
+  private bagPage = 0;
   private keyHandler?: (e: KeyboardEvent) => void;
 
   constructor(scene: Phaser.Scene) {
@@ -33,6 +35,7 @@ export class InventoryUI {
     if (this.modal) this.close();
     this.hero = hero;
     this.sel = 0;
+    this.bagPage = 0;
     this.modal = framedPanel(this.scene, PANEL_W, PANEL_H, `INVENTORY - ${hero.def.name}`);
     this.content = this.scene.add.container(0, 0).setDepth(this.modal.container.depth + 1);
     this.modal.add(this.content);
@@ -59,18 +62,35 @@ export class InventoryUI {
     } else if (e.key === 'ArrowDown') {
       this.sel = (this.sel + 1) % SLOTS.length;
       this.rebuild();
+    } else if (e.key === 'ArrowLeft') {
+      this.changePage(-1);
+    } else if (e.key === 'ArrowRight') {
+      this.changePage(1);
     } else if (e.key === 'u' || e.key === 'U') {
       h.inventory.unequip(SLOTS[this.sel]);
       h.refreshStats();
+      audio.sfx('ui_select');
+      this.rebuild();
+    } else if (e.key === 's' || e.key === 'S') {
+      h.inventory.sortBag();
+      this.bagPage = 0;
       audio.sfx('ui_select');
       this.rebuild();
     } else if (e.key === 'c' || e.key === 'C') {
       const cons = h.inventory.firstConsumable('health') ?? h.inventory.firstConsumable('mana');
       if (cons) this.useItem(cons);
     } else if (e.key >= '1' && e.key <= '9') {
-      const item = h.inventory.bag[Number(e.key) - 1];
+      const item = h.inventory.bag[this.bagPage * BAG_PER_PAGE + Number(e.key) - 1];
       if (item) this.useItem(item);
     }
+  }
+
+  private changePage(d: number): void {
+    if (!this.hero) return;
+    const pageCount = Math.max(1, Math.ceil(this.hero.inventory.bag.length / BAG_PER_PAGE));
+    this.bagPage = Phaser.Math.Wrap(this.bagPage + d, 0, pageCount);
+    audio.sfx('ui_move');
+    this.rebuild();
   }
 
   private label(x: number, y: number, str: string, color: string, size = 12, bold = false): Phaser.GameObjects.Text {
@@ -124,18 +144,29 @@ export class InventoryUI {
     stats.forEach((st, i) => this.label(leftX, y0 + 200 + i * 16, st, C.ink, 10.5));
     this.label(leftX, y0 + PANEL_H - 44, `Gold ${hero.inventory.gold}   Keys ${hero.inventory.keys}   Score ${hero.score}`, C.coinHi, 12, true);
 
-    this.label(rightX, y0 + 38, 'BACKPACK   1-9 equip/use - C drink', C.hudBorder, 11, true);
     const bag = hero.inventory.bag;
-    if (bag.length === 0) this.label(rightX, y0 + 60, 'Empty - loot chests and the dead.', C.inkDim, 10);
-    bag.slice(0, 18).forEach((item, i) => {
-      const gy = y0 + 60 + i * 20;
+    const pageCount = Math.max(1, Math.ceil(bag.length / BAG_PER_PAGE));
+    if (this.bagPage >= pageCount) this.bagPage = pageCount - 1;
+    const start = this.bagPage * BAG_PER_PAGE;
+    const pageItems = bag.slice(start, start + BAG_PER_PAGE);
+
+    this.label(rightX, y0 + 38, `BACKPACK (${bag.length})  1-9 equip/use`, C.hudBorder, 11, true);
+    this.label(rightX, y0 + 53, `C drink   S sort   <-/-> page ${this.bagPage + 1}/${pageCount}`, C.inkDim, 9);
+    if (bag.length === 0) this.label(rightX, y0 + 76, 'Empty - loot chests and the dead.', C.inkDim, 10);
+    pageItems.forEach((item, i) => {
+      const gy = y0 + 74 + i * 22;
       this.label(rightX, gy, `${i + 1}`, C.coinHi, 10, true);
       this.icon(rightX + 16, gy, item.icon);
       this.label(rightX + 36, gy + 1, item.name, numHex(RARITY_COLOR[item.rarity]), 10, false);
-      const zone = this.scene.add.zone(rightX, gy, PANEL_W / 2 - 40, 18).setOrigin(0, 0).setInteractive({ useHandCursor: true });
+      const zone = this.scene.add.zone(rightX, gy, PANEL_W / 2 - 40, 20).setOrigin(0, 0).setInteractive({ useHandCursor: true });
       zone.on('pointerdown', () => this.useItem(item));
       addPinned(this.content!, zone);
     });
+
+    if (pageCount > 1) {
+      this.content.add(makeButton(this.scene, rightX + 36, y0 + PANEL_H - 60, 56, 24, '< PREV', () => this.changePage(-1), { size: 11 }));
+      this.content.add(makeButton(this.scene, rightX + 110, y0 + PANEL_H - 60, 56, 24, 'NEXT >', () => this.changePage(1), { size: 11 }));
+    }
 
     this.content.add(makeButton(this.scene, this.modal!.cx + PANEL_W / 2 - 50, y0 + PANEL_H - 22, 80, 26, 'CLOSE', () => this.close()));
   }

@@ -1,4 +1,5 @@
 import { settings } from '../core/GameSettings';
+import type { ThemeId } from '../core/types';
 
 // ----------------------------------------------------------------------------
 // AudioSystem — fully procedural, self-contained Web Audio engine.
@@ -24,69 +25,174 @@ interface Song {
   intensity: number; // 0..1 drives drums / brightness
 }
 
-// Heroic-but-dark progression: Am – F – C – G
-const DUNGEON: Song = {
-  bpm: 120,
-  steps: 64,
-  chords: [
-    [60, 64, 67],
-    [55, 59, 62],
-    [57, 60, 64],
-    [53, 57, 60],
-  ],
-  bass: [36, 31, 33, 29],
+// ---- chord shapes (mid octave triads) -------------------------------------
+const Am = [57, 60, 64];
+const F = [53, 57, 60];
+const C = [60, 64, 67];
+const G = [55, 59, 62];
+const Dm = [50, 53, 57];
+const E = [52, 56, 59];
+const Bb = [58, 62, 65];
+// ---- bass roots (low octave) ----------------------------------------------
+const bA = 33, bF = 29, bC = 36, bG = 31, bD = 38, bE = 40, bBb = 34;
+
+// HEROIC — the main overworld march. A long 8-bar tune (Am F C G Am Dm E Am)
+// with a rising fanfare that develops, in the spirit of a classic adventure
+// overworld theme. This is the default dungeon song.
+const HEROIC: Song = {
+  bpm: 116,
+  steps: 128,
+  chords: [Am, F, C, G, Am, Dm, E, Am],
+  bass: [bA, bF, bC, bG, bA, bD, bE, bA],
   lead: [
-    67, 0, 72, 0, 72, 0, 74, 0, 76, 0, 74, 72, 0, 0, 71, 0,
-    67, 0, 71, 0, 74, 0, 71, 0, 69, 0, 71, 69, 0, 0, 67, 0,
-    69, 0, 72, 0, 76, 0, 72, 0, 74, 0, 72, 71, 0, 0, 69, 0,
-    65, 0, 69, 0, 72, 0, 71, 0, 67, 0, 64, 0, 67, 0, 0, 0,
+    69, 0, 0, 0, 72, 0, 0, 0, 76, 0, 74, 0, 72, 0, 71, 0,
+    72, 0, 0, 0, 69, 0, 0, 0, 65, 0, 69, 0, 72, 0, 0, 0,
+    76, 0, 0, 0, 72, 0, 0, 0, 67, 0, 72, 0, 76, 0, 79, 0,
+    74, 0, 71, 0, 67, 0, 71, 0, 74, 0, 0, 0, 0, 0, 0, 0,
+    69, 0, 72, 0, 76, 0, 72, 0, 81, 0, 0, 0, 79, 0, 76, 0,
+    77, 0, 0, 0, 74, 0, 0, 0, 69, 0, 74, 0, 77, 0, 0, 0,
+    76, 0, 75, 0, 76, 0, 80, 0, 83, 0, 80, 0, 76, 0, 71, 0,
+    69, 0, 0, 0, 72, 0, 71, 0, 69, 0, 67, 0, 69, 0, 0, 0,
   ],
   swing: 0,
-  intensity: 0.6,
+  intensity: 0.62,
 };
 
-// Boss: darker, faster, Am – Am – Dm – E (harmonic tension)
-const BOSS: Song = {
-  bpm: 146,
-  steps: 64,
-  chords: [
-    [57, 60, 64], // Am
-    [57, 60, 64], // Am
-    [50, 53, 57], // Dm  D3 F3 A3
-    [52, 56, 59], // E   E3 G#3 B3
+// DRIVING — energetic, busy eighths for molten / arena / clockwork.
+const DRIVING: Song = {
+  bpm: 138,
+  steps: 128,
+  chords: [Am, Am, F, G, C, G, Dm, E],
+  bass: [bA, bA, bF, bG, bC, bG, bD, bE],
+  lead: [
+    69, 0, 69, 0, 72, 0, 69, 0, 76, 0, 74, 0, 72, 71, 0, 0,
+    69, 0, 69, 0, 72, 0, 76, 0, 72, 0, 69, 0, 67, 0, 0, 0,
+    65, 0, 69, 0, 72, 0, 69, 0, 65, 0, 69, 0, 72, 0, 74, 0,
+    74, 0, 71, 0, 74, 0, 79, 0, 78, 0, 74, 0, 71, 0, 0, 0,
+    72, 0, 72, 0, 76, 0, 79, 0, 84, 0, 79, 0, 76, 0, 72, 0,
+    74, 0, 71, 0, 67, 0, 71, 0, 74, 0, 79, 0, 76, 0, 0, 0,
+    77, 0, 74, 0, 69, 0, 74, 0, 77, 0, 81, 0, 79, 0, 77, 0,
+    76, 0, 80, 0, 83, 0, 80, 0, 76, 75, 76, 0, 71, 0, 0, 0,
   ],
-  bass: [33, 33, 38, 40],
+  swing: 0,
+  intensity: 0.85,
+};
+
+// ETHEREAL — sparse, airy, high register for frost / shadow.
+const ETHEREAL: Song = {
+  bpm: 98,
+  steps: 128,
+  chords: [Am, C, F, C, Dm, Am, E, Am],
+  bass: [bA, bC, bF, bC, bD, bA, bE, bA],
+  lead: [
+    81, 0, 0, 0, 0, 0, 76, 0, 0, 0, 0, 0, 79, 0, 0, 0,
+    84, 0, 0, 0, 0, 0, 79, 0, 0, 0, 76, 0, 0, 0, 0, 0,
+    77, 0, 0, 0, 0, 0, 72, 0, 0, 0, 0, 0, 76, 0, 0, 0,
+    79, 0, 0, 0, 0, 0, 0, 0, 76, 0, 74, 0, 0, 0, 0, 0,
+    81, 0, 0, 0, 84, 0, 0, 0, 0, 0, 79, 0, 0, 0, 0, 0,
+    77, 0, 0, 0, 0, 0, 81, 0, 0, 0, 0, 0, 79, 0, 0, 0,
+    76, 0, 0, 0, 75, 0, 0, 0, 0, 0, 71, 0, 0, 0, 0, 0,
+    72, 0, 0, 0, 0, 0, 0, 0, 69, 0, 0, 0, 0, 0, 0, 0,
+  ],
+  swing: 0.08,
+  intensity: 0.4,
+};
+
+// OMINOUS — low, brooding, chromatic for toxic / bog.
+const OMINOUS: Song = {
+  bpm: 104,
+  steps: 128,
+  chords: [Am, Am, Dm, Dm, Bb, F, E, E],
+  bass: [bA, bA, bD, bD, bBb, bF, bE, bE],
+  lead: [
+    57, 0, 0, 0, 60, 0, 0, 0, 59, 0, 57, 0, 0, 0, 0, 0,
+    57, 0, 0, 0, 58, 0, 0, 0, 60, 0, 0, 0, 59, 0, 0, 0,
+    62, 0, 0, 0, 65, 0, 0, 0, 62, 0, 60, 0, 62, 0, 0, 0,
+    58, 0, 0, 0, 57, 0, 0, 0, 56, 0, 0, 0, 0, 0, 0, 0,
+    57, 0, 60, 0, 64, 0, 60, 0, 0, 0, 59, 0, 57, 0, 0, 0,
+    53, 0, 0, 0, 57, 0, 0, 0, 60, 0, 0, 0, 59, 0, 0, 0,
+    56, 0, 0, 0, 59, 0, 0, 0, 63, 0, 59, 0, 56, 0, 0, 0,
+    57, 0, 0, 0, 56, 0, 57, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  ],
+  swing: 0,
+  intensity: 0.55,
+};
+
+// FINALE — triumphant, major, grand for storm / sanctum.
+const FINALE: Song = {
+  bpm: 126,
+  steps: 128,
+  chords: [C, G, Am, F, C, G, F, G],
+  bass: [bC, bG, bA, bF, bC, bG, bF, bG],
+  lead: [
+    72, 0, 0, 0, 76, 0, 79, 0, 84, 0, 0, 0, 79, 0, 0, 0,
+    74, 0, 0, 0, 71, 0, 74, 0, 79, 0, 0, 0, 0, 0, 0, 0,
+    69, 0, 0, 0, 72, 0, 76, 0, 81, 0, 0, 0, 76, 0, 0, 0,
+    77, 0, 0, 0, 74, 0, 77, 0, 81, 0, 0, 0, 0, 0, 0, 0,
+    84, 0, 0, 0, 83, 0, 84, 0, 79, 0, 76, 0, 72, 0, 0, 0,
+    79, 0, 0, 0, 76, 0, 79, 0, 83, 0, 79, 0, 76, 0, 0, 0,
+    77, 0, 79, 0, 81, 0, 83, 0, 84, 0, 86, 0, 84, 0, 0, 0,
+    83, 0, 79, 0, 84, 0, 0, 0, 79, 0, 76, 0, 72, 0, 0, 0,
+  ],
+  swing: 0,
+  intensity: 0.9,
+};
+
+// BOSS — darker, faster, an 8-bar gauntlet (Am Am Dm E Am F Dm E).
+const BOSS: Song = {
+  bpm: 150,
+  steps: 128,
+  chords: [Am, Am, Dm, E, Am, F, Dm, E],
+  bass: [bA, bA, bD, bE, bA, bF, bD, bE],
   lead: [
     69, 69, 0, 72, 71, 0, 69, 68, 69, 0, 76, 0, 74, 0, 72, 0,
     69, 69, 0, 72, 71, 0, 69, 68, 69, 0, 67, 0, 64, 0, 0, 0,
     74, 74, 0, 77, 76, 0, 74, 72, 74, 0, 81, 0, 79, 0, 77, 0,
     76, 0, 75, 0, 76, 0, 80, 0, 83, 0, 80, 0, 76, 0, 71, 0,
+    69, 69, 0, 72, 76, 0, 72, 0, 69, 0, 68, 0, 69, 0, 0, 0,
+    65, 0, 69, 0, 72, 0, 69, 0, 77, 0, 72, 0, 69, 0, 0, 0,
+    74, 0, 77, 0, 81, 0, 77, 0, 74, 0, 72, 0, 70, 0, 0, 0,
+    76, 0, 80, 0, 83, 0, 80, 76, 75, 0, 76, 0, 71, 0, 0, 0,
   ],
-  swing: 0.0,
+  swing: 0,
   intensity: 0.95,
 };
 
+// MENU — calm, spacious title theme.
 const MENU: Song = {
-  bpm: 96,
-  steps: 64,
-  chords: [
-    [60, 64, 67],
-    [55, 59, 62],
-    [57, 60, 64],
-    [53, 57, 60],
-  ],
-  bass: [36, 31, 33, 29],
+  bpm: 92,
+  steps: 128,
+  chords: [Am, F, C, G, Am, F, E, Am],
+  bass: [bA, bF, bC, bG, bA, bF, bE, bA],
   lead: [
-    60, 0, 0, 0, 64, 0, 0, 0, 67, 0, 0, 72, 0, 0, 0, 0,
-    59, 0, 0, 0, 62, 0, 0, 0, 67, 0, 0, 0, 0, 0, 0, 0,
-    57, 0, 0, 0, 60, 0, 0, 0, 64, 0, 0, 69, 0, 0, 0, 0,
-    65, 0, 0, 0, 64, 0, 0, 0, 60, 0, 0, 0, 0, 0, 0, 0,
+    57, 0, 0, 0, 60, 0, 0, 0, 64, 0, 0, 0, 67, 0, 0, 0,
+    65, 0, 0, 0, 0, 0, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    64, 0, 0, 0, 67, 0, 0, 0, 72, 0, 0, 0, 0, 0, 0, 0,
+    71, 0, 0, 0, 0, 0, 67, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    69, 0, 0, 0, 72, 0, 0, 0, 76, 0, 0, 0, 0, 0, 0, 0,
+    65, 0, 0, 0, 69, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    64, 0, 0, 0, 63, 0, 0, 0, 0, 0, 59, 0, 0, 0, 0, 0,
+    57, 0, 0, 0, 0, 0, 60, 0, 64, 0, 0, 0, 0, 0, 0, 0,
   ],
   swing: 0.1,
   intensity: 0.25,
 };
 
-const SONGS: Record<SongId, Song> = { dungeon: DUNGEON, boss: BOSS, menu: MENU };
+const SONGS: Record<SongId, Song> = { dungeon: HEROIC, boss: BOSS, menu: MENU };
+
+// Each level theme picks a dungeon song so the music shifts with the mood.
+const THEME_SONGS: Record<ThemeId, Song> = {
+  crypt: HEROIC,
+  molten: DRIVING,
+  frost: ETHEREAL,
+  toxic: OMINOUS,
+  clockwork: DRIVING,
+  arena: DRIVING,
+  bog: OMINOUS,
+  storm: FINALE,
+  shadow: ETHEREAL,
+  sanctum: FINALE,
+};
 
 class AudioSystem {
   private ctx: AudioContext | null = null;
@@ -100,7 +206,9 @@ class AudioSystem {
   private timer: number | null = null;
   private nextStepTime = 0;
   private step = 0;
-  private song: Song = DUNGEON;
+  private song: Song = HEROIC;
+  /** Which dungeon song the current level theme has selected. */
+  private dungeonSong: Song = HEROIC;
   private playingId: SongId | null = null;
   private padNodes: AudioNode[] = [];
 
@@ -305,10 +413,20 @@ class AudioSystem {
   }
 
   private startProcedural(id: SongId): void {
-    this.song = SONGS[id];
+    this.song = id === 'dungeon' ? this.dungeonSong : SONGS[id];
     this.step = 0;
     this.nextStepTime = this.ctx!.currentTime + 0.06;
     this.timer = window.setInterval(() => this.scheduler(), 25);
+  }
+
+  /** Pick the dungeon song that matches a level theme. Call before playMusic. */
+  setDungeonTheme(theme: ThemeId): void {
+    this.dungeonSong = THEME_SONGS[theme] ?? HEROIC;
+    // If the dungeon song is already playing procedurally, swap it live.
+    if (this.playingId === 'dungeon' && this.timer !== null) {
+      this.song = this.dungeonSong;
+      this.step = 0;
+    }
   }
 
   stopMusic(): void {

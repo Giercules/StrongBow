@@ -19,14 +19,19 @@ import {
   AURA_RADIUS,
   WARDEN_HEAL_INTERVAL,
   GROUP_XP_SHARE,
+  COMPANION_TELEPORT_DISTANCE,
+  COMPANION_TELEPORT_MS,
 } from '../core/constants';
 import * as art from '../rendering/spriteArt';
+import { getThemeArt } from '../rendering/Palette';
 import { settings } from '../core/GameSettings';
 import { formatHudControls } from '../core/KeyBindings';
-import type { HeroClassId, LevelData, HudRegistryData, HudHeroSlot, ItemDefinition, ItemSlot, EnemyId } from '../core/types';
+import type { HeroClassId, LevelData, HudRegistryData, HudHeroSlot, ItemDefinition, ItemSlot, EnemyId, Grade, ThemeId } from '../core/types';
 import { Content } from '../content/ContentRegistry';
 import { ALL_CLASSES } from '../data/heroes';
 import { ITEMS } from '../data/items';
+import { GRADES } from '../data/grades';
+import { rollDrop, monsterDropChance, generatorDropChance } from '../systems/LootSystem';
 import { describeItem } from '../data/pickupInfo';
 import { Hero } from '../entities/Hero';
 import { Companion } from '../entities/Companion';
@@ -35,8 +40,8 @@ import { Generator } from '../entities/Generator';
 import { ShadowSystem } from '../systems/ShadowSystem';
 import { DungeonInput } from '../systems/DungeonInput';
 import { FlowField } from '../systems/Pathfinding';
-import { saveGame } from '../systems/SaveSystem';
 import type { SaveData, SaveAlly } from '../systems/SaveSystem';
+import { SaveLoadUI } from '../ui/SaveLoadUI';
 import { audio } from '../systems/AudioSystem';
 import { aiService } from '../ai/AIService';
 import { InventoryUI } from '../ui/InventoryUI';
@@ -52,6 +57,30 @@ interface Pickup { sprite: Phaser.GameObjects.Image | Phaser.GameObjects.Sprite;
 interface LockedDoor { rect: Phaser.GameObjects.Rectangle; sprite: Phaser.GameObjects.Image; x: number; y: number; open: boolean; }
 interface Projectile { spr: Phaser.GameObjects.Sprite; vx: number; vy: number; dmg: number; crit: boolean; bornAt: number; ttl: number; owner: Hero; }
 interface EnemyProjectile { spr: Phaser.GameObjects.Sprite; vx: number; vy: number; dmg: number; bornAt: number; ttl: number; }
+
+// Per-theme mood: the colour of the party/ambient light and the drifting motes
+// (embers rise, snow/sparks fall, spores/dust drift) that fill the play area.
+interface Atmosphere {
+  lightTint: number;
+  particleTint: number;
+  flameTint: number; // torch flame + its glow
+  portalTint: number; // exit portal + its glow
+  edgeTint: number; // screen-edge colour grade
+  mode: 'rise' | 'fall' | 'drift';
+  frequency: number;
+}
+const ATMOSPHERE: Record<ThemeId, Atmosphere> = {
+  crypt: { lightTint: 0xfff0d0, particleTint: 0x8a93bd, flameTint: 0xff9a3a, portalTint: 0xb58aff, edgeTint: 0x24305a, mode: 'drift', frequency: 520 },
+  molten: { lightTint: 0xffb070, particleTint: 0xff8a1e, flameTint: 0xff8a1e, portalTint: 0xff9a3a, edgeTint: 0x6a1e08, mode: 'rise', frequency: 150 },
+  frost: { lightTint: 0xbfe0ff, particleTint: 0xeaf6ff, flameTint: 0x9fd0ff, portalTint: 0x7fd0ff, edgeTint: 0x1d4a72, mode: 'fall', frequency: 130 },
+  toxic: { lightTint: 0xa8e08a, particleTint: 0x8ce05a, flameTint: 0x9ce05a, portalTint: 0x9ce05a, edgeTint: 0x1e4a1c, mode: 'rise', frequency: 240 },
+  clockwork: { lightTint: 0xe6c264, particleTint: 0xffd24a, flameTint: 0xffb84a, portalTint: 0xffd24a, edgeTint: 0x4a3a16, mode: 'fall', frequency: 380 },
+  arena: { lightTint: 0xff9a7a, particleTint: 0xff8a1e, flameTint: 0xff7a3a, portalTint: 0xff7a3a, edgeTint: 0x6a1410, mode: 'rise', frequency: 200 },
+  bog: { lightTint: 0x9fd0a0, particleTint: 0x7fce58, flameTint: 0x8fd06a, portalTint: 0x8fd06a, edgeTint: 0x1c3a22, mode: 'drift', frequency: 240 },
+  storm: { lightTint: 0xb0c8ff, particleTint: 0xcfe0ff, flameTint: 0xcfe0ff, portalTint: 0xcfe0ff, edgeTint: 0x222a5a, mode: 'fall', frequency: 110 },
+  shadow: { lightTint: 0x9a7ab0, particleTint: 0x8a6ab0, flameTint: 0xb58aff, portalTint: 0xc79bff, edgeTint: 0x281a44, mode: 'drift', frequency: 300 },
+  sanctum: { lightTint: 0xffe0a0, particleTint: 0xffd24a, flameTint: 0xffd24a, portalTint: 0xffe7a0, edgeTint: 0x5a4a1e, mode: 'rise', frequency: 220 },
+};
 
 export class DungeonScene extends Phaser.Scene {
   private level!: LevelData;
@@ -85,10 +114,20 @@ export class DungeonScene extends Phaser.Scene {
   private gameOverUI!: GameOverUI;
   private sheetUI!: CharacterSheetUI;
   private manualUI!: GameManualUI;
+  private saveLoadUI!: SaveLoadUI;
+  private pendingThumb?: string;
 
   private escKey!: Phaser.Input.Keyboard.Key;
   private continueKey!: Phaser.Input.Keyboard.Key;
   private menuKey!: Phaser.Input.Keyboard.Key;
+  private dodgeKey!: Phaser.Input.Keyboard.Key;
+  private abilityKey!: Phaser.Input.Keyboard.Key;
+
+  private mmDots?: Phaser.GameObjects.Graphics;
+  private mmX = 0;
+  private mmY = 0;
+  private mmCW = 0;
+  private mmCH = 0;
 
   private barkText!: Phaser.GameObjects.Text;
 
@@ -108,6 +147,8 @@ export class DungeonScene extends Phaser.Scene {
   private collectedIds = new Set<number>();
   private flow!: FlowField;
   private nextFlowAt = 0;
+  /** Per-companion timer tracking how long it has been beyond teleport range. */
+  private compFarSince = new Map<Companion, number>();
 
   constructor() {
     super('DungeonScene');
@@ -151,14 +192,25 @@ export class DungeonScene extends Phaser.Scene {
 
     this.add.image(PLAY_AREA_WIDTH / 2, GAME_HEIGHT / 2, 'fx-vignette').setScrollFactor(0).setDepth(DEPTH.VIGNETTE);
 
-    // soft warm light that travels with the party so heroes are always lit
+    // soft light that travels with the party so heroes are always lit; its tint
+    // shifts with the level theme for instant mood.
+    const atmo = ATMOSPHERE[this.level.theme ?? 'crypt'] ?? ATMOSPHERE.crypt;
     this.partyLight = this.add
       .image(this.cameraTarget.x, this.cameraTarget.y, 'fx-light')
       .setScale(2.6)
       .setAlpha(0.3)
-      .setTint(0xfff0d0)
+      .setTint(atmo.lightTint)
       .setBlendMode(Phaser.BlendModes.ADD)
       .setDepth(DEPTH.VIGNETTE - 1);
+    // themed screen-edge colour grade, layered over the dark vignette
+    this.add
+      .image(PLAY_AREA_WIDTH / 2, GAME_HEIGHT / 2, 'fx-edge')
+      .setScrollFactor(0)
+      .setDepth(DEPTH.VIGNETTE + 1)
+      .setTint(atmo.edgeTint)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setAlpha(0.55);
+    this.spawnAmbience(this.level.theme ?? 'crypt');
 
     this.input2 = new DungeonInput(this);
     this.inventoryUI = new InventoryUI(this);
@@ -166,12 +218,16 @@ export class DungeonScene extends Phaser.Scene {
     this.sheetUI = new CharacterSheetUI(this);
     this.manualUI = new GameManualUI(this);
     this.gameOverUI = new GameOverUI(this);
+    this.saveLoadUI = new SaveLoadUI(this);
     this.settingsUI = new SettingsUI(this, { input: this.input2, onOpenManual: () => this.manualUI.open() });
     const kb = this.input.keyboard!;
     this.escKey = kb.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
     this.continueKey = kb.addKey(Phaser.Input.Keyboard.KeyCodes.C);
     this.menuKey = kb.addKey(Phaser.Input.Keyboard.KeyCodes.M);
-    kb.on('keydown-F2', () => this.quickSave());
+    this.dodgeKey = kb.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+    this.abilityKey = kb.addKey(Phaser.Input.Keyboard.KeyCodes.F);
+    kb.on('keydown-F2', () => this.toggleSaveLoad());
+    this.buildMinimap();
 
     this.barkText = this.add
       .text(PLAY_AREA_WIDTH / 2, GAME_HEIGHT - 40, '', {
@@ -194,12 +250,18 @@ export class DungeonScene extends Phaser.Scene {
     }
 
     audio.unlock();
+    audio.setDungeonTheme(this.level.theme ?? 'crypt');
     audio.playMusic('dungeon');
     this.startTime = this.time.now;
 
-    this.quest = `Clear ${this.level.name}: destroy the generators and slay its master.`;
+    this.quest = `Clear ${this.level.name}: destroy the altars and slay its warden.`;
     if (!save) void aiService.generateQuest(this.level.name).then((q) => { if (q) this.quest = q; });
-    void aiService.generateBark('the heroes enter the sunken crypt').then((b) => this.showBark(b));
+    // Lead with the chapter's own story beat, then let the AI narrator layer on top.
+    const chapterTag = this.level.chapter ? `${this.level.chapter} — ` : '';
+    if (this.level.story) this.showBark(`${chapterTag}${this.level.story}`);
+    void aiService
+      .generateBark(`the heroes enter ${this.level.name}`)
+      .then((b) => { if (b) this.showBark(b); });
 
     this.scene.launch('HudScene');
     this.syncHudData();
@@ -230,6 +292,7 @@ export class DungeonScene extends Phaser.Scene {
     this.activeIdx = 0;
     this.lavaTick = new Map();
     this.collectedIds = new Set();
+    this.compFarSince = new Map();
   }
 
   private tileCenter(tx: number, ty: number): { x: number; y: number } {
@@ -247,6 +310,8 @@ export class DungeonScene extends Phaser.Scene {
     const t = this.level.tiles;
     const W = this.level.width;
     const H = this.level.height;
+    const ta = getThemeArt(this.level.theme);
+    const atmo = ATMOSPHERE[this.level.theme ?? 'crypt'] ?? ATMOSPHERE.crypt;
     const isWall = (x: number, y: number) => y >= 0 && y < H && x >= 0 && x < W && t[y][x] === Tile.WALL;
 
     // Pre-render the whole floor/wall layer onto ONE canvas texture and show it as
@@ -268,11 +333,14 @@ export class DungeonScene extends Phaser.Scene {
         if (tile === Tile.VOID) continue;
         if (tile === Tile.WALL) {
           if (extWall) bgCtx.drawImage(extWall, px, py, TILE_SIZE, TILE_SIZE);
-          else art.drawWall(bgCtx, px, py, !isWall(x, y - 1), x * 7 + y * 13);
+          else {
+            art.drawWall(bgCtx, px, py, !isWall(x, y - 1), x * 7 + y * 13, ta.wall);
+            art.drawWallRoof(bgCtx, px, py, this.level.theme ?? 'crypt', x * 13 + y * 7 + 3);
+          }
           continue;
         }
         if (extFloor) bgCtx.drawImage(extFloor, px, py, TILE_SIZE, TILE_SIZE);
-        else art.drawFloor(bgCtx, px, py, x * 131 + y * 17 + 1000);
+        else art.drawFloor(bgCtx, px, py, x * 131 + y * 17 + 1000, ta.floor);
         if (tile === Tile.DOOR) art.drawDoor(bgCtx, px, py, false);
         else if (tile === Tile.ICE) art.drawIce(bgCtx, px, py, x * 131 + y * 17 + 7);
       }
@@ -290,18 +358,18 @@ export class DungeonScene extends Phaser.Scene {
         const py = y * TILE_SIZE;
         if (y > 0 && t[y - 1][x] === Tile.WALL) {
           // 3D wall FRONT FACE overhanging the floor below (height illusion)
-          bgCtx.fillStyle = '#16234a';
+          bgCtx.fillStyle = ta.face.main;
           bgCtx.fillRect(px, py, TILE_SIZE, 9);
-          bgCtx.fillStyle = '#7d96d8';
+          bgCtx.fillStyle = ta.face.top;
           bgCtx.fillRect(px, py, TILE_SIZE, 1);
-          bgCtx.fillStyle = '#2c4080';
+          bgCtx.fillStyle = ta.face.upper;
           bgCtx.fillRect(px, py + 1, TILE_SIZE, 3);
-          bgCtx.fillStyle = '#1b2a55';
+          bgCtx.fillStyle = ta.face.lower;
           bgCtx.fillRect(px, py + 5, TILE_SIZE, 3);
-          bgCtx.fillStyle = '#070b1c';
+          bgCtx.fillStyle = ta.face.line;
           bgCtx.fillRect(px, py + 4, TILE_SIZE, 1);
           for (let mx = px + 3; mx < px + TILE_SIZE; mx += 6) {
-            bgCtx.fillStyle = '#070b1c';
+            bgCtx.fillStyle = ta.face.line;
             bgCtx.fillRect(mx, py + 1, 1, 3);
             bgCtx.fillRect(mx + 3, py + 5, 1, 3);
           }
@@ -332,9 +400,9 @@ export class DungeonScene extends Phaser.Scene {
     const bgKey = 'level-bg';
     if (this.textures.exists(bgKey)) this.textures.remove(bgKey);
     this.textures.addCanvas(bgKey, bgCanvas);
-    const bgImg = this.add.image(0, 0, bgKey).setOrigin(0, 0).setDepth(DEPTH.FLOOR);
-    // Cheap, strong theme identity: multiply-tint the whole baked floor/wall layer.
-    if (this.level.themeTint != null) bgImg.setTint(this.level.themeTint);
+    this.add.image(0, 0, bgKey).setOrigin(0, 0).setDepth(DEPTH.FLOOR);
+    // Walls/floors are now fully themed via per-theme palettes (THEME_ART), so the
+    // old flat multiply-tint is no longer applied — colours come from the bake.
 
     for (let y = 0; y < H; y++) {
       let runStart = -1;
@@ -368,21 +436,22 @@ export class DungeonScene extends Phaser.Scene {
         } else if (tile === Tile.ICE) {
           this.add.image(c.x, c.y, 'fx-glow-magic').setScale(1.1).setAlpha(0.12).setBlendMode(Phaser.BlendModes.ADD).setDepth(DEPTH.FLOOR + 2);
         } else if (tile === Tile.EXIT) {
-          this.add.sprite(c.x, c.y, 'portal-sheet').play('portal').setScale(1.2).setDepth(DEPTH.FLOOR + 3);
-          this.add.image(c.x, c.y, 'fx-glow-magic').setScale(3).setAlpha(0.5).setBlendMode(Phaser.BlendModes.ADD).setDepth(DEPTH.FLOOR + 2);
+          this.add.sprite(c.x, c.y, 'portal-sheet').play('portal').setScale(1.2).setDepth(DEPTH.FLOOR + 3).setTint(atmo.portalTint);
+          this.add.image(c.x, c.y, 'fx-glow-white').setScale(3).setAlpha(0.5).setBlendMode(Phaser.BlendModes.ADD).setDepth(DEPTH.FLOOR + 2).setTint(atmo.portalTint);
         } else if (tile === Tile.LOCKED_DOOR) {
           const spr = this.add.image(c.x, c.y, 'locked-door').setDepth(c.y);
           const rect = this.addBlocker(c.x, c.y, TILE_SIZE, TILE_SIZE);
           this.lockedDoors.push({ rect, sprite: spr, x, y, open: false });
         }
         if (tile === Tile.WALL && y + 1 < H && t[y + 1][x] === Tile.FLOOR && (x * 5 + y) % 5 === 0) {
-          this.add.sprite(c.x, c.y + 6, 'torch-sheet').play('torch').setDepth(c.y + 2);
+          this.add.sprite(c.x, c.y + 6, 'torch-sheet').play('torch').setDepth(c.y + 2).setTint(atmo.flameTint);
           const light = this.add
             .image(c.x, c.y + 16, 'fx-light')
             .setScale(1.2)
             .setAlpha(0.26)
             .setBlendMode(Phaser.BlendModes.ADD)
-            .setDepth(DEPTH.VIGNETTE - 1);
+            .setDepth(DEPTH.VIGNETTE - 1)
+            .setTint(atmo.flameTint);
           light.setData('ph', Math.random() * 6.28);
           this.torchLights.push(light);
         }
@@ -395,15 +464,37 @@ export class DungeonScene extends Phaser.Scene {
     }
 
     // ---- hand-placed set-piece decor ----
+    const flatDecor = new Set(['blood-stain', 'lilypad', 'sanctum-glyph', 'void-rift', 'lava-crack', 'rune-circle']);
+    const swayDecor = new Set(['banner', 'vines', 'frost-banner', 'cloth']);
+    const glowDecor: Record<string, string> = {
+      crystal: 'fx-glow-magic',
+      cog: 'fx-glow-warm',
+      'sky-crystal': 'fx-glow-magic',
+      'storm-rod': 'fx-glow-magic',
+      brazier: 'fx-glow-warm',
+      idol: 'fx-glow-warm',
+      'storm-orb': 'fx-glow-magic',
+      'gauge': 'fx-glow-warm',
+    };
     for (const d of this.level.decor ?? []) {
       const dc = this.tileCenter(d.x, d.y);
-      if (d.key === 'blood-stain') {
+      if (flatDecor.has(d.key)) {
         this.add.image(dc.x, dc.y, d.key).setDepth(DEPTH.FLOOR + 1).setAlpha(0.85);
-      } else if (d.key === 'crystal' || d.key === 'cog') {
+        if (d.key === 'void-rift') {
+          this.add.image(dc.x, dc.y, 'fx-glow-magic').setScale(1.3).setAlpha(0.3).setBlendMode(Phaser.BlendModes.ADD).setDepth(DEPTH.FLOOR + 2);
+        } else if (d.key === 'sanctum-glyph' || d.key === 'rune-circle') {
+          this.add.image(dc.x, dc.y, 'fx-glow-warm').setScale(1.2).setAlpha(0.32).setBlendMode(Phaser.BlendModes.ADD).setDepth(DEPTH.FLOOR + 2);
+        } else if (d.key === 'lava-crack') {
+          this.add.image(dc.x, dc.y, 'fx-glow-warm').setScale(1.2).setAlpha(0.4).setBlendMode(Phaser.BlendModes.ADD).setDepth(DEPTH.FLOOR + 2);
+        }
+      } else if (glowDecor[d.key]) {
         const s = this.add.image(dc.x, dc.y, d.key).setDepth(dc.y - 2);
-        const glow = d.key === 'crystal' ? 'fx-glow-magic' : 'fx-glow-warm';
-        this.add.image(dc.x, dc.y, glow).setScale(1.2).setAlpha(0.28).setBlendMode(Phaser.BlendModes.ADD).setDepth(dc.y - 3);
+        const glow = this.add.image(dc.x, dc.y, glowDecor[d.key]).setScale(1.2).setAlpha(0.28).setBlendMode(Phaser.BlendModes.ADD).setDepth(dc.y - 3);
+        this.tweens.add({ targets: glow, alpha: { from: 0.16, to: 0.4 }, scale: { from: 1.1, to: 1.35 }, duration: 1100 + Math.random() * 600, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
         this.floatBob(s);
+      } else if (swayDecor.has(d.key)) {
+        const s = this.add.image(dc.x, dc.y, d.key).setDepth(dc.y - 2);
+        this.tweens.add({ targets: s, scaleX: { from: 1, to: 0.9 }, duration: 1400 + Math.random() * 700, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
       } else {
         this.add.image(dc.x, dc.y, d.key).setDepth(dc.y - 2);
       }
@@ -470,11 +561,16 @@ export class DungeonScene extends Phaser.Scene {
     maxAlive = Math.max(1, Math.round(maxAlive * mc));
     interval = Math.max(700, Math.round(interval / mc));
     const gen = new Generator(this, c.x, c.y, enemyId as never, interval, maxAlive, hp);
-    gen.onSpawn = (g) =>
-      this.makeMonster(g.x + Phaser.Math.Between(-8, 8), g.y + Phaser.Math.Between(-4, 10), g.enemyId as EnemyId);
+    gen.onSpawn = (g) => {
+      const m = this.makeMonster(g.x + Phaser.Math.Between(-8, 8), g.y + Phaser.Math.Between(-4, 10), g.enemyId as EnemyId);
+      if (Math.random() < 0.09) this.eliteify(m);
+      return m;
+    };
     gen.onDestroyed = () => {
       this.generatorsDestroyed++;
-      this.showBark('A generator is destroyed!');
+      this.showBark('A spawning altar is destroyed!');
+      // Altars reliably cough up themed gear (honed or better).
+      if (Math.random() < generatorDropChance(this.bestLuck())) this.dropLoot(gen.x, gen.y, 'honed');
     };
     this.generators.push(gen);
     this.shadows.add(gen, 2);
@@ -574,6 +670,7 @@ export class DungeonScene extends Phaser.Scene {
     this.shadows.update();
     this.updateLighting(time);
     this.updateCamera();
+    this.updateMinimap();
     this.syncHudData();
   }
 
@@ -584,7 +681,8 @@ export class DungeonScene extends Phaser.Scene {
       this.settingsUI.isOpen() ||
       this.gameOverUI.isOpen() ||
       this.sheetUI.isOpen() ||
-      this.manualUI.isOpen()
+      this.manualUI.isOpen() ||
+      this.saveLoadUI.isOpen()
     );
   }
 
@@ -594,6 +692,7 @@ export class DungeonScene extends Phaser.Scene {
     if (this.settingsUI.isOpen()) this.settingsUI.close();
     if (this.sheetUI.isOpen()) this.sheetUI.close();
     if (this.manualUI.isOpen()) this.manualUI.close();
+    if (this.saveLoadUI.isOpen()) this.saveLoadUI.close();
   }
 
   private pollMenus(): void {
@@ -605,6 +704,9 @@ export class DungeonScene extends Phaser.Scene {
       else this.quitToMenu();
       return;
     }
+
+    // the save/load window swallows other menu hotkeys while open
+    if (this.saveLoadUI.isOpen()) return;
 
     if (this.input2.justDown('p1', 'sheet')) this.toggleSheet(0);
     if (this.input2.justDown('p1', 'inventory')) this.toggleInventory(0);
@@ -669,11 +771,30 @@ export class DungeonScene extends Phaser.Scene {
     const p1 = this.players[0];
     if (p1?.alive) {
       const m = this.input2.move('p1');
-      p1.setMoveInput(m.x, m.y);
-      if (m.x || m.y) this.activeIdx = 0;
+      let mvx = m.x;
+      let mvy = m.y;
+      // hold left mouse in the play area to walk toward the cursor (keyboard wins)
+      const ptr = this.input.activePointer;
+      if (mvx === 0 && mvy === 0 && ptr.isDown && ptr.x < PLAY_AREA_WIDTH) {
+        const wp = this.cameras.main.getWorldPoint(ptr.x, ptr.y);
+        const dx = wp.x - p1.x;
+        const dy = wp.y - p1.y;
+        const d = Math.hypot(dx, dy);
+        if (d > 10) {
+          mvx = dx / d;
+          mvy = dy / d;
+        }
+      }
+      p1.setMoveInput(mvx, mvy);
+      if (mvx || mvy) this.activeIdx = 0;
       if (this.input2.isDown('p1', 'attack')) p1.tryMelee(time);
       if (this.input2.justDown('p1', 'magic')) p1.tryMagic(time);
       if (this.input2.justDown('p1', 'use')) this.interact(p1);
+      if (Phaser.Input.Keyboard.JustDown(this.dodgeKey) && p1.tryDodge(time)) this.spawnDodgeFx(p1);
+      if (Phaser.Input.Keyboard.JustDown(this.abilityKey) && p1.canAbility(time)) {
+        this.useAbility(p1, time);
+        p1.markAbilityUsed(time);
+      }
     }
     if (p1) p1.tick(time, delta);
 
@@ -707,8 +828,205 @@ export class DungeonScene extends Phaser.Scene {
       }
     }
     for (const comp of this.companions) {
+      // If a companion falls way behind the party (stuck behind a gate, left
+      // across the map on level load), blink it to the leader after a grace.
+      if (comp.alive && leader && leader.alive) {
+        const far = Phaser.Math.Distance.Between(comp.x, comp.y, leader.x, leader.y);
+        if (far > COMPANION_TELEPORT_DISTANCE) {
+          const since = this.compFarSince.get(comp) ?? time;
+          this.compFarSince.set(comp, since);
+          if (time - since > COMPANION_TELEPORT_MS) {
+            this.teleportCompanion(comp, leader);
+            this.compFarSince.delete(comp);
+            continue;
+          }
+        } else {
+          this.compFarSince.delete(comp);
+        }
+      }
       const pathDir = leader && comp.alive ? this.flow.sample(comp.x, comp.y) : null;
       comp.aiTick(time, delta, leader, liveMonsters, pathDir);
+    }
+  }
+
+  /** Blink a companion to the party leader with a small puff of magic. */
+  private teleportCompanion(comp: Companion, leader: Hero): void {
+    let tx = leader.x + Phaser.Math.Between(-18, 18);
+    let ty = leader.y + Phaser.Math.Between(8, 24);
+    if (!this.isWalkable(Math.floor(tx / TILE_SIZE), Math.floor(ty / TILE_SIZE))) {
+      tx = leader.x;
+      ty = leader.y;
+    }
+    this.spawnBlink(comp.x, comp.y);
+    comp.setPosition(tx, ty);
+    const body = comp.body as Phaser.Physics.Arcade.Body | null;
+    if (body) body.reset(tx, ty);
+    comp.setMoveInput(0, 0);
+    this.spawnBlink(tx, ty);
+    audio.sfx('portal');
+  }
+
+  private spawnBlink(x: number, y: number): void {
+    const fx = this.add
+      .image(x, y - 6, 'fx-glow-magic')
+      .setDepth(y + 12)
+      .setScale(1.2)
+      .setAlpha(0.85)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    this.tweens.add({ targets: fx, alpha: 0, scale: 2.2, duration: 320, ease: 'Quad.easeOut', onComplete: () => fx.destroy() });
+  }
+
+  /** A subtle, camera-fixed ambient particle layer themed to the level. */
+  private spawnAmbience(theme: ThemeId): void {
+    const a = ATMOSPHERE[theme] ?? ATMOSPHERE.crypt;
+    let y: { min: number; max: number };
+    let speedY: { min: number; max: number };
+    let speedX: { min: number; max: number };
+    if (a.mode === 'rise') {
+      y = { min: GAME_HEIGHT - 8, max: GAME_HEIGHT + 6 };
+      speedY = { min: -34, max: -12 };
+      speedX = { min: -8, max: 8 };
+    } else if (a.mode === 'fall') {
+      y = { min: -8, max: 2 };
+      speedY = { min: 14, max: 40 };
+      speedX = { min: -10, max: 10 };
+    } else {
+      y = { min: 0, max: GAME_HEIGHT };
+      speedY = { min: -10, max: 10 };
+      speedX = { min: -14, max: 14 };
+    }
+    const p = this.add.particles(0, 0, 'fx-glow-white', {
+      x: { min: 0, max: PLAY_AREA_WIDTH },
+      y,
+      lifespan: a.mode === 'drift' ? 5200 : 4200,
+      speedX,
+      speedY,
+      scale: { start: 0.5, end: 0 },
+      alpha: { start: 0.45, end: 0 },
+      frequency: a.frequency,
+      tint: a.particleTint,
+      blendMode: 'ADD',
+    });
+    p.setScrollFactor(0).setDepth(DEPTH.VIGNETTE - 2);
+  }
+
+  private spawnDodgeFx(h: Hero): void {
+    const fx = this.add.image(h.x, h.y, 'fx-glow-white').setDepth(h.y - 1).setScale(1.4).setAlpha(0.5).setBlendMode(Phaser.BlendModes.ADD);
+    this.tweens.add({ targets: fx, alpha: 0, scaleX: 2.4, duration: 240, onComplete: () => fx.destroy() });
+  }
+
+  private abilityName(c: HeroClassId): string {
+    const names: Record<HeroClassId, string> = { vanguard: 'Shield Slam', strider: 'Multishot', arcanist: 'Arcane Nova', warden: 'Sanctuary' };
+    return names[c];
+  }
+
+  /** Per-class active ability (key F), gated by Hero cooldown. */
+  private useAbility(h: Hero, time: number): void {
+    const cx = h.x;
+    const cy = h.y;
+    if (h.classId === 'strider') {
+      const base = Math.atan2(h.attackDir.y, h.attackDir.x);
+      for (let i = -2; i <= 2; i++) this.fireProjectile(h, { x: Math.cos(base + i * 0.2), y: Math.sin(base + i * 0.2) }, time);
+      audio.sfx('swing');
+    } else if (h.classId === 'warden') {
+      for (const a of this.allies) {
+        if (!a.alive) continue;
+        a.heal(Math.round(a.stats.maxHealth * 0.35));
+        a.restoreMana(Math.round(a.stats.maxMana * 0.3));
+        const fx = this.add.image(a.x, a.y - 6, 'fx-glow-green').setDepth(a.y + 8).setScale(1.3).setBlendMode(Phaser.BlendModes.ADD);
+        this.tweens.add({ targets: fx, alpha: 0, scale: 2.2, duration: 520, onComplete: () => fx.destroy() });
+      }
+      audio.sfx('shrine');
+    } else {
+      const radius = h.classId === 'arcanist' ? 110 : 92;
+      const dmg = Math.round(h.classId === 'arcanist' ? h.magicDamage() * 1.6 : h.attackDamage().dmg * 1.8);
+      const ring = this.add.sprite(cx, cy, 'fx-magic').setDepth(cy + 20).setScale((radius * 2) / 32);
+      ring.play('fx-magic');
+      ring.once('animationcomplete', () => ring.destroy());
+      if (h.classId === 'vanguard') ring.setTint(0x9fd0ff);
+      for (const m of this.monsters) {
+        if (!m.active || !m.alive) continue;
+        const dx = m.x - cx;
+        const dy = m.y - cy;
+        const l = Math.hypot(dx, dy) || 1;
+        if (l <= radius) {
+          const died = m.takeDamage(dmg, time);
+          this.floatDamage(m.x, m.y, dmg, true);
+          if (died) this.onMonsterKilled(h, m);
+          else {
+            m.knock((dx / l) * 220, (dy / l) * 220, time);
+            m.applyStatus(h.classId === 'arcanist' ? 'chill' : 'shock', 1600, time);
+          }
+        }
+      }
+      for (const g of this.generators) {
+        if (!g.alive) continue;
+        if (Phaser.Math.Distance.Between(cx, cy, g.x, g.y) <= radius) g.takeDamage(dmg, time);
+      }
+      audio.sfx(h.classId === 'arcanist' ? 'magic' : 'hit');
+    }
+    const flash = this.add.image(cx, cy, 'fx-glow-warm').setScale(2.4).setAlpha(0.7).setBlendMode(Phaser.BlendModes.ADD).setDepth(cy + 10);
+    this.tweens.add({ targets: flash, alpha: 0, scale: 3.4, duration: 420, onComplete: () => flash.destroy() });
+    this.showBark(`${h.def.name} unleashes ${this.abilityName(h.classId)}!`);
+  }
+
+  // ---- minimap ----
+  private buildMinimap(): void {
+    const W = this.level.width;
+    const H = this.level.height;
+    const t = this.level.tiles;
+    const cv = document.createElement('canvas');
+    cv.width = W;
+    cv.height = H;
+    const c2 = cv.getContext('2d')!;
+    c2.fillStyle = 'rgba(10,12,20,0.6)';
+    c2.fillRect(0, 0, W, H);
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) {
+        const tile = t[y][x];
+        if (tile === Tile.VOID) continue;
+        c2.fillStyle =
+          tile === Tile.WALL ? '#39406a' : tile === Tile.EXIT ? '#ffd24a' : tile === Tile.LOCKED_DOOR ? '#c06bff' : '#7a86b0';
+        c2.fillRect(x, y, 1, 1);
+      }
+    }
+    const key = 'minimap-bg';
+    if (this.textures.exists(key)) this.textures.remove(key);
+    this.textures.addCanvas(key, cv);
+    const cw = 120;
+    const ch = Math.round((cw * H) / W);
+    const px = PLAY_AREA_WIDTH - cw - 12;
+    const py = 12;
+    this.add.image(px, py, key).setOrigin(0, 0).setScrollFactor(0).setDepth(DEPTH.OVERLAY - 6).setDisplaySize(cw, ch).setAlpha(0.82);
+    const b = this.add.graphics().setScrollFactor(0).setDepth(DEPTH.OVERLAY - 5);
+    b.lineStyle(1, 0xcfa64e, 0.8);
+    b.strokeRect(px - 1, py - 1, cw + 2, ch + 2);
+    this.mmX = px;
+    this.mmY = py;
+    this.mmCW = cw;
+    this.mmCH = ch;
+    this.mmDots = this.add.graphics().setScrollFactor(0).setDepth(DEPTH.OVERLAY - 4);
+  }
+
+  private updateMinimap(): void {
+    const g = this.mmDots;
+    if (!g) return;
+    g.clear();
+    const mapX = (wx: number): number => this.mmX + (wx / (this.level.width * TILE_SIZE)) * this.mmCW;
+    const mapY = (wy: number): number => this.mmY + (wy / (this.level.height * TILE_SIZE)) * this.mmCH;
+    for (const gn of this.generators) {
+      if (!gn.alive) continue;
+      g.fillStyle(0xc06bff, 1);
+      g.fillRect(mapX(gn.x) - 1, mapY(gn.y) - 1, 2, 2);
+    }
+    if (this.boss && this.bossAlive) {
+      g.fillStyle(0xe0392e, 1);
+      g.fillCircle(mapX(this.boss.x), mapY(this.boss.y), 2.5);
+    }
+    for (const a of this.allies) {
+      if (!a.alive) continue;
+      g.fillStyle(a.isPlayer ? 0x5fe06a : 0x4fa3ff, 1);
+      g.fillCircle(mapX(a.x), mapY(a.y), a.isPlayer ? 2.2 : 1.6);
     }
   }
 
@@ -735,6 +1053,7 @@ export class DungeonScene extends Phaser.Scene {
             const died = m.takeDamage(dmg, time);
             this.floatDamage(m.x, m.y, dmg, crit);
             if (died) this.onMonsterKilled(ally, m);
+            else this.applyHitEffects(ally, m, dir.x, dir.y, crit, time);
           }
         }
         for (const g of this.generators) {
@@ -767,12 +1086,27 @@ export class DungeonScene extends Phaser.Scene {
         const died = m.takeDamage(dmg, time);
         this.floatDamage(m.x, m.y, dmg, false);
         if (died) this.onMonsterKilled(ally, m);
+        else {
+          const dx = m.x - ally.x;
+          const dy = m.y - ally.y;
+          const l = Math.hypot(dx, dy) || 1;
+          m.knock((dx / l) * 90, (dy / l) * 90, time);
+          m.applyStatus('chill', 1800, time); // magic blasts chill
+          if (ally.stats.fire > 0) m.applyStatus('burn', 1400, time);
+        }
       }
     }
     for (const g of this.generators) {
       if (!g.alive) continue;
       if (Phaser.Math.Distance.Between(ally.x, ally.y, g.x, g.y) <= radius) g.takeDamage(dmg, time);
     }
+  }
+
+  /** Knockback + on-hit status from a melee/projectile strike. */
+  private applyHitEffects(attacker: Hero, m: Monster, dirX: number, dirY: number, crit: boolean, time: number): void {
+    m.knock(dirX * 150, dirY * 150, time);
+    if (attacker.stats.fire > 0) m.applyStatus('burn', 1600, time);
+    if (crit) m.applyStatus('shock', 1200, time);
   }
 
   private fireProjectile(owner: Hero, dir: { x: number; y: number }, time: number): void {
@@ -807,6 +1141,10 @@ export class DungeonScene extends Phaser.Scene {
             const died = m.takeDamage(p.dmg, time);
             this.floatDamage(m.x, m.y, p.dmg, p.crit);
             if (died) this.onMonsterKilled(p.owner, m);
+            else {
+              const l = Math.hypot(p.vx, p.vy) || 1;
+              this.applyHitEffects(p.owner, m, p.vx / l, p.vy / l, p.crit, time);
+            }
             dead = true;
             break;
           }
@@ -831,6 +1169,23 @@ export class DungeonScene extends Phaser.Scene {
     return m;
   }
 
+  /** Promote a monster to a champion: tougher, harder-hitting, gold sheen, guaranteed loot. */
+  private eliteify(m: Monster): void {
+    m.isElite = true;
+    m.dmgMult = 1.4;
+    m.maxHealth = Math.round(m.maxHealth * 2.3);
+    m.health = m.maxHealth;
+    m.setScale(m.scaleX * 1.35);
+    const fx = this.add
+      .image(m.x, m.y, 'fx-glow-warm')
+      .setTint(0xffd24a)
+      .setScale(2)
+      .setAlpha(0.7)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setDepth(m.y - 1);
+    this.tweens.add({ targets: fx, alpha: 0, scale: 3.2, duration: 520, onComplete: () => fx.destroy() });
+  }
+
   private spawnEnemyShot(m: Monster, ux: number, uy: number): void {
     const speed = m.def.projectileSpeed ?? 200;
     const spr = this.add
@@ -838,7 +1193,7 @@ export class DungeonScene extends Phaser.Scene {
       .setDepth(m.y + 6)
       .setScale(1.5)
       .setTint(0xff7a3a);
-    this.enemyProjectiles.push({ spr, vx: ux * speed, vy: uy * speed, dmg: m.def.damage, bornAt: this.time.now, ttl: 2400 });
+    this.enemyProjectiles.push({ spr, vx: ux * speed, vy: uy * speed, dmg: Math.round(m.def.damage * m.dmgMult), bornAt: this.time.now, ttl: 2400 });
   }
 
   private summonAdds(m: Monster): void {
@@ -858,7 +1213,7 @@ export class DungeonScene extends Phaser.Scene {
 
   private enemyNova(m: Monster, radius: number): void {
     const time = this.time.now;
-    const dmg = Math.round(m.def.damage * 0.8);
+    const dmg = Math.round(m.def.damage * 0.8 * m.dmgMult);
     for (const a of this.allies) {
       if (!a.alive) continue;
       if (Phaser.Math.Distance.Between(m.x, m.y, a.x, a.y) <= radius) {
@@ -912,12 +1267,55 @@ export class DungeonScene extends Phaser.Scene {
         if (a !== killer && a.alive) a.gainXP(share);
       }
     }
+    // Champions always drop strong themed loot; regular foes roll by luck.
+    if (m.isElite) {
+      this.dropLoot(m.x, m.y, 'runed');
+    } else if (!m.isBoss && Math.random() < monsterDropChance(killer.stats.luck ?? 0)) {
+      const floor: Grade | undefined = m.def.xp >= 28 ? 'honed' : undefined;
+      this.dropLoot(m.x, m.y, floor);
+    }
+  }
+
+  /** Highest luck among the living party — loot rolls use the party's best. */
+  private bestLuck(): number {
+    let best = 0;
+    for (const a of this.allies) if (a.alive) best = Math.max(best, a.stats.luck ?? 0);
+    return best;
+  }
+
+  /** Mint a themed, graded item and drop it into the world as a pickup. */
+  private dropLoot(x: number, y: number, floor?: Grade): void {
+    const theme = this.level.theme ?? 'crypt';
+    const item = rollDrop(theme, this.bestLuck(), floor ? { floor } : {});
+    this.spawnLootPickup(x, y, item);
+  }
+
+  private spawnLootPickup(x: number, y: number, item: ItemDefinition): void {
+    const color = item.grade ? GRADES[item.grade].color : '#ffe9a8';
+    const tint = Phaser.Display.Color.HexStringToColor(color).color;
+    const spr = this.add.image(x, y, item.icon).setDepth(y);
+    const glow = this.add
+      .image(x, y, 'fx-glow-warm')
+      .setScale(1.5)
+      .setAlpha(0.5)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setDepth(y - 1)
+      .setTint(tint);
+    this.tweens.add({ targets: glow, alpha: { from: 0.5, to: 0.28 }, scale: { from: 1.5, to: 1.2 }, duration: 700, yoyo: true, repeat: -1 });
+    // little pop so a fresh drop reads as "new"
+    spr.setScale(0);
+    this.tweens.add({ targets: spr, scale: 1, duration: 240, ease: 'Back.easeOut', onComplete: () => this.floatBob(spr) });
+    this.pickups.push({ sprite: spr, kind: 'item', value: 0, itemId: item.id });
+    this.floatPickup(x, y - 8, item.name, color);
   }
 
   private onBossDeath(): void {
     this.bossAlive = false;
-    this.showBark('The Grave Warden falls! The exit awakens.');
+    const bossName = this.boss?.def.name ?? 'The warden';
+    this.showBark(`${bossName} falls! The exit awakens.`);
     audio.sfx('victory');
+    // The realm's warden always yields a guaranteed, high-grade themed reward.
+    if (this.boss) this.dropLoot(this.boss.x, this.boss.y, 'runed');
   }
 
   private floatDamage(x: number, y: number, amount: number, crit: boolean): void {
@@ -1003,17 +1401,18 @@ export class DungeonScene extends Phaser.Scene {
         audio.sfx('coin');
         this.floatPickup(p.sprite.x, p.sprite.y, `Crypt Ration  +${p.value} HP`, '#7dffa0');
       } else if (p.kind === 'potion' && p.itemId) {
-        const item = ITEMS[p.itemId];
+        const item = Content.item(p.itemId);
         if (item) collector.inventory.add(item);
         audio.sfx('coin');
         this.floatPickup(p.sprite.x, p.sprite.y, item ? describeItem(item) : 'Potion', '#ff9ad0');
       } else if (p.kind === 'item' && p.itemId) {
-        const item = ITEMS[p.itemId];
+        const item = Content.item(p.itemId);
         if (item) {
           collector.inventory.add(item);
           collector.refreshStats();
+          const col = item.grade ? GRADES[item.grade].color : '#ffe9a8';
           this.showBark(`Picked up ${describeItem(item)}`);
-          this.floatPickup(p.sprite.x, p.sprite.y, describeItem(item), '#ffe9a8');
+          this.floatPickup(p.sprite.x, p.sprite.y, item.name, col);
         }
         audio.sfx('chest');
       } else if (p.kind === 'key') {
@@ -1073,13 +1472,13 @@ export class DungeonScene extends Phaser.Scene {
       if (Phaser.Math.Distance.Between(player.x, player.y, c.x, c.y) < 26) {
         ch.opened = true;
         ch.sprite.setTexture('chest-open');
-        const item = ITEMS[ch.itemId];
-        if (item) {
-          player.inventory.add(item);
-          player.refreshStats();
-          this.showBark(`Found: ${describeItem(item)}`);
-          void aiService.generateItemFlavor(item.name);
-        }
+        // Chests reward themed, graded gear (Honed floor) tuned by the opener's luck.
+        const item = rollDrop(this.level.theme ?? 'crypt', player.stats.luck ?? 0, { floor: 'honed' });
+        player.inventory.add(item);
+        player.refreshStats();
+        this.showBark(`Found: ${describeItem(item)}`);
+        this.floatPickup(player.x, player.y, item.name, item.grade ? GRADES[item.grade].color : '#ffe9a8');
+        void aiService.generateItemFlavor(item.name);
         audio.sfx('chest');
         return;
       }
@@ -1327,11 +1726,74 @@ export class DungeonScene extends Phaser.Scene {
     this.registry.set(HUD_REGISTRY_KEY, data);
   }
 
-  private quickSave(): void {
+  /** Open the save/load window (F2). Captures a fresh screenshot first. */
+  private toggleSaveLoad(): void {
+    if (this.saveLoadUI.isOpen()) {
+      this.saveLoadUI.close();
+      return;
+    }
     if (this.won || this.gameOverUI.isOpen()) return;
-    const ok = saveGame(this.buildSave());
-    this.showBark(ok ? 'Progress saved.' : 'Save failed (storage blocked).');
     audio.sfx('ui_select');
+    this.captureThumb((thumb) => {
+      this.pendingThumb = thumb;
+      this.closeAllOverlays();
+      this.saveLoadUI.open({
+        mode: 'full',
+        handleEsc: false,
+        getSaveData: () => {
+          const d = this.buildSave();
+          d.thumbnail = this.pendingThumb;
+          return d;
+        },
+        onLoad: (save) => this.loadFromSave(save),
+      });
+    });
+  }
+
+  /** Grab a small JPEG preview of the current play area. */
+  private captureThumb(cb: (data?: string) => void): void {
+    try {
+      this.game.renderer.snapshotArea(0, 0, PLAY_AREA_WIDTH, GAME_HEIGHT, (img) => {
+        try {
+          const el = img as HTMLImageElement;
+          const finish = (): void => {
+            try {
+              const cv = document.createElement('canvas');
+              cv.width = 256;
+              cv.height = 144;
+              const c = cv.getContext('2d');
+              if (!c) return cb(undefined);
+              c.drawImage(el, 0, 0, 256, 144);
+              cb(cv.toDataURL('image/jpeg', 0.5));
+            } catch {
+              cb(undefined);
+            }
+          };
+          if (el && (el as HTMLImageElement).complete && (el as HTMLImageElement).naturalWidth) finish();
+          else if (el) (el as HTMLImageElement).onload = finish;
+          else cb(undefined);
+        } catch {
+          cb(undefined);
+        }
+      });
+    } catch {
+      cb(undefined);
+    }
+  }
+
+  /** Restart the run from a chosen save (used by the in-game load window). */
+  private loadFromSave(save: SaveData): void {
+    this.registry.set('twoPlayer', save.twoPlayer);
+    const ps = save.allies.filter((a) => a.isPlayer).sort((a, b) => a.playerNum - b.playerNum);
+    this.registry.set('p1Class', ps[0]?.classId ?? 'vanguard');
+    if (ps[1]) this.registry.set('p2Class', ps[1].classId);
+    this.registry.set('levelId', save.levelId);
+    this.registry.remove('carryParty');
+    this.registry.set('loadSave', save);
+    audio.stopMusic();
+    this.time.timeScale = 1;
+    this.scene.stop('HudScene');
+    this.scene.start('DungeonScene');
   }
 
   private allyToSave(a: Hero): SaveAlly {
@@ -1376,10 +1838,10 @@ export class DungeonScene extends Phaser.Scene {
       a.attributes.points = sv.attrPoints;
       a.inventory.gold = sv.gold;
       a.inventory.keys = sv.keys;
-      a.inventory.bag = sv.bag.map((id) => ITEMS[id]).filter(Boolean);
+      a.inventory.bag = sv.bag.map((id) => Content.item(id)).filter(Boolean) as ItemDefinition[];
       a.inventory.equipped = {};
       for (const [slot, id] of Object.entries(sv.equipped)) {
-        const it = ITEMS[id];
+        const it = Content.item(id);
         if (it) a.inventory.equipped[slot as ItemSlot] = it;
       }
       a.recompute();
@@ -1388,9 +1850,11 @@ export class DungeonScene extends Phaser.Scene {
 
   private buildSave(): SaveData {
     return {
-      version: 1,
+      version: 2,
       savedAt: Date.now(),
       levelId: this.level.id,
+      levelName: this.level.name,
+      chapter: this.level.chapter,
       twoPlayer: this.twoPlayer,
       elapsedMs: this.time.now - this.startTime,
       quest: this.quest,
@@ -1403,12 +1867,15 @@ export class DungeonScene extends Phaser.Scene {
       doorsOpen: this.lockedDoors.map((d) => d.open),
       collectedPickups: [...this.collectedIds],
       allies: this.allies.map((a) => this.allyToSave(a)),
+      mintedItems: Content.mintedList(),
     };
   }
 
   private applySave(data: SaveData): void {
     this.quest = data.quest || this.quest;
     this.startTime = this.time.now - (data.elapsedMs || 0);
+    // Re-register any minted (dropped) gear so equipped/bag ids resolve.
+    Content.registerItems(data.mintedItems);
 
     for (const a of this.allies) {
       const sv = data.allies.find((m) => m.classId === a.classId);
@@ -1422,10 +1889,10 @@ export class DungeonScene extends Phaser.Scene {
       a.attributes.points = sv.attrPoints;
       a.inventory.gold = sv.gold;
       a.inventory.keys = sv.keys;
-      a.inventory.bag = sv.bag.map((id) => ITEMS[id]).filter(Boolean);
+      a.inventory.bag = sv.bag.map((id) => Content.item(id)).filter(Boolean) as ItemDefinition[];
       a.inventory.equipped = {};
       for (const [slot, id] of Object.entries(sv.equipped)) {
-        const it = ITEMS[id];
+        const it = Content.item(id);
         if (it) a.inventory.equipped[slot as ItemSlot] = it;
       }
       a.recompute();

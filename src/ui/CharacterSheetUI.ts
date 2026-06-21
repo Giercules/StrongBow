@@ -87,6 +87,7 @@ export class CharacterSheetUI {
       ['Crit', `${Math.round(s.critChance * 100)}%`],
       ['Fire', `${s.fire}`],
       ['Regen', `${s.regen.toFixed(1)}/s`],
+      ['Luck', `${s.luck}`],
     ];
     stats.forEach((st, i) => {
       const yy = y0 + 56 + i * 17;

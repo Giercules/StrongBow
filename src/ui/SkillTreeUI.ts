@@ -6,9 +6,9 @@ import { audio } from '../systems/AudioSystem';
 import type { Hero } from '../entities/Hero';
 
 const PANEL_W = 470;
-const PANEL_H = 430;
+const PANEL_H = 492;
 
-// "Growth" overlay - spend skill points (1-3) and attribute points (4-6).
+// "Growth" overlay - spend skill points (1-3) and attribute points (4-7).
 export class SkillTreeUI {
   private scene: Phaser.Scene;
   private modal: Modal | null = null;
@@ -52,7 +52,7 @@ export class SkillTreeUI {
     if (e.key >= '1' && e.key <= '3') {
       const sk = skills[Number(e.key) - 1];
       if (sk && this.hero.skillSet.upgrade(sk.id)) acted = true;
-    } else if (e.key >= '4' && e.key <= '6') {
+    } else if (e.key >= '4' && e.key <= '7') {
       const at = attrs[Number(e.key) - 4];
       if (at && this.hero.attributes.upgrade(at.id)) acted = true;
     }

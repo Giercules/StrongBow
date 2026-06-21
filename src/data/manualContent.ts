@@ -2,6 +2,7 @@ import { HERO_LORE } from './heroLore';
 import { HEROES, ALL_CLASSES } from './heroes';
 import { ENEMIES, ENEMY_IDS } from './enemies';
 import { ALL_ITEMS } from './items';
+import { ALL_THEME_BASES } from './themedItems';
 import { describeItemStats } from './pickupInfo';
 import type { EnemyId } from '../core/types';
 
@@ -14,11 +15,20 @@ export interface ManualEntry {
   lines: string[];
 }
 
+export interface ManualPortrait {
+  sheet: string; // texture key
+  frame?: number;
+  scale?: number;
+  caption?: string;
+}
+
 export interface ManualPage {
   title: string;
   kind?: 'text' | 'gallery';
   body?: string[];
   entries?: ManualEntry[];
+  /** Large framed illustration shown beside the body text (e.g. hero pages). */
+  portrait?: ManualPortrait;
 }
 
 function heroPage(classId: (typeof ALL_CLASSES)[number]): ManualPage {
@@ -27,8 +37,9 @@ function heroPage(classId: (typeof ALL_CLASSES)[number]): ManualPage {
   return {
     title: d.title,
     kind: 'text',
+    portrait: { sheet: `hero-${classId}-sheet`, frame: 0, scale: 5, caption: `${h.name} · ${h.role}` },
     body: [
-      `${h.role.toUpperCase()}    HP ${h.base.maxHealth}   MP ${h.base.maxMana}   DMG ${h.base.damage}   SPD ${h.base.speed}`,
+      `HP ${h.base.maxHealth}   MP ${h.base.maxMana}   DMG ${h.base.damage}   SPD ${h.base.speed}`,
       d.origin,
       `TACTICS - ${d.tactics}`,
       `Signature: ${h.signature}`,
@@ -46,28 +57,56 @@ const ENEMY_DESC: Record<EnemyId, string> = {
   brute: 'A hulking armoured horror. It winds up, then charges - sidestep the rush.',
   imp: 'A darting cinder-imp. Tiny and frail, but they swarm in deadly numbers.',
   molten_colossus: 'The molten heart of the deep. Survive its volleys and flame novas.',
+  // themed regulars
+  frost_shade: 'A spirit of the frozen choir. Quick and brittle - shatter it fast.',
+  rime_archer: 'A skeleton iced to its bow. Looses freezing shafts from cover.',
+  plague_ooze: 'A creeping mass of corruption. Slow, tough, and foul to touch.',
+  spore_imp: 'A toxic sprite that bursts in clouds. They come in choking swarms.',
+  gear_knight: 'A wound-up automaton that charges in straight, brutal lines.',
+  brass_sentinel: 'A turret-construct that rains brass bolts. Flank it from cover.',
+  gladiator: 'A damned arena-fighter, still hungry for the roar of the crowd.',
+  mire_lurker: 'A bog-fiend that erupts from the sludge. Watch the still water.',
+  storm_wisp: 'A mote of living lightning. Fast, far-striking, and hard to pin.',
+  sky_lancer: 'A wind-borne archer of the spire. Picks you off from on high.',
+  shadow_stalker: 'A prowler of smoke and claw. It closes the gap before you see it.',
+  void_imp: 'A shard of the hungry dark. Tiny, vicious, and endless.',
+  hollow_knight: 'An empty suit driven by the Undermaw. Heavily armoured, relentless.',
+  // themed bosses
+  rime_cantor: 'Conductor of the frozen choir. Its hymns summon shades and shards.',
+  rot_sovereign: 'The crowned plague-lord, weeping corruption and birthing ooze.',
+  brass_magnus: 'A colossal automaton, the vault’s final lock made flesh of brass.',
+  arena_champion: 'The undying victor of the pit. It has never lost. Not yet.',
+  mire_leviathan: 'A drowned titan risen from the bog to swallow trespassers whole.',
+  tempest_herald: 'The voice of the storm. It calls down lightning and living gales.',
+  umbral_devourer: 'A maw of pure shadow that eats light, warmth, and the unwary.',
+  hollow_king: 'The Undermaw’s chosen vessel. Slay it to seal the hunger forever.',
 };
 
-function bestiaryPage(): ManualPage {
-  return {
-    title: 'Bestiary',
-    kind: 'gallery',
-    entries: ENEMY_IDS.map((id) => {
-      const e = ENEMIES[id];
-      return {
-        icon: e.sheet,
-        frame: 0,
-        scale: e.isBoss ? 1.1 : 2.0,
-        title: e.name,
-        tag: `HP ${e.health}    DMG ${e.damage}    XP ${e.xp}`,
-        lines: [ENEMY_DESC[id]],
-      };
-    }),
-  };
+function bestiaryPages(): ManualPage[] {
+  const entries: ManualEntry[] = ENEMY_IDS.map((id) => {
+    const e = ENEMIES[id];
+    return {
+      icon: e.sheet,
+      frame: 0,
+      scale: e.isBoss ? 1.1 : 2.0,
+      title: e.name,
+      tag: `HP ${e.health}    DMG ${e.damage}    XP ${e.xp}`,
+      lines: [ENEMY_DESC[id]],
+    };
+  });
+  const pages: ManualPage[] = [];
+  for (let i = 0; i < entries.length; i += 6) {
+    pages.push({
+      title: i === 0 ? 'Bestiary' : 'Bestiary (cont.)',
+      kind: 'gallery',
+      entries: entries.slice(i, i + 6),
+    });
+  }
+  return pages;
 }
 
 function armoryPages(): ManualPage[] {
-  const entries: ManualEntry[] = ALL_ITEMS.map((it) => ({
+  const entries: ManualEntry[] = [...ALL_ITEMS, ...ALL_THEME_BASES].map((it) => ({
     icon: it.icon,
     scale: 2.2,
     title: it.name,
@@ -90,8 +129,31 @@ export const MANUAL_PAGES: ManualPage[] = [
     title: 'The Legend',
     kind: 'text',
     body: [
-      'The Sunken Crypt was sealed for a reason. Its seals are broken, and the dead pour out through eight foul generators beneath the gaze of the Grave Warden.',
-      'You are among the few who answered the call. Descend, break the spawning altars, put the Warden back in the ground, and escape through the portal before the crypt closes again.',
+      'Far beneath the world sleeps an ancient hunger — the UNDERMAW. For an age its seals held. Now they are breaking, and the dead pour up through foul spawning altars across ten descending realms.',
+      'You are among the few who answered the call. Descend realm by realm: shatter the altars, slay the warden that rules each one, and seal the Undermaw at the very bottom before its hunger wakes the world entire.',
+      'Each realm is its own world — crypt, fire, ice, rot, brass, blood, bog, storm, shadow, and the final sanctum — with its own foes, its own master, and its own treasures to be claimed.',
+    ],
+  },
+  {
+    title: 'The Descent',
+    kind: 'text',
+    body: [
+      'I  ·  The Sunken Crypt — the Grave Warden',
+      'II  ·  The Molten Deep — the Molten Colossus',
+      'III  ·  The Frozen Cathedral — the Rime Cantor',
+      'IV  ·  The Toxic Undercroft — the Rot Sovereign',
+      'V  ·  The Clockwork Vault — Brass Magnus',
+    ],
+  },
+  {
+    title: 'The Descent (cont.)',
+    kind: 'text',
+    body: [
+      'VI  ·  The Blood Arena — the Undying Champion',
+      'VII  ·  The Drowned Bog — the Mire Leviathan',
+      'VIII  ·  The Storm Spire — the Tempest Herald',
+      'IX  ·  The Shadow Warren — the Umbral Devourer',
+      'X  ·  Sanctum of the Undermaw — the Hollow King',
     ],
   },
   {
@@ -101,8 +163,11 @@ export const MANUAL_PAGES: ManualPage[] = [
       'Move with WASD (Player 1) or the Arrow keys (Player 2).',
       'Hold attack to strike. Each hero fights differently: the Vanguard cleaves, the Warden bludgeons, the Strider looses arrows, and the Arcanist hurls bolts.',
       'Tap magic for an area blast (costs mana). Use / interact opens chests and lights shrines.',
-      'WIN: destroy at least 3 generators, slay the Grave Warden, then stand on the exit portal.',
-      'Lava burns but never traps you - keep moving and walk out.',
+      'Press SPACE to dodge-roll (brief invulnerability), and F for your class ability: Vanguard Shield Slam, Strider Multishot, Arcanist Arcane Nova, Warden Sanctuary.',
+      'Hit foes with elements: fire weapons BURN, magic CHILLS (slows), and critical hits SHOCK (extra damage). Big hits knock enemies back.',
+      'Beware gold-glowing CHAMPIONS — tougher and harder-hitting, but they always drop strong gear. A minimap (top-right) shows the party, altars, and the boss.',
+      'WIN: destroy at least 3 spawning altars, slay the realm’s warden, then stand on the exit portal to descend.',
+      'Hazards hurt but never trap you — keep moving and walk out of the fire, ice, sludge and spikes.',
     ],
   },
   {
@@ -118,14 +183,14 @@ export const MANUAL_PAGES: ManualPage[] = [
     title: 'Growth & Gear',
     kind: 'text',
     body: [
-      'Each level grants a skill point and an attribute point. Open Growth (K) to raise class skills (1-3) and the attributes Might, Vitality, and Focus (4-6).',
-      'Open Inventory (I) to equip backpack gear (1-9), unequip (U), or drink a potion (C). Bonuses apply at once.',
-      'Open the Character Sheet (P) to review your full stats and equipped gear.',
-      'Every key is rebindable in Settings -> Keys.',
+      'Each level grants a skill point and an attribute point. Open Growth (K) to raise class skills (1-3) and the attributes Might, Vitality, Focus, and Fortune (4-7).',
+      'FORTUNE raises your luck: more loot drops, and far better odds of the higher equipment grades.',
+      'Foes, altars and chests drop gear themed to the realm, in five grades: Cracked, Honed, Runed, Ascendant, and Godforged — each stronger, with more bonus affixes.',
+      'Open Inventory (I) to equip backpack gear (1-9), unequip (U), or drink a potion (C). The backpack pages with Left/Right (9 per page) and tidies with S (sort). Open the Character Sheet (P) for full stats.',
     ],
   },
   ...ALL_CLASSES.map(heroPage),
-  bestiaryPage(),
+  ...bestiaryPages(),
   ...armoryPages(),
   {
     title: 'AI Narration',

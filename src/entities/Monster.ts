@@ -21,6 +21,17 @@ export class Monster extends Phaser.Physics.Arcade.Sprite {
   private aggroed = false;
   private healAcc = 0;
 
+  // elite + status state
+  isElite = false;
+  dmgMult = 1;
+  private burnUntil = 0;
+  private burnTickAt = 0;
+  private chillUntil = 0;
+  private shockUntil = 0;
+  private knockUntil = 0;
+  private knockVx = 0;
+  private knockVy = 0;
+
   // special-attack state (ranged / charger / boss)
   private nextSpecialAt = 1500;
   private telegraphUntil = 0;
@@ -45,7 +56,7 @@ export class Monster extends Phaser.Physics.Arcade.Sprite {
     scene.add.existing(this);
     scene.physics.add.existing(this);
     this.setOrigin(0.5, 0.82);
-    const scale = this.def.scale ?? 1;
+    const scale = (this.def.scale ?? 1) * 1.12; // beefier sprites; body scales with it
     this.setScale(scale);
     const body = this.body as ArcadeBody;
     body.setSize(12 * scale, 10 * scale);
@@ -62,6 +73,26 @@ export class Monster extends Phaser.Physics.Arcade.Sprite {
   tick(time: number, delta: number, heroes: Hero[]): void {
     if (!this.alive) return;
     const body = this.body as ArcadeBody;
+
+    // knockback overrides movement for a brief window
+    if (time < this.knockUntil) {
+      const k = (this.knockUntil - time) / 150;
+      body.setVelocity(this.knockVx * k, this.knockVy * k);
+      this.setDepth(this.y);
+      return;
+    }
+
+    // burn damage-over-time
+    if (time < this.burnUntil && time >= this.burnTickAt) {
+      this.burnTickAt = time + 380;
+      this.health -= 5;
+      const f = this.scene.add.image(this.x, this.y - 6, 'fx-glow-warm').setTint(0xff8a1e).setDepth(this.y + 9).setScale(0.7).setBlendMode(Phaser.BlendModes.ADD);
+      this.scene.tweens.add({ targets: f, alpha: 0, y: this.y - 14, duration: 300, onComplete: () => f.destroy() });
+      if (this.health <= 0) {
+        this.die();
+        return;
+      }
+    }
 
     // nearest alive hero
     let target: Hero | null = null;
@@ -96,6 +127,9 @@ export class Monster extends Phaser.Physics.Arcade.Sprite {
       this.pendingSpecial = null;
     }
 
+    // chill slows movement
+    if (time < this.chillUntil) body.setVelocity(body.velocity.x * 0.5, body.velocity.y * 0.5);
+
     // boss slow self-regen to make the fight a real gate
     if (this.isBoss && this.health < this.maxHealth) {
       this.healAcc += (delta / 1000) * 3;
@@ -109,6 +143,9 @@ export class Monster extends Phaser.Physics.Arcade.Sprite {
     else this.setAlpha(this.enemyId === 'ghost' ? 0.92 : 1);
 
     if (time < this.telegraphUntil) this.setTint(0xffa070);
+    else if (time < this.burnUntil) this.setTint(0xff8a4a);
+    else if (time < this.chillUntil) this.setTint(0x9fd0ff);
+    else if (this.isElite) this.setTint(0xffe08a);
     else if (this.isBoss) this.setTint(0xffffff);
     else this.clearTint();
 
@@ -165,7 +202,7 @@ export class Monster extends Phaser.Physics.Arcade.Sprite {
       body.setVelocity(this.chargeDx * this.def.speed * 3, this.chargeDy * this.def.speed * 3);
       if (best <= this.def.attackRange + 8 && time >= this.nextAttackAt) {
         this.nextAttackAt = time + 700;
-        target.takeDamage(this.def.damage, time);
+        target.takeDamage(Math.round(this.def.damage * this.dmgMult), time);
       }
       return;
     }
@@ -252,12 +289,28 @@ export class Monster extends Phaser.Physics.Arcade.Sprite {
     this.attacking = true;
     this.attackUntil = time + 300;
     this.play(`${this.enemyId}-attack`, true);
-    const dealt = target.takeDamage(this.def.damage, time);
+    const dealt = target.takeDamage(Math.round(this.def.damage * this.dmgMult), time);
     if (this.isBoss && dealt > 0) this.health = Math.min(this.maxHealth, this.health + 6);
+  }
+
+  /** Apply an on-hit status: burn (DoT), chill (slow), or shock (+damage taken). */
+  applyStatus(type: 'burn' | 'chill' | 'shock', dur: number, time: number): void {
+    if (type === 'burn') this.burnUntil = Math.max(this.burnUntil, time + dur);
+    else if (type === 'chill') this.chillUntil = Math.max(this.chillUntil, time + dur);
+    else this.shockUntil = Math.max(this.shockUntil, time + dur);
+  }
+
+  /** Shove the monster with a brief, decaying impulse. */
+  knock(vx: number, vy: number, time: number): void {
+    if (this.isBoss) return; // bosses stand firm
+    this.knockVx = vx;
+    this.knockVy = vy;
+    this.knockUntil = time + 150;
   }
 
   takeDamage(raw: number, time: number): boolean {
     if (!this.alive) return false;
+    if (time < this.shockUntil) raw *= 1.3; // shocked enemies take more
     const actual = Math.max(1, Math.round(raw - this.def.armor * 0.5));
     this.health -= actual;
     this.hurtUntil = time + 120;

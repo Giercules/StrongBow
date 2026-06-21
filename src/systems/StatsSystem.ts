@@ -43,6 +43,7 @@ export function computeStats(
   s.critChance = Math.min(0.75, Math.max(0, s.critChance));
   s.fire = Math.max(0, s.fire);
   s.regen = Math.max(0, s.regen);
+  s.luck = Math.max(0, Math.round(s.luck ?? 0));
   return s;
 }
 

@@ -16,8 +16,12 @@ interface Blueprint {
 }
 
 const THEME_WORDS: [ThemeId, RegExp][] = [
+  ['storm', /storm|thunder|lightning|spire|sky|gale|tempest|cloud|wind/],
+  ['shadow', /shadow|dark|void|umbral|night|warren|abyss|black|gloom/],
+  ['sanctum', /sanctum|undermaw|final|hollow|relic|altar|seal|holy|temple/],
   ['frost', /frost|ice|frozen|snow|glaci|cold|winter|cathedral|crystal|chill/],
-  ['toxic', /toxic|poison|plague|sewer|swamp|sludge|venom|rot|undercroft|bog|acid/],
+  ['bog', /bog|marsh|swamp|mire|fen|muck|drowned|wetland|moor/],
+  ['toxic', /toxic|poison|plague|sewer|sludge|venom|rot|undercroft|acid/],
   ['clockwork', /clock|gear|cog|vault|machine|mechan|brass|trap|factory|engine|tech/],
   ['arena', /arena|blood|colosseum|gladiat|wave|pit|battle|champion/],
   ['molten', /lava|molten|fire|volcano|magma|forge|inferno|ember|flame|hell/],
@@ -31,6 +35,10 @@ const THEME_NAMES: Record<ThemeId, string> = {
   arena: 'The Slaughter Pit',
   molten: 'The Emberforge',
   crypt: 'The Forgotten Crypt',
+  bog: 'The Sunken Mire',
+  storm: 'The Howling Spire',
+  shadow: 'The Black Warren',
+  sanctum: 'The Hollow Sanctum',
 };
 
 function hash(s: string): number {
@@ -83,6 +91,10 @@ const FORGE_LOOT: Record<ThemeId, string[]> = {
   arena: ['ember_blade', 'iron_sword', 'amulet_of_focus'],
   molten: ['ember_blade', 'crypt_plate', 'oak_staff'],
   crypt: ['crypt_knife', 'leather_jerkin', 'hunters_bow'],
+  bog: ['hunters_bow', 'crypt_plate', 'amulet_of_focus'],
+  storm: ['shade_cloak', 'oak_staff', 'amulet_of_focus'],
+  shadow: ['shade_cloak', 'ember_blade', 'amulet_of_focus'],
+  sanctum: ['crypt_plate', 'ember_blade', 'amulet_of_focus'],
 };
 
 /** Build a one-off level from a description, register it, and return it. */

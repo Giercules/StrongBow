@@ -45,6 +45,11 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
   attackUntil = 0;
   attackDir = { x: 0, y: 1 };
   meleeResolved = false;
+  dodging = false;
+  private nextDodgeAt = 0;
+  private dodgeUntil = 0;
+  private dodgeDir = { x: 0, y: 1 };
+  private nextAbilityAt = 0;
   private shot: { x: number; y: number } | null = null;
   private castFlag = false;
   private nextAttackAt = 0;
@@ -70,6 +75,7 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
     body.setOffset(4.5, 13);
     this.setCollideWorldBounds(true);
     this.setDepth(y);
+    this.setScale(1.16); // a touch larger/beefier on screen (hitbox stays forgiving)
 
     this.stats = this.recompute();
     this.health = this.stats.maxHealth;
@@ -116,6 +122,12 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
       body.setVelocity(0, 0);
       return;
     }
+    if (this.dodging) {
+      const spd = this.stats.speed * 2.7;
+      body.setVelocity(this.dodgeDir.x * spd, this.dodgeDir.y * spd);
+      this.faceTo(this.dodgeDir.x, this.dodgeDir.y);
+      return;
+    }
     let dx = this.moveX;
     let dy = this.moveY;
     const len = Math.hypot(dx, dy);
@@ -160,6 +172,7 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
 
   tick(time: number, delta: number): void {
     if (this.attacking && time > this.attackUntil) this.attacking = false;
+    if (this.dodging && time > this.dodgeUntil) this.dodging = false;
     this.applyMovement();
     this.updateAnim();
     this.setDepth(this.y);
@@ -271,6 +284,43 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
 
   magicDamage(): number {
     return Math.round((this.stats.damage * 1.4 + this.stats.fire * 2 + this.level * 1.5) * this.auraDamageMult * this.cheats().playerDamageMult);
+  }
+
+  // ---- dodge roll ----
+  tryDodge(time: number): boolean {
+    if (!this.alive || this.dodging || time < this.nextDodgeAt) return false;
+    let dx = this.moveX;
+    let dy = this.moveY;
+    if (dx === 0 && dy === 0) {
+      const f: Record<Direction, [number, number]> = { down: [0, 1], up: [0, -1], left: [-1, 0], right: [1, 0] };
+      [dx, dy] = f[this.facing];
+    }
+    const len = Math.hypot(dx, dy) || 1;
+    this.dodgeDir = { x: dx / len, y: dy / len };
+    this.dodging = true;
+    this.dodgeUntil = time + 200;
+    this.nextDodgeAt = time + 850;
+    this.hurtUntil = Math.max(this.hurtUntil, time + 280); // i-frames
+    audio.sfx('swing');
+    return true;
+  }
+
+  dodgeCooldownRatio(time: number): number {
+    return Phaser.Math.Clamp((this.nextDodgeAt - time) / 850, 0, 1);
+  }
+
+  // ---- active class ability ----
+  abilityCooldown(): number {
+    return 7000;
+  }
+  canAbility(time: number): boolean {
+    return this.alive && time >= this.nextAbilityAt;
+  }
+  markAbilityUsed(time: number): void {
+    this.nextAbilityAt = time + this.abilityCooldown();
+  }
+  abilityCooldownRatio(time: number): number {
+    return Phaser.Math.Clamp((this.nextAbilityAt - time) / this.abilityCooldown(), 0, 1);
   }
 
   takeDamage(raw: number, time: number): number {

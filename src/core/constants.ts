@@ -24,6 +24,10 @@ export const MP_PER_LEVEL = 6;
 export const GROUP_XP_SHARE = 0.35; // fraction of a kill's XP shared with the rest of the party
 export const AURA_RADIUS = 120; // px radius for class group buffs
 export const WARDEN_HEAL_INTERVAL = 1000; // ms between Warden healing pulses
+// If a companion ends up farther than this from the party leader (stuck behind a
+// gate, left across the map on level load, etc.) it blinks straight to them.
+export const COMPANION_TELEPORT_DISTANCE = 360; // px
+export const COMPANION_TELEPORT_MS = 900; // grace before a too-far companion blinks
 
 export const PLAY_AREA_UI_DEPTH = 9600;
 

@@ -1,11 +1,14 @@
-import type { HeroClassId } from '../core/types';
+import type { HeroClassId, ItemDefinition } from '../core/types';
 
 // ----------------------------------------------------------------------------
-// SaveSystem - serialises a full run to localStorage and restores it.
+// SaveSystem — multi-slot saves in localStorage. Each slot stores a full run
+// plus a small JPEG thumbnail so the load window can preview it.
 // ----------------------------------------------------------------------------
 
-const SAVE_KEY = 'strongbow_save';
-const SAVE_VERSION = 1;
+const SLOT_PREFIX = 'strongbow_save_';
+const LEGACY_KEY = 'strongbow_save';
+const SAVE_VERSION = 2;
+export const SAVE_SLOT_COUNT = 6;
 
 export interface SaveAlly {
   classId: HeroClassId;
@@ -33,6 +36,8 @@ export interface SaveData {
   version: number;
   savedAt: number;
   levelId: string;
+  levelName?: string;
+  chapter?: string;
   twoPlayer: boolean;
   elapsedMs: number;
   quest: string;
@@ -45,43 +50,80 @@ export interface SaveData {
   doorsOpen: boolean[];
   collectedPickups: number[];
   allies: SaveAlly[];
+  /** Minted (dropped/graded) item definitions, persisted so ids resolve on load. */
+  mintedItems?: ItemDefinition[];
+  /** Small JPEG data-URL preview of the moment the save was made. */
+  thumbnail?: string;
 }
 
-export function saveGame(data: SaveData): boolean {
+function slotKey(slot: number): string {
+  return `${SLOT_PREFIX}${slot}`;
+}
+
+/** Move a pre-2.0 single save into slot 0 the first time we look at the slots. */
+function migrateLegacy(): void {
   try {
-    localStorage.setItem(SAVE_KEY, JSON.stringify(data));
+    const legacy = localStorage.getItem(LEGACY_KEY);
+    if (!legacy) return;
+    if (!localStorage.getItem(slotKey(0))) localStorage.setItem(slotKey(0), legacy);
+    localStorage.removeItem(LEGACY_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+export function saveToSlot(slot: number, data: SaveData): boolean {
+  try {
+    localStorage.setItem(slotKey(slot), JSON.stringify(data));
     return true;
   } catch {
     return false;
   }
 }
 
-export function loadGame(): SaveData | null {
+export function loadSlot(slot: number): SaveData | null {
   try {
-    const raw = localStorage.getItem(SAVE_KEY);
+    const raw = localStorage.getItem(slotKey(slot));
     if (!raw) return null;
     const data = JSON.parse(raw) as SaveData;
-    if (!data || data.version !== SAVE_VERSION) return null;
+    if (!data) return null;
     return data;
   } catch {
     return null;
   }
 }
 
-export function hasSave(): boolean {
+export function deleteSlot(slot: number): void {
   try {
-    return !!localStorage.getItem(SAVE_KEY);
-  } catch {
-    return false;
-  }
-}
-
-export function clearSave(): void {
-  try {
-    localStorage.removeItem(SAVE_KEY);
+    localStorage.removeItem(slotKey(slot));
   } catch {
     /* ignore */
   }
+}
+
+/** Every slot's data (or null if empty), index 0..SAVE_SLOT_COUNT-1. */
+export function listSlots(): (SaveData | null)[] {
+  migrateLegacy();
+  const out: (SaveData | null)[] = [];
+  for (let i = 0; i < SAVE_SLOT_COUNT; i++) out.push(loadSlot(i));
+  return out;
+}
+
+export function hasAnySave(): boolean {
+  return listSlots().some((s) => s !== null);
+}
+
+// ---- legacy-compatible helpers (slot 0) ------------------------------------
+export function hasSave(): boolean {
+  return hasAnySave();
+}
+export function loadGame(): SaveData | null {
+  migrateLegacy();
+  for (let i = 0; i < SAVE_SLOT_COUNT; i++) {
+    const s = loadSlot(i);
+    if (s) return s;
+  }
+  return null;
 }
 
 export const CURRENT_SAVE_VERSION = SAVE_VERSION;

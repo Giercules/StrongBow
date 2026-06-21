@@ -35,6 +35,14 @@ export const ATTRIBUTES: Record<string, AttributeDef> = {
     icon: 'icon-amulet',
     perRank: { maxMana: 10, critChance: 0.01 },
   },
+  fortune: {
+    id: 'fortune',
+    name: 'Fortune',
+    description: '+3 luck per rank — more drops & better grades.',
+    maxRank: 10,
+    icon: 'icon-ring',
+    perRank: { luck: 3 },
+  },
 };
 
-export const ATTRIBUTE_IDS: string[] = ['might', 'vitality', 'focus'];
+export const ATTRIBUTE_IDS: string[] = ['might', 'vitality', 'focus', 'fortune'];

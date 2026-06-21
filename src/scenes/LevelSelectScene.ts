@@ -22,23 +22,26 @@ export class LevelSelectScene extends Phaser.Scene {
     g.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
 
     this.add
-      .text(cx, 56, 'CHOOSE A DUNGEON', { fontFamily: 'Trebuchet MS, sans-serif', fontSize: '42px', color: C.hudBorder, fontStyle: 'bold' })
+      .text(cx, 28, 'CHOOSE A DUNGEON', { fontFamily: 'Trebuchet MS, sans-serif', fontSize: '30px', color: C.hudBorder, fontStyle: 'bold' })
       .setOrigin(0.5)
-      .setShadow(0, 4, '#000', 10);
+      .setShadow(0, 3, '#000', 8);
 
     const levels = Content.campaignLevels();
-    const colX = [cx - 168, cx + 168];
+    const colX = [cx - 150, cx + 150];
+    const rowH = 66;
+    const startY = 74;
     levels.forEach((lv, i) => {
       const x = colX[i % 2];
-      const y = 140 + Math.floor(i / 2) * 96;
-      makeButton(this, x, y, 300, 46, lv.name.toUpperCase(), () => this.pick(lv.id), { size: 15 });
+      const y = startY + Math.floor(i / 2) * rowH;
+      makeButton(this, x, y, 280, 32, lv.name.toUpperCase(), () => this.pick(lv.id), { size: 13 });
+      const sub = lv.chapter ? `${lv.chapter} · ${lv.subtitle ?? ''}` : lv.subtitle ?? '';
       this.add
-        .text(x, y + 30, lv.subtitle ?? '', {
+        .text(x, y + 18, sub, {
           fontFamily: 'Trebuchet MS, sans-serif',
-          fontSize: '11px',
+          fontSize: '10px',
           color: C.inkDim,
           align: 'center',
-          wordWrap: { width: 290 },
+          wordWrap: { width: 268 },
         })
         .setOrigin(0.5, 0);
     });

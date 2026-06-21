@@ -66,9 +66,9 @@ export class GauntletHUD {
       g.strokeRoundedRect(PAD, y, W - PAD * 2, SLOT_H - 6, 4);
     }
     g.fillStyle(0x05060a, 0.6);
-    g.fillRoundedRect(PAD, CTRL_TOP, W - PAD * 2, 92, 4);
+    g.fillRoundedRect(PAD, CTRL_TOP, W - PAD * 2, 110, 4);
     g.lineStyle(1, hexNum(C.hudBorderDk), 0.7);
-    g.strokeRoundedRect(PAD, CTRL_TOP, W - PAD * 2, 92, 4);
+    g.strokeRoundedRect(PAD, CTRL_TOP, W - PAD * 2, 110, 4);
   }
 
   private mkText(x: number, y: number, size: number, color: string, opts: Partial<Phaser.Types.GameObjects.Text.TextStyle> = {}): Phaser.GameObjects.Text {
@@ -95,7 +95,7 @@ export class GauntletHUD {
     this.ctrlTitle.setText('CONTROLS');
     this.ctrlText = this.mkText(PAD + 6, CTRL_TOP + 17, 9.5, C.inkDim, { lineSpacing: 2 });
 
-    this.questText = this.mkText(PAD, CTRL_TOP + 100, 9.5, '#cdb88a', { wordWrap: { width: W - PAD * 2 }, lineSpacing: 1, fontStyle: 'italic' });
+    this.questText = this.mkText(PAD, CTRL_TOP + 118, 9.5, '#cdb88a', { wordWrap: { width: W - PAD * 2 }, lineSpacing: 1, fontStyle: 'italic' });
   }
 
   update(data: HudRegistryData): void {

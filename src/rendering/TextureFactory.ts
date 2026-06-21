@@ -17,10 +17,11 @@ function newCanvas(w: number, h: number): { canvas: HTMLCanvasElement; ctx: Ctx 
   return { canvas, ctx };
 }
 
-function addImg(scene: Phaser.Scene, key: string, w: number, h: number, draw: (ctx: Ctx) => void, outline = false): void {
+function addImg(scene: Phaser.Scene, key: string, w: number, h: number, draw: (ctx: Ctx) => void, outline = false, shade = false): void {
   if (scene.textures.exists(key)) scene.textures.remove(key);
   const { canvas, ctx } = newCanvas(w, h);
   draw(ctx);
+  if (shade) art.softShade(ctx, 0, 0, w, h);
   if (outline) art.outlineRegion(ctx, 0, 0, w, h);
   scene.textures.addCanvas(key, canvas);
 }
@@ -32,11 +33,13 @@ function addSheet(
   fh: number,
   count: number,
   draw: (ctx: Ctx, ox: number, frame: number) => void,
-  outline = false
+  outline = false,
+  shade = false
 ): void {
   if (scene.textures.exists(key)) scene.textures.remove(key);
   const { canvas, ctx } = newCanvas(fw * count, fh);
   for (let i = 0; i < count; i++) draw(ctx, i * fw, i);
+  if (shade) for (let i = 0; i < count; i++) art.softShade(ctx, i * fw, 0, fw, fh);
   if (outline) for (let i = 0; i < count; i++) art.outlineRegion(ctx, i * fw, 0, fw, fh);
   const tex = scene.textures.addCanvas(key, canvas);
   if (tex) {
@@ -51,7 +54,7 @@ function makeHeroSheet(scene: Phaser.Scene, cls: string): void {
     const facing = facings[Math.floor(frame / 4)];
     const pose = frame % 4;
     art.drawHumanoid(ctx, ox, cls, ramp, facing, pose);
-  }, true);
+  }, true, true);
 }
 
 function makeMonsterSheet(
@@ -62,7 +65,7 @@ function makeMonsterSheet(
   fw = MON_FW,
   fh = MON_FH
 ): void {
-  addSheet(scene, key, fw, fh, 4, (ctx, ox, frame) => drawer(ctx, ox, frame, ramp), true);
+  addSheet(scene, key, fw, fh, 4, (ctx, ox, frame) => drawer(ctx, ox, frame, ramp), true, true);
 }
 
 export class TextureFactory {
@@ -111,6 +114,32 @@ export class TextureFactory {
     img('vines', 16, 16, (c) => art.drawVines(c, 0, 0), true);
     img('blood-stain', 16, 16, (c) => art.drawBloodStain(c, 0, 0));
     img('skull-pike', 16, 16, (c) => art.drawSkullPike(c, 0, 0), true);
+    // new themed decor
+    img('bog-stump', 16, 16, (c) => art.drawBogStump(c, 0, 0), true);
+    img('lilypad', 16, 16, (c) => art.drawLilypad(c, 0, 0));
+    img('storm-rod', 16, 16, (c) => art.drawStormRod(c, 0, 0), true);
+    img('sky-crystal', 16, 16, (c) => art.drawSkyCrystal(c, 0, 0), true);
+    img('void-rift', 16, 16, (c) => art.drawVoidRift(c, 0, 0));
+    img('sanctum-glyph', 16, 16, (c) => art.drawSanctumGlyph(c, 0, 0));
+    img('brazier', 16, 16, (c) => art.drawBrazier(c, 0, 0), true);
+    // more themed decoration
+    img('gravestone', 16, 16, (c) => art.drawGravestone(c, 0, 0), true);
+    img('candle', 16, 16, (c) => art.drawCandle(c, 0, 0), true);
+    img('lava-crack', 16, 16, (c) => art.drawLavaCrack(c, 0, 0));
+    img('obsidian', 16, 16, (c) => art.drawObsidian(c, 0, 0), true);
+    img('icicle', 16, 16, (c) => art.drawIcicle(c, 0, 0), true);
+    img('frost-banner', 16, 16, (c) => art.drawFrostBanner(c, 0, 0), true);
+    img('toxic-mushroom', 16, 16, (c) => art.drawToxicMushroom(c, 0, 0), true);
+    img('pipe', 16, 16, (c) => art.drawPipe(c, 0, 0), true);
+    img('gauge', 16, 16, (c) => art.drawGauge(c, 0, 0), true);
+    img('weapon-rack', 16, 16, (c) => art.drawWeaponRack(c, 0, 0), true);
+    img('dead-tree', 16, 16, (c) => art.drawDeadTree(c, 0, 0), true);
+    img('cattail', 16, 16, (c) => art.drawCattail(c, 0, 0), true);
+    img('storm-orb', 16, 16, (c) => art.drawStormOrb(c, 0, 0), true);
+    img('bone-pile', 16, 16, (c) => art.drawBonePile(c, 0, 0), true);
+    img('rune-circle', 16, 16, (c) => art.drawRuneCircle(c, 0, 0));
+    img('idol', 16, 16, (c) => art.drawIdol(c, 0, 0), true);
+    img('altar', 16, 16, (c) => art.drawAltar(c, 0, 0), true);
 
     // ---- pickups (outlined) ----
     sheet('coin-sheet', 16, 16, 4, (c, ox, f) => art.drawCoin(c, ox, f), true);
@@ -140,10 +169,13 @@ export class TextureFactory {
     img('fx-glow-warm', 16, 16, (c) => art.drawGlowDot(c, 'rgba(255,170,60,0.9)'));
     img('fx-glow-magic', 16, 16, (c) => art.drawGlowDot(c, 'rgba(140,80,255,0.9)'));
     img('fx-glow-green', 16, 16, (c) => art.drawGlowDot(c, 'rgba(120,240,120,0.9)'));
+    // neutral white glow — tints cleanly to any colour for themed ambient motes
+    img('fx-glow-white', 16, 16, (c) => art.drawGlowDot(c, 'rgba(255,255,255,0.95)'));
     img('fx-arrow', 14, 6, art.drawArrow, true);
     img('fx-bolt', 10, 10, art.drawBolt);
     img('fx-light', 128, 128, (c) => art.drawRadialLight(c, 128, 128));
     img('fx-vignette', 740, 540, (c) => art.drawVignette(c, 740, 540));
+    img('fx-edge', 740, 540, (c) => art.drawEdgeTint(c, 740, 540));
 
     // ---- heroes (outlined) ----
     for (const cls of ['vanguard', 'strider', 'arcanist', 'warden']) {
@@ -172,6 +204,31 @@ export class TextureFactory {
     mon('monster-brute-sheet', MONSTER_RAMPS.brute, art.drawBrute);
     mon('monster-imp-sheet', MONSTER_RAMPS.imp, art.drawImp);
     mon('monster-molten_colossus-sheet', MONSTER_RAMPS.molten_colossus, art.drawColossus, BOSS_FW, BOSS_FH);
+
+    // ---- themed regulars (recolours + bespoke shapes) ----
+    mon('monster-frost_shade-sheet', MONSTER_RAMPS.frost_shade, art.drawGhost);
+    mon('monster-rime_archer-sheet', MONSTER_RAMPS.rime_archer, art.drawBoneArcher);
+    mon('monster-plague_ooze-sheet', MONSTER_RAMPS.plague_ooze, art.drawOoze);
+    mon('monster-spore_imp-sheet', MONSTER_RAMPS.spore_imp, art.drawImp);
+    mon('monster-gear_knight-sheet', MONSTER_RAMPS.gear_knight, art.drawBrute);
+    mon('monster-brass_sentinel-sheet', MONSTER_RAMPS.brass_sentinel, art.drawConstruct);
+    mon('monster-gladiator-sheet', MONSTER_RAMPS.gladiator, art.drawGrunt);
+    mon('monster-mire_lurker-sheet', MONSTER_RAMPS.mire_lurker, art.drawDemon);
+    mon('monster-storm_wisp-sheet', MONSTER_RAMPS.storm_wisp, art.drawWisp);
+    mon('monster-sky_lancer-sheet', MONSTER_RAMPS.sky_lancer, art.drawBoneArcher);
+    mon('monster-shadow_stalker-sheet', MONSTER_RAMPS.shadow_stalker, art.drawStalker);
+    mon('monster-void_imp-sheet', MONSTER_RAMPS.void_imp, art.drawImp);
+    mon('monster-hollow_knight-sheet', MONSTER_RAMPS.hollow_knight, art.drawBrute);
+
+    // ---- themed bosses ----
+    mon('monster-rime_cantor-sheet', MONSTER_RAMPS.rime_cantor, art.drawBoss, BOSS_FW, BOSS_FH);
+    mon('monster-rot_sovereign-sheet', MONSTER_RAMPS.rot_sovereign, art.drawBoss, BOSS_FW, BOSS_FH);
+    mon('monster-brass_magnus-sheet', MONSTER_RAMPS.brass_magnus, art.drawColossus, BOSS_FW, BOSS_FH);
+    mon('monster-arena_champion-sheet', MONSTER_RAMPS.arena_champion, art.drawColossus, BOSS_FW, BOSS_FH);
+    mon('monster-mire_leviathan-sheet', MONSTER_RAMPS.mire_leviathan, art.drawColossus, BOSS_FW, BOSS_FH);
+    mon('monster-tempest_herald-sheet', MONSTER_RAMPS.tempest_herald, art.drawBoss, BOSS_FW, BOSS_FH);
+    mon('monster-umbral_devourer-sheet', MONSTER_RAMPS.umbral_devourer, art.drawBoss, BOSS_FW, BOSS_FH);
+    mon('monster-hollow_king-sheet', MONSTER_RAMPS.hollow_king, art.drawBoss, BOSS_FW, BOSS_FH);
 
     // ---- decorative NPC (outlined) ----
     img('npc-elder', HERO_FW, HERO_FH, (c) => {

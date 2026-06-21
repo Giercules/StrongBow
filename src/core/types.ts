@@ -6,7 +6,13 @@ export type HeroClassId = 'vanguard' | 'strider' | 'arcanist' | 'warden';
 export type Direction = 'down' | 'up' | 'left' | 'right';
 export type Rarity = 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary';
 export type ItemSlot = 'weapon' | 'armor' | 'trinket' | 'consumable';
+
+/** Equipment quality grades, weakest -> strongest. Each tier scales an item's
+ *  base mods and adds more bonus affixes (and a luck-scaled shot at extra rolls). */
+export type Grade = 'cracked' | 'honed' | 'runed' | 'ascendant' | 'godforged';
+
 export type EnemyId =
+  // --- originals ---
   | 'grunt'
   | 'ghost'
   | 'demon'
@@ -14,7 +20,30 @@ export type EnemyId =
   | 'bone_archer'
   | 'brute'
   | 'imp'
-  | 'molten_colossus';
+  | 'molten_colossus'
+  // --- themed regulars ---
+  | 'frost_shade'
+  | 'rime_archer'
+  | 'plague_ooze'
+  | 'spore_imp'
+  | 'gear_knight'
+  | 'brass_sentinel'
+  | 'gladiator'
+  | 'mire_lurker'
+  | 'storm_wisp'
+  | 'sky_lancer'
+  | 'shadow_stalker'
+  | 'void_imp'
+  | 'hollow_knight'
+  // --- themed bosses ---
+  | 'rime_cantor'
+  | 'rot_sovereign'
+  | 'brass_magnus'
+  | 'arena_champion'
+  | 'mire_leviathan'
+  | 'tempest_herald'
+  | 'umbral_devourer'
+  | 'hollow_king';
 
 export type EnemyBehavior = 'melee' | 'ranged' | 'charger' | 'boss';
 
@@ -27,6 +56,8 @@ export interface StatBlock {
   critChance: number;
   fire: number;
   regen: number;
+  /** Fortune — raises loot drop rate and the odds of higher equipment grades. */
+  luck: number;
 }
 
 export type StatMods = Partial<StatBlock>;
@@ -77,6 +108,12 @@ export interface ItemDefinition {
   heal?: number;
   mana?: number;
   effects?: string[];
+  /** Quality grade for minted (dropped) gear; absent on static/consumable items. */
+  grade?: Grade;
+  /** Base template id this item was minted from (minted gear only). */
+  baseId?: string;
+  /** Theme this item is themed to (minted gear only). */
+  theme?: ThemeId;
 }
 
 export interface SkillDef {
@@ -134,7 +171,17 @@ export interface DecorDef {
   key: string;
 }
 
-export type ThemeId = 'crypt' | 'molten' | 'frost' | 'toxic' | 'clockwork' | 'arena';
+export type ThemeId =
+  | 'crypt'
+  | 'molten'
+  | 'frost'
+  | 'toxic'
+  | 'clockwork'
+  | 'arena'
+  | 'bog'
+  | 'storm'
+  | 'shadow'
+  | 'sanctum';
 
 export interface LevelData {
   id: string;
@@ -153,6 +200,10 @@ export interface LevelData {
   decor?: DecorDef[];
   /** One-line subtitle shown on the loading/quest banner (AI- or theme-authored). */
   subtitle?: string;
+  /** Campaign chapter label, e.g. "Chapter III". */
+  chapter?: string;
+  /** Story beat narrated when the party enters this level. */
+  story?: string;
 }
 
 export interface HudHeroSlot {

@@ -34,6 +34,8 @@ export interface DungeonOptions {
   traps?: boolean;
   subtitle?: string;
   themeTint?: number;
+  chapter?: string;
+  story?: string;
 }
 
 function lcg(seed: number): () => number {
@@ -384,6 +386,8 @@ export function buildDungeon(opts: DungeonOptions): LevelData {
     themeTint,
     decor,
     subtitle,
+    chapter: opts.chapter,
+    story: opts.story,
   };
 }
 

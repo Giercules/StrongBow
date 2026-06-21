@@ -119,6 +119,7 @@ export function formatHudControls(b: GameBindings, twoPlayer: boolean): string[]
   const lines = [
     `P1  ${keyLabel(p1.up)}${keyLabel(p1.left)}${keyLabel(p1.down)}${keyLabel(p1.right)} move`,
     `${keyLabel(p1.attack)} atk  ${keyLabel(p1.magic)} mag  ${keyLabel(p1.use)} use`,
+    `Space dodge  ·  F ability`,
     `${keyLabel(p1.sheet)} sheet  ${keyLabel(p1.inventory)} bag  ${keyLabel(p1.growth)} grow`,
     `${keyLabel(b.global.settings)} set  ${keyLabel(b.global.manual)} help  ${keyLabel(b.global.joinP2)} join P2`,
     'F2 save  ·  restore on title screen',

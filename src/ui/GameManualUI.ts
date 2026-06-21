@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { PLAY_AREA_UI_DEPTH } from '../core/constants';
 import { MANUAL_PAGES } from '../data/manualContent';
-import type { ManualEntry } from '../data/manualContent';
+import type { ManualEntry, ManualPage } from '../data/manualContent';
 import { audio } from '../systems/AudioSystem';
 
 // Legend-of-Zelda-NES-style manual: parchment pages, ornate border, serif text,
@@ -117,7 +117,8 @@ export class GameManualUI {
     const pg = MANUAL_PAGES[this.page];
     this.label(cx, y0 + 14, pg.title.toUpperCase(), HEAD, 18, { fontStyle: 'bold' }).setOrigin(0.5, 0);
 
-    if (pg.kind === 'gallery' && pg.entries) this.renderGallery(pg.entries, x0, y0);
+    if (pg.portrait) this.renderHero(pg, x0, y0);
+    else if (pg.kind === 'gallery' && pg.entries) this.renderGallery(pg.entries, x0, y0);
     else this.renderText(pg.body ?? [], x0, y0);
 
     // footer
@@ -131,6 +132,40 @@ export class GameManualUI {
     this.label(x0 + 28, y0 + 52, body.join('\n\n'), INK, 13.5, {
       lineSpacing: 6,
       wordWrap: { width: PANEL_W - 56 },
+    });
+  }
+
+  // A character dossier: large framed portrait on the left, lore text on the right.
+  private renderHero(pg: ManualPage, x0: number, y0: number): void {
+    const p = pg.portrait!;
+    const BOXW = 140;
+    const boxX = x0 + 22;
+    const boxY = y0 + 50;
+    const boxH = PANEL_H - 116; // sits between the header rule and the footer rule
+
+    // framed illustration inset
+    const g = this.scene.add.graphics();
+    g.fillStyle(hx(INSET), 1);
+    g.fillRoundedRect(boxX, boxY, BOXW, boxH, 6);
+    g.lineStyle(2, hx(GOLD_DK), 1);
+    g.strokeRoundedRect(boxX, boxY, BOXW, boxH, 6);
+    this.pin(g);
+
+    // portrait sprite (static idle frame) + soft shadow
+    const px = boxX + BOXW / 2;
+    const py = boxY + boxH * 0.4;
+    const scale = p.scale ?? 5;
+    this.pin(this.scene.add.image(px, py + 56, 'fx-shadow').setScale(2.6).setAlpha(0.5));
+    this.pin(this.scene.add.image(px, py, p.sheet, p.frame ?? 0).setScale(scale));
+    if (p.caption) {
+      this.label(px, boxY + boxH - 34, p.caption, HEAD, 13, { fontStyle: 'bold', align: 'center' }).setOrigin(0.5, 0);
+    }
+
+    // dossier text column to the right of the picture
+    const tx = boxX + BOXW + 16;
+    this.label(tx, y0 + 52, (pg.body ?? []).join('\n\n'), INK, 12.5, {
+      lineSpacing: 5,
+      wordWrap: { width: x0 + PANEL_W - 24 - tx },
     });
   }
 

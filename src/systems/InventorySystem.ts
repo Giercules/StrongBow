@@ -60,6 +60,18 @@ export class Inventory {
     );
   }
 
+  /** Tidy the bag: weapons → armor → trinkets → consumables, best rarity first. */
+  sortBag(): void {
+    const slotRank: Record<string, number> = { weapon: 0, armor: 1, trinket: 2, consumable: 3 };
+    const rarityRank: Record<string, number> = { legendary: 0, epic: 1, rare: 2, uncommon: 3, common: 4 };
+    this.bag.sort(
+      (a, b) =>
+        (slotRank[a.slot] ?? 9) - (slotRank[b.slot] ?? 9) ||
+        (rarityRank[a.rarity] ?? 9) - (rarityRank[b.rarity] ?? 9) ||
+        a.name.localeCompare(b.name)
+    );
+  }
+
   addGold(n: number): void {
     this.gold += n;
   }

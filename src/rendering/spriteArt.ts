@@ -1,5 +1,6 @@
-import { C } from './Palette';
-import type { HeroRamp, MonsterRamp } from './Palette';
+import { C, DEFAULT_WALL, DEFAULT_FLOOR } from './Palette';
+import type { HeroRamp, MonsterRamp, WallColors, FloorColors } from './Palette';
+import type { ThemeId } from '../core/types';
 
 // ----------------------------------------------------------------------------
 // spriteArt — pure 2D-canvas pixel drawing routines.
@@ -56,6 +57,35 @@ export function outlineRegion(ctx: Ctx, x: number, y: number, w: number, h: numb
   ctx.putImageData(img, x, y);
 }
 
+/**
+ * Soft shading pass: rim-lights the upper-left edge of a sprite and deepens the
+ * lower-right + bottom into a form shadow, giving flat pixel art a rounder, more
+ * dimensional look. Run BEFORE outlineRegion. Pure pixel op (safe, cosmetic).
+ */
+export function softShade(ctx: Ctx, x: number, y: number, w: number, h: number): void {
+  const img = ctx.getImageData(x, y, w, h);
+  const d = img.data;
+  const a = (px: number, py: number): boolean => px >= 0 && py >= 0 && px < w && py < h && d[(py * w + px) * 4 + 3] > 40;
+  const src = new Uint8ClampedArray(d);
+  const clamp = (v: number): number => (v < 0 ? 0 : v > 255 ? 255 : v);
+  for (let py = 0; py < h; py++) {
+    for (let px = 0; px < w; px++) {
+      const i = (py * w + px) * 4;
+      if (src[i + 3] <= 40) continue;
+      let f = 0;
+      if (!a(px, py - 1) || !a(px - 1, py)) f += 0.22; // upper-left rim light
+      if (!a(px, py + 1) || !a(px + 1, py)) f -= 0.2; // lower-right form shadow
+      f -= (py / h) * 0.07; // gentle vertical falloff
+      if (f !== 0) {
+        d[i] = clamp(src[i] * (1 + f));
+        d[i + 1] = clamp(src[i + 1] * (1 + f));
+        d[i + 2] = clamp(src[i + 2] * (1 + f));
+      }
+    }
+  }
+  ctx.putImageData(img, x, y);
+}
+
 export function rng(seed: number): () => number {
   let s = seed >>> 0;
   return () => {
@@ -67,22 +97,22 @@ export function rng(seed: number): () => number {
 // ============================================================================
 // TILES
 // ============================================================================
-export function drawFloor(ctx: Ctx, ox: number, oy: number, seed: number): void {
+export function drawFloor(ctx: Ctx, ox: number, oy: number, seed: number, fp: FloorColors = DEFAULT_FLOOR): void {
   const r = rng(seed);
-  R(ctx, ox, oy, 16, 16, C.floor1);
+  R(ctx, ox, oy, 16, 16, fp.f1);
   for (let y = 0; y < 16; y++) {
     for (let x = 0; x < 16; x++) {
       const n = r();
-      if (n < 0.14) PX(ctx, ox + x, oy + y, C.floor0);
-      else if (n < 0.26) PX(ctx, ox + x, oy + y, C.floor2);
-      else if (n < 0.32) PX(ctx, ox + x, oy + y, C.floor3);
-      else if (n < 0.345) PX(ctx, ox + x, oy + y, C.floorHi);
+      if (n < 0.14) PX(ctx, ox + x, oy + y, fp.f0);
+      else if (n < 0.26) PX(ctx, ox + x, oy + y, fp.f2);
+      else if (n < 0.32) PX(ctx, ox + x, oy + y, fp.f3);
+      else if (n < 0.345) PX(ctx, ox + x, oy + y, fp.hi);
     }
   }
   // faint flagstone seams along the top/left edges
   ctx.globalAlpha = 0.5;
-  R(ctx, ox, oy, 16, 1, C.floor0);
-  R(ctx, ox, oy, 1, 16, C.floor0);
+  R(ctx, ox, oy, 16, 1, fp.f0);
+  R(ctx, ox, oy, 1, 16, fp.f0);
   ctx.globalAlpha = 1;
 
   // one decorative feature per tile for variety (cracks, moss, gravel, puddle, flagstone)
@@ -106,22 +136,22 @@ export function drawFloor(ctx: Ctx, ox: number, oy: number, seed: number): void 
     for (let i = 0; i < 6; i++) {
       const gx = ox + 2 + Math.floor(r() * 12);
       const gy = oy + 2 + Math.floor(r() * 12);
-      PX(ctx, gx, gy, r() < 0.5 ? C.floor0 : C.floorHi);
+      PX(ctx, gx, gy, r() < 0.5 ? fp.f0 : fp.hi);
     }
   } else if (deco < 0.34) {
     // big cracked flagstone seam (cross)
     ctx.globalAlpha = 0.6;
-    R(ctx, ox + 8, oy + 1, 1, 14, C.floorCrack);
-    R(ctx, ox + 1, oy + 8, 14, 1, C.floorCrack);
+    R(ctx, ox + 8, oy + 1, 1, 14, fp.crack);
+    R(ctx, ox + 1, oy + 8, 14, 1, fp.crack);
     ctx.globalAlpha = 0.3;
-    R(ctx, ox + 9, oy + 1, 1, 14, C.floorHi);
+    R(ctx, ox + 9, oy + 1, 1, 14, fp.hi);
     ctx.globalAlpha = 1;
   } else if (deco < 0.5) {
     // jagged crack
     let cx = ox + 3 + Math.floor(r() * 9);
     let cy = oy + 3 + Math.floor(r() * 9);
     for (let i = 0; i < 5; i++) {
-      PX(ctx, cx, cy, C.floorCrack);
+      PX(ctx, cx, cy, fp.crack);
       cx += r() < 0.5 ? 1 : 0;
       cy += r() < 0.5 ? 1 : -1;
     }
@@ -129,51 +159,129 @@ export function drawFloor(ctx: Ctx, ox: number, oy: number, seed: number): void 
     // moss patch
     const mx = ox + 2 + Math.floor(r() * 11);
     const my = oy + 2 + Math.floor(r() * 11);
-    PX(ctx, mx, my, C.floorMoss);
-    PX(ctx, mx + 1, my, C.floorMoss);
-    PX(ctx, mx, my + 1, C.floorMoss);
-    PX(ctx, mx + 1, my + 1, C.floorMoss);
+    PX(ctx, mx, my, fp.moss);
+    PX(ctx, mx + 1, my, fp.moss);
+    PX(ctx, mx, my + 1, fp.moss);
+    PX(ctx, mx + 1, my + 1, fp.moss);
   }
 }
 
-export function drawWall(ctx: Ctx, ox: number, oy: number, cap: boolean, seed = 0): void {
+export function drawWall(ctx: Ctx, ox: number, oy: number, cap: boolean, seed = 0, wp: WallColors = DEFAULT_WALL): void {
   const r = rng(seed * 2654435761 + 11);
-  R(ctx, ox, oy, 16, 16, C.wallBase);
+  R(ctx, ox, oy, 16, 16, wp.base);
   const rows = [0, 4, 8, 12];
   for (let i = 0; i < rows.length; i++) {
     const ry = rows[i];
     const offset = i % 2 === 0 ? 0 : 8;
-    R(ctx, ox, oy + ry, 16, 1, C.wallMortar);
+    R(ctx, ox, oy + ry, 16, 1, wp.mortar);
     for (let bx = 0; bx < 16; bx += 8) {
       const x = ox + ((bx + offset) % 16);
       // brick face with subtle per-brick tone variation
       const v = r();
-      const face = v < 0.34 ? C.wallMid : v < 0.7 ? C.wallBase : C.wallLit;
+      const face = v < 0.34 ? wp.mid : v < 0.7 ? wp.base : wp.lit;
       R(ctx, x, oy + ry + 1, 7, 3, face);
       // top-left bevel highlight (light from upper-left)
-      R(ctx, x, oy + ry + 1, 7, 1, C.wallHi);
-      R(ctx, x, oy + ry + 1, 1, 3, C.wallLit);
+      R(ctx, x, oy + ry + 1, 7, 1, wp.hi);
+      R(ctx, x, oy + ry + 1, 1, 3, wp.lit);
       // bottom-right bevel shadow
-      R(ctx, x, oy + ry + 3, 7, 1, C.wallDark);
-      R(ctx, x + 6, oy + ry + 1, 1, 3, C.wallDark);
+      R(ctx, x, oy + ry + 3, 7, 1, wp.dark);
+      R(ctx, x + 6, oy + ry + 1, 1, 3, wp.dark);
       // vertical mortar groove
-      R(ctx, x + 7, oy + ry + 1, 1, 3, C.wallMortar);
+      R(ctx, x + 7, oy + ry + 1, 1, 3, wp.mortar);
       // weathering: occasional crack or moss fleck
-      if (r() < 0.14) PX(ctx, x + 1 + Math.floor(r() * 4), oy + ry + 2, C.wallMortar);
-      else if (r() < 0.08) PX(ctx, x + 2 + Math.floor(r() * 3), oy + ry + 2, C.floorMoss);
+      if (r() < 0.14) PX(ctx, x + 1 + Math.floor(r() * 4), oy + ry + 2, wp.mortar);
+      else if (r() < 0.08) PX(ctx, x + 2 + Math.floor(r() * 3), oy + ry + 2, wp.dark);
     }
   }
   // grounding shadow at the very bottom edge
   ctx.globalAlpha = 0.4;
-  R(ctx, ox, oy + 14, 16, 2, C.wallDark);
+  R(ctx, ox, oy + 14, 16, 2, wp.dark);
   ctx.globalAlpha = 1;
   if (cap) {
-    R(ctx, ox, oy, 16, 3, C.wallTopLit);
-    R(ctx, ox, oy, 16, 1, C.wallHi);
-    R(ctx, ox, oy + 3, 16, 1, C.wallTopDark);
+    R(ctx, ox, oy, 16, 3, wp.topLit);
+    R(ctx, ox, oy, 16, 1, wp.hi);
+    R(ctx, ox, oy + 3, 16, 1, wp.topDark);
     ctx.globalAlpha = 0.25;
-    R(ctx, ox, oy + 4, 16, 2, C.wallHi);
+    R(ctx, ox, oy + 4, 16, 2, wp.hi);
     ctx.globalAlpha = 1;
+  }
+}
+
+/**
+ * Theme-specific decoration painted over the top of a wall tile so each level's
+ * wall *tops* (the "roof" you see from above) look distinct — not just recolored.
+ * Kept light so the brick still reads through.
+ */
+export function drawWallRoof(ctx: Ctx, ox: number, oy: number, theme: ThemeId, seed: number): void {
+  const r = rng(seed * 8161 + 17);
+  const dots = (color: string, n: number) => {
+    for (let i = 0; i < n; i++) PX(ctx, ox + Math.floor(r() * 16), oy + Math.floor(r() * 16), color);
+  };
+  const blob = (color: string, n: number) => {
+    for (let i = 0; i < n; i++) R(ctx, ox + 1 + Math.floor(r() * 13), oy + 1 + Math.floor(r() * 13), 2, 2, color);
+  };
+  switch (theme) {
+    case 'molten':
+      blob('#7a1a06', 2);
+      dots('#ff8a1e', 6);
+      dots('#ffd98a', 2);
+      break;
+    case 'frost':
+      dots('#dff1ff', 7);
+      dots('#bfe9ff', 4);
+      blob('#eaf6ff', 2);
+      break;
+    case 'toxic':
+      blob('#3f8a3a', 3);
+      dots('#8ce05a', 4);
+      R(ctx, ox + 4 + Math.floor(r() * 8), oy + 8, 1, 4, '#6fae3a'); // drip
+      break;
+    case 'clockwork':
+      for (const [dx, dy] of [[3, 3], [12, 3], [3, 12], [12, 12]] as [number, number][]) {
+        PX(ctx, ox + dx, oy + dy, '#e6c264');
+        PX(ctx, ox + dx, oy + dy + 1, '#7a5e2a');
+      }
+      ctx.globalAlpha = 0.5;
+      R(ctx, ox, oy + 8, 16, 1, '#2a2214');
+      ctx.globalAlpha = 1;
+      break;
+    case 'arena':
+      blob('#9c1818', 2);
+      dots('#5a0e0e', 3);
+      dots('#caa56a', 3);
+      break;
+    case 'bog':
+      blob('#3f7a34', 4);
+      blob('#244d1e', 2);
+      dots('#7fce58', 3);
+      break;
+    case 'storm':
+      dots('#b0c8ff', 5);
+      dots('#ffffff', 2);
+      if (r() < 0.5) {
+        const x = ox + 4 + Math.floor(r() * 8);
+        const y = oy + 4 + Math.floor(r() * 8);
+        R(ctx, x - 1, y, 3, 1, '#cfe0ff');
+        R(ctx, x, y - 1, 1, 3, '#cfe0ff');
+      }
+      break;
+    case 'shadow':
+      blob('#0c0814', 3);
+      dots('#8a6ab0', 3);
+      break;
+    case 'sanctum':
+      dots('#ffd24a', 3);
+      dots('#ecdca6', 3);
+      if (r() < 0.5) {
+        const x = ox + 5 + Math.floor(r() * 6);
+        const y = oy + 5 + Math.floor(r() * 6);
+        R(ctx, x, y, 3, 1, '#e6c264');
+        R(ctx, x + 1, y - 1, 1, 3, '#e6c264');
+      }
+      break;
+    default: // crypt
+      dots('#3a4566', 3);
+      break;
   }
 }
 
@@ -237,28 +345,29 @@ export function drawLava(ctx: Ctx, ox: number, frame: number): void {
   PX(ctx, ox + bx, 12 - frame, C.lavaWhite);
 }
 
+// Neutral (greyscale) portal so it tints cleanly to a per-level colour.
 export function drawPortal(ctx: Ctx, ox: number, frame: number): void {
-  R(ctx, ox, 0, 16, 16, C.portal0);
+  R(ctx, ox, 0, 16, 16, '#101018');
   const cx = ox + 8;
   const cy = 8;
   const rings = [
-    [7, C.portal1],
-    [5.5, C.portal2],
-    [4, C.portal3],
+    [7, '#6a6a7a'],
+    [5.5, '#b4b4c4'],
+    [4, '#e8e8f2'],
   ];
   for (const [rad, col] of rings as [number, string][]) {
-    ctx.strokeStyle = col;
+    ctx.strokeStyle = col as string;
     ctx.lineWidth = 1.5;
     ctx.beginPath();
-    ctx.ellipse(cx, cy, rad, rad - 1, (frame / 6) * Math.PI, 0, Math.PI * 2);
+    ctx.ellipse(cx, cy, rad as number, (rad as number) - 1, (frame / 6) * Math.PI, 0, Math.PI * 2);
     ctx.stroke();
   }
   for (let i = 0; i < 8; i++) {
     const a = (i / 8) * Math.PI * 2 + (frame / 6) * Math.PI;
     const rad = 2 + ((i + frame) % 5);
-    PX(ctx, Math.round(cx + Math.cos(a) * rad), Math.round(cy + Math.sin(a) * rad), C.portal3);
+    PX(ctx, Math.round(cx + Math.cos(a) * rad), Math.round(cy + Math.sin(a) * rad), '#dfe0ee');
   }
-  R(ctx, cx - 1, cy - 1, 2, 2, C.portalCore);
+  R(ctx, cx - 1, cy - 1, 2, 2, '#ffffff');
 }
 
 // Frozen sheet — static, baked over a floor tile. Cracked, glassy, with a sheen.
@@ -361,15 +470,16 @@ export function drawSpikes(ctx: Ctx, ox: number, frame: number): void {
 // ============================================================================
 // OBJECTS / DECOR
 // ============================================================================
+// Neutral (greyscale) flame so the sprite tints cleanly to any element colour.
 export function drawTorch(ctx: Ctx, ox: number, frame: number): void {
-  R(ctx, ox + 7, 9, 2, 6, C.torchWood);
-  R(ctx, ox + 6, 14, 4, 1, C.torchWood);
+  R(ctx, ox + 7, 9, 2, 6, '#544c44'); // bracket (neutral)
+  R(ctx, ox + 6, 14, 4, 1, '#544c44');
   const sway = [0, 1, 0, -1][frame % 4];
-  R(ctx, ox + 6 + sway, 6, 4, 4, C.torchFlame2);
-  R(ctx, ox + 6 + sway, 4, 3, 4, C.torchFlame1);
-  R(ctx, ox + 7 + sway, 2, 2, 3, C.torchFlame0);
-  PX(ctx, ox + 7 + sway, 2, C.fireCore);
-  PX(ctx, ox + 8 + sway, 0 + (frame % 2), C.torchFlame0);
+  R(ctx, ox + 6 + sway, 6, 4, 4, '#b9b9c8'); // flame edge
+  R(ctx, ox + 6 + sway, 4, 3, 4, '#e6e6f0'); // flame mid
+  R(ctx, ox + 7 + sway, 2, 2, 3, '#ffffff'); // flame core
+  PX(ctx, ox + 7 + sway, 2, '#ffffff');
+  PX(ctx, ox + 8 + sway, 0 + (frame % 2), '#eaeaf2');
 }
 
 export function drawGenerator(ctx: Ctx, ox: number, frame: number): void {
@@ -542,6 +652,317 @@ export function drawSkullPike(ctx: Ctx, ox: number, oy: number): void {
   PX(ctx, ox + 9, oy + 4, '#202433'); // eye
   PX(ctx, ox + 7, oy + 6, '#202433'); // nose
   R(ctx, ox + 5, oy + 2, 6, 1, '#f2f4fa');
+}
+
+// --- new themed decor -------------------------------------------------------
+
+// Bog: a rotting mossy stump with a couple of roots.
+export function drawBogStump(ctx: Ctx, ox: number, oy: number): void {
+  R(ctx, ox + 4, oy + 7, 8, 7, '#3a2a1a');
+  R(ctx, ox + 4, oy + 7, 8, 1, '#4e3a22');
+  R(ctx, ox + 4, oy + 7, 8, 2, '#3f6a2e'); // moss cap
+  PX(ctx, ox + 6, oy + 7, '#7fce58');
+  PX(ctx, ox + 9, oy + 8, '#7fce58');
+  R(ctx, ox + 2, oy + 13, 4, 1, '#2a1e12'); // roots
+  R(ctx, ox + 10, oy + 13, 4, 1, '#2a1e12');
+  R(ctx, ox + 6, oy + 9, 1, 4, '#241a10');
+  R(ctx, ox + 9, oy + 9, 1, 4, '#241a10');
+}
+
+// Bog: a flat lilypad with a tiny bloom (sits on the floor).
+export function drawLilypad(ctx: Ctx, ox: number, oy: number): void {
+  ctx.fillStyle = '#2f6a34';
+  ctx.beginPath();
+  ctx.ellipse(ox + 8, oy + 9, 6, 4, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#3f8a3a';
+  ctx.beginPath();
+  ctx.ellipse(ox + 7, oy + 8, 4, 2.4, 0, 0, Math.PI * 2);
+  ctx.fill();
+  R(ctx, ox + 8, oy + 9, 4, 1, '#16331c'); // wedge cut
+  PX(ctx, ox + 6, oy + 7, '#e8c0e0'); // bloom
+  PX(ctx, ox + 7, oy + 7, '#fff0fa');
+}
+
+// Storm: a tall lightning rod crackling at the tip.
+export function drawStormRod(ctx: Ctx, ox: number, oy: number): void {
+  R(ctx, ox + 7, oy + 4, 2, 11, '#8b94a8'); // pole
+  R(ctx, ox + 7, oy + 4, 1, 11, '#cfe0ff');
+  R(ctx, ox + 5, oy + 13, 6, 2, '#444b60'); // base
+  R(ctx, ox + 6, oy + 1, 4, 3, '#b0c8ff'); // crackle ball
+  PX(ctx, ox + 8, oy + 0, '#ffffff');
+  PX(ctx, ox + 5, oy + 2, '#7fd0ff');
+  PX(ctx, ox + 10, oy + 2, '#7fd0ff');
+  PX(ctx, ox + 8, oy + 5, '#eaf4ff');
+}
+
+// Storm/Frost: a floating cyan crystal shard.
+export function drawSkyCrystal(ctx: Ctx, ox: number, oy: number): void {
+  R(ctx, ox + 7, oy + 3, 2, 10, '#6fb0d8');
+  R(ctx, ox + 6, oy + 5, 4, 6, '#9fd8ff');
+  R(ctx, ox + 7, oy + 4, 2, 8, '#cfeeff');
+  PX(ctx, ox + 8, oy + 4, '#ffffff');
+  PX(ctx, ox + 6, oy + 8, '#4a8ab0');
+  PX(ctx, ox + 9, oy + 9, '#4a8ab0');
+}
+
+// Shadow: a jagged rift leaking violet dark.
+export function drawVoidRift(ctx: Ctx, ox: number, oy: number): void {
+  ctx.fillStyle = '#0c0814';
+  ctx.beginPath();
+  ctx.ellipse(ox + 8, oy + 8, 5, 6, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#241636';
+  ctx.beginPath();
+  ctx.ellipse(ox + 8, oy + 8, 3, 4, 0, 0, Math.PI * 2);
+  ctx.fill();
+  PX(ctx, ox + 8, oy + 5, '#8a6ab0');
+  PX(ctx, ox + 7, oy + 9, '#b58aff');
+  PX(ctx, ox + 9, oy + 11, '#6a4f9a');
+}
+
+// Sanctum: a glowing rune sigil stamped on the floor.
+export function drawSanctumGlyph(ctx: Ctx, ox: number, oy: number): void {
+  const g = '#ecdca6';
+  R(ctx, ox + 4, oy + 8, 8, 1, g);
+  R(ctx, ox + 8, oy + 4, 1, 8, g);
+  R(ctx, ox + 5, oy + 5, 6, 6, 'rgba(236,220,166,0.0)');
+  // diamond
+  PX(ctx, ox + 8, oy + 4, '#fff4cf');
+  PX(ctx, ox + 4, oy + 8, g);
+  PX(ctx, ox + 12, oy + 8, g);
+  PX(ctx, ox + 8, oy + 12, g);
+  PX(ctx, ox + 6, oy + 6, '#b0962e');
+  PX(ctx, ox + 10, oy + 10, '#b0962e');
+}
+
+// Sanctum/Arena: a standing gold brazier with a small flame.
+export function drawBrazier(ctx: Ctx, ox: number, oy: number): void {
+  R(ctx, ox + 6, oy + 9, 4, 5, '#7a5e2a'); // stem
+  R(ctx, ox + 5, oy + 13, 6, 1, '#4a3812'); // foot
+  R(ctx, ox + 4, oy + 7, 8, 3, '#e6c264'); // bowl
+  R(ctx, ox + 4, oy + 7, 8, 1, '#fff0b0');
+  R(ctx, ox + 6, oy + 4, 4, 3, C.fireMid); // flame
+  R(ctx, ox + 7, oy + 2, 2, 3, C.fireCore);
+  PX(ctx, ox + 8, oy + 1, '#fff2b0');
+}
+
+// ---- additional themed decoration ----
+
+// Crypt: a weathered gravestone.
+export function drawGravestone(ctx: Ctx, ox: number, oy: number): void {
+  R(ctx, ox + 5, oy + 3, 6, 11, '#6a7388');
+  R(ctx, ox + 6, oy + 2, 4, 2, '#6a7388');
+  R(ctx, ox + 5, oy + 3, 6, 1, '#9aa0b4');
+  R(ctx, ox + 7, oy + 6, 2, 5, '#3a3f52'); // cross
+  R(ctx, ox + 6, oy + 7, 4, 1, '#3a3f52');
+  R(ctx, ox + 3, oy + 13, 10, 2, '#2a1d12');
+  PX(ctx, ox + 4, oy + 12, '#3c4a26');
+  PX(ctx, ox + 10, oy + 11, '#3c4a26');
+}
+
+// Crypt: a small lit candle.
+export function drawCandle(ctx: Ctx, ox: number, oy: number): void {
+  R(ctx, ox + 7, oy + 8, 2, 6, '#e0dcc0');
+  R(ctx, ox + 7, oy + 8, 2, 1, '#ffffff');
+  R(ctx, ox + 6, oy + 13, 4, 1, '#5a3a1c'); // holder
+  R(ctx, ox + 7, oy + 4, 2, 3, C.fireMid); // flame
+  PX(ctx, ox + 7, oy + 3, C.fireCore);
+}
+
+// Molten: a glowing crack across the floor (flat decor).
+export function drawLavaCrack(ctx: Ctx, ox: number, oy: number): void {
+  ctx.strokeStyle = '#ff8a1e';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(ox + 2, oy + 9);
+  ctx.lineTo(ox + 6, oy + 6);
+  ctx.lineTo(ox + 9, oy + 11);
+  ctx.lineTo(ox + 14, oy + 8);
+  ctx.stroke();
+  ctx.strokeStyle = '#ffd98a';
+  ctx.lineWidth = 0.6;
+  ctx.stroke();
+  PX(ctx, ox + 6, oy + 6, '#fff2b0');
+  PX(ctx, ox + 9, oy + 11, '#fff2b0');
+}
+
+// Molten: a cluster of obsidian rock with embers.
+export function drawObsidian(ctx: Ctx, ox: number, oy: number): void {
+  R(ctx, ox + 4, oy + 7, 8, 7, '#1a1018');
+  R(ctx, ox + 6, oy + 5, 4, 3, '#241624');
+  R(ctx, ox + 4, oy + 7, 8, 1, '#3a2a3a');
+  PX(ctx, ox + 7, oy + 9, '#c4451c');
+  PX(ctx, ox + 9, oy + 11, '#ff8a1e');
+  PX(ctx, ox + 6, oy + 12, '#c4451c');
+}
+
+// Frost: hanging icicles.
+export function drawIcicle(ctx: Ctx, ox: number, oy: number): void {
+  R(ctx, ox + 3, oy, 11, 1, '#cfeeff');
+  for (const [x, len] of [[5, 7], [8, 10], [11, 6]] as [number, number][]) {
+    for (let i = 0; i < len; i++) {
+      const w = Math.max(1, Math.round((1 - i / len) * 2));
+      R(ctx, ox + x - (w >> 1), oy + i, w, 1, i < 2 ? '#eaf6ff' : '#9fd8ff');
+    }
+  }
+}
+
+// Frost: an icy hanging banner (sways).
+export function drawFrostBanner(ctx: Ctx, ox: number, oy: number): void {
+  R(ctx, ox + 5, oy + 1, 6, 12, '#3a6a9a');
+  R(ctx, ox + 5, oy + 1, 6, 1, '#cfeaff');
+  R(ctx, ox + 5, oy + 1, 1, 12, '#5a8ec0');
+  R(ctx, ox + 7, oy + 4, 2, 2, '#cfeaff');
+  R(ctx, ox + 6, oy + 7, 4, 1, '#cfeaff');
+  PX(ctx, ox + 5, oy + 13, '#3a6a9a');
+  PX(ctx, ox + 8, oy + 13, '#3a6a9a');
+  PX(ctx, ox + 10, oy + 13, '#3a6a9a');
+}
+
+// Toxic: a clump of poisonous mushrooms.
+export function drawToxicMushroom(ctx: Ctx, ox: number, oy: number): void {
+  R(ctx, ox + 6, oy + 9, 2, 5, '#cfc0a0');
+  R(ctx, ox + 4, oy + 6, 8, 4, '#6a2c8a');
+  R(ctx, ox + 4, oy + 6, 8, 1, '#9a4cc0');
+  PX(ctx, ox + 6, oy + 7, '#e0b0ff');
+  PX(ctx, ox + 9, oy + 8, '#e0b0ff');
+  R(ctx, ox + 10, oy + 11, 2, 3, '#cfc0a0'); // small one
+  R(ctx, ox + 9, oy + 9, 4, 3, '#7a3a9a');
+  R(ctx, ox + 4, oy + 13, 8, 1, '#3f8a3a');
+}
+
+// Clockwork: a brass pipe segment.
+export function drawPipe(ctx: Ctx, ox: number, oy: number): void {
+  R(ctx, ox + 2, oy + 6, 12, 4, '#5a4a28');
+  R(ctx, ox + 2, oy + 6, 12, 1, '#8a6e34');
+  R(ctx, ox + 2, oy + 9, 12, 1, '#2a2214');
+  R(ctx, ox + 1, oy + 5, 3, 6, '#7a5e2a');
+  R(ctx, ox + 12, oy + 5, 3, 6, '#7a5e2a');
+  PX(ctx, ox + 3, oy + 7, '#e6c264');
+  PX(ctx, ox + 13, oy + 7, '#e6c264');
+}
+
+// Clockwork: a round gauge dial (glows).
+export function drawGauge(ctx: Ctx, ox: number, oy: number): void {
+  ctx.fillStyle = '#2a2214';
+  ctx.beginPath();
+  ctx.arc(ox + 8, oy + 8, 5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = '#e6c264';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.arc(ox + 8, oy + 8, 5, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.strokeStyle = '#ff5a3a';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(ox + 8, oy + 8);
+  ctx.lineTo(ox + 11, oy + 5);
+  ctx.stroke();
+  PX(ctx, ox + 8, oy + 8, '#fff4cf');
+}
+
+// Arena: a rack of weapons.
+export function drawWeaponRack(ctx: Ctx, ox: number, oy: number): void {
+  R(ctx, ox + 2, oy + 13, 12, 1, '#3a2614');
+  R(ctx, ox + 2, oy + 2, 1, 12, '#5a3a1c');
+  R(ctx, ox + 13, oy + 2, 1, 12, '#5a3a1c');
+  R(ctx, ox + 2, oy + 2, 12, 1, '#5a3a1c');
+  R(ctx, ox + 5, oy + 3, 1, 9, '#b9c4dd'); // sword
+  R(ctx, ox + 4, oy + 11, 3, 1, '#caa56a');
+  R(ctx, ox + 9, oy + 3, 1, 10, '#caa56a'); // spear
+  R(ctx, ox + 9, oy + 2, 1, 2, '#dfe6ff');
+  R(ctx, ox + 11, oy + 4, 1, 8, '#8a5a30'); // axe haft
+  R(ctx, ox + 11, oy + 4, 2, 2, '#b9c4dd');
+}
+
+// Bog: a gnarled dead tree.
+export function drawDeadTree(ctx: Ctx, ox: number, oy: number): void {
+  R(ctx, ox + 7, oy + 6, 2, 8, '#2a1e12');
+  R(ctx, ox + 7, oy + 6, 1, 8, '#3a2a18');
+  R(ctx, ox + 4, oy + 5, 3, 1, '#2a1e12');
+  R(ctx, ox + 3, oy + 3, 2, 2, '#2a1e12');
+  R(ctx, ox + 9, oy + 4, 3, 1, '#2a1e12');
+  R(ctx, ox + 11, oy + 2, 2, 2, '#2a1e12');
+  PX(ctx, ox + 4, oy + 4, '#3f6a2e');
+  PX(ctx, ox + 11, oy + 3, '#3f6a2e');
+  R(ctx, ox + 6, oy + 13, 4, 1, '#16240f');
+}
+
+// Bog: reeds / cattails.
+export function drawCattail(ctx: Ctx, ox: number, oy: number): void {
+  R(ctx, ox + 5, oy + 4, 1, 10, '#3f7a34');
+  R(ctx, ox + 9, oy + 3, 1, 11, '#3f7a34');
+  R(ctx, ox + 11, oy + 6, 1, 8, '#3f7a34');
+  R(ctx, ox + 4, oy + 6, 3, 3, '#5a3a1c');
+  R(ctx, ox + 8, oy + 5, 3, 3, '#5a3a1c');
+  PX(ctx, ox + 5, oy + 3, '#7fce58');
+  PX(ctx, ox + 9, oy + 2, '#7fce58');
+}
+
+// Storm: a crackling floating orb (glows).
+export function drawStormOrb(ctx: Ctx, ox: number, oy: number): void {
+  ctx.fillStyle = '#3a4a90';
+  ctx.beginPath();
+  ctx.arc(ox + 8, oy + 7, 4, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#7f9aff';
+  ctx.beginPath();
+  ctx.arc(ox + 8, oy + 7, 2.5, 0, Math.PI * 2);
+  ctx.fill();
+  PX(ctx, ox + 8, oy + 7, '#ffffff');
+  PX(ctx, ox + 3, oy + 4, '#cfe0ff');
+  PX(ctx, ox + 13, oy + 9, '#cfe0ff');
+  PX(ctx, ox + 5, oy + 12, '#cfe0ff');
+  R(ctx, ox + 6, oy + 13, 4, 1, '#2a2e4a'); // stand
+}
+
+// Shadow: a pile of bones.
+export function drawBonePile(ctx: Ctx, ox: number, oy: number): void {
+  R(ctx, ox + 3, oy + 11, 10, 3, '#c9c2a6');
+  R(ctx, ox + 3, oy + 11, 10, 1, '#efe9cf');
+  R(ctx, ox + 6, oy + 8, 4, 4, '#efe9cf'); // skull
+  PX(ctx, ox + 7, oy + 10, '#3a3020');
+  PX(ctx, ox + 9, oy + 10, '#3a3020');
+  R(ctx, ox + 4, oy + 9, 1, 3, '#c9c2a6');
+  R(ctx, ox + 11, oy + 9, 1, 3, '#c9c2a6');
+  PX(ctx, ox + 8, oy + 13, '#8a6ab0');
+}
+
+// Shadow: a flat glowing rune circle (flat decor).
+export function drawRuneCircle(ctx: Ctx, ox: number, oy: number): void {
+  ctx.strokeStyle = '#8a6ab0';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.arc(ox + 8, oy + 8, 5, 0, Math.PI * 2);
+  ctx.stroke();
+  for (let i = 0; i < 6; i++) {
+    const a = (i / 6) * Math.PI * 2;
+    PX(ctx, Math.round(ox + 8 + Math.cos(a) * 5), Math.round(oy + 8 + Math.sin(a) * 5), '#c79bff');
+  }
+  R(ctx, ox + 7, oy + 7, 2, 2, '#b58aff');
+}
+
+// Sanctum: a golden idol (glows).
+export function drawIdol(ctx: Ctx, ox: number, oy: number): void {
+  R(ctx, ox + 5, oy + 12, 6, 2, '#7a5e2a'); // base
+  R(ctx, ox + 6, oy + 4, 4, 8, '#e6c264');
+  R(ctx, ox + 6, oy + 4, 4, 1, '#fff4cf');
+  R(ctx, ox + 5, oy + 3, 6, 3, '#e6c264'); // head
+  PX(ctx, ox + 7, oy + 5, '#3a2a10');
+  PX(ctx, ox + 9, oy + 5, '#3a2a10');
+  R(ctx, ox + 7, oy + 8, 2, 2, '#fff4cf'); // gem
+}
+
+// Sanctum: a stone altar with a glyph.
+export function drawAltar(ctx: Ctx, ox: number, oy: number): void {
+  R(ctx, ox + 3, oy + 9, 10, 5, '#a89c78');
+  R(ctx, ox + 3, oy + 9, 10, 1, '#ecdca6');
+  R(ctx, ox + 4, oy + 13, 8, 1, '#3a3426');
+  R(ctx, ox + 5, oy + 6, 6, 3, '#8a7e5e'); // pedestal
+  PX(ctx, ox + 7, oy + 7, '#ffd24a');
+  PX(ctx, ox + 9, oy + 7, '#ffd24a');
 }
 
 // ============================================================================
@@ -762,6 +1183,17 @@ export function drawVignette(ctx: Ctx, w: number, h: number): void {
   ctx.fillRect(0, 0, w, h);
 }
 
+// White-edged radial (transparent centre) — tints cleanly to give each level a
+// coloured screen-edge grade layered over the dark vignette.
+export function drawEdgeTint(ctx: Ctx, w: number, h: number): void {
+  const g = ctx.createRadialGradient(w / 2, h / 2, h * 0.34, w / 2, h / 2, h * 0.92);
+  g.addColorStop(0, 'rgba(255,255,255,0)');
+  g.addColorStop(0.7, 'rgba(255,255,255,0.08)');
+  g.addColorStop(1, 'rgba(255,255,255,0.55)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, w, h);
+}
+
 export function drawBoneArcher(ctx: Ctx, ox: number, frame: number, r: MonsterRamp): void {
   const cx = ox + MON_FW / 2;
   const bob = frame === 1 || frame === 2 ? -1 : 0;
@@ -885,6 +1317,107 @@ export function drawColossus(ctx: Ctx, ox: number, frame: number, r: MonsterRamp
     R(ctx, cx - 14, 18 + bob, 4, 4, r.accent);
     R(ctx, cx + 10, 18 + bob, 4, 4, r.accent);
   }
+}
+
+// --- bespoke themed monsters ------------------------------------------------
+
+// Plague Ooze — a squishing gelatinous blob (bog / toxic).
+export function drawOoze(ctx: Ctx, ox: number, frame: number, r: MonsterRamp): void {
+  const cx = ox + MON_FW / 2;
+  const squish = [0, 1, 2, 1][frame % 4];
+  const w = 12 + squish;
+  const h = 12 - squish;
+  const top = 18 - h;
+  ctx.fillStyle = r.body1;
+  ctx.beginPath();
+  ctx.ellipse(cx, top + h / 2, w / 2, h / 2, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = r.body2;
+  ctx.beginPath();
+  ctx.ellipse(cx - 1, top + h / 2 - 1, w / 2 - 2, h / 2 - 2, 0, 0, Math.PI * 2);
+  ctx.fill();
+  R(ctx, cx - 4, top + 1, 3, 2, r.accent); // sheen
+  R(ctx, cx - 3, top + h / 2, 2, 2, r.eye);
+  R(ctx, cx + 1, top + h / 2, 2, 2, r.eye);
+  PX(ctx, cx - 3, top + h / 2, r.detail);
+  PX(ctx, cx + 2, top + h / 2, r.detail);
+  PX(ctx, cx - 4, top + h, r.body0);
+  PX(ctx, cx + 4, top + h - 1, r.body0);
+  if (frame === 3) R(ctx, cx - 1, top - 2, 2, 3, r.accent); // spit
+}
+
+// Brass Sentinel — a boxy clockwork construct with a glowing core (clockwork).
+export function drawConstruct(ctx: Ctx, ox: number, frame: number, r: MonsterRamp): void {
+  const cx = ox + MON_FW / 2;
+  const bob = frame === 1 ? -1 : 0;
+  const fire = frame === 3;
+  R(ctx, cx - 4, 17 + bob, 3, 4, r.body0);
+  R(ctx, cx + 1, 17 + bob, 3, 4, r.body0);
+  R(ctx, cx - 5, 8 + bob, 10, 9, r.body1);
+  R(ctx, cx - 5, 8 + bob, 10, 1, r.body2);
+  R(ctx, cx - 5, 8 + bob, 1, 9, r.body2);
+  R(ctx, cx + 4, 8 + bob, 1, 9, r.body0);
+  PX(ctx, cx - 4, 9 + bob, r.accent);
+  PX(ctx, cx + 3, 9 + bob, r.accent);
+  PX(ctx, cx - 4, 15 + bob, r.accent);
+  PX(ctx, cx + 3, 15 + bob, r.accent);
+  R(ctx, cx - 2, 11 + bob, 4, 3, r.eye); // core
+  PX(ctx, cx - 1, 12 + bob, '#ffffff');
+  R(ctx, cx - 3, 3 + bob, 6, 5, r.body2); // head
+  R(ctx, cx - 2, 5 + bob, 4, 1, r.eye);
+  R(ctx, cx - 7, 9 + bob, 2, 6, r.body1); // arms
+  R(ctx, cx + 5, 9 + bob, 2, 6, r.body1);
+  if (fire) R(ctx, cx + 7, 11 + bob, 3, 1, r.eye);
+}
+
+// Storm Wisp — a floating ball of energy crackling with arcs (storm).
+export function drawWisp(ctx: Ctx, ox: number, frame: number, r: MonsterRamp): void {
+  const cx = ox + MON_FW / 2;
+  const bob = [0, -2, -1, -2][frame % 4];
+  const cy = 9 + bob;
+  ctx.fillStyle = r.body0;
+  ctx.beginPath();
+  ctx.ellipse(cx, cy, 6, 6, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = r.body1;
+  ctx.beginPath();
+  ctx.ellipse(cx, cy, 4.5, 4.5, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = r.body2;
+  ctx.beginPath();
+  ctx.ellipse(cx, cy, 3, 3, 0, 0, Math.PI * 2);
+  ctx.fill();
+  R(ctx, cx - 1, cy - 1, 2, 2, r.eye);
+  PX(ctx, cx - 6, cy - 3, r.accent);
+  PX(ctx, cx + 6, cy + 2, r.accent);
+  PX(ctx, cx - 5, cy + 4, r.accent);
+  PX(ctx, cx + 5, cy - 4, r.accent);
+  R(ctx, cx - 1, cy + 5, 2, 4, r.body1); // tail
+  if (frame === 3) R(ctx, cx - 1, cy - 7, 2, 3, r.eye);
+}
+
+// Shadow Stalker — a lanky smoke-bodied prowler with glowing eyes (shadow).
+export function drawStalker(ctx: Ctx, ox: number, frame: number, r: MonsterRamp): void {
+  const cx = ox + MON_FW / 2;
+  const bob = frame === 1 ? -1 : 0;
+  const lunge = frame === 3 ? 2 : 0;
+  ctx.fillStyle = r.body1;
+  ctx.beginPath();
+  ctx.ellipse(cx, 12 + bob, 5, 7, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = r.body0;
+  ctx.beginPath();
+  ctx.ellipse(cx, 15 + bob, 6, 5, 0, 0, Math.PI * 2);
+  ctx.fill();
+  R(ctx, cx - 3, 5 + bob, 6, 5, r.body2); // head
+  R(ctx, cx - 2, 7 + bob, 1, 1, r.eye);
+  R(ctx, cx + 1, 7 + bob, 1, 1, r.eye);
+  R(ctx, cx - 6 - lunge, 11 + bob, 2, 4, r.accent); // claws
+  R(ctx, cx + 4 + lunge, 11 + bob, 2, 4, r.accent);
+  R(ctx, cx - 3, 18 + bob, 2, 3, r.body0); // legs
+  R(ctx, cx + 1, 18 + bob, 2, 3, r.body0);
+  PX(ctx, cx - 5, 9 + bob, r.detail);
+  PX(ctx, cx + 5, 13 + bob, r.detail);
 }
 
 export function drawRadialLight(ctx: Ctx, w: number, h: number, inner = 'rgba(255,206,130,0.95)', outer = 'rgba(255,150,40,0)'): void {

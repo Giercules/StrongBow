@@ -5,7 +5,9 @@ import { makeButton } from '../ui/uiHelpers';
 import { audio } from '../systems/AudioSystem';
 import { aiService } from '../ai/AIService';
 import { GameManualUI } from '../ui/GameManualUI';
-import { hasSave, loadGame } from '../systems/SaveSystem';
+import { hasSave } from '../systems/SaveSystem';
+import type { SaveData } from '../systems/SaveSystem';
+import { SaveLoadUI } from '../ui/SaveLoadUI';
 import { ALL_CLASSES } from '../data/heroes';
 
 export class MenuScene extends Phaser.Scene {
@@ -37,17 +39,17 @@ export class MenuScene extends Phaser.Scene {
       blendMode: 'ADD',
     });
 
-    // decorative heroes, moved down so they clear the Manual button
+    // decorative heroes, sized + placed to clear the Manual/Continue buttons above
     ALL_CLASSES.forEach((cls, i) => {
       const hx = cx - 150 + i * 100;
-      const s = this.add.sprite(hx, 416, `hero-${cls}-sheet`).setScale(3.4).setDepth(5);
+      const s = this.add.sprite(hx, 438, `hero-${cls}-sheet`).setScale(2.4).setDepth(5);
       s.play(`${cls}-idle-down`);
-      this.add.image(hx, 448, 'fx-shadow').setScale(1.8).setAlpha(0.5).setDepth(4);
-      this.tweens.add({ targets: s, y: 410, duration: 1200 + i * 120, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+      this.add.image(hx, 462, 'fx-shadow').setScale(1.4).setAlpha(0.5).setDepth(4);
+      this.tweens.add({ targets: s, y: 433, duration: 1200 + i * 120, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
     });
 
     [120, GAME_WIDTH - 120].forEach((x) => {
-      this.add.sprite(x, 150, 'torch-sheet').setScale(4).play('torch').setDepth(6);
+      this.add.sprite(x, 150, 'torch-sheet').setScale(4).play('torch').setDepth(6).setTint(0xffb060);
       this.add.image(x, 150, 'fx-glow-warm').setScale(8).setAlpha(0.4).setBlendMode(Phaser.BlendModes.ADD).setDepth(5);
     });
 
@@ -59,7 +61,7 @@ export class MenuScene extends Phaser.Scene {
     this.tweens.add({ targets: title, scale: { from: 1, to: 1.03 }, duration: 1800, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
 
     this.add
-      .text(cx, 172, 'DESCENT INTO THE SUNKEN CRYPT', { fontFamily: 'Trebuchet MS, sans-serif', fontSize: '15px', color: C.inkDim })
+      .text(cx, 172, 'DESCENT INTO THE UNDERMAW', { fontFamily: 'Trebuchet MS, sans-serif', fontSize: '15px', color: C.inkDim })
       .setOrigin(0.5)
       .setDepth(10);
 
@@ -68,9 +70,14 @@ export class MenuScene extends Phaser.Scene {
     makeButton(this, cx - 120, 292, 210, 40, 'LEVEL  SELECT', () => this.goScene('LevelSelectScene'), { size: 15 }).setDepth(11);
     makeButton(this, cx + 120, 292, 210, 40, 'FORGE  A  LEVEL', () => this.goScene('ForgeScene'), { fill: C.hudPanel2, size: 15 }).setDepth(11);
     const manual = new GameManualUI(this);
+    const saveUI = new SaveLoadUI(this);
     let by = 340;
     if (hasSave()) {
-      makeButton(this, cx, by, 230, 34, 'CONTINUE  (load save)', () => this.continueGame(), { fill: C.hudBorderDk, size: 13 }).setDepth(11);
+      makeButton(this, cx, by, 230, 34, 'LOAD GAME', () => {
+        this.enableAudio();
+        audio.sfx('ui_select');
+        saveUI.open({ mode: 'load', onLoad: (s) => this.startFromSave(s) });
+      }, { fill: C.hudBorderDk, size: 13 }).setDepth(11);
       by += 40;
     }
     makeButton(this, cx, by, 190, 32, 'MANUAL  (H)', () => manual.toggle(), { size: 13 }).setDepth(11);
@@ -115,9 +122,7 @@ export class MenuScene extends Phaser.Scene {
     this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start(key));
   }
 
-  private continueGame(): void {
-    const save = loadGame();
-    if (!save) return;
+  private startFromSave(save: SaveData): void {
     this.enableAudio();
     audio.sfx('ui_select');
     this.registry.set('twoPlayer', save.twoPlayer);

@@ -57,6 +57,21 @@ export class AnimationRegistry {
     add(scene, 'molten_colossus-walk', 'monster-molten_colossus-sheet', [0, 1, 2, 1], 5, -1);
     add(scene, 'molten_colossus-attack', 'monster-molten_colossus-sheet', [3], 1, 0);
 
+    // ---- new themed enemies + bosses (walk = 0,1,2,1 · attack = frame 3) ----
+    const newMon: [string, number][] = [
+      ['frost_shade', 6], ['rime_archer', 6], ['plague_ooze', 5], ['spore_imp', 10],
+      ['gear_knight', 5], ['brass_sentinel', 5], ['gladiator', 7], ['mire_lurker', 8],
+      ['storm_wisp', 10], ['sky_lancer', 6], ['shadow_stalker', 8], ['void_imp', 10],
+      ['hollow_knight', 5],
+      ['rime_cantor', 5], ['rot_sovereign', 5], ['brass_magnus', 5], ['arena_champion', 5],
+      ['mire_leviathan', 5], ['tempest_herald', 5], ['umbral_devourer', 5], ['hollow_king', 5],
+    ];
+    for (const [id, fr] of newMon) {
+      const sheet = `monster-${id}-sheet`;
+      add(scene, `${id}-walk`, sheet, [0, 1, 2, 1], fr, -1);
+      add(scene, `${id}-attack`, sheet, [3], 1, 0);
+    }
+
     // ---- animated tiles ----
     add(scene, 'water', 'water-sheet', [0, 1, 2, 3], 4, -1);
     add(scene, 'lava', 'lava-sheet', [0, 1, 2, 3], 6, -1);

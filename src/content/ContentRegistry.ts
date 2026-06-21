@@ -4,7 +4,16 @@ import { ITEMS } from '../data/items';
 import { SKILLS } from '../data/skills';
 import { LEVEL1 } from '../data/level1';
 import { LEVEL2 } from '../data/level2';
-import { LEVEL_FROST, LEVEL_TOXIC, LEVEL_CLOCKWORK, LEVEL_ARENA } from '../data/customLevels';
+import {
+  LEVEL_FROST,
+  LEVEL_TOXIC,
+  LEVEL_CLOCKWORK,
+  LEVEL_ARENA,
+  LEVEL_BOG,
+  LEVEL_STORM,
+  LEVEL_SHADOW,
+  LEVEL_SANCTUM,
+} from '../data/customLevels';
 import type {
   HeroClassDef,
   HeroClassId,
@@ -25,6 +34,10 @@ class Registry {
     toxic_undercroft: LEVEL_TOXIC,
     clockwork_vault: LEVEL_CLOCKWORK,
     blood_arena: LEVEL_ARENA,
+    drowned_bog: LEVEL_BOG,
+    storm_spire: LEVEL_STORM,
+    shadow_warren: LEVEL_SHADOW,
+    undermaw_sanctum: LEVEL_SANCTUM,
   };
   readonly levelOrder: string[] = [
     'sunken_crypt',
@@ -33,14 +46,36 @@ class Registry {
     'toxic_undercroft',
     'clockwork_vault',
     'blood_arena',
+    'drowned_bog',
+    'storm_spire',
+    'shadow_warren',
+    'undermaw_sanctum',
   ];
 
   /** Levels forged at runtime by the AI level forge (not part of the campaign). */
   private dynamic: Record<string, LevelData> = {};
 
+  /** Items minted at runtime by the loot system (graded drops). */
+  private minted: Record<string, ItemDefinition> = {};
+
   /** Register a one-off forged level so getLevel() can find it by id. */
   registerDynamic(level: LevelData): void {
     this.dynamic[level.id] = level;
+  }
+
+  /** Register a minted (dropped) item so item() can resolve it by id. */
+  registerItem(item: ItemDefinition): void {
+    this.minted[item.id] = item;
+  }
+
+  /** Bulk-register minted items (used when restoring a save). */
+  registerItems(items: ItemDefinition[] | undefined): void {
+    for (const it of items ?? []) if (it?.id) this.minted[it.id] = it;
+  }
+
+  /** All minted items currently known (persisted with saves). */
+  mintedList(): ItemDefinition[] {
+    return Object.values(this.minted);
   }
 
   /** Levels shown in the Level Select screen, in campaign order. */
@@ -57,7 +92,7 @@ class Registry {
   }
 
   item(id: string): ItemDefinition | undefined {
-    return ITEMS[id];
+    return ITEMS[id] ?? this.minted[id];
   }
 
   skill(id: string): SkillDef | undefined {

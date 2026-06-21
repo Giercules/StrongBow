@@ -129,6 +129,108 @@ export const ENEMIES: Record<EnemyId, EnemyDef> = {
     sheet: 'monster-molten_colossus-sheet',
     scale: 1.6,
   },
+
+  // ===================== themed regulars =====================
+  frost_shade: {
+    id: 'frost_shade', name: 'Frost Shade', health: 26, damage: 9, speed: 100, armor: 0, xp: 12,
+    chaseRange: 340, attackRange: 22, attackCooldown: 850, behavior: 'melee', sheet: 'monster-frost_shade-sheet',
+  },
+  rime_archer: {
+    id: 'rime_archer', name: 'Rime Archer', health: 30, damage: 12, speed: 64, armor: 0, xp: 18,
+    chaseRange: 360, attackRange: 230, attackCooldown: 1000, behavior: 'ranged', specialCooldown: 1500,
+    projectileSpeed: 250, preferredRange: 150, sheet: 'monster-rime_archer-sheet',
+  },
+  plague_ooze: {
+    id: 'plague_ooze', name: 'Plague Ooze', health: 70, damage: 12, speed: 46, armor: 3, xp: 24,
+    chaseRange: 280, attackRange: 22, attackCooldown: 1100, behavior: 'melee', sheet: 'monster-plague_ooze-sheet', scale: 1.1,
+  },
+  spore_imp: {
+    id: 'spore_imp', name: 'Spore Imp', health: 18, damage: 8, speed: 124, armor: 0, xp: 11,
+    chaseRange: 380, attackRange: 20, attackCooldown: 700, behavior: 'melee', sheet: 'monster-spore_imp-sheet', scale: 0.9,
+  },
+  gear_knight: {
+    id: 'gear_knight', name: 'Gear Knight', health: 120, damage: 22, speed: 56, armor: 6, xp: 34,
+    chaseRange: 320, attackRange: 28, attackCooldown: 1300, behavior: 'charger', specialCooldown: 3000,
+    sheet: 'monster-gear_knight-sheet', scale: 1.2,
+  },
+  brass_sentinel: {
+    id: 'brass_sentinel', name: 'Brass Sentinel', health: 60, damage: 16, speed: 50, armor: 4, xp: 30,
+    chaseRange: 340, attackRange: 220, attackCooldown: 1100, behavior: 'ranged', specialCooldown: 1700,
+    projectileSpeed: 230, preferredRange: 140, sheet: 'monster-brass_sentinel-sheet', scale: 1.1,
+  },
+  gladiator: {
+    id: 'gladiator', name: 'Damned Gladiator', health: 80, damage: 18, speed: 74, armor: 3, xp: 30,
+    chaseRange: 320, attackRange: 26, attackCooldown: 1000, behavior: 'melee', sheet: 'monster-gladiator-sheet', scale: 1.15,
+  },
+  mire_lurker: {
+    id: 'mire_lurker', name: 'Mire Lurker', health: 64, damage: 15, speed: 72, armor: 2, xp: 26,
+    chaseRange: 320, attackRange: 24, attackCooldown: 1050, behavior: 'melee', sheet: 'monster-mire_lurker-sheet', scale: 1.05,
+  },
+  storm_wisp: {
+    id: 'storm_wisp', name: 'Storm Wisp', health: 34, damage: 14, speed: 110, armor: 0, xp: 24,
+    chaseRange: 380, attackRange: 220, attackCooldown: 900, behavior: 'ranged', specialCooldown: 1300,
+    projectileSpeed: 300, preferredRange: 160, sheet: 'monster-storm_wisp-sheet', scale: 0.95,
+  },
+  sky_lancer: {
+    id: 'sky_lancer', name: 'Sky Lancer', health: 40, damage: 16, speed: 70, armor: 1, xp: 28,
+    chaseRange: 380, attackRange: 240, attackCooldown: 1000, behavior: 'ranged', specialCooldown: 1500,
+    projectileSpeed: 270, preferredRange: 160, sheet: 'monster-sky_lancer-sheet',
+  },
+  shadow_stalker: {
+    id: 'shadow_stalker', name: 'Shadow Stalker', health: 46, damage: 18, speed: 118, armor: 1, xp: 30,
+    chaseRange: 400, attackRange: 22, attackCooldown: 800, behavior: 'melee', sheet: 'monster-shadow_stalker-sheet',
+  },
+  void_imp: {
+    id: 'void_imp', name: 'Void Imp', health: 28, damage: 13, speed: 126, armor: 0, xp: 18,
+    chaseRange: 400, attackRange: 20, attackCooldown: 700, behavior: 'melee', sheet: 'monster-void_imp-sheet', scale: 0.9,
+  },
+  hollow_knight: {
+    id: 'hollow_knight', name: 'Hollow Knight', health: 150, damage: 26, speed: 58, armor: 8, xp: 44,
+    chaseRange: 340, attackRange: 30, attackCooldown: 1300, behavior: 'charger', specialCooldown: 2800,
+    sheet: 'monster-hollow_knight-sheet', scale: 1.25,
+  },
+
+  // ===================== themed bosses =====================
+  rime_cantor: {
+    id: 'rime_cantor', name: 'The Rime Cantor', health: 520, damage: 22, speed: 62, armor: 5, xp: 320,
+    chaseRange: 600, attackRange: 40, attackCooldown: 1400, isBoss: true, behavior: 'boss', specialCooldown: 3800,
+    projectileSpeed: 240, summons: 'frost_shade', sheet: 'monster-rime_cantor-sheet', scale: 1.4,
+  },
+  rot_sovereign: {
+    id: 'rot_sovereign', name: 'The Rot Sovereign', health: 560, damage: 24, speed: 60, armor: 5, xp: 340,
+    chaseRange: 600, attackRange: 42, attackCooldown: 1400, isBoss: true, behavior: 'boss', specialCooldown: 3600,
+    projectileSpeed: 230, summons: 'plague_ooze', sheet: 'monster-rot_sovereign-sheet', scale: 1.4,
+  },
+  brass_magnus: {
+    id: 'brass_magnus', name: 'Brass Magnus', health: 680, damage: 26, speed: 56, armor: 8, xp: 420,
+    chaseRange: 640, attackRange: 46, attackCooldown: 1500, isBoss: true, behavior: 'boss', specialCooldown: 3400,
+    projectileSpeed: 240, summons: 'brass_sentinel', sheet: 'monster-brass_magnus-sheet', scale: 1.6,
+  },
+  arena_champion: {
+    id: 'arena_champion', name: 'The Undying Champion', health: 640, damage: 28, speed: 70, armor: 6, xp: 400,
+    chaseRange: 640, attackRange: 44, attackCooldown: 1300, isBoss: true, behavior: 'boss', specialCooldown: 3200,
+    projectileSpeed: 230, summons: 'gladiator', sheet: 'monster-arena_champion-sheet', scale: 1.5,
+  },
+  mire_leviathan: {
+    id: 'mire_leviathan', name: 'The Mire Leviathan', health: 720, damage: 27, speed: 54, armor: 6, xp: 440,
+    chaseRange: 640, attackRange: 46, attackCooldown: 1500, isBoss: true, behavior: 'boss', specialCooldown: 3600,
+    projectileSpeed: 230, summons: 'mire_lurker', sheet: 'monster-mire_leviathan-sheet', scale: 1.6,
+  },
+  tempest_herald: {
+    id: 'tempest_herald', name: 'The Tempest Herald', health: 700, damage: 28, speed: 66, armor: 5, xp: 460,
+    chaseRange: 660, attackRange: 42, attackCooldown: 1300, isBoss: true, behavior: 'boss', specialCooldown: 3000,
+    projectileSpeed: 300, summons: 'storm_wisp', sheet: 'monster-tempest_herald-sheet', scale: 1.45,
+  },
+  umbral_devourer: {
+    id: 'umbral_devourer', name: 'The Umbral Devourer', health: 780, damage: 30, speed: 64, armor: 6, xp: 500,
+    chaseRange: 680, attackRange: 44, attackCooldown: 1300, isBoss: true, behavior: 'boss', specialCooldown: 3000,
+    projectileSpeed: 260, summons: 'shadow_stalker', sheet: 'monster-umbral_devourer-sheet', scale: 1.5,
+  },
+  hollow_king: {
+    id: 'hollow_king', name: 'The Hollow King', health: 1000, damage: 34, speed: 62, armor: 8, xp: 700,
+    chaseRange: 720, attackRange: 48, attackCooldown: 1300, isBoss: true, behavior: 'boss', specialCooldown: 2800,
+    projectileSpeed: 270, summons: 'void_imp', sheet: 'monster-hollow_king-sheet', scale: 1.7,
+  },
 };
 
 export const ENEMY_IDS: EnemyId[] = [
@@ -138,6 +240,27 @@ export const ENEMY_IDS: EnemyId[] = [
   'bone_archer',
   'brute',
   'imp',
+  'frost_shade',
+  'rime_archer',
+  'plague_ooze',
+  'spore_imp',
+  'gear_knight',
+  'brass_sentinel',
+  'gladiator',
+  'mire_lurker',
+  'storm_wisp',
+  'sky_lancer',
+  'shadow_stalker',
+  'void_imp',
+  'hollow_knight',
   'grave_warden',
   'molten_colossus',
+  'rime_cantor',
+  'rot_sovereign',
+  'brass_magnus',
+  'arena_champion',
+  'mire_leviathan',
+  'tempest_herald',
+  'umbral_devourer',
+  'hollow_king',
 ];
