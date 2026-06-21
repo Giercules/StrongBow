@@ -285,42 +285,80 @@ export function drawWallRoof(ctx: Ctx, ox: number, oy: number, theme: ThemeId, s
   }
 }
 
-// A carved, glowing arcane sigil set into a wall — themed per realm. Baked onto
-// occasional front-facing wall tiles to give the dungeons mystical wall art.
+// A carved, glowing wall decoration — themed per realm, with several motifs
+// (rune ring, diamond sigil, barred window, gargoyle, mounted shield) so the
+// dungeon walls feel richly decorated rather than repetitive.
 export function drawWallArt(ctx: Ctx, ox: number, oy: number, theme: ThemeId, seed: number): void {
   const accents: Record<ThemeId, string> = {
-    crypt: '#8aa0e0',
-    molten: '#ff8a1e',
-    frost: '#bfe9ff',
-    toxic: '#9fd05a',
-    clockwork: '#e6c264',
-    arena: '#ff7a3a',
-    bog: '#82a85a',
-    storm: '#b0c8ff',
-    shadow: '#b58aff',
-    sanctum: '#ffd24a',
+    crypt: '#9ab0e8',
+    molten: '#ff9a3a',
+    frost: '#cfeaff',
+    toxic: '#a8e05a',
+    clockwork: '#f0cc66',
+    arena: '#ff8a4a',
+    bog: '#92b86a',
+    storm: '#c0d4ff',
+    shadow: '#c79bff',
+    sanctum: '#ffe07a',
   };
-  const col = accents[theme] ?? '#8aa0e0';
+  const col = accents[theme] ?? '#9ab0e8';
   const cx = ox + 8;
   const cy = oy + 7;
   const r = rng(seed * 2654435761 + 7);
-  // carved recess
-  ctx.fillStyle = 'rgba(0,0,0,0.42)';
-  ctx.fillRect(ox + 3, oy + 1, 10, 12);
-  ctx.fillStyle = 'rgba(255,255,255,0.07)';
-  ctx.fillRect(ox + 3, oy + 1, 10, 1);
-  // rune ring + sigil
-  ctx.strokeStyle = col;
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.arc(cx, cy, 3.4, 0, Math.PI * 2);
-  ctx.stroke();
-  R(ctx, cx - 2, cy, 5, 1, col);
-  R(ctx, cx, cy - 2, 1, 5, col);
-  PX(ctx, cx, cy, '#ffffff');
-  // spokes / glyph dots vary a little per tile
-  const spokes: [number, number][] = [[-3, -3], [3, -3], [-3, 3], [3, 3]];
-  for (const [dx, dy] of spokes) if (r() < 0.85) PX(ctx, cx + dx, cy + dy, col);
+  const motif = Math.floor(r() * 5);
+
+  // carved recess + lit top edge (common to all motifs)
+  ctx.fillStyle = 'rgba(0,0,0,0.45)';
+  ctx.fillRect(ox + 2, oy + 1, 12, 12);
+  ctx.fillStyle = 'rgba(255,255,255,0.08)';
+  ctx.fillRect(ox + 2, oy + 1, 12, 1);
+  ctx.fillStyle = 'rgba(0,0,0,0.4)';
+  ctx.fillRect(ox + 2, oy + 12, 12, 1);
+
+  if (motif === 0) {
+    // rune ring + cross sigil
+    ctx.strokeStyle = col;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(cx, cy, 3.6, 0, Math.PI * 2);
+    ctx.stroke();
+    R(ctx, cx - 2, cy, 5, 1, col);
+    R(ctx, cx, cy - 2, 1, 5, col);
+    PX(ctx, cx, cy, '#ffffff');
+    for (const [dx, dy] of [[-3, -3], [3, -3], [-3, 3], [3, 3]] as [number, number][]) PX(ctx, cx + dx, cy + dy, col);
+  } else if (motif === 1) {
+    // diamond sigil with a gem
+    for (const [dx, dy] of [[0, -4], [-2, -2], [2, -2], [-4, 0], [4, 0], [-2, 2], [2, 2], [0, 4]] as [number, number][]) PX(ctx, cx + dx, cy + dy, col);
+    R(ctx, cx - 1, cy - 1, 2, 2, col);
+    PX(ctx, cx, cy, '#ffffff');
+  } else if (motif === 2) {
+    // barred arrow-slit window
+    R(ctx, cx - 3, cy - 4, 7, 1, col);
+    R(ctx, cx - 3, cy + 4, 7, 1, col);
+    for (const bx of [-3, -1, 1, 3]) R(ctx, cx + bx, cy - 3, 1, 7, col);
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    ctx.fillRect(cx - 2, cy - 3, 1, 7);
+  } else if (motif === 3) {
+    // gargoyle visage with glowing eyes
+    R(ctx, cx - 3, cy - 2, 6, 1, col); // brow
+    R(ctx, cx - 2, cy - 1, 1, 2, col); // eyes
+    R(ctx, cx + 1, cy - 1, 1, 2, col);
+    PX(ctx, cx - 2, cy - 1, '#ffffff');
+    PX(ctx, cx + 1, cy - 1, '#ffffff');
+    R(ctx, cx - 2, cy + 2, 4, 1, col); // mouth
+    PX(ctx, cx - 2, cy + 3, col);
+    PX(ctx, cx + 1, cy + 3, col);
+  } else {
+    // mounted round shield / boss with rivets
+    ctx.strokeStyle = col;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(cx, cy, 4, 0, Math.PI * 2);
+    ctx.stroke();
+    R(ctx, cx - 1, cy - 1, 2, 2, col);
+    PX(ctx, cx, cy, '#ffffff');
+    for (const [dx, dy] of [[0, -4], [0, 4], [-4, 0], [4, 0]] as [number, number][]) PX(ctx, cx + dx, cy + dy, col);
+  }
 }
 
 export function drawDoor(ctx: Ctx, ox: number, oy: number, locked: boolean): void {

@@ -372,6 +372,16 @@ export class DungeonScene extends Phaser.Scene {
     const ta = getThemeArt(this.level.theme);
     const atmo = ATMOSPHERE[this.level.theme ?? 'crypt'] ?? ATMOSPHERE.crypt;
     const isWall = (x: number, y: number) => y >= 0 && y < H && x >= 0 && x < W && t[y][x] === Tile.WALL;
+    // A wall has "solid backing" when the tile directly north of it is another
+    // wall or the void — i.e. a genuine wall mass, not a thin 1-tile divider
+    // with walkable floor behind it. Only backed walls get the tall rising face;
+    // thin / lone walls get a short ledge so we never paint a glitchy floating
+    // slab over the floor behind them.
+    const wallHasSolidBack = (wx: number, wyy: number): boolean => {
+      const n = wyy - 1 >= 0 ? t[wyy - 1][wx] : Tile.VOID;
+      return n === Tile.WALL || n === Tile.VOID;
+    };
+    const F = 55; // wall face height in px — 25% taller; towers over ~28px heroes
 
     // Pre-render the whole floor/wall layer onto ONE canvas texture and show it as
     // a single image. (Phaser 4 RenderTexture.draw did not stamp here -> dark map.)
@@ -395,10 +405,7 @@ export class DungeonScene extends Phaser.Scene {
           else {
             art.drawWall(bgCtx, px, py, !isWall(x, y - 1), x * 7 + y * 13, ta.wall);
             art.drawWallRoof(bgCtx, px, py, this.level.theme ?? 'crypt', x * 13 + y * 7 + 3);
-            // occasional themed mural on a visible (front-facing) wall
-            if (y + 1 < H && t[y + 1][x] === Tile.FLOOR && (x * 7 + y * 11) % 17 === 0 && (x * 5 + y) % 5 !== 0) {
-              art.drawWallArt(bgCtx, px, py, this.level.theme ?? 'crypt', x * 3 + y);
-            }
+            // murals are drawn on the tall front FACE below (see next pass)
           }
           continue;
         }
@@ -420,27 +427,69 @@ export class DungeonScene extends Phaser.Scene {
         const px = x * TILE_SIZE;
         const py = y * TILE_SIZE;
         if (y > 0 && t[y - 1][x] === Tile.WALL) {
-          // 3D wall FRONT FACE overhanging the floor below (height illusion)
-          bgCtx.fillStyle = ta.face.main;
-          bgCtx.fillRect(px, py, TILE_SIZE, 9);
-          bgCtx.fillStyle = ta.face.top;
-          bgCtx.fillRect(px, py, TILE_SIZE, 1);
-          bgCtx.fillStyle = ta.face.upper;
-          bgCtx.fillRect(px, py + 1, TILE_SIZE, 3);
-          bgCtx.fillStyle = ta.face.lower;
-          bgCtx.fillRect(px, py + 5, TILE_SIZE, 3);
-          bgCtx.fillStyle = ta.face.line;
-          bgCtx.fillRect(px, py + 4, TILE_SIZE, 1);
-          for (let mx = px + 3; mx < px + TILE_SIZE; mx += 6) {
+          const wy = y - 1; // the wall casting this face
+          if (wallHasSolidBack(x, wy)) {
+            // Tall 3D wall that RISES UP from its south edge (instead of hanging
+            // down over the floor), so walls tower over the heroes without
+            // covering the walkable floor — and they cast a shadow onto it.
+            const topY = py - F; // screen-top of the wall face
+            bgCtx.fillStyle = ta.face.main;
+            bgCtx.fillRect(px, topY, TILE_SIZE, F);
+            // lit top cap — the wall edge catching the light from above
+            bgCtx.fillStyle = ta.wall.topLit;
+            bgCtx.fillRect(px, topY, TILE_SIZE, 2);
+            bgCtx.fillStyle = ta.wall.hi;
+            bgCtx.fillRect(px, topY, TILE_SIZE, 1);
+            // stacked stone courses with mortar + running-bond joints
+            let course = 0;
+            for (let cyy = topY + 3; cyy < py - 1; cyy += 6) {
+              const chh = Math.min(5, py - 1 - cyy);
+              bgCtx.fillStyle = course % 2 === 0 ? ta.face.upper : ta.face.lower;
+              bgCtx.fillRect(px, cyy, TILE_SIZE, chh);
+              bgCtx.fillStyle = ta.face.line;
+              bgCtx.fillRect(px, cyy + chh, TILE_SIZE, 1);
+              const off = course % 2 === 0 ? 4 : 8;
+              for (let mx = px + off; mx < px + TILE_SIZE; mx += 8) bgCtx.fillRect(mx, cyy, 1, chh);
+              course++;
+            }
+            // vertical light falloff — darkest toward the base (ambient occlusion)
+            const fg = bgCtx.createLinearGradient(0, topY, 0, py);
+            fg.addColorStop(0, 'rgba(255,255,255,0.08)');
+            fg.addColorStop(0.5, 'rgba(0,0,0,0)');
+            fg.addColorStop(1, 'rgba(0,0,0,0.5)');
+            bgCtx.fillStyle = fg;
+            bgCtx.fillRect(px, topY, TILE_SIZE, F);
+            // themed mural carved mid-face (clearly visible on the tall wall)
+            if ((x * 3 + wy * 7) % 5 === 0 && wy % 5 !== 0) {
+              art.drawWallArt(bgCtx, px, topY + Math.floor((F - 14) / 2), this.level.theme ?? 'crypt', x * 3 + wy);
+            }
+            // CAST SHADOW the wall throws onto the floor at its base (south side)
+            const sh = bgCtx.createLinearGradient(0, py, 0, py + 11);
+            sh.addColorStop(0, 'rgba(0,0,0,0.5)');
+            sh.addColorStop(1, 'rgba(0,0,0,0)');
+            bgCtx.fillStyle = sh;
+            bgCtx.fillRect(px, py, TILE_SIZE, 11);
+          } else {
+            // Thin / free-standing wall (walkable floor directly behind it). A
+            // tall riser here would smear a slab over the floor to the north and
+            // read as a floating glitch wall — draw a short ledge instead.
+            const f2 = 12;
+            bgCtx.fillStyle = ta.face.main;
+            bgCtx.fillRect(px, py, TILE_SIZE, f2);
+            bgCtx.fillStyle = ta.wall.hi;
+            bgCtx.fillRect(px, py, TILE_SIZE, 1);
+            bgCtx.fillStyle = ta.face.upper;
+            bgCtx.fillRect(px, py + 1, TILE_SIZE, 5);
+            bgCtx.fillStyle = ta.face.lower;
+            bgCtx.fillRect(px, py + 6, TILE_SIZE, 5);
             bgCtx.fillStyle = ta.face.line;
-            bgCtx.fillRect(mx, py + 1, 1, 3);
-            bgCtx.fillRect(mx + 3, py + 5, 1, 3);
+            bgCtx.fillRect(px, py + f2 - 1, TILE_SIZE, 1);
+            const sh2 = bgCtx.createLinearGradient(0, py + f2, 0, py + f2 + 6);
+            sh2.addColorStop(0, 'rgba(0,0,0,0.4)');
+            sh2.addColorStop(1, 'rgba(0,0,0,0)');
+            bgCtx.fillStyle = sh2;
+            bgCtx.fillRect(px, py + f2, TILE_SIZE, 6);
           }
-          const grd = bgCtx.createLinearGradient(0, py + 9, 0, py + 16);
-          grd.addColorStop(0, 'rgba(0,0,0,0.62)');
-          grd.addColorStop(1, 'rgba(0,0,0,0)');
-          bgCtx.fillStyle = grd;
-          bgCtx.fillRect(px, py + 9, TILE_SIZE, 7);
         }
         if (x > 0 && t[y][x - 1] === Tile.WALL) {
           const grd = bgCtx.createLinearGradient(px, 0, px + 7, 0);
@@ -506,22 +555,27 @@ export class DungeonScene extends Phaser.Scene {
           const rect = this.addBlocker(c.x, c.y, TILE_SIZE, TILE_SIZE);
           this.lockedDoors.push({ rect, sprite: spr, x, y, open: false });
         }
-        if (tile === Tile.WALL && y + 1 < H && t[y + 1][x] === Tile.FLOOR && (x * 5 + y) % 5 === 0) {
-          this.add.sprite(c.x, c.y + 6, 'torch-sheet').play('torch').setDepth(c.y + 2).setTint(atmo.flameTint);
-          const light = this.add
-            .image(c.x, c.y + 16, 'fx-light')
-            .setScale(1.2)
-            .setAlpha(0.26)
-            .setBlendMode(Phaser.BlendModes.ADD)
-            .setDepth(DEPTH.VIGNETTE - 1)
-            .setTint(atmo.flameTint);
-          light.setData('ph', Math.random() * 6.28);
-          this.torchLights.push(light);
-        }
-        // pulsing arcane glow over the baked wall murals (active motion on walls)
-        if (tile === Tile.WALL && y + 1 < H && t[y + 1][x] === Tile.FLOOR && (x * 7 + y * 11) % 17 === 0 && (x * 5 + y) % 5 !== 0) {
-          const gl = this.add.image(c.x, c.y, 'fx-glow-white').setScale(0.85).setAlpha(0.26).setBlendMode(Phaser.BlendModes.ADD).setDepth(c.y + 1).setTint(atmo.particleTint);
-          this.tweens.add({ targets: gl, alpha: { from: 0.12, to: 0.34 }, duration: 1500 + Math.random() * 900, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+        // Torches + mural glow mount on the TALL rising face — only on backed
+        // walls (on a short ledge they would float in the air above nothing).
+        if (tile === Tile.WALL && y + 1 < H && t[y + 1][x] === Tile.FLOOR && wallHasSolidBack(x, y)) {
+          const faceBase = c.y + 8; // where the wall meets the floor (south edge)
+          if ((x * 5 + y) % 5 === 0) {
+            this.add.sprite(c.x, faceBase - Math.round(F * 0.55), 'torch-sheet').play('torch').setDepth(c.y + 2).setTint(atmo.flameTint);
+            const light = this.add
+              .image(c.x, faceBase - 6, 'fx-light')
+              .setScale(1.5)
+              .setAlpha(0.26)
+              .setBlendMode(Phaser.BlendModes.ADD)
+              .setDepth(DEPTH.VIGNETTE - 1)
+              .setTint(atmo.flameTint);
+            light.setData('ph', Math.random() * 6.28);
+            this.torchLights.push(light);
+          }
+          // pulsing arcane glow centered on the mid-face mural
+          if ((x * 3 + y * 7) % 5 === 0 && y % 5 !== 0) {
+            const gl = this.add.image(c.x, faceBase - Math.round(F / 2), 'fx-glow-white').setScale(1.2).setAlpha(0.3).setBlendMode(Phaser.BlendModes.ADD).setDepth(c.y).setTint(atmo.particleTint);
+            this.tweens.add({ targets: gl, alpha: { from: 0.14, to: 0.4 }, duration: 1500 + Math.random() * 900, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+          }
         }
         if (tile === Tile.FLOOR) {
           const hsh = (x * 17 + y * 31) % 53;
@@ -908,8 +962,11 @@ export class DungeonScene extends Phaser.Scene {
 
   private updateCompanions(time: number, delta: number): void {
     const liveMonsters = this.monsters.filter((m) => m.active && m.alive);
-    // companions also seek out and smash the spawning altars (generators)
-    const targets = [...liveMonsters, ...this.generators.filter((g) => g.alive)];
+    // Altars are only "targets" for a companion that is right next to one, so the
+    // party keeps following the leader instead of peeling off across the room to
+    // chase a stationary altar. (Per-companion list built in the loop below.)
+    const aliveGens = this.generators.filter((g) => g.alive);
+    const GEN_AGGRO_R = 46; // only smash an altar you're basically standing on
     const leader = this.leader();
     if (leader) {
       const ltx = Math.floor(leader.x / TILE_SIZE);
@@ -954,8 +1011,17 @@ export class DungeonScene extends Phaser.Scene {
           }
         }
       }
+      // Monsters are always combat targets; an altar joins the list only when
+      // this companion is already adjacent to it (so following stays smooth).
+      let targets: Array<Monster | Generator> = liveMonsters;
+      if (comp.alive && aliveGens.length) {
+        const nearGens = aliveGens.filter(
+          (g) => Phaser.Math.Distance.Between(comp.x, comp.y, g.x, g.y) < GEN_AGGRO_R
+        );
+        if (nearGens.length) targets = [...liveMonsters, ...nearGens];
+      }
       const pathDir = leader && comp.alive ? this.flow.sample(comp.x, comp.y) : null;
-      comp.aiTick(time, delta, leader, targets, pathDir, { x: sx * 0.9, y: sy * 0.9 });
+      comp.aiTick(time, delta, leader, targets, pathDir, { x: sx * 0.6, y: sy * 0.6 });
     }
   }
 
