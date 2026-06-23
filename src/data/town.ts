@@ -114,8 +114,8 @@ export function buildTown(): LevelData {
 
   for (const bx of [15, 28, 32, 45, 62, 78, 81, 94]) decor.push({ x: bx, y: 20, key: 'brazier' });
 
-  const fcx = cx + 2;
-  const fcy = cy - 2;
+  const fcx = cx; // fountain centred on the plaza
+  const fcy = cy;
   for (let dy = -3; dy <= 3; dy++)
     for (let dx = -4; dx <= 4; dx++) {
       if ((dx * dx) / 16 + (dy * dy) / 9 <= 1) {
@@ -130,7 +130,7 @@ export function buildTown(): LevelData {
     [fcx + 6, fcy + 4],
   ] as [number, number][])
     decor.push({ x: px, y: py, key: 'pillar' });
-  decor.push({ x: fcx, y: fcy - 6, key: 'candle' });
+  decor.push({ x: fcx, y: fcy, key: 'fountain' });
 
   const roadTile = (x: number, y: number) => {
     if (!inB(x, y) || tiles[y][x] !== Tile.FLOOR) return;

@@ -224,3 +224,38 @@ export function drawTownsfolk(ctx: Ctx, ox: number, oy: number, variant: number)
   }
 }
 
+
+
+// Town centrepiece: a tiered stone fountain that sits over the plaza pool.
+export function drawFountain(ctx: Ctx, ox: number, oy: number): void {
+  const stone = '#9a9286', stoneHi = '#bcb4a6', stoneDk = '#6a6258';
+  const water = '#2f86b5', waterHi = '#7fc8e8', spray = '#dffaff';
+  // lower basin
+  R(ctx, ox + 2, oy + 42, 44, 12, stone);
+  R(ctx, ox + 2, oy + 42, 44, 3, stoneHi);
+  R(ctx, ox + 2, oy + 51, 44, 3, stoneDk);
+  R(ctx, ox + 6, oy + 44, 36, 7, water);
+  R(ctx, ox + 6, oy + 44, 36, 2, waterHi);
+  R(ctx, ox + 12, oy + 48, 8, 1, waterHi); // ripples
+  R(ctx, ox + 28, oy + 47, 8, 1, waterHi);
+  // pedestal
+  R(ctx, ox + 19, oy + 26, 10, 18, stone);
+  R(ctx, ox + 19, oy + 26, 3, 18, stoneHi);
+  R(ctx, ox + 26, oy + 26, 3, 18, stoneDk);
+  // upper basin
+  R(ctx, ox + 12, oy + 22, 24, 7, stone);
+  R(ctx, ox + 12, oy + 22, 24, 2, stoneHi);
+  R(ctx, ox + 12, oy + 27, 24, 2, stoneDk);
+  R(ctx, ox + 15, oy + 23, 18, 4, water);
+  R(ctx, ox + 15, oy + 23, 18, 1, waterHi);
+  // finial + top water bulb
+  R(ctx, ox + 21, oy + 12, 6, 10, stone);
+  R(ctx, ox + 21, oy + 12, 2, 10, stoneHi);
+  ctx.fillStyle = spray; ctx.beginPath(); ctx.arc(ox + 24, oy + 10, 4, 0, Math.PI * 2); ctx.fill();
+  PX(ctx, ox + 24, oy + 8, '#ffffff');
+  // falling water streams (upper basin -> lower)
+  R(ctx, ox + 14, oy + 29, 1, 13, spray);
+  R(ctx, ox + 33, oy + 29, 1, 13, spray);
+  PX(ctx, ox + 19, oy + 13, spray); PX(ctx, ox + 29, oy + 13, spray); // arc droplets
+  PX(ctx, ox + 17, oy + 16, '#bfe9ff'); PX(ctx, ox + 31, oy + 16, '#bfe9ff');
+}

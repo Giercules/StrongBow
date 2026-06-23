@@ -700,6 +700,10 @@ export class DungeonScene extends Phaser.Scene {
         const glow = this.add.image(dc.x, dc.y, glowDecor[d.key]).setScale(1.7).setAlpha(0.3).setBlendMode(Phaser.BlendModes.ADD).setDepth(dc.y - 3);
         this.tweens.add({ targets: glow, alpha: { from: 0.18, to: 0.42 }, scale: { from: 1.4, to: 2 }, duration: 1100 + Math.random() * 600, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
         this.floatBob(s);
+      } else if (d.key === 'fountain') {
+        this.add.image(dc.x, dc.y, 'fountain').setDepth(dc.y);
+        const spray = this.add.image(dc.x, dc.y - 16, 'fx-glow-white').setScale(1.4).setAlpha(0.25).setBlendMode(Phaser.BlendModes.ADD).setDepth(dc.y + 1).setTint(0x9fd0ff);
+        this.tweens.add({ targets: spray, alpha: { from: 0.16, to: 0.42 }, scaleY: { from: 1.3, to: 2 }, duration: 1100, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
       } else if (swayDecor.has(d.key)) {
         const s = this.add.image(dc.x, dc.y, d.key).setDepth(dc.y - 2).setScale(US);
         this.tweens.add({ targets: s, scaleX: { from: US, to: US * 0.9 }, duration: 1400 + Math.random() * 700, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });

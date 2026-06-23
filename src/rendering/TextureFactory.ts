@@ -153,6 +153,7 @@ export class TextureFactory {
     img('house-roof-green', 32, 32, (c) => townArt.drawHouseRoofGreen(c, 0, 0), true);
     img('house-roof-teak', 32, 32, (c) => townArt.drawHouseRoofTeak(c, 0, 0), true);
     img('house-door', 32, 32, (c) => townArt.drawHouseDoor(c, 0, 0), true);
+    img('fountain', 48, 56, (c) => townArt.drawFountain(c, 0, 0), true);
     img('town-butterfly', 16, 16, (c) => townArt.drawButterfly(c), true);
     img('town-bird', 16, 16, (c) => townArt.drawBird(c), true);
     img('town-dog', 16, 16, (c) => townArt.drawDog(c), true);
