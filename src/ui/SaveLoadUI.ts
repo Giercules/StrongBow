@@ -6,7 +6,7 @@ import { listSlots, loadSlot, saveToSlot, deleteSlot, SAVE_SLOT_COUNT } from '..
 import type { SaveData } from '../systems/SaveSystem';
 
 const hx = (s: string): number => parseInt(s.replace('#', ''), 16);
-const PANEL_W = 588;
+const PANEL_W = 504;
 const PANEL_H = 426;
 
 export interface SaveLoadOptions {
@@ -161,8 +161,8 @@ export class SaveLoadUI {
     const slots = listSlots();
 
     // ---- left: slot list ----
-    const listX = x0 + 20;
-    const rowW = 240;
+    const listX = x0 + 16;
+    const rowW = 200;
     const rowH = 50;
     slots.forEach((s, i) => {
       const yy = y0 + 44 + i * rowH;
@@ -189,11 +189,11 @@ export class SaveLoadUI {
     });
 
     // ---- right: selected slot detail ----
-    const detX = x0 + 282;
+    const detX = x0 + 226;
     const sel = slots[this.sel];
     // thumbnail frame
-    const tw = 256;
-    const th = 144;
+    const tw = 246;
+    const th = 140;
     const tx = detX;
     const ty = y0 + 46;
     const fr = this.scene.add.graphics();
@@ -213,6 +213,7 @@ export class SaveLoadUI {
             if (this.scene.textures.exists(key)) this.scene.textures.remove(key);
             return;
           }
+          this.scene.textures.get(key).setFilter(Phaser.Textures.FilterMode.LINEAR);
           addPinned(this.container, this.scene.add.image(tx + 2, ty + 2, key).setOrigin(0, 0).setDisplaySize(tw - 4, th - 4));
         });
       } catch {

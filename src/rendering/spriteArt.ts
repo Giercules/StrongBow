@@ -649,436 +649,358 @@ export function drawShrine(ctx: Ctx, ox: number, oy: number, lit: boolean): void
 }
 
 export function drawPillar(ctx: Ctx, ox: number, oy: number): void {
-  R(ctx, ox + 4, oy, 8, 16, C.wallBase);
-  R(ctx, ox + 4, oy, 2, 16, C.wallLit);
-  R(ctx, ox + 10, oy, 2, 16, C.wallDark);
-  R(ctx, ox + 3, oy, 10, 2, C.wallMid);
-  R(ctx, ox + 3, oy + 14, 10, 2, C.wallMid);
-  R(ctx, ox + 4, oy, 8, 1, C.wallHi);
+  R(ctx, ox + 8, oy, 16, 32, C.wallBase);
+  R(ctx, ox + 8, oy, 4, 32, C.wallLit);
+  R(ctx, ox + 20, oy, 4, 32, C.wallDark);
+  R(ctx, ox + 6, oy, 20, 4, C.wallMid); // capital
+  R(ctx, ox + 6, oy + 28, 20, 4, C.wallMid); // base
+  R(ctx, ox + 8, oy, 16, 2, C.wallHi);
+  R(ctx, ox + 12, oy + 6, 1, 20, 'rgba(0,0,0,0.16)'); // flute grooves
+  R(ctx, ox + 19, oy + 6, 1, 20, 'rgba(0,0,0,0.16)');
+  R(ctx, ox + 15, oy + 6, 2, 20, 'rgba(255,255,255,0.06)');
 }
 
 export function drawBones(ctx: Ctx, ox: number, oy: number): void {
   const b = '#cdd2e0';
   const d = '#7d839a';
-  R(ctx, ox + 3, oy + 11, 8, 1, b);
-  R(ctx, ox + 4, oy + 13, 6, 1, b);
-  PX(ctx, ox + 3, oy + 10, b);
-  PX(ctx, ox + 10, oy + 12, d);
-  R(ctx, ox + 6, oy + 8, 4, 3, b);
-  PX(ctx, ox + 7, oy + 9, '#202433');
-  PX(ctx, ox + 8, oy + 9, '#202433');
+  R(ctx, ox + 6, oy + 22, 16, 2, b);
+  R(ctx, ox + 5, oy + 21, 2, 4, b); R(ctx, ox + 21, oy + 21, 2, 4, b); // bone ends
+  R(ctx, ox + 8, oy + 27, 12, 2, b);
+  R(ctx, ox + 20, oy + 24, 2, 2, d);
+  R(ctx, ox + 12, oy + 15, 8, 7, b); // skull
+  R(ctx, ox + 12, oy + 15, 8, 1, '#eef0f6');
+  R(ctx, ox + 14, oy + 18, 2, 2, '#202433'); // eyes
+  R(ctx, ox + 17, oy + 18, 2, 2, '#202433');
+  R(ctx, ox + 15, oy + 21, 2, 1, d); // jaw
 }
 
 export function drawRubble(ctx: Ctx, ox: number, oy: number): void {
-  R(ctx, ox + 4, oy + 11, 4, 3, C.wallMid);
-  R(ctx, ox + 8, oy + 12, 3, 2, C.wallDark);
-  R(ctx, ox + 6, oy + 10, 2, 2, C.wallLit);
-  PX(ctx, ox + 5, oy + 13, C.wallHi);
+  R(ctx, ox + 8, oy + 20, 9, 7, C.wallMid);
+  R(ctx, ox + 16, oy + 22, 7, 5, C.wallDark);
+  R(ctx, ox + 11, oy + 17, 5, 4, C.wallLit);
+  R(ctx, ox + 8, oy + 20, 9, 1, C.wallHi);
+  R(ctx, ox + 11, oy + 17, 5, 1, C.wallHi);
+  PX(ctx, ox + 10, oy + 26, C.wallHi);
+  PX(ctx, ox + 19, oy + 25, C.wallBase);
 }
 
 export function drawBanner(ctx: Ctx, ox: number, oy: number): void {
-  R(ctx, ox + 5, oy + 1, 6, 11, '#2b59b0');
-  R(ctx, ox + 5, oy + 1, 6, 1, C.coinMid);
-  R(ctx, ox + 7, oy + 3, 2, 5, C.coinHi);
-  R(ctx, ox + 5, oy + 12, 2, 2, C.hudBg);
-  R(ctx, ox + 9, oy + 12, 2, 2, C.hudBg);
+  R(ctx, ox + 10, oy + 2, 12, 22, '#2b59b0');
+  R(ctx, ox + 10, oy + 2, 12, 2, C.coinMid); // gold rod
+  R(ctx, ox + 10, oy + 2, 3, 22, '#3f72d0'); // lit fold
+  R(ctx, ox + 19, oy + 2, 3, 22, '#1d3f86'); // shadow fold
+  R(ctx, ox + 14, oy + 6, 4, 10, C.coinHi); // sigil bar
+  R(ctx, ox + 13, oy + 9, 6, 3, C.coinHi);
+  R(ctx, ox + 10, oy + 24, 4, 4, C.hudBg); // swallowtail
+  R(ctx, ox + 18, oy + 24, 4, 4, C.hudBg);
 }
 
-// Ice crystal cluster — frost set-piece decor.
 export function drawCrystal(ctx: Ctx, ox: number, oy: number): void {
-  // back shard
-  R(ctx, ox + 9, oy + 5, 2, 9, C.crystalDk);
-  R(ctx, ox + 9, oy + 4, 2, 2, C.crystal);
-  // main shard
-  R(ctx, ox + 5, oy + 6, 3, 8, C.crystal);
-  R(ctx, ox + 5, oy + 6, 1, 8, C.crystalHi);
-  R(ctx, ox + 6, oy + 3, 1, 4, C.crystal);
-  PX(ctx, ox + 6, oy + 2, C.crystalHi);
-  // small shard
-  R(ctx, ox + 3, oy + 10, 2, 4, C.crystalDk);
-  PX(ctx, ox + 3, oy + 9, C.crystal);
-  // base frost
+  R(ctx, ox + 18, oy + 10, 4, 18, C.crystalDk); // back shard
+  R(ctx, ox + 18, oy + 8, 4, 4, C.crystal);
+  R(ctx, ox + 10, oy + 12, 6, 16, C.crystal); // main shard
+  R(ctx, ox + 10, oy + 12, 2, 16, C.crystalHi);
+  R(ctx, ox + 12, oy + 6, 2, 8, C.crystal);
+  R(ctx, ox + 12, oy + 6, 1, 8, C.crystalHi);
+  PX(ctx, ox + 12, oy + 5, C.crystalHi);
+  R(ctx, ox + 6, oy + 20, 4, 8, C.crystalDk); // small shard
+  PX(ctx, ox + 6, oy + 19, C.crystal);
   ctx.globalAlpha = 0.6;
-  R(ctx, ox + 2, oy + 13, 11, 2, C.iceHi);
+  R(ctx, ox + 4, oy + 26, 22, 3, C.iceHi); // frost base
   ctx.globalAlpha = 1;
 }
 
-// Brass cog — clockwork set-piece decor.
 export function drawCog(ctx: Ctx, ox: number, oy: number): void {
-  const cx = ox + 8;
-  const cy = oy + 8;
-  // teeth
-  for (let a = 0; a < 8; a++) {
-    const ang = (a / 8) * Math.PI * 2;
-    const tx = Math.round(cx + Math.cos(ang) * 6);
-    const ty = Math.round(cy + Math.sin(ang) * 6);
-    R(ctx, tx - 1, ty - 1, 2, 2, C.cog);
+  const cx = ox + 16;
+  const cy = oy + 16;
+  for (let a = 0; a < 10; a++) {
+    const ang = (a / 10) * Math.PI * 2;
+    R(ctx, Math.round(cx + Math.cos(ang) * 12) - 2, Math.round(cy + Math.sin(ang) * 12) - 2, 4, 4, C.cog);
   }
-  // body
-  ctx.fillStyle = C.cog;
-  ctx.beginPath();
-  ctx.arc(cx, cy, 5, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = C.cogHi;
-  ctx.beginPath();
-  ctx.arc(cx - 1, cy - 1, 2.4, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = C.cogDk;
-  ctx.beginPath();
-  ctx.arc(cx, cy, 1.6, 0, Math.PI * 2);
-  ctx.fill();
+  ctx.fillStyle = C.cog; ctx.beginPath(); ctx.arc(cx, cy, 10, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = C.cogHi; ctx.beginPath(); ctx.arc(cx - 2, cy - 2, 5, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = C.cogDk; ctx.beginPath(); ctx.arc(cx, cy, 3.4, 0, Math.PI * 2); ctx.fill();
+  PX(ctx, cx - 3, cy - 3, '#fff0c0');
 }
 
-// Hanging vines / toxic growth — toxic set-piece decor.
 export function drawVines(ctx: Ctx, ox: number, oy: number): void {
-  for (const [vx, len] of [
-    [4, 11],
-    [8, 14],
-    [12, 9],
-  ] as [number, number][]) {
-    for (let i = 0; i < len; i++) {
-      PX(ctx, ox + vx + (i % 2 === 0 ? 0 : 1), oy + i, i % 3 === 0 ? C.vineHi : C.vine);
+  for (const [vx, len] of [[8, 22], [16, 28], [24, 18]] as [number, number][]) {
+    for (let i = 0; i < len; i += 2) {
+      R(ctx, ox + vx + (i % 4 === 0 ? 0 : 2), oy + i, 2, 2, i % 6 === 0 ? C.vineHi : C.vine);
     }
-    R(ctx, ox + vx - 1, oy + len - 1, 3, 2, C.vineHi);
+    R(ctx, ox + vx - 2, oy + len - 2, 6, 4, C.vineHi); // leaf
+    R(ctx, ox + vx - 1, oy + len - 1, 4, 2, C.vine);
   }
 }
 
-// Blood stain — arena set-piece decor (floor splat).
 export function drawBloodStain(ctx: Ctx, ox: number, oy: number): void {
-  ctx.fillStyle = C.bloodDark;
-  ctx.beginPath();
-  ctx.ellipse(ox + 8, oy + 9, 5.5, 3.5, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = C.bloodMid;
-  ctx.beginPath();
-  ctx.ellipse(ox + 7, oy + 8, 3, 1.8, 0, 0, Math.PI * 2);
-  ctx.fill();
-  PX(ctx, ox + 13, oy + 6, C.bloodMid);
-  PX(ctx, ox + 3, oy + 12, C.bloodDark);
-  PX(ctx, ox + 12, oy + 12, C.bloodDark);
+  ctx.fillStyle = C.bloodDark; ctx.beginPath(); ctx.ellipse(ox + 16, oy + 18, 11, 7, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = C.bloodMid; ctx.beginPath(); ctx.ellipse(ox + 14, oy + 16, 6, 3.6, 0, 0, Math.PI * 2); ctx.fill();
+  R(ctx, ox + 25, oy + 11, 2, 2, C.bloodMid); // splatter
+  R(ctx, ox + 6, oy + 24, 2, 2, C.bloodDark);
+  R(ctx, ox + 24, oy + 24, 2, 2, C.bloodDark);
+  PX(ctx, ox + 13, oy + 15, '#c44');
 }
 
-// Skull on a pike — arena/crypt set-piece decor.
 export function drawSkullPike(ctx: Ctx, ox: number, oy: number): void {
   const b = '#d8dce8';
-  R(ctx, ox + 7, oy + 6, 2, 9, '#5a4a2a'); // pole
-  R(ctx, ox + 5, oy + 2, 6, 5, b); // cranium
-  R(ctx, ox + 6, oy + 7, 4, 2, b); // jaw
-  PX(ctx, ox + 6, oy + 4, '#202433'); // eye
-  PX(ctx, ox + 9, oy + 4, '#202433'); // eye
-  PX(ctx, ox + 7, oy + 6, '#202433'); // nose
-  R(ctx, ox + 5, oy + 2, 6, 1, '#f2f4fa');
+  R(ctx, ox + 14, oy + 12, 4, 18, '#5a4a2a'); // pole
+  R(ctx, ox + 14, oy + 12, 1, 18, '#7a6238');
+  R(ctx, ox + 10, oy + 4, 12, 10, b); // cranium
+  R(ctx, ox + 10, oy + 4, 12, 2, '#f2f4fa');
+  R(ctx, ox + 12, oy + 14, 8, 4, b); // jaw
+  R(ctx, ox + 12, oy + 8, 3, 3, '#202433'); // eyes
+  R(ctx, ox + 18, oy + 8, 3, 3, '#202433');
+  R(ctx, ox + 15, oy + 12, 2, 2, '#202433'); // nose
+  for (let i = 0; i < 3; i++) PX(ctx, ox + 13 + i * 3, oy + 17, '#5a5f70'); // teeth gaps
 }
 
-// --- new themed decor -------------------------------------------------------
-
-// Bog: a rotting mossy stump with a couple of roots.
 export function drawBogStump(ctx: Ctx, ox: number, oy: number): void {
-  R(ctx, ox + 4, oy + 7, 8, 7, '#3a2a1a');
-  R(ctx, ox + 4, oy + 7, 8, 1, '#4e3a22');
-  R(ctx, ox + 4, oy + 7, 8, 2, '#3f6a2e'); // moss cap
-  PX(ctx, ox + 6, oy + 7, '#7fce58');
-  PX(ctx, ox + 9, oy + 8, '#7fce58');
-  R(ctx, ox + 2, oy + 13, 4, 1, '#2a1e12'); // roots
-  R(ctx, ox + 10, oy + 13, 4, 1, '#2a1e12');
-  R(ctx, ox + 6, oy + 9, 1, 4, '#241a10');
-  R(ctx, ox + 9, oy + 9, 1, 4, '#241a10');
+  R(ctx, ox + 8, oy + 14, 16, 14, '#3a2a1a');
+  R(ctx, ox + 8, oy + 14, 16, 3, '#3f6a2e'); // moss cap
+  R(ctx, ox + 8, oy + 14, 4, 14, '#4e3a22'); // lit side
+  R(ctx, ox + 20, oy + 14, 4, 14, '#241a10'); // shade
+  PX(ctx, ox + 12, oy + 14, '#7fce58'); PX(ctx, ox + 18, oy + 15, '#7fce58');
+  R(ctx, ox + 12, oy + 18, 2, 8, '#241a10'); // bark cracks
+  R(ctx, ox + 18, oy + 18, 2, 8, '#241a10');
+  R(ctx, ox + 4, oy + 26, 8, 2, '#2a1e12'); // roots
+  R(ctx, ox + 20, oy + 26, 8, 2, '#2a1e12');
 }
 
-// Bog: a flat lilypad with a tiny bloom (sits on the floor).
 export function drawLilypad(ctx: Ctx, ox: number, oy: number): void {
-  ctx.fillStyle = '#2f6a34';
-  ctx.beginPath();
-  ctx.ellipse(ox + 8, oy + 9, 6, 4, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = '#3f8a3a';
-  ctx.beginPath();
-  ctx.ellipse(ox + 7, oy + 8, 4, 2.4, 0, 0, Math.PI * 2);
-  ctx.fill();
-  R(ctx, ox + 8, oy + 9, 4, 1, '#16331c'); // wedge cut
-  PX(ctx, ox + 6, oy + 7, '#e8c0e0'); // bloom
-  PX(ctx, ox + 7, oy + 7, '#fff0fa');
+  ctx.fillStyle = '#2f6a34'; ctx.beginPath(); ctx.ellipse(ox + 16, oy + 18, 12, 8, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#3f8a3a'; ctx.beginPath(); ctx.ellipse(ox + 14, oy + 16, 8, 5, 0, 0, Math.PI * 2); ctx.fill();
+  R(ctx, ox + 16, oy + 18, 8, 2, '#16331c'); // wedge cut
+  R(ctx, ox + 11, oy + 13, 5, 4, '#e8c0e0'); // bloom
+  R(ctx, ox + 12, oy + 14, 3, 2, '#fff0fa');
 }
 
-// Storm: a tall lightning rod crackling at the tip.
 export function drawStormRod(ctx: Ctx, ox: number, oy: number): void {
-  R(ctx, ox + 7, oy + 4, 2, 11, '#8b94a8'); // pole
-  R(ctx, ox + 7, oy + 4, 1, 11, '#cfe0ff');
-  R(ctx, ox + 5, oy + 13, 6, 2, '#444b60'); // base
-  R(ctx, ox + 6, oy + 1, 4, 3, '#b0c8ff'); // crackle ball
-  PX(ctx, ox + 8, oy + 0, '#ffffff');
-  PX(ctx, ox + 5, oy + 2, '#7fd0ff');
-  PX(ctx, ox + 10, oy + 2, '#7fd0ff');
-  PX(ctx, ox + 8, oy + 5, '#eaf4ff');
+  R(ctx, ox + 14, oy + 8, 4, 22, '#8b94a8'); // pole
+  R(ctx, ox + 14, oy + 8, 1, 22, '#cfe0ff');
+  R(ctx, ox + 10, oy + 26, 12, 4, '#444b60'); // base
+  ctx.fillStyle = '#b0c8ff'; ctx.beginPath(); ctx.arc(ox + 16, oy + 5, 5, 0, Math.PI * 2); ctx.fill();
+  PX(ctx, ox + 16, oy + 1, '#ffffff');
+  PX(ctx, ox + 10, oy + 4, '#7fd0ff'); PX(ctx, ox + 21, oy + 4, '#7fd0ff');
+  R(ctx, ox + 15, oy + 10, 2, 4, '#eaf4ff'); // crackle down pole
 }
 
-// Storm/Frost: a floating cyan crystal shard.
 export function drawSkyCrystal(ctx: Ctx, ox: number, oy: number): void {
-  R(ctx, ox + 7, oy + 3, 2, 10, '#6fb0d8');
-  R(ctx, ox + 6, oy + 5, 4, 6, '#9fd8ff');
-  R(ctx, ox + 7, oy + 4, 2, 8, '#cfeeff');
-  PX(ctx, ox + 8, oy + 4, '#ffffff');
-  PX(ctx, ox + 6, oy + 8, '#4a8ab0');
-  PX(ctx, ox + 9, oy + 9, '#4a8ab0');
+  R(ctx, ox + 14, oy + 6, 4, 20, '#6fb0d8');
+  R(ctx, ox + 12, oy + 10, 8, 12, '#9fd8ff');
+  R(ctx, ox + 14, oy + 8, 4, 16, '#cfeeff');
+  R(ctx, ox + 15, oy + 8, 1, 14, '#ffffff');
+  PX(ctx, ox + 16, oy + 9, '#ffffff');
+  R(ctx, ox + 12, oy + 16, 2, 3, '#4a8ab0'); R(ctx, ox + 18, oy + 18, 2, 3, '#4a8ab0');
 }
 
-// Shadow: a jagged rift leaking violet dark.
 export function drawVoidRift(ctx: Ctx, ox: number, oy: number): void {
-  ctx.fillStyle = '#0c0814';
-  ctx.beginPath();
-  ctx.ellipse(ox + 8, oy + 8, 5, 6, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = '#241636';
-  ctx.beginPath();
-  ctx.ellipse(ox + 8, oy + 8, 3, 4, 0, 0, Math.PI * 2);
-  ctx.fill();
-  PX(ctx, ox + 8, oy + 5, '#8a6ab0');
-  PX(ctx, ox + 7, oy + 9, '#b58aff');
-  PX(ctx, ox + 9, oy + 11, '#6a4f9a');
+  ctx.fillStyle = '#0c0814'; ctx.beginPath(); ctx.ellipse(ox + 16, oy + 16, 10, 12, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#241636'; ctx.beginPath(); ctx.ellipse(ox + 16, oy + 16, 6, 8, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#3a2456'; ctx.beginPath(); ctx.ellipse(ox + 16, oy + 16, 3, 4, 0, 0, Math.PI * 2); ctx.fill();
+  PX(ctx, ox + 16, oy + 9, '#8a6ab0');
+  R(ctx, ox + 14, oy + 18, 2, 2, '#b58aff');
+  PX(ctx, ox + 18, oy + 22, '#6a4f9a');
 }
 
-// Sanctum: a glowing rune sigil stamped on the floor.
 export function drawSanctumGlyph(ctx: Ctx, ox: number, oy: number): void {
   const g = '#ecdca6';
-  R(ctx, ox + 4, oy + 8, 8, 1, g);
-  R(ctx, ox + 8, oy + 4, 1, 8, g);
-  R(ctx, ox + 5, oy + 5, 6, 6, 'rgba(236,220,166,0.0)');
-  // diamond
-  PX(ctx, ox + 8, oy + 4, '#fff4cf');
-  PX(ctx, ox + 4, oy + 8, g);
-  PX(ctx, ox + 12, oy + 8, g);
-  PX(ctx, ox + 8, oy + 12, g);
-  PX(ctx, ox + 6, oy + 6, '#b0962e');
-  PX(ctx, ox + 10, oy + 10, '#b0962e');
+  R(ctx, ox + 8, oy + 16, 16, 2, g);
+  R(ctx, ox + 16, oy + 8, 2, 16, g);
+  R(ctx, ox + 16, oy + 7, 2, 2, '#fff4cf'); // points
+  R(ctx, ox + 7, oy + 16, 2, 2, g); R(ctx, ox + 23, oy + 16, 2, 2, g); R(ctx, ox + 16, oy + 23, 2, 2, g);
+  ctx.strokeStyle = '#b0962e'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(ox + 16, oy + 16, 7, 0, Math.PI * 2); ctx.stroke();
+  PX(ctx, ox + 12, oy + 12, '#fff4cf'); PX(ctx, ox + 20, oy + 20, '#fff4cf');
 }
 
-// Sanctum/Arena: a standing gold brazier with a small flame.
 export function drawBrazier(ctx: Ctx, ox: number, oy: number): void {
-  R(ctx, ox + 6, oy + 9, 4, 5, '#7a5e2a'); // stem
-  R(ctx, ox + 5, oy + 13, 6, 1, '#4a3812'); // foot
-  R(ctx, ox + 4, oy + 7, 8, 3, '#e6c264'); // bowl
-  R(ctx, ox + 4, oy + 7, 8, 1, '#fff0b0');
-  R(ctx, ox + 6, oy + 4, 4, 3, C.fireMid); // flame
-  R(ctx, ox + 7, oy + 2, 2, 3, C.fireCore);
-  PX(ctx, ox + 8, oy + 1, '#fff2b0');
+  R(ctx, ox + 12, oy + 18, 8, 10, '#7a5e2a'); // stem
+  R(ctx, ox + 12, oy + 18, 2, 10, '#a07e36');
+  R(ctx, ox + 10, oy + 26, 12, 2, '#4a3812'); // foot
+  R(ctx, ox + 8, oy + 14, 16, 6, '#e6c264'); // bowl
+  R(ctx, ox + 8, oy + 14, 16, 2, '#fff0b0');
+  R(ctx, ox + 8, oy + 18, 16, 2, '#a07e36');
+  R(ctx, ox + 12, oy + 8, 8, 6, C.fireMid); // flame
+  R(ctx, ox + 14, oy + 4, 4, 6, C.fireCore);
+  PX(ctx, ox + 16, oy + 2, '#fff2b0');
 }
 
-// ---- additional themed decoration ----
-
-// Crypt: a weathered gravestone.
 export function drawGravestone(ctx: Ctx, ox: number, oy: number): void {
-  R(ctx, ox + 5, oy + 3, 6, 11, '#6a7388');
-  R(ctx, ox + 6, oy + 2, 4, 2, '#6a7388');
-  R(ctx, ox + 5, oy + 3, 6, 1, '#9aa0b4');
-  R(ctx, ox + 7, oy + 6, 2, 5, '#3a3f52'); // cross
-  R(ctx, ox + 6, oy + 7, 4, 1, '#3a3f52');
-  R(ctx, ox + 3, oy + 13, 10, 2, '#2a1d12');
-  PX(ctx, ox + 4, oy + 12, '#3c4a26');
-  PX(ctx, ox + 10, oy + 11, '#3c4a26');
+  R(ctx, ox + 10, oy + 6, 12, 22, '#6a7388');
+  R(ctx, ox + 12, oy + 4, 8, 4, '#6a7388'); // rounded top
+  R(ctx, ox + 10, oy + 6, 12, 2, '#9aa0b4'); // lit
+  R(ctx, ox + 20, oy + 6, 2, 22, '#4a5168'); // shade
+  R(ctx, ox + 14, oy + 12, 4, 10, '#3a3f52'); // cross
+  R(ctx, ox + 12, oy + 14, 8, 2, '#3a3f52');
+  R(ctx, ox + 6, oy + 26, 20, 4, '#2a1d12'); // mound
+  PX(ctx, ox + 8, oy + 25, '#3c4a26'); PX(ctx, ox + 20, oy + 24, '#3c4a26');
 }
 
-// Crypt: a small lit candle.
 export function drawCandle(ctx: Ctx, ox: number, oy: number): void {
-  R(ctx, ox + 7, oy + 8, 2, 6, '#e0dcc0');
-  R(ctx, ox + 7, oy + 8, 2, 1, '#ffffff');
-  R(ctx, ox + 6, oy + 13, 4, 1, '#5a3a1c'); // holder
-  R(ctx, ox + 7, oy + 4, 2, 3, C.fireMid); // flame
-  PX(ctx, ox + 7, oy + 3, C.fireCore);
+  R(ctx, ox + 13, oy + 14, 6, 14, '#e0dcc0');
+  R(ctx, ox + 13, oy + 14, 2, 14, '#ffffff'); // lit side
+  R(ctx, ox + 18, oy + 14, 1, 14, '#b8b49a'); // shade
+  R(ctx, ox + 11, oy + 26, 10, 2, '#5a3a1c'); // holder
+  R(ctx, ox + 14, oy + 8, 4, 6, C.fireMid); // flame
+  R(ctx, ox + 15, oy + 5, 2, 4, C.fireCore);
+  PX(ctx, ox + 15, oy + 4, '#fff2b0');
 }
 
-// Molten: a glowing crack across the floor (flat decor).
 export function drawLavaCrack(ctx: Ctx, ox: number, oy: number): void {
-  ctx.strokeStyle = '#ff8a1e';
-  ctx.lineWidth = 1.5;
-  ctx.beginPath();
-  ctx.moveTo(ox + 2, oy + 9);
-  ctx.lineTo(ox + 6, oy + 6);
-  ctx.lineTo(ox + 9, oy + 11);
-  ctx.lineTo(ox + 14, oy + 8);
-  ctx.stroke();
-  ctx.strokeStyle = '#ffd98a';
-  ctx.lineWidth = 0.6;
-  ctx.stroke();
-  PX(ctx, ox + 6, oy + 6, '#fff2b0');
-  PX(ctx, ox + 9, oy + 11, '#fff2b0');
+  ctx.strokeStyle = '#ff8a1e'; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(ox + 4, oy + 18); ctx.lineTo(ox + 12, oy + 12); ctx.lineTo(ox + 18, oy + 22); ctx.lineTo(ox + 28, oy + 16); ctx.stroke();
+  ctx.strokeStyle = '#ffd98a'; ctx.lineWidth = 1; ctx.stroke();
+  R(ctx, ox + 11, oy + 11, 3, 3, '#fff2b0');
+  R(ctx, ox + 17, oy + 21, 3, 3, '#fff2b0');
 }
 
-// Molten: a cluster of obsidian rock with embers.
 export function drawObsidian(ctx: Ctx, ox: number, oy: number): void {
-  R(ctx, ox + 4, oy + 7, 8, 7, '#1a1018');
-  R(ctx, ox + 6, oy + 5, 4, 3, '#241624');
-  R(ctx, ox + 4, oy + 7, 8, 1, '#3a2a3a');
-  PX(ctx, ox + 7, oy + 9, '#c4451c');
-  PX(ctx, ox + 9, oy + 11, '#ff8a1e');
-  PX(ctx, ox + 6, oy + 12, '#c4451c');
+  R(ctx, ox + 8, oy + 14, 16, 14, '#1a1018');
+  R(ctx, ox + 12, oy + 10, 8, 6, '#241624');
+  R(ctx, ox + 8, oy + 14, 16, 2, '#3a2a3a'); // sheen
+  R(ctx, ox + 9, oy + 16, 3, 8, '#2e1e2e');
+  PX(ctx, ox + 14, oy + 18, '#c4451c'); // embers
+  R(ctx, ox + 17, oy + 21, 2, 2, '#ff8a1e');
+  PX(ctx, ox + 12, oy + 24, '#c4451c');
 }
 
-// Frost: hanging icicles.
 export function drawIcicle(ctx: Ctx, ox: number, oy: number): void {
-  R(ctx, ox + 3, oy, 11, 1, '#cfeeff');
-  for (const [x, len] of [[5, 7], [8, 10], [11, 6]] as [number, number][]) {
+  R(ctx, ox + 6, oy, 22, 2, '#cfeeff');
+  for (const [x, len] of [[10, 14], [16, 20], [22, 12]] as [number, number][]) {
     for (let i = 0; i < len; i++) {
-      const w = Math.max(1, Math.round((1 - i / len) * 2));
-      R(ctx, ox + x - (w >> 1), oy + i, w, 1, i < 2 ? '#eaf6ff' : '#9fd8ff');
+      const w = Math.max(1, Math.round((1 - i / len) * 4));
+      R(ctx, ox + x - (w >> 1), oy + i, w, 1, i < 4 ? '#eaf6ff' : '#9fd8ff');
     }
+    PX(ctx, ox + x, oy + 2, '#ffffff');
   }
 }
 
-// Frost: an icy hanging banner (sways).
 export function drawFrostBanner(ctx: Ctx, ox: number, oy: number): void {
-  R(ctx, ox + 5, oy + 1, 6, 12, '#3a6a9a');
-  R(ctx, ox + 5, oy + 1, 6, 1, '#cfeaff');
-  R(ctx, ox + 5, oy + 1, 1, 12, '#5a8ec0');
-  R(ctx, ox + 7, oy + 4, 2, 2, '#cfeaff');
-  R(ctx, ox + 6, oy + 7, 4, 1, '#cfeaff');
-  PX(ctx, ox + 5, oy + 13, '#3a6a9a');
-  PX(ctx, ox + 8, oy + 13, '#3a6a9a');
-  PX(ctx, ox + 10, oy + 13, '#3a6a9a');
+  R(ctx, ox + 10, oy + 2, 12, 24, '#3a6a9a');
+  R(ctx, ox + 10, oy + 2, 12, 2, '#cfeaff'); // rod
+  R(ctx, ox + 10, oy + 2, 3, 24, '#5a8ec0'); // lit fold
+  R(ctx, ox + 19, oy + 2, 3, 24, '#2a527a'); // shade
+  R(ctx, ox + 14, oy + 8, 4, 4, '#cfeaff'); // snowflake
+  R(ctx, ox + 12, oy + 13, 8, 2, '#cfeaff');
+  R(ctx, ox + 10, oy + 26, 3, 3, '#3a6a9a'); R(ctx, ox + 16, oy + 26, 3, 3, '#3a6a9a'); R(ctx, ox + 20, oy + 26, 2, 3, '#3a6a9a');
 }
 
-// Toxic: a clump of poisonous mushrooms.
 export function drawToxicMushroom(ctx: Ctx, ox: number, oy: number): void {
-  R(ctx, ox + 6, oy + 9, 2, 5, '#cfc0a0');
-  R(ctx, ox + 4, oy + 6, 8, 4, '#6a2c8a');
-  R(ctx, ox + 4, oy + 6, 8, 1, '#9a4cc0');
-  PX(ctx, ox + 6, oy + 7, '#e0b0ff');
-  PX(ctx, ox + 9, oy + 8, '#e0b0ff');
-  R(ctx, ox + 10, oy + 11, 2, 3, '#cfc0a0'); // small one
-  R(ctx, ox + 9, oy + 9, 4, 3, '#7a3a9a');
-  R(ctx, ox + 4, oy + 13, 8, 1, '#3f8a3a');
+  R(ctx, ox + 12, oy + 18, 4, 10, '#cfc0a0'); // stalk
+  R(ctx, ox + 12, oy + 18, 1, 10, '#e8dcc0');
+  R(ctx, ox + 8, oy + 12, 12, 6, '#6a2c8a'); // cap
+  R(ctx, ox + 8, oy + 12, 12, 2, '#9a4cc0');
+  R(ctx, ox + 12, oy + 14, 3, 2, '#e0b0ff'); R(ctx, ox + 17, oy + 16, 3, 2, '#e0b0ff'); // spots
+  R(ctx, ox + 19, oy + 21, 4, 7, '#cfc0a0'); // small one
+  R(ctx, ox + 17, oy + 17, 8, 5, '#7a3a9a');
+  R(ctx, ox + 17, oy + 17, 8, 1, '#9a4cc0');
+  R(ctx, ox + 8, oy + 26, 16, 2, '#3f8a3a'); // moss
 }
 
-// Clockwork: a brass pipe segment.
 export function drawPipe(ctx: Ctx, ox: number, oy: number): void {
-  R(ctx, ox + 2, oy + 6, 12, 4, '#5a4a28');
-  R(ctx, ox + 2, oy + 6, 12, 1, '#8a6e34');
-  R(ctx, ox + 2, oy + 9, 12, 1, '#2a2214');
-  R(ctx, ox + 1, oy + 5, 3, 6, '#7a5e2a');
-  R(ctx, ox + 12, oy + 5, 3, 6, '#7a5e2a');
-  PX(ctx, ox + 3, oy + 7, '#e6c264');
-  PX(ctx, ox + 13, oy + 7, '#e6c264');
+  R(ctx, ox + 4, oy + 12, 24, 8, '#5a4a28');
+  R(ctx, ox + 4, oy + 12, 24, 2, '#8a6e34'); // lit
+  R(ctx, ox + 4, oy + 18, 24, 2, '#2a2214'); // shade
+  R(ctx, ox + 2, oy + 10, 6, 12, '#7a5e2a'); // flanges
+  R(ctx, ox + 24, oy + 10, 6, 12, '#7a5e2a');
+  R(ctx, ox + 2, oy + 10, 6, 2, '#a07e36');
+  R(ctx, ox + 24, oy + 10, 6, 2, '#a07e36');
+  PX(ctx, ox + 6, oy + 14, '#e6c264'); PX(ctx, ox + 26, oy + 14, '#e6c264');
 }
 
-// Clockwork: a round gauge dial (glows).
 export function drawGauge(ctx: Ctx, ox: number, oy: number): void {
-  ctx.fillStyle = '#2a2214';
-  ctx.beginPath();
-  ctx.arc(ox + 8, oy + 8, 5, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.strokeStyle = '#e6c264';
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.arc(ox + 8, oy + 8, 5, 0, Math.PI * 2);
-  ctx.stroke();
-  ctx.strokeStyle = '#ff5a3a';
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(ox + 8, oy + 8);
-  ctx.lineTo(ox + 11, oy + 5);
-  ctx.stroke();
-  PX(ctx, ox + 8, oy + 8, '#fff4cf');
+  ctx.fillStyle = '#2a2214'; ctx.beginPath(); ctx.arc(ox + 16, oy + 16, 10, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = '#e6c264'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(ox + 16, oy + 16, 10, 0, Math.PI * 2); ctx.stroke();
+  ctx.fillStyle = '#1a160c'; ctx.beginPath(); ctx.arc(ox + 16, oy + 16, 7, 0, Math.PI * 2); ctx.fill();
+  for (let i = 0; i < 8; i++) { const a = (i / 8) * Math.PI * 2; PX(ctx, Math.round(ox + 16 + Math.cos(a) * 7), Math.round(oy + 16 + Math.sin(a) * 7), '#e6c264'); }
+  ctx.strokeStyle = '#ff5a3a'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(ox + 16, oy + 16); ctx.lineTo(ox + 22, oy + 10); ctx.stroke();
+  R(ctx, ox + 15, oy + 15, 2, 2, '#fff4cf');
 }
 
-// Arena: a rack of weapons.
 export function drawWeaponRack(ctx: Ctx, ox: number, oy: number): void {
-  R(ctx, ox + 2, oy + 13, 12, 1, '#3a2614');
-  R(ctx, ox + 2, oy + 2, 1, 12, '#5a3a1c');
-  R(ctx, ox + 13, oy + 2, 1, 12, '#5a3a1c');
-  R(ctx, ox + 2, oy + 2, 12, 1, '#5a3a1c');
-  R(ctx, ox + 5, oy + 3, 1, 9, '#b9c4dd'); // sword
-  R(ctx, ox + 4, oy + 11, 3, 1, '#caa56a');
-  R(ctx, ox + 9, oy + 3, 1, 10, '#caa56a'); // spear
-  R(ctx, ox + 9, oy + 2, 1, 2, '#dfe6ff');
-  R(ctx, ox + 11, oy + 4, 1, 8, '#8a5a30'); // axe haft
-  R(ctx, ox + 11, oy + 4, 2, 2, '#b9c4dd');
+  R(ctx, ox + 4, oy + 26, 24, 2, '#3a2614'); // base
+  R(ctx, ox + 4, oy + 4, 2, 24, '#5a3a1c'); // frame
+  R(ctx, ox + 26, oy + 4, 2, 24, '#5a3a1c');
+  R(ctx, ox + 4, oy + 4, 24, 2, '#5a3a1c');
+  R(ctx, ox + 4, oy + 4, 24, 1, '#7a5128');
+  R(ctx, ox + 10, oy + 6, 2, 18, '#b9c4dd'); // sword
+  R(ctx, ox + 8, oy + 22, 6, 2, '#caa56a');
+  R(ctx, ox + 17, oy + 5, 2, 21, '#caa56a'); // spear
+  R(ctx, ox + 17, oy + 3, 2, 4, '#dfe6ff');
+  R(ctx, ox + 22, oy + 8, 2, 16, '#8a5a30'); // axe haft
+  R(ctx, ox + 21, oy + 7, 5, 4, '#b9c4dd');
 }
 
-// Bog: a gnarled dead tree.
 export function drawDeadTree(ctx: Ctx, ox: number, oy: number): void {
-  R(ctx, ox + 7, oy + 6, 2, 8, '#2a1e12');
-  R(ctx, ox + 7, oy + 6, 1, 8, '#3a2a18');
-  R(ctx, ox + 4, oy + 5, 3, 1, '#2a1e12');
-  R(ctx, ox + 3, oy + 3, 2, 2, '#2a1e12');
-  R(ctx, ox + 9, oy + 4, 3, 1, '#2a1e12');
-  R(ctx, ox + 11, oy + 2, 2, 2, '#2a1e12');
-  PX(ctx, ox + 4, oy + 4, '#3f6a2e');
-  PX(ctx, ox + 11, oy + 3, '#3f6a2e');
-  R(ctx, ox + 6, oy + 13, 4, 1, '#16240f');
+  R(ctx, ox + 14, oy + 12, 4, 16, '#2a1e12'); // trunk
+  R(ctx, ox + 14, oy + 12, 2, 16, '#3a2a18');
+  R(ctx, ox + 8, oy + 10, 6, 2, '#2a1e12'); // branches
+  R(ctx, ox + 6, oy + 6, 3, 4, '#2a1e12');
+  R(ctx, ox + 18, oy + 8, 6, 2, '#2a1e12');
+  R(ctx, ox + 22, oy + 4, 3, 4, '#2a1e12');
+  R(ctx, ox + 15, oy + 4, 2, 8, '#2a1e12'); // top
+  PX(ctx, ox + 7, oy + 7, '#3f6a2e'); PX(ctx, ox + 23, oy + 5, '#3f6a2e'); // moss
+  R(ctx, ox + 11, oy + 26, 10, 2, '#16240f');
 }
 
-// Bog: reeds / cattails.
 export function drawCattail(ctx: Ctx, ox: number, oy: number): void {
-  R(ctx, ox + 5, oy + 4, 1, 10, '#3f7a34');
-  R(ctx, ox + 9, oy + 3, 1, 11, '#3f7a34');
-  R(ctx, ox + 11, oy + 6, 1, 8, '#3f7a34');
-  R(ctx, ox + 4, oy + 6, 3, 3, '#5a3a1c');
-  R(ctx, ox + 8, oy + 5, 3, 3, '#5a3a1c');
-  PX(ctx, ox + 5, oy + 3, '#7fce58');
-  PX(ctx, ox + 9, oy + 2, '#7fce58');
+  R(ctx, ox + 10, oy + 8, 2, 20, '#3f7a34'); // reeds
+  R(ctx, ox + 18, oy + 6, 2, 22, '#3f7a34');
+  R(ctx, ox + 22, oy + 12, 2, 16, '#3f7a34');
+  R(ctx, ox + 8, oy + 12, 4, 6, '#5a3a1c'); // heads
+  R(ctx, ox + 16, oy + 10, 4, 6, '#5a3a1c');
+  R(ctx, ox + 8, oy + 12, 2, 6, '#6e4a24');
+  PX(ctx, ox + 10, oy + 6, '#7fce58'); PX(ctx, ox + 18, oy + 4, '#7fce58');
 }
 
-// Storm: a crackling floating orb (glows).
 export function drawStormOrb(ctx: Ctx, ox: number, oy: number): void {
-  ctx.fillStyle = '#3a4a90';
-  ctx.beginPath();
-  ctx.arc(ox + 8, oy + 7, 4, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = '#7f9aff';
-  ctx.beginPath();
-  ctx.arc(ox + 8, oy + 7, 2.5, 0, Math.PI * 2);
-  ctx.fill();
-  PX(ctx, ox + 8, oy + 7, '#ffffff');
-  PX(ctx, ox + 3, oy + 4, '#cfe0ff');
-  PX(ctx, ox + 13, oy + 9, '#cfe0ff');
-  PX(ctx, ox + 5, oy + 12, '#cfe0ff');
-  R(ctx, ox + 6, oy + 13, 4, 1, '#2a2e4a'); // stand
+  ctx.fillStyle = '#3a4a90'; ctx.beginPath(); ctx.arc(ox + 16, oy + 14, 8, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#7f9aff'; ctx.beginPath(); ctx.arc(ox + 16, oy + 14, 5, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#cfe0ff'; ctx.beginPath(); ctx.arc(ox + 15, oy + 13, 2.4, 0, Math.PI * 2); ctx.fill();
+  PX(ctx, ox + 16, oy + 14, '#ffffff');
+  for (const [dx, dy] of [[-9, -4], [9, 4], [-7, 7], [7, -7]] as [number, number][]) R(ctx, ox + 16 + dx, oy + 14 + dy, 2, 2, '#cfe0ff');
+  R(ctx, ox + 12, oy + 26, 8, 2, '#2a2e4a'); // stand
 }
 
-// Shadow: a pile of bones.
 export function drawBonePile(ctx: Ctx, ox: number, oy: number): void {
-  R(ctx, ox + 3, oy + 11, 10, 3, '#c9c2a6');
-  R(ctx, ox + 3, oy + 11, 10, 1, '#efe9cf');
-  R(ctx, ox + 6, oy + 8, 4, 4, '#efe9cf'); // skull
-  PX(ctx, ox + 7, oy + 10, '#3a3020');
-  PX(ctx, ox + 9, oy + 10, '#3a3020');
-  R(ctx, ox + 4, oy + 9, 1, 3, '#c9c2a6');
-  R(ctx, ox + 11, oy + 9, 1, 3, '#c9c2a6');
-  PX(ctx, ox + 8, oy + 13, '#8a6ab0');
+  R(ctx, ox + 6, oy + 22, 20, 6, '#c9c2a6');
+  R(ctx, ox + 6, oy + 22, 20, 2, '#efe9cf');
+  R(ctx, ox + 12, oy + 16, 8, 8, '#efe9cf'); // skull
+  R(ctx, ox + 14, oy + 20, 2, 2, '#3a3020'); R(ctx, ox + 18, oy + 20, 2, 2, '#3a3020'); // eyes
+  R(ctx, ox + 8, oy + 18, 2, 6, '#c9c2a6'); R(ctx, ox + 22, oy + 18, 2, 6, '#c9c2a6'); // ribs
+  R(ctx, ox + 10, oy + 25, 12, 1, '#9a957e');
+  PX(ctx, ox + 16, oy + 26, '#8a6ab0');
 }
 
-// Shadow: a flat glowing rune circle (flat decor).
 export function drawRuneCircle(ctx: Ctx, ox: number, oy: number): void {
-  ctx.strokeStyle = '#8a6ab0';
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.arc(ox + 8, oy + 8, 5, 0, Math.PI * 2);
-  ctx.stroke();
-  for (let i = 0; i < 6; i++) {
-    const a = (i / 6) * Math.PI * 2;
-    PX(ctx, Math.round(ox + 8 + Math.cos(a) * 5), Math.round(oy + 8 + Math.sin(a) * 5), '#c79bff');
-  }
-  R(ctx, ox + 7, oy + 7, 2, 2, '#b58aff');
+  ctx.strokeStyle = '#8a6ab0'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(ox + 16, oy + 16, 10, 0, Math.PI * 2); ctx.stroke();
+  ctx.strokeStyle = '#5a4080'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(ox + 16, oy + 16, 6, 0, Math.PI * 2); ctx.stroke();
+  for (let i = 0; i < 8; i++) { const a = (i / 8) * Math.PI * 2; R(ctx, Math.round(ox + 16 + Math.cos(a) * 10) - 1, Math.round(oy + 16 + Math.sin(a) * 10) - 1, 2, 2, '#c79bff'); }
+  R(ctx, ox + 14, oy + 14, 4, 4, '#b58aff');
+  PX(ctx, ox + 15, oy + 15, '#e8d0ff');
 }
 
-// Sanctum: a golden idol (glows).
 export function drawIdol(ctx: Ctx, ox: number, oy: number): void {
-  R(ctx, ox + 5, oy + 12, 6, 2, '#7a5e2a'); // base
-  R(ctx, ox + 6, oy + 4, 4, 8, '#e6c264');
-  R(ctx, ox + 6, oy + 4, 4, 1, '#fff4cf');
-  R(ctx, ox + 5, oy + 3, 6, 3, '#e6c264'); // head
-  PX(ctx, ox + 7, oy + 5, '#3a2a10');
-  PX(ctx, ox + 9, oy + 5, '#3a2a10');
-  R(ctx, ox + 7, oy + 8, 2, 2, '#fff4cf'); // gem
+  R(ctx, ox + 10, oy + 24, 12, 4, '#7a5e2a'); // base
+  R(ctx, ox + 12, oy + 8, 8, 16, '#e6c264'); // body
+  R(ctx, ox + 12, oy + 8, 3, 16, '#fff4cf'); // lit
+  R(ctx, ox + 18, oy + 8, 2, 16, '#a07e36'); // shade
+  R(ctx, ox + 10, oy + 6, 12, 6, '#e6c264'); // head
+  R(ctx, ox + 10, oy + 6, 12, 1, '#fff4cf');
+  R(ctx, ox + 13, oy + 9, 2, 2, '#3a2a10'); R(ctx, ox + 17, oy + 9, 2, 2, '#3a2a10'); // eyes
+  R(ctx, ox + 14, oy + 15, 4, 4, '#fff4cf'); // chest gem
+  PX(ctx, ox + 15, oy + 16, '#ffffff');
 }
 
-// Sanctum: a stone altar with a glyph.
 export function drawAltar(ctx: Ctx, ox: number, oy: number): void {
-  R(ctx, ox + 3, oy + 9, 10, 5, '#a89c78');
-  R(ctx, ox + 3, oy + 9, 10, 1, '#ecdca6');
-  R(ctx, ox + 4, oy + 13, 8, 1, '#3a3426');
-  R(ctx, ox + 5, oy + 6, 6, 3, '#8a7e5e'); // pedestal
-  PX(ctx, ox + 7, oy + 7, '#ffd24a');
-  PX(ctx, ox + 9, oy + 7, '#ffd24a');
+  R(ctx, ox + 6, oy + 18, 20, 10, '#a89c78'); // slab
+  R(ctx, ox + 6, oy + 18, 20, 2, '#ecdca6'); // lit top
+  R(ctx, ox + 22, oy + 18, 4, 10, '#7a6e50'); // shade
+  R(ctx, ox + 8, oy + 26, 16, 2, '#3a3426'); // shadow
+  R(ctx, ox + 10, oy + 12, 12, 6, '#8a7e5e'); // pedestal
+  R(ctx, ox + 10, oy + 12, 12, 1, '#b0a47e');
+  R(ctx, ox + 13, oy + 14, 6, 3, '#ffd24a'); // glyph
+  PX(ctx, ox + 14, oy + 15, '#fff4cf'); PX(ctx, ox + 17, oy + 15, '#fff4cf');
 }
 
 // ============================================================================

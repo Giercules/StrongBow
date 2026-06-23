@@ -21,133 +21,101 @@ function PX(ctx: Ctx, x: number, y: number, color: string): void {
 
 // A grassy tuft to scatter across the lawns (flat decor).
 export function drawGrassTuft(ctx: Ctx, ox: number, oy: number): void {
-  const g0 = '#3f6a2e';
-  const g1 = '#5a9a3e';
-  const g2 = '#7fc45a';
-  for (const [x, h] of [
-    [5, 4],
-    [7, 6],
-    [9, 5],
-    [11, 4],
-  ] as [number, number][]) {
-    R(ctx, ox + x, oy + 13 - h, 1, h, g0);
-    PX(ctx, ox + x, oy + 13 - h, g2);
+  const g0 = '#3f6a2e', g1 = '#5a9a3e', g2 = '#7fc45a';
+  for (const [x, h] of [[8, 8], [13, 12], [18, 10], [23, 8], [27, 6]] as [number, number][]) {
+    R(ctx, ox + x, oy + 26 - h, 2, h, g0);
+    R(ctx, ox + x, oy + 26 - h, 1, h, g1);
+    PX(ctx, ox + x, oy + 26 - h, g2);
   }
-  R(ctx, ox + 6, oy + 12, 5, 1, g1);
+  R(ctx, ox + 12, oy + 24, 12, 2, g1);
 }
 
-// A cobbled road tile (flat). Seeded so a row of them looks varied but tiles.
 export function drawRoad(ctx: Ctx, ox: number, oy: number, seed = 0): void {
-  R(ctx, ox, oy, 16, 16, '#6a5a42');
+  R(ctx, ox, oy, 32, 32, '#6a5a42');
   const stones = ['#7a6a4e', '#5c4c38', '#857258', '#6f5e46'];
   let s = seed * 2654435761;
-  const rnd = (): number => {
-    s = (s * 1103515245 + 12345) & 0x7fffffff;
-    return s / 0x7fffffff;
-  };
-  for (let gy = 0; gy < 4; gy++) {
-    for (let gx = 0; gx < 4; gx++) {
-      const c = stones[Math.floor(rnd() * stones.length)];
-      R(ctx, ox + gx * 4, oy + gy * 4, 4, 4, c);
-      R(ctx, ox + gx * 4, oy + gy * 4, 4, 1, '#4a3c2c'); // mortar lines
+  const rnd = (): number => { s = (s * 1103515245 + 12345) & 0x7fffffff; return s / 0x7fffffff; };
+  for (let gy = 0; gy < 8; gy++) {
+    for (let gx = 0; gx < 8; gx++) {
+      R(ctx, ox + gx * 4, oy + gy * 4, 4, 4, stones[Math.floor(rnd() * stones.length)]);
+      R(ctx, ox + gx * 4, oy + gy * 4, 4, 1, '#4a3c2c');
       R(ctx, ox + gx * 4, oy + gy * 4, 1, 4, '#4a3c2c');
     }
   }
 }
 
-// ---- foliage (upright, gently swayed by the renderer) -----------------------
-
 export function drawTownTree(ctx: Ctx, ox: number, oy: number): void {
-  // trunk
-  R(ctx, ox + 7, oy + 9, 2, 6, '#4a3320');
-  R(ctx, ox + 7, oy + 9, 1, 6, '#5e442a');
-  // canopy — layered greens
-  R(ctx, ox + 3, oy + 3, 10, 6, '#2f5a26');
-  R(ctx, ox + 4, oy + 2, 8, 7, '#3f7a34');
-  R(ctx, ox + 5, oy + 2, 6, 3, '#5aa044');
-  PX(ctx, ox + 6, oy + 3, '#7fc45a');
-  PX(ctx, ox + 9, oy + 4, '#7fc45a');
-  PX(ctx, ox + 5, oy + 6, '#2a4a1e');
-  PX(ctx, ox + 11, oy + 6, '#2a4a1e');
+  R(ctx, ox + 14, oy + 18, 4, 12, '#4a3320');
+  R(ctx, ox + 14, oy + 18, 2, 12, '#5e442a');
+  R(ctx, ox + 6, oy + 6, 20, 12, '#2f5a26');
+  R(ctx, ox + 8, oy + 4, 16, 14, '#3f7a34');
+  R(ctx, ox + 10, oy + 4, 12, 6, '#5aa044');
+  R(ctx, ox + 8, oy + 4, 4, 12, '#4a8a3a');
+  R(ctx, ox + 20, oy + 6, 4, 10, '#2a4a1e');
+  PX(ctx, ox + 12, oy + 6, '#7fc45a'); PX(ctx, ox + 18, oy + 8, '#7fc45a');
+  PX(ctx, ox + 11, oy + 13, '#2a4a1e'); PX(ctx, ox + 22, oy + 12, '#2a4a1e');
 }
 
 export function drawTownBush(ctx: Ctx, ox: number, oy: number): void {
-  R(ctx, ox + 3, oy + 8, 10, 5, '#2f5a26');
-  R(ctx, ox + 4, oy + 7, 8, 5, '#3f7a34');
-  R(ctx, ox + 5, oy + 7, 5, 2, '#5aa044');
-  PX(ctx, ox + 6, oy + 8, '#7fc45a');
-  PX(ctx, ox + 10, oy + 9, '#7fc45a');
-  // a couple of berries
-  PX(ctx, ox + 8, oy + 10, '#d2452f');
-  PX(ctx, ox + 5, oy + 11, '#d2452f');
+  R(ctx, ox + 6, oy + 16, 20, 10, '#2f5a26');
+  R(ctx, ox + 8, oy + 14, 16, 10, '#3f7a34');
+  R(ctx, ox + 10, oy + 14, 10, 4, '#5aa044');
+  R(ctx, ox + 8, oy + 14, 3, 10, '#4a8a3a');
+  PX(ctx, ox + 12, oy + 16, '#7fc45a'); PX(ctx, ox + 20, oy + 18, '#7fc45a');
+  R(ctx, ox + 16, oy + 20, 2, 2, '#d2452f'); R(ctx, ox + 10, oy + 22, 2, 2, '#d2452f');
 }
 
-// ---- moat crossing ----------------------------------------------------------
-
-// Wooden bridge plank tile (flat, laid over the moat water).
 export function drawBridgePlank(ctx: Ctx, ox: number, oy: number): void {
-  R(ctx, ox, oy, 16, 16, '#6e4a24');
-  for (let i = 0; i < 4; i++) {
-    R(ctx, ox, oy + i * 4, 16, 1, '#3a2410'); // plank seams
-    R(ctx, ox + 1, oy + i * 4 + 1, 14, 1, '#82592c'); // plank highlight
+  R(ctx, ox, oy, 32, 32, '#6e4a24');
+  for (let i = 0; i < 8; i++) {
+    R(ctx, ox, oy + i * 4, 32, 1, '#3a2410');
+    R(ctx, ox + 1, oy + i * 4 + 1, 30, 1, '#82592c');
   }
-  R(ctx, ox, oy, 1, 16, '#4a3018');
-  R(ctx, ox + 15, oy, 1, 16, '#4a3018');
+  R(ctx, ox, oy, 2, 32, '#4a3018');
+  R(ctx, ox + 30, oy, 2, 32, '#4a3018');
 }
 
-// A heavy chain (drawn along the bridge rope-rail).
 export function drawChain(ctx: Ctx, ox: number, oy: number): void {
-  const steel = '#9aa0b4';
-  const dark = '#5a6072';
-  const hi = '#dfe6ff';
+  const steel = '#9aa0b4', dark = '#5a6072', hi = '#dfe6ff';
   for (let i = 0; i < 3; i++) {
-    const x = ox + 2 + i * 5;
-    ctx.strokeStyle = steel;
-    ctx.lineWidth = 1;
-    ctx.strokeRect(x, oy + 6, 3, 4);
-    PX(ctx, x + 1, oy + 6, hi);
-    PX(ctx, x + 2, oy + 9, dark);
-    R(ctx, x + 3, oy + 7, 2, 1, steel); // link joining the next
+    const x = ox + 4 + i * 10;
+    ctx.strokeStyle = steel; ctx.lineWidth = 2; ctx.strokeRect(x, oy + 12, 6, 8);
+    R(ctx, x + 1, oy + 12, 4, 2, hi);
+    R(ctx, x + 2, oy + 18, 2, 2, dark);
+    R(ctx, x + 6, oy + 14, 4, 2, steel);
   }
 }
 
-// A timber gate / archway marking a town exit (placed, not yet active).
 export function drawTownGate(ctx: Ctx, ox: number, oy: number): void {
-  // stone posts
-  R(ctx, ox + 1, oy + 2, 3, 12, '#6e5a40');
-  R(ctx, ox + 12, oy + 2, 3, 12, '#6e5a40');
-  R(ctx, ox + 1, oy + 2, 3, 1, '#9c8050');
-  R(ctx, ox + 12, oy + 2, 3, 1, '#9c8050');
-  // arch beam
-  R(ctx, ox + 1, oy + 1, 14, 2, '#5a3a1c');
-  R(ctx, ox + 1, oy + 1, 14, 1, '#7a5128');
-  // hanging sign
-  R(ctx, ox + 6, oy + 4, 4, 3, '#3a2410');
-  PX(ctx, ox + 7, oy + 5, '#e0bd84');
-  PX(ctx, ox + 8, oy + 5, '#e0bd84');
+  R(ctx, ox + 2, oy + 4, 6, 24, '#6e5a40');
+  R(ctx, ox + 24, oy + 4, 6, 24, '#6e5a40');
+  R(ctx, ox + 2, oy + 4, 6, 2, '#9c8050');
+  R(ctx, ox + 24, oy + 4, 6, 2, '#9c8050');
+  R(ctx, ox + 2, oy + 2, 28, 4, '#5a3a1c');
+  R(ctx, ox + 2, oy + 2, 28, 1, '#7a5128');
+  R(ctx, ox + 12, oy + 8, 8, 6, '#3a2410');
+  R(ctx, ox + 13, oy + 9, 6, 1, '#e0bd84');
+  PX(ctx, ox + 15, oy + 11, '#e0bd84');
 }
-
-// ---- houses (varied roofs sit atop the timbered building blocks) -----------
 
 function roof(ctx: Ctx, ox: number, oy: number, base: string, hi: string, dk: string): void {
-  R(ctx, ox, oy + 5, 16, 7, base);
-  R(ctx, ox, oy + 5, 16, 2, hi);
-  for (let x = 0; x < 16; x += 3) R(ctx, ox + x, oy + 7, 1, 5, dk); // shingle seams
-  R(ctx, ox - 0, oy + 11, 16, 1, dk);
-  // eave
-  R(ctx, ox, oy + 12, 16, 1, '#2a1c0e');
+  R(ctx, ox, oy + 10, 32, 14, base);
+  R(ctx, ox, oy + 10, 32, 4, hi);
+  for (let x = 0; x < 32; x += 6) R(ctx, ox + x, oy + 14, 2, 10, dk);
+  R(ctx, ox, oy + 22, 32, 2, dk);
+  R(ctx, ox, oy + 24, 32, 2, '#2a1c0e');
 }
-export function drawHouseRoofRed(ctx: Ctx, ox: number, oy: number): void {
-  roof(ctx, ox, oy, '#9c3a2a', '#c85a3e', '#5a1e14');
-}
-export function drawHouseRoofBlue(ctx: Ctx, ox: number, oy: number): void {
-  roof(ctx, ox, oy, '#34507a', '#4f72a8', '#1e2f4a');
-}
-export function drawHouseRoofGreen(ctx: Ctx, ox: number, oy: number): void {
-  roof(ctx, ox, oy, '#3a6a3a', '#56965a', '#1e3a1e');
-}
-export function drawHouseRoofTeak(ctx: Ctx, ox: number, oy: number): void {
-  roof(ctx, ox, oy, '#6e4a24', '#8a6132', '#3a2410');
+export function drawHouseRoofRed(ctx: Ctx, ox: number, oy: number): void { roof(ctx, ox, oy, '#9c3a2a', '#c85a3e', '#5a1e14'); }
+export function drawHouseRoofBlue(ctx: Ctx, ox: number, oy: number): void { roof(ctx, ox, oy, '#34507a', '#4f72a8', '#1e2f4a'); }
+export function drawHouseRoofGreen(ctx: Ctx, ox: number, oy: number): void { roof(ctx, ox, oy, '#3a6a3a', '#56965a', '#1e3a1e'); }
+export function drawHouseRoofTeak(ctx: Ctx, ox: number, oy: number): void { roof(ctx, ox, oy, '#6e4a24', '#8a6132', '#3a2410'); }
+export function drawHouseDoor(ctx: Ctx, ox: number, oy: number): void {
+  R(ctx, ox + 10, oy + 8, 12, 22, '#3a2410');
+  R(ctx, ox + 11, oy + 10, 10, 20, '#5a3a1c');
+  R(ctx, ox + 11, oy + 10, 3, 20, '#6e4a24');
+  R(ctx, ox + 15, oy + 10, 1, 20, '#3a2410');
+  R(ctx, ox + 10, oy + 8, 12, 2, '#7a5128');
+  PX(ctx, ox + 19, oy + 21, '#cfa64e');
 }
 
 // ---- little living things (single-frame; animated by tweens in-scene) ------

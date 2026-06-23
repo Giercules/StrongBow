@@ -654,7 +654,7 @@ export class DungeonScene extends Phaser.Scene {
           const hsh = (x * 17 + y * 31) % 37;
           if (hsh === 0 || hsh === 7 || hsh === 19) {
             const key = scatterKeys[(x + y * 3) % scatterKeys.length];
-            this.add.image(c.x, c.y, key).setDepth(c.y - 4).setAlpha(0.85).setScale(0.95);
+            this.add.image(c.x, c.y, key).setDepth(c.y - 4).setAlpha(0.85).setScale(0.475);
           }
         }
       }
@@ -673,8 +673,8 @@ export class DungeonScene extends Phaser.Scene {
       'storm-orb': 'fx-glow-magic',
       'gauge': 'fx-glow-warm',
     };
-    const US = 1.5; // upright decor scale — bigger, more present
-    const FS = 1.3; // flat (floor) decor scale
+    const US = 0.75; // upright decor scale (HD decor is 2x res; halved to keep size)
+    const FS = 0.65; // flat (floor) decor scale (HD decor is 2x res)
     for (const d of this.level.decor ?? []) {
       const dc = this.tileCenter(d.x, d.y);
       if (flatDecor.has(d.key)) {
@@ -2563,13 +2563,21 @@ export class DungeonScene extends Phaser.Scene {
           const el = img as HTMLImageElement;
           const finish = (): void => {
             try {
+              const W = 492;
+              const H = 280;
               const cv = document.createElement('canvas');
-              cv.width = 256;
-              cv.height = 144;
+              cv.width = W;
+              cv.height = H;
               const c = cv.getContext('2d');
               if (!c) return cb(undefined);
-              c.drawImage(el, 0, 0, 256, 144);
-              cb(cv.toDataURL('image/jpeg', 0.5));
+              c.imageSmoothingEnabled = true;
+              c.imageSmoothingQuality = 'high';
+              const sw = el.naturalWidth || PLAY_AREA_WIDTH;
+              const srcH = el.naturalHeight || GAME_HEIGHT;
+              const sh = Math.min(srcH, Math.round((sw * H) / W));
+              const sy = Math.max(0, Math.round((srcH - sh) / 2));
+              c.drawImage(el, 0, sy, sw, sh, 0, 0, W, H);
+              cb(cv.toDataURL('image/jpeg', 0.85));
             } catch {
               cb(undefined);
             }

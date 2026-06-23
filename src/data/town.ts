@@ -89,7 +89,7 @@ export function buildTown(): LevelData {
     rect(x0, y0, x1, y1, Tile.WALL);
     for (let x = x0; x <= x1; x++) decor.push({ x, y: y0, key: roofKey });
     const doorX = Math.floor((x0 + x1) / 2);
-    decor.push({ x: doorX, y: y1, key: 'door' });
+    decor.push({ x: doorX, y: y1, key: 'house-door' });
     for (let y = y0 - 1; y <= y1 + 1; y++) for (let x = x0 - 1; x <= x1 + 1; x++) mark(noFoliage, x, y);
   };
 

@@ -48,7 +48,7 @@ export class MenuScene extends Phaser.Scene {
 
     // ---- ledge, pillars + great torches ----
     this.add.rectangle(cx, 472, GAME_WIDTH, 130, 0x0a0812, 0.5).setDepth(3);
-    [150, GAME_WIDTH - 150].forEach((x) => this.add.image(x, 372, 'pillar').setScale(5).setAlpha(0.85).setDepth(4));
+    [150, GAME_WIDTH - 150].forEach((x) => this.add.image(x, 372, 'pillar').setScale(2.5).setAlpha(0.85).setDepth(4));
     [108, GAME_WIDTH - 108].forEach((x) => {
       const t = this.add.sprite(x, 150, 'torch-sheet').setScale(5).play('torch').setDepth(7).setTint(0xffb060);
       this.add.image(x, 150, 'fx-glow-warm').setScale(10).setAlpha(0.42).setBlendMode(add).setDepth(6);
