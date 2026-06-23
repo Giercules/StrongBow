@@ -25,7 +25,9 @@ import {
   COMPANION_TELEPORT_MS,
 } from '../core/constants';
 import * as art from '../rendering/spriteArt';
-import { getThemeArt } from '../rendering/Palette';
+import { getThemeArt, C } from '../rendering/Palette';
+import { framedPanel, makeButton } from '../ui/uiHelpers';
+import type { Modal } from '../ui/uiHelpers';
 import { getTheme } from '../data/gen/themes';
 import { settings } from '../core/GameSettings';
 import { formatHudControls } from '../core/KeyBindings';
@@ -182,6 +184,7 @@ export class DungeonScene extends Phaser.Scene {
   private manualUI!: GameManualUI;
   private saveLoadUI!: SaveLoadUI;
   private pendingThumb?: string;
+  private quitConfirm: Modal | null = null;
 
   private escKey!: Phaser.Input.Keyboard.Key;
   private continueKey!: Phaser.Input.Keyboard.Key;
@@ -944,7 +947,8 @@ export class DungeonScene extends Phaser.Scene {
       this.sheetUI.isOpen() ||
       this.manualUI.isOpen() ||
       this.saveLoadUI.isOpen() ||
-      this.shopUI.isOpen()
+      this.shopUI.isOpen() ||
+      this.quitConfirm !== null
     );
   }
 
@@ -962,9 +966,10 @@ export class DungeonScene extends Phaser.Scene {
     if (this.input2.capturing || this.gameOverUI.isOpen()) return;
 
     if (Phaser.Input.Keyboard.JustDown(this.escKey)) {
-      if (this.manualUI.isOpen()) this.manualUI.close();
+      if (this.quitConfirm) this.closeQuitConfirm();
+      else if (this.manualUI.isOpen()) this.manualUI.close();
       else if (this.anyOverlayOpen()) this.closeAllOverlays();
-      else this.quitToMenu();
+      else this.confirmQuit();
       return;
     }
 
@@ -2346,6 +2351,65 @@ export class DungeonScene extends Phaser.Scene {
     });
     this.gameOverUI.close();
     this.showBark('You rise again. The crypt is not done with you.');
+  }
+
+  private confirmQuit(): void {
+    if (this.quitConfirm) return;
+    audio.sfx('ui_select');
+    const m = framedPanel(this, 320, 196, 'RETURN TO TITLE?');
+    this.quitConfirm = m;
+    m.add(
+      this.add
+        .text(m.cx, m.cy - 52, 'Leaving ends this run. Save your\nprogress before returning to the title?', {
+          fontFamily: 'MedievalSharp, "Trebuchet MS", cursive',
+          fontSize: '13px',
+          color: C.ink,
+          align: 'center',
+          lineSpacing: 3,
+        })
+        .setOrigin(0.5)
+    );
+    m.add(makeButton(this, m.cx, m.cy - 8, 230, 30, 'SAVE & QUIT', () => this.saveThenQuit(), { fill: C.ivy, size: 13 }));
+    m.add(
+      makeButton(this, m.cx, m.cy + 28, 230, 28, 'QUIT WITHOUT SAVING', () => {
+        this.closeQuitConfirm();
+        this.quitToMenu();
+      }, { fill: C.hpLow, size: 12 })
+    );
+    m.add(makeButton(this, m.cx, m.cy + 62, 230, 26, 'CANCEL', () => this.closeQuitConfirm(), { size: 12 }));
+    this.refreshPauseState();
+  }
+
+  private closeQuitConfirm(): void {
+    if (!this.quitConfirm) return;
+    this.quitConfirm.destroy();
+    this.quitConfirm = null;
+    audio.sfx('ui_move');
+    this.refreshPauseState();
+  }
+
+  private saveThenQuit(): void {
+    this.closeQuitConfirm();
+    if (this.won || this.gameOverUI.isOpen()) {
+      this.quitToMenu();
+      return;
+    }
+    audio.sfx('ui_select');
+    this.captureThumb((thumb) => {
+      this.pendingThumb = thumb;
+      this.closeAllOverlays();
+      this.saveLoadUI.open({
+        mode: 'full',
+        handleEsc: true,
+        getSaveData: () => {
+          const d = this.buildSave();
+          d.thumbnail = this.pendingThumb;
+          return d;
+        },
+        onLoad: (save) => this.loadFromSave(save),
+        onSaved: () => this.quitToMenu(),
+      });
+    });
   }
 
   private quitToMenu(): void {

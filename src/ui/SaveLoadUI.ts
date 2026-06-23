@@ -14,6 +14,7 @@ export interface SaveLoadOptions {
   getSaveData?: () => SaveData; // required for saving
   onLoad: (save: SaveData) => void;
   onClose?: () => void;
+  onSaved?: () => void;
   /** If false, the window won't close itself on Esc (the host handles it). */
   handleEsc?: boolean;
 }
@@ -115,6 +116,10 @@ export class SaveLoadUI {
     if (!this.opts?.getSaveData) return;
     saveToSlot(this.sel, this.opts.getSaveData());
     this.confirmDelete = false;
+    if (this.opts.onSaved) {
+      this.opts.onSaved();
+      return;
+    }
     this.render();
   }
 
