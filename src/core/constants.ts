@@ -4,10 +4,16 @@
 
 export const TILE_SIZE = 16;
 
-export const PLAY_AREA_WIDTH = 740;
+export const LEFT_PANEL_WIDTH = 200;
 export const HUD_PANEL_WIDTH = 220;
-export const GAME_WIDTH = PLAY_AREA_WIDTH + HUD_PANEL_WIDTH;
+export const GAME_WIDTH = 960;
+export const PLAY_AREA_WIDTH = GAME_WIDTH - LEFT_PANEL_WIDTH - HUD_PANEL_WIDTH;
+export const PLAY_AREA_X = LEFT_PANEL_WIDTH;
 export const GAME_HEIGHT = 540;
+
+export const SPRITE_SCALE_MIN = 1.0;
+export const SPRITE_SCALE_MAX = 2.0;
+export const SPRITE_SCALE_DEFAULT = 1.5;
 
 // Camera zoom is fixed (no in-game slider) for a consistent arcade framing.
 export const OPTIMAL_ZOOM = 1.0;
@@ -32,6 +38,7 @@ export const COMPANION_TELEPORT_MS = 900; // grace before a too-far companion bl
 export const PLAY_AREA_UI_DEPTH = 9600;
 
 export const HUD_REGISTRY_KEY = 'hudData';
+export const LOG_REGISTRY_KEY = 'logData';
 export const GENERATORS_TO_DESTROY = 3;
 
 export enum Tile {

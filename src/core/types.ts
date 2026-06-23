@@ -282,7 +282,21 @@ export interface GameSettingsData {
   musicVolume: number;
   sfxVolume: number;
   zoom: number;
+  spriteScale: number;
+  showMinimap: boolean;
+  musicTrack: string;
   companionAI: CompanionAISettings;
   bindings: import('./KeyBindings').GameBindings;
   gameplay: GameplaySettings;
+}
+
+export interface LogEntry {
+  text: string;
+  kind: 'event' | 'grok' | 'system' | 'combat' | 'loot';
+}
+
+export interface LogRegistryData {
+  entries: LogEntry[];
+  grokStatus: 'offline' | 'connected' | 'thinking';
+  grokProvider: string;
 }

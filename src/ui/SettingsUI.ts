@@ -3,19 +3,21 @@ import { framedPanel, makeButton, addPinned } from './uiHelpers';
 import type { Modal } from './uiHelpers';
 import { C } from '../rendering/Palette';
 import { settings } from '../core/GameSettings';
-import { audio } from '../systems/AudioSystem';
+import { audio, MUSIC_TRACKS, musicTrackLabel } from '../systems/AudioSystem';
 import { aiService } from '../ai/AIService';
 import { REBINDABLE_ACTIONS, ACTION_LABELS, keyLabel } from '../core/KeyBindings';
+import { SPRITE_SCALE_MIN, SPRITE_SCALE_MAX } from '../core/constants';
 import type { AIProviderId } from '../core/types';
 import type { DungeonInput } from '../systems/DungeonInput';
 
 const PROVIDERS: AIProviderId[] = ['fallback', 'openai', 'anthropic', 'xai'];
 const PANEL_W = 480;
 const PANEL_H = 470;
-type Tab = 'audio' | 'ai' | 'companions' | 'controls' | 'cheats' | 'manual';
-const TABS: Tab[] = ['audio', 'ai', 'companions', 'controls', 'cheats', 'manual'];
+type Tab = 'audio' | 'view' | 'ai' | 'companions' | 'controls' | 'cheats' | 'manual';
+const TABS: Tab[] = ['audio', 'view', 'ai', 'companions', 'controls', 'cheats', 'manual'];
 const TAB_LABELS: Record<Tab, string> = {
   audio: 'AUDIO',
+  view: 'VIEW',
   ai: 'AI',
   companions: 'ALLIES',
   controls: 'KEYS',
@@ -154,6 +156,7 @@ export class SettingsUI {
 
     this.rowY = y0 + 74;
     if (this.tab === 'audio') this.tabAudio();
+    else if (this.tab === 'view') this.tabView();
     else if (this.tab === 'ai') this.tabAI();
     else if (this.tab === 'companions') this.tabCompanions();
     else if (this.tab === 'controls') this.tabControls();
@@ -173,6 +176,32 @@ export class SettingsUI {
     this.stepper(right, y, Math.round(settings.get('musicVolume') * 100) + '%', () => audio.setMusicVolume(settings.get('musicVolume') - 0.1), () => audio.setMusicVolume(settings.get('musicVolume') + 0.1));
     y = this.rowLabel('SFX volume');
     this.stepper(right, y, Math.round(settings.get('sfxVolume') * 100) + '%', () => audio.setSfxVolume(settings.get('sfxVolume') - 0.1), () => audio.setSfxVolume(settings.get('sfxVolume') + 0.1));
+    y = this.rowLabel('Music track');
+    this.btn(right - 84, y, 168, musicTrackLabel(settings.get('musicTrack')), () => {
+      const ids = MUSIC_TRACKS.map((t) => t.id);
+      const i = ids.indexOf(settings.get('musicTrack'));
+      audio.setMusicTrack(ids[(i + 1) % ids.length]);
+    }, C.hudPanel2);
+  }
+
+  private tabView(): void {
+    const right = this.modal!.cx + PANEL_W / 2 - 24;
+    let y = this.rowLabel('Sprite size');
+    const pct = Math.round(settings.spriteScale() * 100);
+    this.stepper(
+      right,
+      y,
+      pct + '%',
+      () => settings.setSpriteScale(+(settings.spriteScale() - 0.1).toFixed(2)),
+      () => settings.setSpriteScale(+(settings.spriteScale() + 0.1).toFixed(2))
+    );
+    y = this.rowLabel('Show map');
+    this.btn(right - 45, y, 80, settings.get('showMinimap') ? 'ON' : 'OFF', () => settings.set('showMinimap', !settings.get('showMinimap')), settings.get('showMinimap') ? C.ivy : C.hudPanel2);
+    this.rowLabel('');
+    const x0 = this.modal!.cx - PANEL_W / 2 + 24;
+    this.text(x0, this.rowY, `Sprite size ranges ${Math.round(SPRITE_SCALE_MIN * 100)}–${Math.round(SPRITE_SCALE_MAX * 100)}% (default 150%).`, C.inkDim, 10);
+    this.rowY += 18;
+    this.text(x0, this.rowY, 'Map can be toggled live; sprite size applies on next descent.', C.inkDim, 10);
   }
 
   private tabAI(): void {

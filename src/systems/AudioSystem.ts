@@ -201,6 +201,29 @@ const THEME_SONGS: Record<ThemeId, Song> = {
   town: MENU,
 };
 
+const TRACK_SONGS: Record<string, Song> = {
+  heroic: HEROIC,
+  driving: DRIVING,
+  ethereal: ETHEREAL,
+  ominous: OMINOUS,
+  finale: FINALE,
+  menu: MENU,
+};
+
+export const MUSIC_TRACKS: { id: string; label: string }[] = [
+  { id: 'auto', label: 'Auto (match realm)' },
+  { id: 'heroic', label: 'Heroic March' },
+  { id: 'driving', label: 'Driving Battle' },
+  { id: 'ethereal', label: 'Ethereal Calm' },
+  { id: 'ominous', label: 'Ominous Dread' },
+  { id: 'finale', label: 'Triumphant Finale' },
+  { id: 'menu', label: 'Wandering Minstrel' },
+];
+
+export function musicTrackLabel(id: string): string {
+  return MUSIC_TRACKS.find((t) => t.id === id)?.label ?? 'Auto (match realm)';
+}
+
 class AudioSystem {
   private ctx: AudioContext | null = null;
   private master!: GainNode;
@@ -216,6 +239,7 @@ class AudioSystem {
   private song: Song = HEROIC;
   /** Which dungeon song the current level theme has selected. */
   private dungeonSong: Song = HEROIC;
+  private lastTheme: ThemeId = 'crypt';
   private playingId: SongId | null = null;
   private padNodes: AudioNode[] = [];
 
@@ -426,10 +450,26 @@ class AudioSystem {
     this.timer = window.setInterval(() => this.scheduler(), 25);
   }
 
+  private resolveDungeonSong(): Song {
+    const choice = settings.get('musicTrack');
+    if (choice && choice !== 'auto' && TRACK_SONGS[choice]) return TRACK_SONGS[choice];
+    return THEME_SONGS[this.lastTheme] ?? HEROIC;
+  }
+
   /** Pick the dungeon song that matches a level theme. Call before playMusic. */
   setDungeonTheme(theme: ThemeId): void {
-    this.dungeonSong = THEME_SONGS[theme] ?? HEROIC;
+    this.lastTheme = theme;
+    this.dungeonSong = this.resolveDungeonSong();
     // If the dungeon song is already playing procedurally, swap it live.
+    if (this.playingId === 'dungeon' && this.timer !== null) {
+      this.song = this.dungeonSong;
+      this.step = 0;
+    }
+  }
+
+  setMusicTrack(id: string): void {
+    settings.set('musicTrack', id);
+    this.dungeonSong = this.resolveDungeonSong();
     if (this.playingId === 'dungeon' && this.timer !== null) {
       this.song = this.dungeonSong;
       this.step = 0;

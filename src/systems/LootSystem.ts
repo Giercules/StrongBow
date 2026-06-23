@@ -67,10 +67,14 @@ export function rollDrop(theme: ThemeId, luck: number, opts: DropOptions = {}): 
 
 /** Probability that a slain regular monster drops gear, scaled by luck. */
 export function monsterDropChance(luck: number): number {
-  return Math.min(0.34, 0.06 + luck * 0.006);
+  return Math.min(0.1, 0.02 + luck * 0.0025);
 }
 
 /** Probability that a destroyed generator drops gear, scaled by luck. */
 export function generatorDropChance(luck: number): number {
-  return Math.min(0.7, 0.3 + luck * 0.01);
+  return Math.min(0.45, 0.18 + luck * 0.006);
+}
+
+export function eliteDropChance(luck: number): number {
+  return Math.min(0.85, 0.55 + luck * 0.01);
 }

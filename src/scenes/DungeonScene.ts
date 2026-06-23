@@ -2,10 +2,12 @@ import Phaser from 'phaser';
 import {
   TILE_SIZE,
   PLAY_AREA_WIDTH,
+  PLAY_AREA_X,
   GAME_HEIGHT,
   DEPTH,
   Tile,
   HUD_REGISTRY_KEY,
+  LOG_REGISTRY_KEY,
   GENERATORS_TO_DESTROY,
   WATER_SPEED_MULT,
   LAVA_DPS,
@@ -24,14 +26,15 @@ import {
 } from '../core/constants';
 import * as art from '../rendering/spriteArt';
 import { getThemeArt } from '../rendering/Palette';
+import { getTheme } from '../data/gen/themes';
 import { settings } from '../core/GameSettings';
 import { formatHudControls } from '../core/KeyBindings';
-import type { HeroClassId, LevelData, HudRegistryData, HudHeroSlot, ItemDefinition, ItemSlot, EnemyId, Grade, ThemeId } from '../core/types';
+import type { HeroClassId, LevelData, HudRegistryData, HudHeroSlot, ItemDefinition, ItemSlot, EnemyId, Grade, ThemeId, LogEntry, LogRegistryData } from '../core/types';
 import { Content } from '../content/ContentRegistry';
 import { ALL_CLASSES } from '../data/heroes';
 import { ITEMS } from '../data/items';
 import { GRADES } from '../data/grades';
-import { rollDrop, monsterDropChance, generatorDropChance } from '../systems/LootSystem';
+import { rollDrop, monsterDropChance, generatorDropChance, eliteDropChance } from '../systems/LootSystem';
 import { describeItem } from '../data/pickupInfo';
 import { Hero } from '../entities/Hero';
 import { Companion } from '../entities/Companion';
@@ -173,6 +176,8 @@ export class DungeonScene extends Phaser.Scene {
   private abilityKey!: Phaser.Input.Keyboard.Key;
 
   private mmDots?: Phaser.GameObjects.Graphics;
+  private mmImage?: Phaser.GameObjects.Image;
+  private mmBorder?: Phaser.GameObjects.Graphics;
   private mmX = 0;
   private mmY = 0;
   private mmCW = 0;
@@ -181,6 +186,12 @@ export class DungeonScene extends Phaser.Scene {
   private magicQueued = false;
 
   private barkText!: Phaser.GameObjects.Text;
+
+  // ---- left-panel adventure log + Grok "Dungeon Master" feed ----
+  private logEntries: LogEntry[] = [];
+  private grokStatus: 'offline' | 'connected' | 'thinking' = 'offline';
+  private grokProvider = 'Grok';
+  private static readonly LOG_CAP = 40;
 
   private generatorsDestroyed = 0;
   private generatorsTotal = 0;
@@ -215,6 +226,7 @@ export class DungeonScene extends Phaser.Scene {
   }[] = [];
   private portals: { sprite: Phaser.GameObjects.Sprite; realmId: string; label: string; x: number; y: number }[] = [];
   private merchants: { sprite: Phaser.GameObjects.Sprite; shop: ShopKind; label: string; x: number; y: number }[] = [];
+  private townLife: Phaser.GameObjects.Sprite[] = [];
 
   constructor() {
     super('DungeonScene');
@@ -230,7 +242,8 @@ export class DungeonScene extends Phaser.Scene {
     const wPx = this.level.width * TILE_SIZE;
     const hPx = this.level.height * TILE_SIZE;
 
-    this.cameras.main.setViewport(0, 0, PLAY_AREA_WIDTH, GAME_HEIGHT);
+    // play viewport sits between the left log panel and the right HUD
+    this.cameras.main.setViewport(PLAY_AREA_X, 0, PLAY_AREA_WIDTH, GAME_HEIGHT);
     this.cameras.main.setBounds(0, 0, wPx, hPx);
     this.cameras.main.setBackgroundColor(this.level.ambientColor ?? 0x05060a);
     this.physics.world.setBounds(0, 0, wPx, hPx);
@@ -256,7 +269,7 @@ export class DungeonScene extends Phaser.Scene {
     this.cameras.main.setZoom(OPTIMAL_ZOOM);
     this.cameras.main.fadeIn(260, 0, 0, 0);
 
-    this.add.image(PLAY_AREA_WIDTH / 2, GAME_HEIGHT / 2, 'fx-vignette').setScrollFactor(0).setDepth(DEPTH.VIGNETTE);
+    this.add.image(PLAY_AREA_WIDTH / 2, GAME_HEIGHT / 2, 'fx-vignette').setScrollFactor(0).setDisplaySize(PLAY_AREA_WIDTH, GAME_HEIGHT).setDepth(DEPTH.VIGNETTE);
 
     // soft light that travels with the party so heroes are always lit; its tint
     // shifts with the level theme for instant mood.
@@ -272,6 +285,7 @@ export class DungeonScene extends Phaser.Scene {
     this.add
       .image(PLAY_AREA_WIDTH / 2, GAME_HEIGHT / 2, 'fx-edge')
       .setScrollFactor(0)
+      .setDisplaySize(PLAY_AREA_WIDTH, GAME_HEIGHT)
       .setDepth(DEPTH.VIGNETTE + 1)
       .setTint(atmo.edgeTint)
       .setBlendMode(Phaser.BlendModes.ADD)
@@ -338,16 +352,25 @@ export class DungeonScene extends Phaser.Scene {
       this.quest = `Clear ${this.level.name}: destroy the altars and slay its warden.`;
       if (!save) void aiService.generateQuest(this.level.name).then((q) => { if (q) this.quest = q; });
     }
-    // Lead with the chapter's own story beat, then let the AI narrator layer on top.
+    // Lead with the chapter's own story beat, then let the Dungeon Master (Grok) layer on top.
     const chapterTag = this.level.chapter ? `${this.level.chapter} — ` : '';
     if (this.level.story) this.showBark(`${chapterTag}${this.level.story}`, 8000);
-    if (!this.level.town)
-      void aiService
-        .generateBark(`the heroes enter ${this.level.name}`)
-        .then((b) => { if (b) this.showBark(b, 8000); });
+    this.grokNarrate(
+      this.level.town
+        ? `the party returns to the town of Hearthwatch to resupply between descents`
+        : `the heroes enter ${this.level.name}`
+    );
 
+    // Bring up the side panels and seed the log + Grok status light.
+    this.scene.launch('LeftPanelScene');
     this.scene.launch('HudScene');
     this.syncHudData();
+    this.syncLogData();
+    this.spawnTownLife();
+    void aiService.checkConnection().then(({ connected, provider }) => {
+      this.grokProvider = provider === 'xai' ? 'Grok' : provider === 'fallback' ? 'Local DM' : provider.charAt(0).toUpperCase() + provider.slice(1);
+      this.setGrokStatus(connected ? 'connected' : 'offline');
+    });
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.onShutdown());
   }
 
@@ -379,6 +402,7 @@ export class DungeonScene extends Phaser.Scene {
     this.lastRightDown = 0;
     this.magicQueued = false;
     this.townNpcs = [];
+    this.townLife = [];
     this.portals = [];
     this.merchants = [];
   }
@@ -400,6 +424,9 @@ export class DungeonScene extends Phaser.Scene {
     const H = this.level.height;
     const ta = getThemeArt(this.level.theme);
     const atmo = ATMOSPHERE[this.level.theme ?? 'crypt'] ?? ATMOSPHERE.crypt;
+    const scatterKeys = (getTheme(this.level.theme).decorKeys.length ? getTheme(this.level.theme).decorKeys : ['bones', 'rubble']).filter(
+      (k) => !['pillar', 'idol', 'altar', 'weapon-rack', 'banner', 'frost-banner'].includes(k)
+    );
     const isWall = (x: number, y: number) => y >= 0 && y < H && x >= 0 && x < W && t[y][x] === Tile.WALL;
     // A wall has "solid backing" when the tile directly north of it is another
     // wall or the void — i.e. a genuine wall mass, not a thin 1-tile divider
@@ -606,17 +633,19 @@ export class DungeonScene extends Phaser.Scene {
             this.tweens.add({ targets: gl, alpha: { from: 0.14, to: 0.4 }, duration: 1500 + Math.random() * 900, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
           }
         }
-        if (tile === Tile.FLOOR) {
-          const hsh = (x * 17 + y * 31) % 53;
-          if (hsh === 0) this.add.image(c.x, c.y, 'bones').setDepth(c.y - 4).setAlpha(0.9);
-          else if (hsh === 7) this.add.image(c.x, c.y, 'rubble').setDepth(c.y - 4).setAlpha(0.9);
+        if (tile === Tile.FLOOR && !this.level.town && scatterKeys.length) {
+          const hsh = (x * 17 + y * 31) % 37;
+          if (hsh === 0 || hsh === 7 || hsh === 19) {
+            const key = scatterKeys[(x + y * 3) % scatterKeys.length];
+            this.add.image(c.x, c.y, key).setDepth(c.y - 4).setAlpha(0.85).setScale(0.95);
+          }
         }
       }
     }
 
     // ---- hand-placed set-piece decor (larger + livelier for a richer world) ----
-    const flatDecor = new Set(['blood-stain', 'lilypad', 'sanctum-glyph', 'void-rift', 'lava-crack', 'rune-circle']);
-    const swayDecor = new Set(['banner', 'vines', 'frost-banner', 'cloth', 'cattail', 'toxic-mushroom']);
+    const flatDecor = new Set(['blood-stain', 'lilypad', 'sanctum-glyph', 'void-rift', 'lava-crack', 'rune-circle', 'road', 'grass-tuft', 'bridge-plank', 'chain']);
+    const swayDecor = new Set(['banner', 'vines', 'frost-banner', 'cloth', 'cattail', 'toxic-mushroom', 'town-tree', 'town-bush']);
     const glowDecor: Record<string, string> = {
       crystal: 'fx-glow-magic',
       cog: 'fx-glow-warm',
@@ -784,7 +813,7 @@ export class DungeonScene extends Phaser.Scene {
     };
     gen.onDestroyed = () => {
       this.generatorsDestroyed++;
-      this.showBark('A spawning altar is destroyed!');
+      this.showBark('A spawning altar is destroyed!', 3400, 'combat');
       // Altars reliably cough up themed gear (honed or better).
       if (Math.random() < generatorDropChance(this.bestLuck())) this.dropLoot(gen.x, gen.y, 'honed');
     };
@@ -999,7 +1028,7 @@ export class DungeonScene extends Phaser.Scene {
       let mvy = m.y;
       // hold left mouse in the play area to walk toward the cursor (keyboard wins)
       const ptr = this.input.activePointer;
-      if (mvx === 0 && mvy === 0 && ptr.isDown && ptr.x < PLAY_AREA_WIDTH) {
+      if (mvx === 0 && mvy === 0 && ptr.isDown && ptr.x >= PLAY_AREA_X && ptr.x < PLAY_AREA_X + PLAY_AREA_WIDTH) {
         const wp = this.cameras.main.getWorldPoint(ptr.x, ptr.y);
         const dx = wp.x - p1.x;
         const dy = wp.y - p1.y;
@@ -1012,7 +1041,7 @@ export class DungeonScene extends Phaser.Scene {
       p1.setMoveInput(mvx, mvy);
       if (mvx || mvy) this.activeIdx = 0;
       // right mouse = attack toward the cursor; double right-click = magic
-      if (ptr.rightButtonDown() && ptr.x < PLAY_AREA_WIDTH) {
+      if (ptr.rightButtonDown() && ptr.x >= PLAY_AREA_X && ptr.x < PLAY_AREA_X + PLAY_AREA_WIDTH) {
         const wp = this.cameras.main.getWorldPoint(ptr.x, ptr.y);
         p1.faceTo(wp.x - p1.x, wp.y - p1.y);
         p1.tryMelee(time);
@@ -1264,10 +1293,11 @@ export class DungeonScene extends Phaser.Scene {
     const ch = Math.round((cw * H) / W);
     const px = PLAY_AREA_WIDTH - cw - 12;
     const py = 12;
-    this.add.image(px, py, key).setOrigin(0, 0).setScrollFactor(0).setDepth(DEPTH.OVERLAY - 6).setDisplaySize(cw, ch).setAlpha(0.82);
+    this.mmImage = this.add.image(px, py, key).setOrigin(0, 0).setScrollFactor(0).setDepth(DEPTH.OVERLAY - 6).setDisplaySize(cw, ch).setAlpha(0.82);
     const b = this.add.graphics().setScrollFactor(0).setDepth(DEPTH.OVERLAY - 5);
     b.lineStyle(1, 0xcfa64e, 0.8);
     b.strokeRect(px - 1, py - 1, cw + 2, ch + 2);
+    this.mmBorder = b;
     this.mmX = px;
     this.mmY = py;
     this.mmCW = cw;
@@ -1278,6 +1308,14 @@ export class DungeonScene extends Phaser.Scene {
   private updateMinimap(): void {
     const g = this.mmDots;
     if (!g) return;
+    const show = settings.get('showMinimap');
+    this.mmImage?.setVisible(show);
+    this.mmBorder?.setVisible(show);
+    g.setVisible(show);
+    if (!show) {
+      g.clear();
+      return;
+    }
     g.clear();
     const mapX = (wx: number): number => this.mmX + (wx / (this.level.width * TILE_SIZE)) * this.mmCW;
     const mapY = (wy: number): number => this.mmY + (wy / (this.level.height * TILE_SIZE)) * this.mmCH;
@@ -1299,7 +1337,53 @@ export class DungeonScene extends Phaser.Scene {
 
   private updateMonsters(time: number, delta: number): void {
     const targets = this.allies.filter((a) => a.alive);
-    for (const m of this.monsters) if (m.active) m.tick(time, delta, targets);
+    const live: Monster[] = [];
+    for (const m of this.monsters) {
+      if (m.active && m.alive) {
+        m.tick(time, delta, targets);
+        live.push(m);
+      }
+    }
+    this.separateMonsters(live);
+  }
+
+  private separateMonsters(live: Monster[]): void {
+    if (live.length < 2) return;
+    const scale = settings.spriteScale();
+    for (let i = 0; i < live.length; i++) {
+      const a = live[i];
+      if (a.isBoss) continue;
+      const body = a.body as Phaser.Physics.Arcade.Body | null;
+      if (!body || !body.enable) continue;
+      const radius = (14 + (a.def.scale ?? 1) * 10) * scale;
+      let px = 0;
+      let py = 0;
+      let n = 0;
+      for (let j = 0; j < live.length; j++) {
+        if (i === j) continue;
+        const b = live[j];
+        const dx = a.x - b.x;
+        const dy = a.y - b.y;
+        const d2 = dx * dx + dy * dy;
+        if (d2 > 0.0001 && d2 < radius * radius) {
+          const d = Math.sqrt(d2);
+          const w = (radius - d) / radius;
+          px += (dx / d) * w;
+          py += (dy / d) * w;
+          n++;
+        }
+      }
+      if (n === 0) continue;
+      const push = a.def.speed * 0.85;
+      body.velocity.x += px * push;
+      body.velocity.y += py * push;
+      const sp = Math.hypot(body.velocity.x, body.velocity.y);
+      const maxSp = a.def.speed * 1.6 || 1;
+      if (sp > maxSp) {
+        body.velocity.x *= maxSp / sp;
+        body.velocity.y *= maxSp / sp;
+      }
+    }
   }
 
   private updateGenerators(time: number): void {
@@ -1571,9 +1655,9 @@ export class DungeonScene extends Phaser.Scene {
         if (a !== killer && a.alive) a.gainXP(share);
       }
     }
-    // Champions always drop strong themed loot; regular foes roll by luck.
+    // Champions usually drop strong themed loot; regular foes roll by luck (rarely).
     if (m.isElite) {
-      this.dropLoot(m.x, m.y, 'runed');
+      if (Math.random() < eliteDropChance(killer.stats.luck ?? 0)) this.dropLoot(m.x, m.y, 'runed');
     } else if (!m.isBoss && Math.random() < monsterDropChance(killer.stats.luck ?? 0)) {
       const floor: Grade | undefined = m.def.xp >= 28 ? 'honed' : undefined;
       this.dropLoot(m.x, m.y, floor);
@@ -1616,7 +1700,8 @@ export class DungeonScene extends Phaser.Scene {
   private onBossDeath(): void {
     this.bossAlive = false;
     const bossName = this.boss?.def.name ?? 'The warden';
-    this.showBark(`${bossName} falls! The exit awakens.`);
+    this.showBark(`${bossName} falls! The exit awakens.`, 3400, 'combat');
+    this.grokNarrate(`the heroes have just slain ${bossName}, the warden of ${this.level.name}, and the exit portal flares open`);
     audio.sfx('victory');
     // The realm's warden always yields a guaranteed, high-grade themed reward.
     if (this.boss) this.dropLoot(this.boss.x, this.boss.y, 'runed');
@@ -1742,7 +1827,7 @@ export class DungeonScene extends Phaser.Scene {
           collector.inventory.add(item);
           collector.refreshStats();
           const col = item.grade ? GRADES[item.grade].color : '#ffe9a8';
-          this.showBark(`Picked up ${describeItem(item)}`);
+          this.showBark(`Picked up ${describeItem(item)}`, 3400, 'loot');
           this.floatPickup(p.sprite.x, p.sprite.y, item.name, col);
         }
         audio.sfx('chest');
@@ -1799,6 +1884,60 @@ export class DungeonScene extends Phaser.Scene {
   // ------------------------------------------------------------- town-square hub
   private unlockedRealms(): number {
     return (this.registry.get('unlockedRealms') as number) ?? 1;
+  }
+
+  private spawnTownLife(): void {
+    if (!this.level.town) return;
+    const W = this.level.width;
+    const H = this.level.height;
+    const randPoint = (): { x: number; y: number } => {
+      for (let i = 0; i < 12; i++) {
+        const tx = Phaser.Math.Between(8, W - 9);
+        const ty = Phaser.Math.Between(8, H - 9);
+        if (this.isWalkable(tx, ty)) return this.tileCenter(tx, ty);
+      }
+      return this.tileCenter(Math.floor(W / 2), Math.floor(H / 2));
+    };
+    const wander = (s: Phaser.GameObjects.Sprite, speed: number, fly: boolean): void => {
+      const step = (): void => {
+        if (!s.active) return;
+        const dest = randPoint();
+        const dist = Phaser.Math.Distance.Between(s.x, s.y, dest.x, dest.y) || 1;
+        s.setFlipX(dest.x < s.x);
+        this.tweens.add({
+          targets: s,
+          x: dest.x,
+          y: dest.y,
+          duration: Math.max(700, (dist / speed) * 1000),
+          ease: 'Sine.easeInOut',
+          onUpdate: () => {
+            if (!fly) s.setDepth(s.y);
+          },
+          onComplete: () => {
+            if (s.active) this.time.delayedCall(fly ? 200 + Math.random() * 600 : 500 + Math.random() * 1600, step);
+          },
+        });
+      };
+      step();
+    };
+    for (let i = 0; i < 6; i++) {
+      const p = randPoint();
+      const b = this.add.sprite(p.x, p.y, 'town-butterfly').setDepth(5000).setScale(0.8 + Math.random() * 0.4);
+      this.tweens.add({ targets: b, scaleX: { from: b.scaleX, to: b.scaleX * 0.4 }, duration: 150 + Math.random() * 120, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+      wander(b, 26 + Math.random() * 18, true);
+      this.townLife.push(b);
+    }
+    for (let i = 0; i < 4; i++) {
+      const p = randPoint();
+      const bird = this.add.sprite(p.x, p.y, 'town-bird').setDepth(5001).setScale(0.9 + Math.random() * 0.3);
+      this.tweens.add({ targets: bird, y: bird.y - 3, duration: 220 + Math.random() * 160, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+      wander(bird, 60 + Math.random() * 30, true);
+      this.townLife.push(bird);
+    }
+    const dp = randPoint();
+    const dog = this.add.sprite(dp.x, dp.y, 'town-dog').setDepth(dp.y).setScale(1.1);
+    wander(dog, 34, false);
+    this.townLife.push(dog);
   }
 
   private updateTown(time: number, delta: number): void {
@@ -1926,7 +2065,7 @@ export class DungeonScene extends Phaser.Scene {
         const item = rollDrop(this.level.theme ?? 'crypt', player.stats.luck ?? 0, { floor: 'honed' });
         player.inventory.add(item);
         player.refreshStats();
-        this.showBark(`Found: ${describeItem(item)}`);
+        this.showBark(`Found: ${describeItem(item)}`, 3400, 'loot');
         this.floatPickup(player.x, player.y, item.name, item.grade ? GRADES[item.grade].color : '#ffe9a8');
         void aiService.generateItemFlavor(item.name);
         audio.sfx('chest');
@@ -1968,11 +2107,14 @@ export class DungeonScene extends Phaser.Scene {
         const who = nearN;
         this.showBark(`${who.label}: "${this.townLine(who.role)}"`, 7200);
         audio.sfx('ui_move');
+        this.setGrokStatus('thinking');
         void aiService
           .generateBark(`${who.role} named ${who.label} chatting with an adventurer in the town of Hearthwatch above the Undermaw`)
           .then((b) => {
-            if (b) this.showBark(`${who.label}: ${b}`, 7200);
-          });
+            this.setGrokStatus('connected');
+            if (b) this.showBark(`${who.label}: ${b}`, 7200, 'grok');
+          })
+          .catch(() => this.setGrokStatus('connected'));
         return;
       }
     }
@@ -2005,9 +2147,14 @@ export class DungeonScene extends Phaser.Scene {
     this.showBark(flavor, 7200);
     audio.sfx('ui_move');
     // AI-augmented examination, kept in the game's grim DnD voice (replaces if it returns)
-    void aiService.generateBark(`a weary adventurer examines ${subject} deep in ${this.level.name}`).then((b) => {
-      if (b) this.showBark(b, 7200);
-    });
+    this.setGrokStatus('thinking');
+    void aiService
+      .generateBark(`a weary adventurer examines ${subject} deep in ${this.level.name}`)
+      .then((b) => {
+        this.setGrokStatus('connected');
+        if (b) this.showBark(b, 7200, 'grok');
+      })
+      .catch(() => this.setGrokStatus('connected'));
   }
 
   private joinPlayer2(): void {
@@ -2223,11 +2370,49 @@ export class DungeonScene extends Phaser.Scene {
     this.cameraTarget.setPosition(sx / group.length, sy / group.length);
   }
 
-  private showBark(text: string, holdMs = 3400): void {
-    if (!text || !this.barkText) return;
+  private showBark(text: string, holdMs = 3400, kind: LogEntry['kind'] = 'event'): void {
+    if (!text) return;
+    this.pushLog(text, kind);
+    if (!this.barkText) return;
     this.barkText.setText(text).setAlpha(1);
     this.tweens.killTweensOf(this.barkText);
-    this.tweens.add({ targets: this.barkText, alpha: 0, delay: holdMs, duration: 800 });
+    this.tweens.add({ targets: this.barkText, alpha: 0, delay: Math.min(holdMs, 2600), duration: 700 });
+  }
+
+  private pushLog(text: string, kind: LogEntry['kind'] = 'event'): void {
+    if (!text) return;
+    this.logEntries.push({ text, kind });
+    if (this.logEntries.length > DungeonScene.LOG_CAP) {
+      this.logEntries.splice(0, this.logEntries.length - DungeonScene.LOG_CAP);
+    }
+    this.syncLogData();
+  }
+
+  private syncLogData(): void {
+    const data: LogRegistryData = {
+      entries: this.logEntries.slice(-DungeonScene.LOG_CAP),
+      grokStatus: this.grokStatus,
+      grokProvider: this.grokProvider,
+    };
+    this.registry.set(LOG_REGISTRY_KEY, data);
+  }
+
+  private setGrokStatus(s: 'offline' | 'connected' | 'thinking'): void {
+    if (this.grokStatus === s) return;
+    this.grokStatus = s;
+    this.syncLogData();
+  }
+
+  private grokNarrate(prompt: string): void {
+    if (!settings.get('aiBarksEnabled')) return;
+    this.setGrokStatus('thinking');
+    void aiService
+      .generateBark(prompt)
+      .then((line) => {
+        this.setGrokStatus('connected');
+        if (line) this.pushLog(line, 'grok');
+      })
+      .catch(() => this.setGrokStatus('connected'));
   }
 
   private formatTime(): string {
@@ -2299,7 +2484,7 @@ export class DungeonScene extends Phaser.Scene {
   /** Grab a small JPEG preview of the current play area. */
   private captureThumb(cb: (data?: string) => void): void {
     try {
-      this.game.renderer.snapshotArea(0, 0, PLAY_AREA_WIDTH, GAME_HEIGHT, (img) => {
+      this.game.renderer.snapshotArea(PLAY_AREA_X, 0, PLAY_AREA_WIDTH, GAME_HEIGHT, (img) => {
         try {
           const el = img as HTMLImageElement;
           const finish = (): void => {
@@ -2522,5 +2707,6 @@ export class DungeonScene extends Phaser.Scene {
     this.gameOverUI?.close();
     this.sheetUI?.close();
     this.manualUI?.close();
+    this.scene.stop('LeftPanelScene');
   }
 }

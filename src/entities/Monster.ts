@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import type { EnemyBehavior, EnemyDef, EnemyId } from '../core/types';
 import { ENEMIES } from '../data/enemies';
 import { audio } from '../systems/AudioSystem';
+import { settings } from '../core/GameSettings';
 import { Hero } from './Hero';
 
 type ArcadeBody = Phaser.Physics.Arcade.Body;
@@ -56,7 +57,7 @@ export class Monster extends Phaser.Physics.Arcade.Sprite {
     scene.add.existing(this);
     scene.physics.add.existing(this);
     this.setOrigin(0.5, 0.82);
-    const scale = (this.def.scale ?? 1) * 1.12; // beefier sprites; body scales with it
+    const scale = (this.def.scale ?? 1) * 1.12 * settings.spriteScale(); // beefier sprites; body scales with it
     this.setScale(scale);
     const body = this.body as ArcadeBody;
     body.setSize(12 * scale, 10 * scale);

@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { PLAY_AREA_WIDTH, HUD_PANEL_WIDTH, GAME_HEIGHT, HUD_REGISTRY_KEY } from '../core/constants';
+import { GAME_WIDTH, HUD_PANEL_WIDTH, GAME_HEIGHT, HUD_REGISTRY_KEY } from '../core/constants';
 import { GauntletHUD } from '../ui/GauntletHUD';
 import type { HudRegistryData } from '../core/types';
 
@@ -12,7 +12,7 @@ export class HudScene extends Phaser.Scene {
   }
 
   create(): void {
-    this.cameras.main.setViewport(PLAY_AREA_WIDTH, 0, HUD_PANEL_WIDTH, GAME_HEIGHT);
+    this.cameras.main.setViewport(GAME_WIDTH - HUD_PANEL_WIDTH, 0, HUD_PANEL_WIDTH, GAME_HEIGHT);
     this.cameras.main.setScroll(0, 0);
     this.hud = new GauntletHUD(this);
   }

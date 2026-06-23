@@ -7,6 +7,7 @@ import { ForgeScene } from '../scenes/ForgeScene';
 import { LevelSelectScene } from '../scenes/LevelSelectScene';
 import { DungeonScene } from '../scenes/DungeonScene';
 import { HudScene } from '../scenes/HudScene';
+import { LeftPanelScene } from '../scenes/LeftPanelScene';
 
 export const gameConfig: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
@@ -31,5 +32,5 @@ export const gameConfig: Phaser.Types.Core.GameConfig = {
       debug: false,
     },
   },
-  scene: [BootScene, MenuScene, CharacterSelectScene, ForgeScene, LevelSelectScene, DungeonScene, HudScene],
+  scene: [BootScene, MenuScene, CharacterSelectScene, ForgeScene, LevelSelectScene, DungeonScene, HudScene, LeftPanelScene],
 };

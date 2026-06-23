@@ -2,6 +2,7 @@ import type { GameSettingsData, CompanionAISettings, GameplaySettings } from './
 import type { GameBindings, PlayerAction } from './KeyBindings';
 import { defaultBindings, mergeBindings } from './KeyBindings';
 import { AI_DEFAULT_PROVIDER } from '../ai/aiConfig';
+import { SPRITE_SCALE_MIN, SPRITE_SCALE_MAX, SPRITE_SCALE_DEFAULT } from './constants';
 
 const STORAGE_KEY = 'strongbow_settings';
 
@@ -32,6 +33,9 @@ const DEFAULTS: GameSettingsData = {
   musicVolume: 0.5,
   sfxVolume: 0.7,
   zoom: 1.0,
+  spriteScale: SPRITE_SCALE_DEFAULT,
+  showMinimap: true,
+  musicTrack: 'auto',
   companionAI: { ...DEFAULT_COMPANION_AI },
   bindings: defaultBindings(),
   gameplay: { ...DEFAULT_GAMEPLAY },
@@ -113,6 +117,15 @@ class GameSettingsStore {
   setSfxVolume(v: number): void {
     this.data.sfxVolume = clamp(v, 0, 1);
     this.save();
+  }
+
+  setSpriteScale(v: number): void {
+    this.data.spriteScale = clamp(v, SPRITE_SCALE_MIN, SPRITE_SCALE_MAX);
+    this.save();
+  }
+
+  spriteScale(): number {
+    return clamp(this.data.spriteScale ?? SPRITE_SCALE_DEFAULT, SPRITE_SCALE_MIN, SPRITE_SCALE_MAX);
   }
 
   get bindings(): GameBindings {

@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { C, HERO_RAMPS, MONSTER_RAMPS } from './Palette';
 import type { HeroRamp, MonsterRamp } from './Palette';
 import * as art from './spriteArt';
+import * as townArt from './townArt';
 import { HERO_FW, HERO_FH, MON_FW, MON_FH, BOSS_FW, BOSS_FH } from './spriteArt';
 import type { Ctx, Facing } from './spriteArt';
 
@@ -140,6 +141,20 @@ export class TextureFactory {
     img('rune-circle', 16, 16, (c) => art.drawRuneCircle(c, 0, 0));
     img('idol', 16, 16, (c) => art.drawIdol(c, 0, 0), true);
     img('altar', 16, 16, (c) => art.drawAltar(c, 0, 0), true);
+    img('grass-tuft', 16, 16, (c) => townArt.drawGrassTuft(c, 0, 0));
+    img('road', 16, 16, (c) => townArt.drawRoad(c, 0, 0, 7));
+    img('town-tree', 16, 16, (c) => townArt.drawTownTree(c, 0, 0), true);
+    img('town-bush', 16, 16, (c) => townArt.drawTownBush(c, 0, 0), true);
+    img('bridge-plank', 16, 16, (c) => townArt.drawBridgePlank(c, 0, 0));
+    img('chain', 16, 16, (c) => townArt.drawChain(c, 0, 0));
+    img('town-gate', 16, 16, (c) => townArt.drawTownGate(c, 0, 0), true);
+    img('house-roof-red', 16, 16, (c) => townArt.drawHouseRoofRed(c, 0, 0), true);
+    img('house-roof-blue', 16, 16, (c) => townArt.drawHouseRoofBlue(c, 0, 0), true);
+    img('house-roof-green', 16, 16, (c) => townArt.drawHouseRoofGreen(c, 0, 0), true);
+    img('house-roof-teak', 16, 16, (c) => townArt.drawHouseRoofTeak(c, 0, 0), true);
+    img('town-butterfly', 16, 16, (c) => townArt.drawButterfly(c), true);
+    img('town-bird', 16, 16, (c) => townArt.drawBird(c), true);
+    img('town-dog', 16, 16, (c) => townArt.drawDog(c), true);
 
     // ---- pickups (outlined) ----
     sheet('coin-sheet', 16, 16, 4, (c, ox, f) => art.drawCoin(c, ox, f), true);
