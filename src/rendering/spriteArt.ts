@@ -1160,6 +1160,49 @@ export function drawIconAmulet(ctx: Ctx): void {
   PX(ctx, 6, 9, C.magicCore);
 }
 
+export function drawIconShield(ctx: Ctx): void {
+  const st = '#7d8aa8', hi = '#b9c4dd', dk = '#444f6e', rim = '#c9a24a';
+  R(ctx, 3, 2, 10, 2, rim);
+  R(ctx, 3, 4, 10, 3, st); R(ctx, 4, 7, 8, 3, st); R(ctx, 5, 10, 6, 2, st);
+  R(ctx, 6, 12, 4, 1, st); R(ctx, 7, 13, 2, 1, st);
+  R(ctx, 3, 4, 1, 5, hi); R(ctx, 12, 4, 1, 5, dk); R(ctx, 5, 9, 1, 2, hi); R(ctx, 11, 9, 1, 2, dk);
+  R(ctx, 7, 4, 2, 7, rim); R(ctx, 5, 6, 6, 2, rim);
+  PX(ctx, 8, 3, '#ffffff');
+}
+export function drawIconHelm(ctx: Ctx): void {
+  const st = '#9aa0b4', hi = '#d6dbe8', dk = '#5a6075';
+  R(ctx, 4, 3, 8, 7, st); R(ctx, 4, 3, 8, 1, hi);
+  R(ctx, 4, 3, 1, 7, hi); R(ctx, 11, 3, 1, 7, dk);
+  R(ctx, 4, 5, 8, 1, dk);
+  R(ctx, 5, 6, 6, 2, '#1a1c24'); R(ctx, 6, 6, 1, 2, '#3a4256'); R(ctx, 9, 6, 1, 2, '#3a4256');
+  R(ctx, 4, 10, 8, 2, dk);
+  R(ctx, 7, 1, 2, 2, '#c9a24a'); PX(ctx, 8, 0, C.fireMid);
+}
+export function drawIconLegs(ctx: Ctx): void {
+  const st = '#9aa0b4', hi = '#d6dbe8', dk = '#5a6075';
+  R(ctx, 4, 3, 3, 11, st); R(ctx, 9, 3, 3, 11, st);
+  R(ctx, 4, 3, 1, 11, hi); R(ctx, 9, 3, 1, 11, hi);
+  R(ctx, 6, 3, 1, 11, dk); R(ctx, 11, 3, 1, 11, dk);
+  R(ctx, 4, 3, 3, 1, hi); R(ctx, 9, 3, 3, 1, hi);
+  R(ctx, 4, 8, 3, 1, dk); R(ctx, 9, 8, 3, 1, dk);
+  R(ctx, 4, 13, 3, 1, dk); R(ctx, 9, 13, 3, 1, dk);
+}
+export function drawIconGloves(ctx: Ctx): void {
+  const lth = '#7a5a34', hi = '#a07a48', dk = '#4e3a20', steel = '#b9c4dd';
+  R(ctx, 5, 9, 6, 4, lth); R(ctx, 5, 9, 6, 1, hi); R(ctx, 5, 12, 6, 1, dk);
+  R(ctx, 5, 4, 6, 5, lth); R(ctx, 5, 4, 6, 1, hi);
+  R(ctx, 5, 3, 1, 3, lth); R(ctx, 7, 3, 1, 3, lth); R(ctx, 9, 3, 1, 3, lth); R(ctx, 11, 4, 1, 3, lth);
+  R(ctx, 4, 6, 1, 3, lth);
+  R(ctx, 5, 5, 6, 1, steel); PX(ctx, 6, 5, '#ffffff');
+}
+export function drawIconBoots(ctx: Ctx): void {
+  const lth = '#6a4a2a', hi = '#9a6e3e', dk = '#3e2a16', sole = '#241b12';
+  R(ctx, 5, 2, 5, 8, lth); R(ctx, 5, 2, 1, 8, hi); R(ctx, 9, 2, 1, 8, dk);
+  R(ctx, 3, 10, 9, 3, lth); R(ctx, 3, 10, 9, 1, hi);
+  R(ctx, 3, 13, 10, 1, sole);
+  R(ctx, 5, 5, 5, 1, dk); PX(ctx, 6, 3, '#caa46a');
+}
+
 // ============================================================================
 // FX
 // ============================================================================

@@ -32,6 +32,7 @@ import { getTheme } from '../data/gen/themes';
 import { settings } from '../core/GameSettings';
 import { formatHudControls } from '../core/KeyBindings';
 import type { HeroClassId, LevelData, HudRegistryData, HudHeroSlot, ItemDefinition, ItemSlot, EnemyId, Grade, ThemeId, LogEntry, LogRegistryData } from '../core/types';
+import { migrateEquipKey, migrateItemSlot } from '../core/equipment';
 import { Content } from '../content/ContentRegistry';
 import { ALL_CLASSES } from '../data/heroes';
 import { ITEMS } from '../data/items';
@@ -701,8 +702,30 @@ export class DungeonScene extends Phaser.Scene {
         this.tweens.add({ targets: glow, alpha: { from: 0.18, to: 0.42 }, scale: { from: 1.4, to: 2 }, duration: 1100 + Math.random() * 600, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
         this.floatBob(s);
       } else if (d.key === 'fountain') {
+        // cement foundation + stone pool rim, framing the animated pool water
+        this.add.image(dc.x, dc.y, 'fountain-base').setDepth(DEPTH.FLOOR + 2);
+        // lively water: expanding ripple rings spreading across the pool
+        for (let i = 0; i < 3; i++) {
+          const ring = this.add
+            .image(dc.x, dc.y + 4, 'fx-ripple')
+            .setScale(0.35).setAlpha(0).setDepth(DEPTH.FLOOR + 3)
+            .setBlendMode(Phaser.BlendModes.ADD).setTint(0xbfe9ff);
+          this.tweens.add({ targets: ring, scale: { from: 0.35, to: 1.5 }, alpha: { from: 0.55, to: 0 }, duration: 2600, delay: i * 860, repeat: -1, ease: 'Sine.easeOut' });
+        }
+        // drifting sparkle glints on the surface
+        for (let i = 0; i < 5; i++) {
+          const gx = dc.x + (Math.random() * 2 - 1) * 64;
+          const gy = dc.y + 6 + (Math.random() * 2 - 1) * 34;
+          const gl = this.add
+            .image(gx, gy, 'fx-glow-white')
+            .setScale(0.45).setAlpha(0).setDepth(DEPTH.FLOOR + 3)
+            .setBlendMode(Phaser.BlendModes.ADD).setTint(0xcdeeff);
+          this.tweens.add({ targets: gl, alpha: { from: 0, to: 0.75 }, duration: 700 + Math.random() * 600, delay: Math.random() * 1800, yoyo: true, repeat: -1, repeatDelay: 700 + Math.random() * 1500, ease: 'Sine.easeInOut' });
+        }
+        // the ornate fountain standing in the middle of the pool
         this.add.image(dc.x, dc.y, 'fountain').setDepth(dc.y);
-        const spray = this.add.image(dc.x, dc.y - 16, 'fx-glow-white').setScale(1.4).setAlpha(0.25).setBlendMode(Phaser.BlendModes.ADD).setDepth(dc.y + 1).setTint(0x9fd0ff);
+        // jetting spray from the top spout
+        const spray = this.add.image(dc.x, dc.y - 30, 'fx-glow-white').setScale(1.7).setAlpha(0.25).setBlendMode(Phaser.BlendModes.ADD).setDepth(dc.y + 1).setTint(0x9fd0ff);
         this.tweens.add({ targets: spray, alpha: { from: 0.16, to: 0.42 }, scaleY: { from: 1.3, to: 2 }, duration: 1100, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
       } else if (swayDecor.has(d.key)) {
         const s = this.add.image(dc.x, dc.y, d.key).setDepth(dc.y - 2).setScale(US);
@@ -2661,7 +2684,7 @@ export class DungeonScene extends Phaser.Scene {
       a.inventory.equipped = {};
       for (const [slot, id] of Object.entries(sv.equipped)) {
         const it = Content.item(id);
-        if (it) a.inventory.equipped[slot as ItemSlot] = it;
+        if (it) a.inventory.equipped[migrateEquipKey(slot)] = it;
       }
       a.recompute();
     }
@@ -2695,7 +2718,7 @@ export class DungeonScene extends Phaser.Scene {
     this.quest = data.quest || this.quest;
     this.startTime = this.time.now - (data.elapsedMs || 0);
     // Re-register any minted (dropped) gear so equipped/bag ids resolve.
-    Content.registerItems(data.mintedItems);
+    Content.registerItems((data.mintedItems ?? []).map((m) => ({ ...m, slot: migrateItemSlot(m.slot, m.icon) })));
 
     for (const a of this.allies) {
       const sv = data.allies.find((m) => m.classId === a.classId);
@@ -2713,7 +2736,7 @@ export class DungeonScene extends Phaser.Scene {
       a.inventory.equipped = {};
       for (const [slot, id] of Object.entries(sv.equipped)) {
         const it = Content.item(id);
-        if (it) a.inventory.equipped[slot as ItemSlot] = it;
+        if (it) a.inventory.equipped[migrateEquipKey(slot)] = it;
       }
       a.recompute();
       a.setPosition(sv.x, sv.y);

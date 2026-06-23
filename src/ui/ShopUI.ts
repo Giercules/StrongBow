@@ -39,6 +39,11 @@ const STOCK: Record<Exclude<ShopKind, 'home'>, StockEntry[]> = {
     { id: 'hunters_bow', price: 160 },
     { id: 'crypt_plate', price: 190 },
     { id: 'leather_jerkin', price: 95 },
+    { id: 'oak_shield', price: 110 },
+    { id: 'iron_helm', price: 90 },
+    { id: 'iron_greaves', price: 85 },
+    { id: 'leather_gloves', price: 70 },
+    { id: 'traveler_boots', price: 80 },
   ],
   apothecary: [
     { id: 'health_potion', price: 30 },

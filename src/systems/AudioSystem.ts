@@ -184,6 +184,28 @@ const MENU: Song = {
   intensity: 0.25,
 };
 
+
+// TOWN — bright, bouncy market-square theme. Major key with a jaunty swing, a
+// skipping melody and a lighter drum feel: cheerful and upbeat for Hearthwatch.
+const TOWN: Song = {
+  bpm: 132,
+  steps: 128,
+  chords: [C, G, Am, F, C, G, F, C],
+  bass: [bC, bG, bA, bF, bC, bG, bF, bC],
+  lead: [
+    67, 0, 64, 0, 72, 0, 0, 0, 76, 0, 72, 0, 67, 0, 64, 0,
+    67, 0, 71, 0, 74, 0, 0, 0, 79, 0, 74, 0, 71, 0, 67, 0,
+    69, 0, 72, 0, 76, 0, 0, 0, 72, 0, 69, 0, 67, 0, 69, 0,
+    65, 0, 69, 0, 72, 0, 0, 0, 77, 0, 72, 0, 69, 0, 65, 0,
+    72, 0, 0, 0, 76, 0, 79, 0, 84, 0, 79, 0, 76, 0, 72, 0,
+    71, 0, 0, 0, 74, 0, 79, 0, 83, 0, 79, 0, 74, 0, 71, 0,
+    77, 0, 74, 0, 72, 0, 69, 0, 72, 0, 69, 0, 65, 0, 0, 0,
+    72, 0, 76, 0, 72, 0, 67, 0, 64, 0, 67, 0, 72, 0, 0, 0,
+  ],
+  swing: 0.12,
+  intensity: 0.5,
+};
+
 const SONGS: Record<SongId, Song> = { dungeon: HEROIC, boss: BOSS, menu: MENU };
 
 // Each level theme picks a dungeon song so the music shifts with the mood.
@@ -198,7 +220,7 @@ const THEME_SONGS: Record<ThemeId, Song> = {
   storm: FINALE,
   shadow: ETHEREAL,
   sanctum: FINALE,
-  town: MENU,
+  town: TOWN,
 };
 
 const TRACK_SONGS: Record<string, Song> = {
@@ -208,6 +230,7 @@ const TRACK_SONGS: Record<string, Song> = {
   ominous: OMINOUS,
   finale: FINALE,
   menu: MENU,
+  town: TOWN,
 };
 
 export const MUSIC_TRACKS: { id: string; label: string }[] = [
@@ -218,6 +241,7 @@ export const MUSIC_TRACKS: { id: string; label: string }[] = [
   { id: 'ominous', label: 'Ominous Dread' },
   { id: 'finale', label: 'Triumphant Finale' },
   { id: 'menu', label: 'Wandering Minstrel' },
+  { id: 'town', label: 'Merry Hearthwatch' },
 ];
 
 export function musicTrackLabel(id: string): string {

@@ -226,36 +226,131 @@ export function drawTownsfolk(ctx: Ctx, ox: number, oy: number, variant: number)
 
 
 
-// Town centrepiece: a tiered stone fountain that sits over the plaza pool.
+// Town centrepiece: an ornate tiered stone fountain (HD) that sits over the pool.
 export function drawFountain(ctx: Ctx, ox: number, oy: number): void {
-  const stone = '#9a9286', stoneHi = '#bcb4a6', stoneDk = '#6a6258';
-  const water = '#2f86b5', waterHi = '#7fc8e8', spray = '#dffaff';
-  // lower basin
-  R(ctx, ox + 2, oy + 42, 44, 12, stone);
-  R(ctx, ox + 2, oy + 42, 44, 3, stoneHi);
-  R(ctx, ox + 2, oy + 51, 44, 3, stoneDk);
-  R(ctx, ox + 6, oy + 44, 36, 7, water);
-  R(ctx, ox + 6, oy + 44, 36, 2, waterHi);
-  R(ctx, ox + 12, oy + 48, 8, 1, waterHi); // ripples
-  R(ctx, ox + 28, oy + 47, 8, 1, waterHi);
-  // pedestal
-  R(ctx, ox + 19, oy + 26, 10, 18, stone);
-  R(ctx, ox + 19, oy + 26, 3, 18, stoneHi);
-  R(ctx, ox + 26, oy + 26, 3, 18, stoneDk);
-  // upper basin
-  R(ctx, ox + 12, oy + 22, 24, 7, stone);
-  R(ctx, ox + 12, oy + 22, 24, 2, stoneHi);
-  R(ctx, ox + 12, oy + 27, 24, 2, stoneDk);
-  R(ctx, ox + 15, oy + 23, 18, 4, water);
-  R(ctx, ox + 15, oy + 23, 18, 1, waterHi);
-  // finial + top water bulb
-  R(ctx, ox + 21, oy + 12, 6, 10, stone);
-  R(ctx, ox + 21, oy + 12, 2, 10, stoneHi);
-  ctx.fillStyle = spray; ctx.beginPath(); ctx.arc(ox + 24, oy + 10, 4, 0, Math.PI * 2); ctx.fill();
-  PX(ctx, ox + 24, oy + 8, '#ffffff');
-  // falling water streams (upper basin -> lower)
-  R(ctx, ox + 14, oy + 29, 1, 13, spray);
-  R(ctx, ox + 33, oy + 29, 1, 13, spray);
-  PX(ctx, ox + 19, oy + 13, spray); PX(ctx, ox + 29, oy + 13, spray); // arc droplets
-  PX(ctx, ox + 17, oy + 16, '#bfe9ff'); PX(ctx, ox + 31, oy + 16, '#bfe9ff');
+  const st = '#9a9286', stHi = '#c4bcae', stDk = '#6a6258', stSh = '#4e463e';
+  const w0 = '#1f6a9a', w1 = '#2f86b5', wHi = '#7fc8e8', wLt = '#bfe9ff', sp = '#dffaff';
+  const gold = '#cfa64e';
+  const ell = (cx: number, cy: number, rx: number, ry: number, col: string): void => {
+    ctx.fillStyle = col; ctx.beginPath(); ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2); ctx.fill();
+  };
+  // ground shadow
+  ell(ox + 32, oy + 76, 27, 5, 'rgba(0,0,0,0.28)');
+  // ---- lower basin (round stone bowl) ----
+  ell(ox + 32, oy + 64, 26, 12, st);
+  ell(ox + 32, oy + 62, 26, 10, stHi); // lit upper curve
+  ell(ox + 32, oy + 66, 24, 9, st);
+  R(ctx, ox + 6, oy + 64, 52, 8, st); // body
+  R(ctx, ox + 6, oy + 70, 52, 4, stDk); // lower shade
+  ell(ox + 32, oy + 60, 24, 8, gold); // gold rim
+  ell(ox + 32, oy + 61, 22, 7, w0); // water
+  ell(ox + 32, oy + 60, 20, 6, w1);
+  ell(ox + 30, oy + 59, 14, 4, wHi); // sheen
+  R(ctx, ox + 18, oy + 62, 12, 1, wLt); R(ctx, ox + 36, oy + 64, 12, 1, wLt); // ripples
+  PX(ctx, ox + 24, oy + 60, '#ffffff'); PX(ctx, ox + 41, oy + 61, '#ffffff');
+  R(ctx, ox + 6, oy + 64, 3, 8, stHi); R(ctx, ox + 55, oy + 64, 3, 8, stSh); // side light/shade
+  // ---- pedestal ----
+  R(ctx, ox + 24, oy + 50, 16, 6, st); R(ctx, ox + 24, oy + 50, 16, 1, stHi); // flared foot
+  R(ctx, ox + 26, oy + 36, 12, 15, st);
+  R(ctx, ox + 26, oy + 36, 4, 15, stHi); R(ctx, ox + 34, oy + 36, 4, 15, stDk);
+  R(ctx, ox + 25, oy + 40, 14, 2, gold); // carved gold band
+  R(ctx, ox + 27, oy + 45, 10, 1, stSh);
+  // ---- upper basin ----
+  ell(ox + 32, oy + 34, 18, 6, st);
+  ell(ox + 32, oy + 33, 18, 5, gold); // gold rim
+  R(ctx, ox + 16, oy + 34, 32, 4, st); // underside
+  R(ctx, ox + 16, oy + 36, 32, 2, stDk);
+  ell(ox + 32, oy + 33, 15, 4, w0);
+  ell(ox + 32, oy + 32, 13, 3, w1);
+  ell(ox + 31, oy + 32, 8, 2, wHi);
+  PX(ctx, ox + 27, oy + 32, '#ffffff'); PX(ctx, ox + 37, oy + 33, wLt);
+  // ---- top tier + finial ----
+  R(ctx, ox + 29, oy + 22, 6, 11, st); R(ctx, ox + 29, oy + 22, 2, 11, stHi);
+  ell(ox + 32, oy + 20, 8, 3, st);
+  ell(ox + 32, oy + 19, 8, 2, gold);
+  ell(ox + 32, oy + 19, 6, 2, w1);
+  // spout bulb
+  ell(ox + 32, oy + 12, 5, 5, sp);
+  ell(ox + 32, oy + 12, 3, 3, wHi);
+  PX(ctx, ox + 32, oy + 8, '#ffffff');
+  // ---- spray arcs + cascading streams ----
+  PX(ctx, ox + 26, oy + 9, wLt); PX(ctx, ox + 38, oy + 9, wLt);
+  PX(ctx, ox + 23, oy + 13, sp); PX(ctx, ox + 41, oy + 13, sp);
+  PX(ctx, ox + 21, oy + 18, wLt); PX(ctx, ox + 43, oy + 18, wLt);
+  R(ctx, ox + 23, oy + 22, 1, 10, sp); R(ctx, ox + 40, oy + 22, 1, 10, sp); // top -> upper basin
+  R(ctx, ox + 17, oy + 37, 1, 20, wLt); R(ctx, ox + 46, oy + 37, 1, 20, wLt); // upper -> lower
+  // faint moss on the old stone
+  PX(ctx, ox + 9, oy + 70, '#5a7a3a'); PX(ctx, ox + 54, oy + 71, '#5a7a3a');
+}
+
+
+// The fountain's cement foundation + raised stone pool rim. Drawn UNDER the
+// ornate fountain at a low depth; its open centre is left transparent so the
+// animated pool-water tiles show through, making the fountain read as standing
+// in the middle of a proper rimmed pool on a paved plaza.
+export function drawFountainBase(ctx: Ctx, ox: number, oy: number): void {
+  const W = 200, H = 164, cx = 100, cy = 84;
+  const cem = [0xb8, 0xb0, 0xa2], cemHi = [0xd8, 0xd2, 0xc6], cemDk = [0x8f, 0x88, 0x7b];
+  const stn = [0x9a, 0x92, 0x86], stnHi = [0xc6, 0xbe, 0xb0], stnDk = [0x66, 0x5f, 0x55];
+  const gold = [0xcf, 0xa6, 0x4e], goldHi = [0xf0, 0xd2, 0x8a];
+  const aspect = 1.30;          // top-down vertical squash
+  const RW = 70, RR = 85, RA = 98;  // water / rim-outer / apron-outer radii (px)
+  const hx = (v: number[], f: number): string => {
+    const c = (i: number): number => Math.max(0, Math.min(255, Math.round(v[i] * f)));
+    return `rgb(${c(0)},${c(1)},${c(2)})`;
+  };
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      const dx = x - cx, dy = (y - cy) * aspect;
+      const r = Math.sqrt(dx * dx + dy * dy);
+      if (r >= RA) continue;                       // beyond the pad -> transparent
+      const ang = Math.atan2(dy, dx);
+      const lit = 0.5 + 0.5 * Math.cos(ang + 2.2); // brightest toward upper-left
+      if (r < RW) {                                // pool interior: keep water visible
+        if (r > RW - 6) {                          // soft rim shadow cast on the water
+          const a = ((r - (RW - 6)) / 6) * 0.4;
+          ctx.fillStyle = `rgba(8,34,52,${a.toFixed(3)})`;
+          ctx.fillRect(ox + x, oy + y, 1, 1);
+        }
+        continue;
+      }
+      let col: string;
+      if (r < RR) {                                // ---- stone coping ----
+        const t = ((ang + Math.PI) / (Math.PI * 2)) * 18;
+        const seam = (t % 1) < 0.08 || (t % 1) > 0.92;
+        if (r < RW + 3) {
+          col = hx(seam ? gold : goldHi, 0.96);    // gold inlay ring at inner lip
+        } else {
+          let base = stn; let f = 0.78 + lit * 0.36;
+          if (seam) f *= 0.66;                     // dark mortar between blocks
+          if (dy < 0 && r > RR - 4) base = stnHi;  // lit outer lip
+          col = hx(base, f);
+        }
+      } else {                                     // ---- cement foundation apron ----
+        let base = cem; let f = 0.84 + lit * 0.24;
+        if (Math.abs(r - (RR + (RA - RR) * 0.55)) < 1.2) { base = cemDk; f = 0.92; } // seam ring
+        else if (r > RA - 2) f *= 0.70;            // dark outer edge
+        else if (dy < 0 && r < RR + 5) base = cemHi; // lit inner lip
+        col = hx(base, f);
+      }
+      ctx.fillStyle = col;
+      ctx.fillRect(ox + x, oy + y, 1, 1);
+    }
+  }
+}
+
+// A thin water-ripple ring; scaled up and faded by a tween it reads as a
+// spreading ripple on the pool surface.
+export function drawRipple(ctx: Ctx, ox: number, oy: number): void {
+  const cx = 20, cy = 20, rx = 17, ry = 12;
+  for (let y = 0; y < 40; y++)
+    for (let x = 0; x < 40; x++) {
+      const nx = (x - cx) / rx, ny = (y - cy) / ry;
+      const d = Math.abs(Math.sqrt(nx * nx + ny * ny) - 0.86);
+      if (d < 0.14) {
+        const a = (1 - d / 0.14) * 0.9;
+        ctx.fillStyle = `rgba(207,236,255,${a.toFixed(3)})`;
+        ctx.fillRect(ox + x, oy + y, 1, 1);
+      }
+    }
 }

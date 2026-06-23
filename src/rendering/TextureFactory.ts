@@ -153,7 +153,9 @@ export class TextureFactory {
     img('house-roof-green', 32, 32, (c) => townArt.drawHouseRoofGreen(c, 0, 0), true);
     img('house-roof-teak', 32, 32, (c) => townArt.drawHouseRoofTeak(c, 0, 0), true);
     img('house-door', 32, 32, (c) => townArt.drawHouseDoor(c, 0, 0), true);
-    img('fountain', 48, 56, (c) => townArt.drawFountain(c, 0, 0), true);
+    img('fountain', 64, 80, (c) => townArt.drawFountain(c, 0, 0), true);
+    img('fountain-base', 200, 164, (c) => townArt.drawFountainBase(c, 0, 0));
+    img('fx-ripple', 40, 40, (c) => townArt.drawRipple(c, 0, 0));
     img('town-butterfly', 16, 16, (c) => townArt.drawButterfly(c), true);
     img('town-bird', 16, 16, (c) => townArt.drawBird(c), true);
     img('town-dog', 16, 16, (c) => townArt.drawDog(c), true);
@@ -175,6 +177,11 @@ export class TextureFactory {
     img('icon-armor', 16, 16, art.drawIconArmor, true);
     img('icon-ring', 16, 16, art.drawIconRing, true);
     img('icon-amulet', 16, 16, art.drawIconAmulet, true);
+    img('icon-shield', 16, 16, art.drawIconShield, true);
+    img('icon-helm', 16, 16, art.drawIconHelm, true);
+    img('icon-legs', 16, 16, art.drawIconLegs, true);
+    img('icon-gloves', 16, 16, art.drawIconGloves, true);
+    img('icon-boots', 16, 16, art.drawIconBoots, true);
 
     // ---- FX (no outline) ----
     sheet('fx-magic', 32, 32, 5, (c, ox, f) => art.drawMagicBurst(c, ox, f));

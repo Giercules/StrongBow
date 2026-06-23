@@ -107,10 +107,9 @@ export class CharacterSheetUI {
     const eq = h.inventory.equippedList();
     if (eq.length === 0) this.label(left, y0 + 258, 'Nothing equipped yet.', C.inkDim, 10);
     eq.forEach((it, i) => {
-      const yy = y0 + 258 + i * 26;
-      addPinned(this.content!, this.scene.add.image(left + 8, yy + 6, it.icon).setScale(1.3).setOrigin(0, 0));
-      this.label(left + 26, yy, it.name, C.ink, 10.5, true);
-      this.label(left + 26, yy + 12, describeItemStats(it), C.inkDim, 9);
+      const yy = y0 + 256 + i * 15;
+      addPinned(this.content!, this.scene.add.image(left + 8, yy + 1, it.icon).setScale(0.85).setOrigin(0, 0));
+      this.label(left + 26, yy, it.name, C.ink, 9.5, true);
     });
 
     this.content.add(

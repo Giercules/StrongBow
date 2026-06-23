@@ -116,9 +116,9 @@ export function buildTown(): LevelData {
 
   const fcx = cx; // fountain centred on the plaza
   const fcy = cy;
-  for (let dy = -3; dy <= 3; dy++)
-    for (let dx = -4; dx <= 4; dx++) {
-      if ((dx * dx) / 16 + (dy * dy) / 9 <= 1) {
+  for (let dy = -4; dy <= 4; dy++)
+    for (let dx = -5; dx <= 5; dx++) {
+      if ((dx * dx) / 27 + (dy * dy) / 17 <= 1) {
         setT(fcx + dx, fcy + dy, Tile.WATER);
         mark(noFoliage, fcx + dx, fcy + dy);
       }

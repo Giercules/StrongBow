@@ -6,11 +6,12 @@ import { RARITY_COLOR } from '../data/items';
 import { describeItemStats } from '../data/pickupInfo';
 import { audio } from '../systems/AudioSystem';
 import type { Hero } from '../entities/Hero';
-import type { ItemDefinition, ItemSlot } from '../core/types';
+import type { ItemDefinition, EquipSlot } from '../core/types';
+import { EQUIP_SLOTS, EQUIP_SLOT_LABEL } from '../core/equipment';
 
 const PANEL_W = 480;
 const PANEL_H = 430;
-const SLOTS: ItemSlot[] = ['weapon', 'armor', 'trinket'];
+const SLOTS: EquipSlot[] = EQUIP_SLOTS;
 const BAG_PER_PAGE = 9; // keeps the 1-9 hotkeys mapped to exactly one page
 const numHex = (n: number): string => '#' + n.toString(16).padStart(6, '0');
 
@@ -114,35 +115,35 @@ export class InventoryUI {
     const leftX = x0 + 24;
     const rightX = x0 + PANEL_W / 2 + 14;
 
-    this.label(leftX, y0 + 38, 'EQUIPPED   Up/Dn select - U unequip', C.hudBorder, 11, true);
+    this.label(leftX, y0 + 34, 'EQUIPPED   Up/Dn - U unequip', C.hudBorder, 11, true);
     SLOTS.forEach((slot, i) => {
-      const yy = y0 + 58 + i * 36;
+      const yy = y0 + 50 + i * 21;
       const item = hero.inventory.equipped[slot];
       const box = this.scene.add.graphics();
-      box.fillStyle(i === this.sel ? 0x2a3358 : 0x000000, i === this.sel ? 0.9 : 0.4);
-      box.fillRoundedRect(leftX, yy, 200, 32, 4);
+      box.fillStyle(i === this.sel ? 0x2a3358 : 0x000000, i === this.sel ? 0.9 : 0.35);
+      box.fillRoundedRect(leftX, yy, 200, 19, 3);
       box.lineStyle(i === this.sel ? 2 : 1, i === this.sel ? parseInt(C.hudBorder.slice(1), 16) : 0x6e521f, 0.9);
-      box.strokeRoundedRect(leftX, yy, 200, 32, 4);
+      box.strokeRoundedRect(leftX, yy, 200, 19, 3);
       addPinned(this.content!, box);
-      this.label(leftX + 6, yy + 3, slot.toUpperCase(), C.inkDim, 8);
+      this.label(leftX + 6, yy + 5, EQUIP_SLOT_LABEL[slot], C.inkDim, 8.5);
       if (item) {
-        this.icon(leftX + 6, yy + 13, item.icon);
-        this.label(leftX + 28, yy + 4, item.name, numHex(RARITY_COLOR[item.rarity]), 11, true);
-        this.label(leftX + 28, yy + 18, describeItemStats(item), C.inkDim, 9);
+        addPinned(this.content!, this.scene.add.image(leftX + 50, yy + 2, item.icon).setScale(0.9).setOrigin(0, 0));
+        const nm = item.name.length > 19 ? item.name.slice(0, 18) + '…' : item.name;
+        this.label(leftX + 70, yy + 5, nm, numHex(RARITY_COLOR[item.rarity]), 9.5, true);
       } else {
-        this.label(leftX + 28, yy + 10, '(empty)', C.inkDim, 10);
+        this.label(leftX + 70, yy + 5, '—', C.inkDim, 9.5);
       }
     });
 
     const s = hero.stats;
-    this.label(leftX, y0 + 180, 'STATS', C.hudBorder, 12, true);
+    const statsHdrY = y0 + 50 + SLOTS.length * 21 + 6;
+    this.label(leftX, statsHdrY, 'STATS', C.hudBorder, 11, true);
     const stats = [
       `HP ${Math.ceil(hero.health)}/${s.maxHealth}   MP ${Math.ceil(hero.mana)}/${s.maxMana}`,
-      `DMG ${s.damage}   ARM ${s.armor}   SPD ${s.speed}`,
-      `CRIT ${Math.round(s.critChance * 100)}%   FIRE ${s.fire}`,
+      `DMG ${s.damage}  ARM ${s.armor}  SPD ${s.speed}  CRIT ${Math.round(s.critChance * 100)}%`,
     ];
-    stats.forEach((st, i) => this.label(leftX, y0 + 200 + i * 16, st, C.ink, 10.5));
-    this.label(leftX, y0 + PANEL_H - 44, `Gold ${hero.inventory.gold}   Keys ${hero.inventory.keys}   Score ${hero.score}`, C.coinHi, 12, true);
+    stats.forEach((st, i) => this.label(leftX, statsHdrY + 16 + i * 15, st, C.ink, 10));
+    this.label(leftX, y0 + PANEL_H - 28, `Gold ${hero.inventory.gold}   Keys ${hero.inventory.keys}   Score ${hero.score}`, C.coinHi, 11, true);
 
     const bag = hero.inventory.bag;
     const pageCount = Math.max(1, Math.ceil(bag.length / BAG_PER_PAGE));

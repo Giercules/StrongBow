@@ -5,7 +5,34 @@
 export type HeroClassId = 'vanguard' | 'strider' | 'arcanist' | 'warden';
 export type Direction = 'down' | 'up' | 'left' | 'right';
 export type Rarity = 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary';
-export type ItemSlot = 'weapon' | 'armor' | 'trinket' | 'consumable';
+export type ItemSlot =
+  | 'weapon'
+  | 'shield'
+  | 'head'
+  | 'body'
+  | 'legs'
+  | 'hands'
+  | 'feet'
+  | 'amulet'
+  | 'ring'
+  | 'consumable';
+
+/** Where a piece of gear is actually worn. Most ItemSlots map 1:1 to an
+ *  EquipSlot; rings can fill either of two ring slots. */
+export type EquipSlot =
+  | 'weapon'
+  | 'shield'
+  | 'head'
+  | 'body'
+  | 'legs'
+  | 'hands'
+  | 'feet'
+  | 'amulet'
+  | 'ring1'
+  | 'ring2';
+
+/** Slot selector for affixes: a concrete slot, 'any', all armour, or jewellery. */
+export type AffixSlot = ItemSlot | 'any' | 'armorAny' | 'jewelry';
 
 /** Equipment quality grades, weakest -> strongest. Each tier scales an item's
  *  base mods and adds more bonus affixes (and a luck-scaled shot at extra rolls). */
@@ -129,7 +156,7 @@ export interface SkillDef {
 export interface AffixDef {
   id: string;
   name: string;
-  slot: ItemSlot | 'any';
+  slot: AffixSlot;
   mods: StatMods;
   weight: number;
 }
