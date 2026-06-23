@@ -73,6 +73,7 @@ export class ShopUI {
   private title = 'SHOP';
   private buyer!: Hero;
   private status = '';
+  private page = 0;
   private onClosed?: () => void;
 
   constructor(scene: Phaser.Scene) {
@@ -89,6 +90,7 @@ export class ShopUI {
     this.title = label || SHOP_TITLE[shop];
     this.buyer = buyer;
     this.status = '';
+    this.page = 0;
     this.onClosed = onClosed;
     this.container = this.scene.add.container(0, 0).setDepth(PLAY_AREA_UI_DEPTH + 6).setScrollFactor(0);
     this.keyHandler = (e) => {
@@ -156,7 +158,12 @@ export class ShopUI {
     this.text(cx, y0 + 16, this.title.toUpperCase(), HEAD, 22, TITLE).setOrigin(0.5, 0);
     this.text(cx, y0 + 44, `Party gold: ${this.buyer.inventory.gold}`, GOLD_DK, 13).setOrigin(0.5, 0);
 
-    const rows = STOCK[this.shop as Exclude<ShopKind, 'home'>] ?? [];
+    const allRows = STOCK[this.shop as Exclude<ShopKind, 'home'>] ?? [];
+    const PAGE_SIZE = 5;
+    const totalPages = Math.max(1, Math.ceil(allRows.length / PAGE_SIZE));
+    this.page = Math.min(Math.max(this.page, 0), totalPages - 1);
+    const startIdx = this.page * PAGE_SIZE;
+    const rows = allRows.slice(startIdx, startIdx + PAGE_SIZE);
     const top = y0 + 74;
     const rowH = 46;
     rows.forEach((entry, i) => {
@@ -179,8 +186,20 @@ export class ShopUI {
       this.button(x0 + PANEL_W - 86, ry + (rowH - 8) / 2, 110, 28, `${entry.price}g`, canAfford, () => this.buy(entry, def));
     });
 
-    if (this.status) this.text(cx, y0 + PANEL_H - 52, this.status, HEAD, 12).setOrigin(0.5, 0);
-    this.button(cx, y0 + PANEL_H - 28, 150, 30, 'LEAVE', true, () => this.close());
+    if (this.status) this.text(cx, y0 + PANEL_H - 68, this.status, HEAD, 12).setOrigin(0.5, 0);
+
+    if (totalPages > 1) {
+      this.text(cx, y0 + PANEL_H - 50, `Page ${this.page + 1} / ${totalPages}`, GOLD_DK, 12).setOrigin(0.5, 0);
+      this.button(x0 + 66, y0 + PANEL_H - 24, 84, 28, '◀ Prev', this.page > 0, () => this.gotoPage(this.page - 1));
+      this.button(x0 + PANEL_W - 66, y0 + PANEL_H - 24, 84, 28, 'Next ▶', this.page < totalPages - 1, () => this.gotoPage(this.page + 1));
+    }
+    this.button(cx, y0 + PANEL_H - 24, 132, 28, 'LEAVE', true, () => this.close());
+  }
+
+  private gotoPage(p: number): void {
+    this.page = p;
+    audio.sfx('ui_move');
+    this.render();
   }
 
   private slotLine(def: ItemDefinition): string {
