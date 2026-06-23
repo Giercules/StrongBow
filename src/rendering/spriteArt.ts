@@ -1085,101 +1085,157 @@ export function drawAltar(ctx: Ctx, ox: number, oy: number): void {
 // PICKUPS / ITEMS
 // ============================================================================
 export function drawCoin(ctx: Ctx, ox: number, frame: number): void {
-  const widths = [6, 4, 2, 4];
+  const widths = [8, 5, 2, 5];
   const w = widths[frame % 4];
   const x = ox + 8 - w / 2;
-  R(ctx, x, 5, w, 6, C.coinMid);
-  R(ctx, x, 5, w, 1, C.coinHi);
-  R(ctx, x, 10, w, 1, C.coinDark);
-  if (w >= 4) PX(ctx, ox + 8 - 1, 7, C.coinHi);
+  R(ctx, x, 4, w, 8, C.coinMid);
+  R(ctx, x, 4, w, 2, C.coinHi);
+  R(ctx, x, 11, w, 1, C.coinDark);
+  if (w >= 5) {
+    R(ctx, ox + 7, 6, 2, 4, '#b8860f');
+    PX(ctx, ox + 7, 6, C.coinHi);
+    PX(ctx, ox + 8, 9, C.coinDark);
+  }
 }
 
 export function drawGem(ctx: Ctx): void {
-  R(ctx, 6, 6, 4, 4, C.gem);
-  R(ctx, 7, 5, 2, 6, C.gem);
-  R(ctx, 5, 7, 6, 2, C.gem);
-  PX(ctx, 7, 6, C.portalCore);
-  PX(ctx, 6, 8, '#1aa094');
+  R(ctx, 7, 3, 2, 2, C.gem);
+  R(ctx, 5, 5, 6, 3, C.gem);
+  R(ctx, 6, 8, 4, 2, C.gem);
+  R(ctx, 7, 10, 2, 1, C.gem);
+  R(ctx, 7, 3, 1, 6, '#bafff6');
+  R(ctx, 5, 5, 6, 1, '#7af0e4');
+  R(ctx, 9, 6, 2, 3, '#1aa094');
+  PX(ctx, 7, 5, '#ffffff');
 }
 
 export function drawFood(ctx: Ctx): void {
-  R(ctx, 5, 6, 6, 5, '#a8562a');
-  R(ctx, 5, 6, 6, 1, '#c87a3a');
-  R(ctx, 9, 10, 3, 3, '#e7d8b0');
-  PX(ctx, 11, 12, '#fff3d0');
-  PX(ctx, 6, 7, '#d89a55');
+  R(ctx, 4, 5, 6, 6, '#9c4e22');
+  R(ctx, 4, 5, 6, 1, '#c87a3a');
+  R(ctx, 4, 5, 1, 6, '#b8632a');
+  R(ctx, 8, 5, 2, 6, '#6e3416');
+  PX(ctx, 6, 7, '#c87a3a');
+  PX(ctx, 5, 9, '#7a3a18');
+  R(ctx, 9, 10, 4, 3, '#e7d8b0');
+  R(ctx, 9, 10, 4, 1, '#fff3d0');
+  PX(ctx, 12, 12, '#fff3d0');
 }
 
 export function drawPotion(ctx: Ctx, color: string, hi: string): void {
-  R(ctx, 6, 3, 4, 2, '#cdd2e0');
-  R(ctx, 5, 5, 6, 8, '#1a2030');
-  R(ctx, 6, 7, 4, 5, color);
-  R(ctx, 6, 7, 1, 5, hi);
-  PX(ctx, 7, 8, '#ffffff');
+  R(ctx, 6, 2, 4, 2, '#7a5a3a');
+  R(ctx, 6, 2, 4, 1, '#9a7a52');
+  R(ctx, 7, 4, 2, 1, '#cdd2e0');
+  R(ctx, 4, 5, 8, 9, '#10141e');
+  R(ctx, 5, 6, 6, 7, color);
+  R(ctx, 5, 6, 2, 7, hi);
+  R(ctx, 9, 6, 2, 7, 'rgba(0,0,0,0.28)');
+  R(ctx, 5, 9, 6, 1, hi);
+  PX(ctx, 6, 7, '#ffffff');
+  PX(ctx, 8, 11, hi);
+  PX(ctx, 7, 12, hi);
 }
 
 export function drawKey(ctx: Ctx): void {
-  R(ctx, 5, 6, 3, 3, C.coinMid);
-  PX(ctx, 6, 7, C.portal0);
-  R(ctx, 8, 7, 5, 1, C.coinMid);
-  R(ctx, 11, 8, 1, 2, C.coinMid);
-  R(ctx, 9, 8, 1, 2, C.coinMid);
-  R(ctx, 5, 6, 3, 1, C.coinHi);
-}
-
-export function drawIconSword(ctx: Ctx): void {
-  R(ctx, 7, 2, 2, 9, '#cfd6e8');
-  R(ctx, 7, 2, 1, 9, '#ffffff');
-  R(ctx, 5, 11, 6, 1, C.coinMid);
-  R(ctx, 7, 12, 2, 2, C.doorWood);
-}
-export function drawIconBow(ctx: Ctx): void {
-  ctx.strokeStyle = C.doorWoodHi;
-  ctx.lineWidth = 1.4;
-  ctx.beginPath();
-  ctx.arc(6, 8, 5, -1.1, 1.1);
-  ctx.stroke();
-  R(ctx, 9, 3, 1, 10, '#e7e2d0');
-  R(ctx, 3, 8, 8, 1, '#e7e2d0');
-}
-export function drawIconStaff(ctx: Ctx): void {
-  R(ctx, 7, 5, 2, 9, C.doorWood);
-  R(ctx, 6, 3, 4, 3, C.magicMid);
-  PX(ctx, 7, 4, C.magicCore);
-  PX(ctx, 6, 2, C.magicHot);
-  PX(ctx, 10, 3, C.magicHot);
-}
-export function drawIconMace(ctx: Ctx): void {
-  R(ctx, 7, 7, 2, 7, C.doorWood);
-  R(ctx, 5, 3, 6, 5, '#aeb6cc');
-  R(ctx, 5, 3, 6, 1, '#ffffff');
-  PX(ctx, 4, 5, '#aeb6cc');
-  PX(ctx, 11, 5, '#aeb6cc');
-}
-export function drawIconArmor(ctx: Ctx): void {
-  R(ctx, 4, 4, 8, 8, '#5a73c0');
-  R(ctx, 4, 4, 8, 1, '#a9c4ff');
-  R(ctx, 6, 4, 1, 8, '#2a3b6a');
-  R(ctx, 9, 4, 1, 8, '#2a3b6a');
-  R(ctx, 4, 4, 1, 8, '#a9c4ff');
-}
-export function drawIconRing(ctx: Ctx): void {
   ctx.strokeStyle = C.coinMid;
   ctx.lineWidth = 2;
   ctx.beginPath();
-  ctx.arc(8, 9, 4, 0, Math.PI * 2);
+  ctx.arc(5, 7, 2.6, 0, Math.PI * 2);
   ctx.stroke();
-  R(ctx, 7, 3, 2, 2, C.gem);
-  PX(ctx, 7, 3, C.portalCore);
+  PX(ctx, 5, 7, C.portal0);
+  PX(ctx, 4, 6, C.coinHi);
+  R(ctx, 7, 6, 6, 2, C.coinMid);
+  R(ctx, 7, 6, 6, 1, C.coinHi);
+  R(ctx, 11, 8, 1, 3, C.coinMid);
+  R(ctx, 9, 8, 1, 2, C.coinMid);
+}
+
+export function drawIconSword(ctx: Ctx): void {
+  R(ctx, 7, 1, 2, 10, '#cfd6e8');
+  R(ctx, 7, 1, 1, 10, '#ffffff');
+  R(ctx, 8, 2, 1, 8, '#9aa0b4');
+  PX(ctx, 7, 1, '#ffffff');
+  R(ctx, 5, 11, 6, 1, C.coinMid);
+  PX(ctx, 5, 11, C.coinHi);
+  PX(ctx, 10, 11, C.coinHi);
+  R(ctx, 7, 12, 2, 3, '#5a3a1c');
+  R(ctx, 6, 14, 4, 1, C.coinMid);
+}
+export function drawIconBow(ctx: Ctx): void {
+  ctx.strokeStyle = C.doorWoodHi;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(6, 8, 6, -1.15, 1.15);
+  ctx.stroke();
+  PX(ctx, 8, 2, C.coinMid);
+  PX(ctx, 8, 14, C.coinMid);
+  R(ctx, 9, 3, 1, 11, '#e7e2d0');
+  R(ctx, 3, 8, 10, 1, '#d8c090');
+  R(ctx, 1, 7, 3, 3, '#cfd6ff');
+  R(ctx, 12, 7, 1, 3, C.fireMid);
+}
+export function drawIconStaff(ctx: Ctx): void {
+  R(ctx, 7, 5, 2, 10, C.doorWood);
+  R(ctx, 7, 5, 1, 10, C.doorWoodHi);
+  ctx.fillStyle = C.magicMid;
+  ctx.beginPath();
+  ctx.arc(8, 4, 3.2, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = C.magicHot;
+  ctx.beginPath();
+  ctx.arc(8, 4, 1.6, 0, Math.PI * 2);
+  ctx.fill();
+  PX(ctx, 7, 3, '#ffffff');
+  PX(ctx, 4, 3, C.magicHot);
+  PX(ctx, 12, 4, C.magicHot);
+}
+export function drawIconMace(ctx: Ctx): void {
+  R(ctx, 7, 8, 2, 7, C.doorWood);
+  R(ctx, 7, 8, 1, 7, C.doorWoodHi);
+  R(ctx, 5, 3, 6, 5, '#aeb6cc');
+  R(ctx, 5, 3, 6, 1, '#ffffff');
+  R(ctx, 9, 3, 2, 5, '#6e7488');
+  R(ctx, 4, 4, 1, 3, '#aeb6cc');
+  R(ctx, 11, 4, 1, 3, '#aeb6cc');
+  PX(ctx, 6, 5, '#ffffff');
+}
+export function drawIconArmor(ctx: Ctx): void {
+  R(ctx, 4, 4, 8, 9, '#5a73c0');
+  R(ctx, 4, 4, 8, 2, '#a9c4ff');
+  R(ctx, 4, 4, 1, 9, '#a9c4ff');
+  R(ctx, 11, 4, 1, 9, '#2a3b6a');
+  R(ctx, 3, 4, 2, 3, '#7a8fd0');
+  R(ctx, 11, 4, 2, 3, '#7a8fd0');
+  R(ctx, 7, 6, 2, 6, '#2a3b6a');
+  PX(ctx, 6, 6, '#cfe0ff');
+  PX(ctx, 9, 6, '#cfe0ff');
+  R(ctx, 5, 12, 6, 1, '#2a3b6a');
+}
+export function drawIconRing(ctx: Ctx): void {
+  ctx.strokeStyle = C.coinDark;
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.arc(8, 10, 4, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.strokeStyle = C.coinMid;
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.arc(8, 10, 4, 0, Math.PI * 2);
+  ctx.stroke();
+  R(ctx, 6, 2, 4, 4, C.gem);
+  R(ctx, 6, 2, 4, 1, '#bafff6');
+  PX(ctx, 7, 3, '#ffffff');
 }
 export function drawIconAmulet(ctx: Ctx): void {
   ctx.strokeStyle = C.coinMid;
-  ctx.lineWidth = 1.2;
+  ctx.lineWidth = 1.4;
   ctx.beginPath();
-  ctx.arc(8, 6, 4, 0.2, Math.PI - 0.2);
+  ctx.arc(8, 5, 4, 0.15, Math.PI - 0.15);
   ctx.stroke();
-  R(ctx, 6, 8, 4, 4, C.magicMid);
-  PX(ctx, 7, 9, C.magicCore);
+  R(ctx, 5, 8, 6, 5, C.magicMid);
+  R(ctx, 5, 8, 6, 1, C.magicHot);
+  R(ctx, 9, 8, 2, 5, C.magicEdge);
+  PX(ctx, 7, 10, '#ffffff');
+  PX(ctx, 6, 9, C.magicCore);
 }
 
 // ============================================================================
