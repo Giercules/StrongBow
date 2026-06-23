@@ -86,7 +86,7 @@ export class CharacterSelectScene extends Phaser.Scene {
     cont.add(this.add.text(w / 2, 14, def.name, { fontFamily: 'MedievalSharp, "Trebuchet MS", cursive', fontSize: '20px', color: numHex(color), fontStyle: 'bold' }).setOrigin(0.5, 0));
     cont.add(this.add.text(w / 2, 40, def.role.toUpperCase(), { fontFamily: 'MedievalSharp, "Trebuchet MS", cursive', fontSize: '12px', color: C.inkDim }).setOrigin(0.5, 0));
 
-    const spr = this.add.sprite(w / 2, 130, `hero-${cls}-sheet`).setScale(4.2);
+    const spr = this.add.sprite(w / 2, 130, `hero-${cls}-sheet`).setScale(2.1);
     spr.play(`${cls}-idle-down`);
     cont.add(this.add.image(w / 2, 158, 'fx-shadow').setScale(2).setAlpha(0.5));
     cont.add(spr);

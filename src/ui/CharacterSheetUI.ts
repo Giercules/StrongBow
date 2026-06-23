@@ -56,7 +56,7 @@ export class CharacterSheetUI {
     const right = x0 + PANEL_W / 2 + 14;
 
     // portrait
-    const portrait = this.scene.add.sprite(left + 44, y0 + 92, `hero-${h.classId}-sheet`).setScale(5);
+    const portrait = this.scene.add.sprite(left + 44, y0 + 92, `hero-${h.classId}-sheet`).setScale(2.5);
     portrait.play(`${h.classId}-idle-down`);
     addPinned(this.content, portrait);
     addPinned(this.content, this.scene.add.image(left + 44, y0 + 132, 'fx-shadow').setScale(2).setAlpha(0.5));

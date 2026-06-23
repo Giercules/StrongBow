@@ -71,11 +71,11 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
     scene.physics.add.existing(this);
     this.setOrigin(0.5, 0.82);
     const body = this.body as Phaser.Physics.Arcade.Body;
-    body.setSize(11, 9);
-    body.setOffset(4.5, 13);
+    body.setSize(22, 18);
+    body.setOffset(9, 26);
     this.setCollideWorldBounds(true);
     this.setDepth(y);
-    this.setScale(1.16 * settings.spriteScale()); // hitbox scales with it but stays forgiving
+    this.setScale(0.58 * settings.spriteScale());
 
     this.stats = this.recompute();
     this.health = this.stats.maxHealth;

@@ -11,8 +11,10 @@ import type { ThemeId } from '../core/types';
 export type Ctx = CanvasRenderingContext2D;
 export type Facing = 'down' | 'up' | 'side';
 
-export const HERO_FW = 20;
-export const HERO_FH = 24;
+// Heroes render at 2x detail (HD): a 40x48 frame with finely shaded pixel art.
+// Hero.ts halves its base display scale to keep on-screen size unchanged.
+export const HERO_FW = 40;
+export const HERO_FH = 48;
 export const MON_FW = 22;
 export const MON_FH = 22;
 export const BOSS_FW = 40;
@@ -1571,8 +1573,8 @@ export function drawBolt(ctx: Ctx): void {
 // HEROES (parametric humanoid)
 // ============================================================================
 export function legShift(pose: number): [number, number] {
-  if (pose === 1) return [-1, 1];
-  if (pose === 2) return [1, -1];
+  if (pose === 1) return [-2, 2];
+  if (pose === 2) return [2, -2];
   return [0, 0];
 }
 
@@ -1586,42 +1588,70 @@ export function drawWeapon(
 ): void {
   const attack = pose === 3;
   const cx = ox + HERO_FW / 2;
-  const handY = 14;
   if (cls === 'vanguard') {
-    // a great barbarian broadsword (no shield)
-    const hx = facing === 'side' ? cx + 6 : cx + 5;
-    const len = attack ? 13 : 10;
-    const top = attack ? 2 : 4;
-    R(ctx, hx, top, 3, len, ramp.trim); // broad blade
-    R(ctx, hx, top, 1, len, ramp.trimHi); // edge shine
-    R(ctx, hx + 1, top, 1, len, '#5a5a6a'); // fuller
-    R(ctx, hx - 1, top + len, 5, 1, C.coinMid); // crossguard
-    R(ctx, hx, top + len + 1, 3, 2, ramp.cloth1); // grip
-    PX(ctx, hx + 1, top + len + 3, C.coinHi); // pommel
+    const hx = (facing === 'side' ? cx + 12 : cx + 10) + (attack ? 1 : 0);
+    const len = attack ? 26 : 20;
+    const top = attack ? 4 : 9;
+    R(ctx, hx, top, 5, len, ramp.trim);
+    R(ctx, hx, top, 2, len, ramp.trimHi);
+    R(ctx, hx + 4, top, 1, len, '#4a4a5a');
+    R(ctx, hx + 2, top + 1, 1, len - 2, '#c8ccd8');
+    PX(ctx, hx + 2, top - 1, '#ffffff');
+    R(ctx, hx - 2, top + len, 9, 2, C.coinMid);
+    R(ctx, hx - 2, top + len, 9, 1, C.coinHi);
+    R(ctx, hx + 1, top + len + 2, 3, 5, ramp.cloth1);
+    R(ctx, hx + 1, top + len + 2, 1, 5, ramp.cloth2);
+    R(ctx, hx, top + len + 7, 5, 2, C.coinMid);
+    PX(ctx, hx + 2, top + len + 8, C.coinHi);
   } else if (cls === 'strider') {
-    const hx = cx + (attack ? 7 : 6);
+    const hx = cx + (attack ? 10 : 8);
+    R(ctx, hx - 1, 26, 3, 6, C.doorWood);
+    R(ctx, hx - 1, 26, 1, 6, C.doorWoodHi);
     ctx.strokeStyle = ramp.trim;
-    ctx.lineWidth = 1.2;
+    ctx.lineWidth = 3;
     ctx.beginPath();
-    ctx.arc(hx, handY - 2, 5, -1.2, 1.2);
+    ctx.arc(hx, 28, 11, -1.45, 1.45);
     ctx.stroke();
-    R(ctx, hx + 3, handY - 7, 1, 11, ramp.trimHi);
-    if (attack) R(ctx, hx - 5, handY - 2, 8, 1, '#ffffff');
-  } else if (cls === 'arcanist') {
-    const hx = cx + (attack ? 6 : 5);
-    R(ctx, hx, 5, 2, 11, C.doorWood);
-    R(ctx, hx - 1, 2, 4, 4, attack ? C.magicCore : C.magicMid);
-    PX(ctx, hx, 3, C.magicCore);
+    ctx.strokeStyle = ramp.trimHi;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(hx, 28, 11, -1.45, 1.45);
+    ctx.stroke();
+    R(ctx, hx + 1, 16, 2, 2, ramp.trim);
+    R(ctx, hx + 1, 38, 2, 2, ramp.trim);
+    R(ctx, hx + 3, 17, 1, 22, '#e8e8f4');
     if (attack) {
-      PX(ctx, hx - 2, 1, C.magicHot);
-      PX(ctx, hx + 3, 1, C.magicHot);
+      R(ctx, hx - 10, 27, 16, 1, '#d8c090');
+      R(ctx, hx - 12, 26, 3, 3, '#cfd6ff');
     }
-  } else if (cls === 'warden') {
-    const hx = cx + (attack ? 6 : 5);
-    R(ctx, hx, 7, 2, 8, C.doorWood);
-    R(ctx, hx - 1, 4, 4, 4, ramp.trim);
-    R(ctx, hx - 1, 4, 4, 1, ramp.trimHi);
-    PX(ctx, hx, 5, '#ffffff');
+  } else if (cls === 'arcanist') {
+    const hx = cx + (attack ? 12 : 10);
+    R(ctx, hx, 12, 3, 30, C.doorWood);
+    R(ctx, hx, 12, 1, 30, C.doorWoodHi);
+    const oc = attack ? C.magicCore : C.magicMid;
+    ctx.fillStyle = oc;
+    ctx.beginPath();
+    ctx.arc(hx + 1, 9, 5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = C.magicHot;
+    ctx.beginPath();
+    ctx.arc(hx + 1, 9, 2.6, 0, Math.PI * 2);
+    ctx.fill();
+    PX(ctx, hx, 8, '#ffffff');
+    if (attack) {
+      PX(ctx, hx - 4, 4, C.magicHot);
+      PX(ctx, hx + 6, 5, C.magicHot);
+      PX(ctx, hx + 1, 2, '#ffffff');
+    }
+  } else {
+    const hx = cx + (attack ? 12 : 10);
+    R(ctx, hx, 16, 3, 22, C.doorWood);
+    R(ctx, hx, 16, 1, 22, C.doorWoodHi);
+    R(ctx, hx - 2, 9, 7, 7, ramp.trim);
+    R(ctx, hx - 2, 9, 7, 2, ramp.trimHi);
+    R(ctx, hx - 3, 11, 1, 3, ramp.trim);
+    R(ctx, hx + 5, 11, 1, 3, ramp.trim);
+    PX(ctx, hx + 1, 12, '#ffffff');
   }
 }
 
@@ -1634,171 +1664,209 @@ export function drawHumanoid(
   pose: number
 ): void {
   const cx = ox + HERO_FW / 2;
-  const bob = pose === 1 ? -1 : 0;
+  const bob = pose === 1 ? -2 : 0;
   const [ll, rl] = legShift(pose);
+  const robe = cls === 'arcanist' || cls === 'warden';
+  const sway = pose === 1 ? -1 : pose === 3 ? 1 : 0;
+  const SH = 'rgba(0,0,0,0.18)';
+  const SHd = 'rgba(0,0,0,0.32)';
+
+  const hTop = 8 + bob;
+  const tTop = 19 + bob;
+  const legTop = 33 + bob;
 
   if (facing === 'up') drawWeapon(ctx, ox, cls, ramp, facing, pose);
 
-  const tTop = 9 + bob;
-  const legTop = 16 + bob;
-  const hTop = 3 + bob;
-  const sway = pose === 1 ? -1 : pose === 3 ? 1 : 0;
-
-  // ---- cloak / robe behind the body ----
-  if (cls === 'vanguard' || cls === 'strider') {
-    R(ctx, cx - 4, 10 + bob, 8, 11, ramp.cloth0);
-    R(ctx, cx - 4, 10 + bob, 1, 11, ramp.cloth1);
-    R(ctx, cx + 3, 10 + bob, 1, 11, '#00000033');
-    PX(ctx, cx - 3 + sway, 21 + bob, ramp.cloth0);
-    PX(ctx, cx + sway, 21 + bob, ramp.cloth1);
-    PX(ctx, cx + 2 + sway, 21 + bob, ramp.cloth0);
+  if (robe) {
+    R(ctx, cx - 9, tTop, 18, 25, ramp.cloth0);
+    R(ctx, cx - 9, tTop, 3, 25, ramp.cloth1);
+    R(ctx, cx + 7, tTop, 2, 25, SHd);
+    R(ctx, cx - 9, tTop + 23, 18, 2, ramp.trim);
+    R(ctx, cx - 3, tTop + 4, 1, 19, SH);
+    R(ctx, cx + 2, tTop + 4, 1, 19, SH);
   } else {
-    R(ctx, cx - 5, 9 + bob, 10, 13, ramp.cloth0); // full robe
-    R(ctx, cx - 5, 9 + bob, 1, 13, ramp.cloth1);
-    R(ctx, cx + 4, 9 + bob, 1, 13, '#00000030');
-    R(ctx, cx - 5, 20 + bob, 10, 1, ramp.trim); // hem
+    R(ctx, cx - 8, tTop, 16, 22, ramp.cloth0);
+    R(ctx, cx - 8, tTop, 3, 22, ramp.cloth1);
+    R(ctx, cx + 6, tTop, 2, 22, SHd);
+    PX(ctx, cx - 6 + sway, tTop + 22, ramp.cloth0);
+    PX(ctx, cx - 2 + sway, tTop + 23, ramp.cloth1);
+    PX(ctx, cx + 2 + sway, tTop + 22, ramp.cloth0);
+    PX(ctx, cx + 5 + sway, tTop + 23, ramp.cloth0);
   }
 
-  // ---- legs / lower body ----
-  if (cls === 'arcanist' || cls === 'warden') {
-    R(ctx, cx - 4 + ll, legTop + 3, 3, 3, ramp.cloth0); // robe skirt feet
-    R(ctx, cx + 1 + rl, legTop + 3, 3, 3, ramp.cloth0);
-    R(ctx, cx - 4 + ll, legTop + 6, 3, 1, '#0a0a12');
-    R(ctx, cx + 1 + rl, legTop + 6, 3, 1, '#0a0a12');
+  const lx = cx - 7 + ll;
+  const rx = cx + 3 + rl;
+  if (robe) {
+    R(ctx, lx + 1, legTop + 4, 4, 5, ramp.cloth0);
+    R(ctx, rx, legTop + 4, 4, 5, ramp.cloth0);
+    R(ctx, lx + 1, legTop + 8, 4, 2, '#0a0a12');
+    R(ctx, rx, legTop + 8, 4, 2, '#0a0a12');
   } else if (cls === 'vanguard') {
-    R(ctx, cx - 4 + ll, legTop, 3, 5, ramp.skin); // bare legs
-    R(ctx, cx + 1 + rl, legTop, 3, 5, ramp.skin);
-    R(ctx, cx - 4 + ll, legTop, 1, 5, ramp.skinHi);
-    R(ctx, cx + 1 + rl, legTop, 1, 5, ramp.skinHi);
-    R(ctx, cx - 4 + ll, legTop + 4, 3, 3, ramp.cloth1); // fur boots
-    R(ctx, cx + 1 + rl, legTop + 4, 3, 3, ramp.cloth1);
+    R(ctx, lx, legTop, 4, 8, ramp.skin);
+    R(ctx, rx, legTop, 4, 8, ramp.skin);
+    R(ctx, lx, legTop, 1, 8, ramp.skinHi);
+    R(ctx, rx, legTop, 1, 8, ramp.skinHi);
+    R(ctx, lx + 3, legTop, 1, 8, SH);
+    R(ctx, rx + 3, legTop, 1, 8, SH);
+    R(ctx, lx, legTop + 7, 4, 4, ramp.cloth1);
+    R(ctx, rx, legTop + 7, 4, 4, ramp.cloth1);
+    R(ctx, lx, legTop + 7, 4, 1, ramp.cloth2);
+    R(ctx, rx, legTop + 7, 4, 1, ramp.cloth2);
   } else {
-    R(ctx, cx - 4 + ll, legTop, 3, 6, ramp.cloth1); // leather legs
-    R(ctx, cx + 1 + rl, legTop, 3, 6, ramp.cloth1);
-    R(ctx, cx - 4 + ll, legTop, 1, 6, ramp.cloth2);
-    R(ctx, cx + 1 + rl, legTop, 1, 6, ramp.cloth2);
-    R(ctx, cx - 4 + ll, legTop + 5, 3, 2, ramp.trim); // boots
-    R(ctx, cx + 1 + rl, legTop + 5, 3, 2, ramp.trim);
+    R(ctx, lx, legTop, 4, 9, ramp.cloth1);
+    R(ctx, rx, legTop, 4, 9, ramp.cloth1);
+    R(ctx, lx, legTop, 1, 9, ramp.cloth2);
+    R(ctx, rx, legTop, 1, 9, ramp.cloth2);
+    R(ctx, lx + 3, legTop, 1, 9, SH);
+    R(ctx, rx + 3, legTop, 1, 9, SH);
+    R(ctx, lx, legTop + 8, 4, 3, ramp.trim);
+    R(ctx, rx, legTop + 8, 4, 3, ramp.trim);
+    R(ctx, lx, legTop + 8, 4, 1, ramp.trimHi);
+    R(ctx, rx, legTop + 8, 4, 1, ramp.trimHi);
   }
 
-  // ---- torso (per class) ----
+  const tw = 14;
+  const tx = cx - 7;
   if (cls === 'vanguard') {
-    // bare, muscled chest + fur loincloth
-    R(ctx, cx - 5, tTop, 10, 8, ramp.skin);
-    R(ctx, cx - 5, tTop, 10, 1, ramp.skinHi);
-    R(ctx, cx - 5, tTop, 2, 8, ramp.skinHi);
-    R(ctx, cx + 3, tTop, 2, 8, '#00000022');
-    R(ctx, cx - 1, tTop + 1, 1, 5, '#00000022'); // sternum
-    R(ctx, cx - 4, tTop + 3, 3, 1, '#0000001c'); // pecs
-    R(ctx, cx + 1, tTop + 3, 3, 1, '#0000001c');
-    R(ctx, cx - 3, tTop + 5, 6, 1, '#00000014'); // ab line
-    R(ctx, cx - 4, tTop + 1, 8, 1, ramp.trim); // baldric strap
-    PX(ctx, cx, tTop + 1, ramp.trimHi);
-    R(ctx, cx - 5, tTop + 6, 10, 2, ramp.cloth1); // fur loincloth/belt
-    R(ctx, cx - 5, tTop + 6, 10, 1, ramp.cloth2);
-    R(ctx, cx - 1, tTop + 6, 2, 2, ramp.trim); // buckle
+    R(ctx, tx, tTop, tw, 14, ramp.skin);
+    R(ctx, tx, tTop, tw, 2, ramp.skinHi);
+    R(ctx, tx, tTop, 3, 14, ramp.skinHi);
+    R(ctx, tx + tw - 3, tTop, 3, 14, SH);
+    R(ctx, cx - 1, tTop + 2, 1, 8, SH);
+    R(ctx, tx + 2, tTop + 4, 4, 1, SH);
+    R(ctx, cx + 1, tTop + 4, 4, 1, SH);
+    R(ctx, tx + 3, tTop + 8, 8, 1, 'rgba(0,0,0,0.12)');
+    R(ctx, tx + 3, tTop + 10, 8, 1, 'rgba(0,0,0,0.12)');
+    for (let i = 0; i < tw; i++) R(ctx, tx + i, tTop + 1 + Math.floor(i / 2), 1, 2, ramp.trim);
+    R(ctx, tx, tTop + 11, tw, 3, ramp.cloth1);
+    R(ctx, tx, tTop + 11, tw, 1, ramp.cloth2);
+    R(ctx, cx - 2, tTop + 11, 4, 3, C.coinMid);
+    PX(ctx, cx, tTop + 12, C.coinHi);
   } else if (cls === 'strider') {
-    // dark leather ranger tunic with a baldric
-    R(ctx, cx - 5, tTop, 10, 8, ramp.cloth1);
-    R(ctx, cx - 5, tTop, 10, 1, ramp.cloth2);
-    R(ctx, cx - 5, tTop, 2, 8, ramp.cloth2);
-    R(ctx, cx + 3, tTop, 2, 8, ramp.cloth0);
-    R(ctx, cx - 4, tTop + 1, 8, 1, ramp.trim);
-    R(ctx, cx - 4, tTop + 4, 8, 1, ramp.cloth0);
-    R(ctx, cx - 1, tTop + 2, 2, 3, ramp.cloth2);
+    R(ctx, tx, tTop, tw, 14, ramp.cloth1);
+    R(ctx, tx, tTop, tw, 2, ramp.cloth2);
+    R(ctx, tx, tTop, 3, 14, ramp.cloth2);
+    R(ctx, tx + tw - 3, tTop, 3, 14, ramp.cloth0);
+    R(ctx, tx + 2, tTop + 2, tw - 4, 1, ramp.trim);
+    for (let i = 0; i < tw; i++) R(ctx, tx + i, tTop + 3 + Math.floor(i / 2), 1, 2, ramp.cloth0);
+    R(ctx, tx, tTop + 10, tw, 2, ramp.trim);
+    R(ctx, cx - 1, tTop + 10, 2, 2, C.coinMid);
   } else {
-    // robe upper body
-    R(ctx, cx - 5, tTop, 10, 8, ramp.cloth1);
-    R(ctx, cx - 5, tTop, 10, 1, ramp.cloth2);
-    R(ctx, cx - 5, tTop, 2, 8, ramp.cloth2);
-    R(ctx, cx + 3, tTop, 2, 8, ramp.cloth0);
+    R(ctx, tx, tTop, tw, 14, ramp.cloth1);
+    R(ctx, tx, tTop, tw, 2, ramp.cloth2);
+    R(ctx, tx, tTop, 3, 14, ramp.cloth2);
+    R(ctx, tx + tw - 3, tTop, 3, 14, ramp.cloth0);
     if (cls === 'warden') {
-      R(ctx, cx - 1, tTop + 2, 2, 4, ramp.trim); // gold holy symbol
-      R(ctx, cx - 2, tTop + 3, 4, 2, ramp.trim);
-      PX(ctx, cx, tTop + 3, ramp.trimHi);
+      R(ctx, tx + 2, tTop + 2, tw - 4, 11, ramp.cloth2);
+      R(ctx, cx - 1, tTop + 3, 2, 7, ramp.trim);
+      R(ctx, cx - 3, tTop + 5, 6, 2, ramp.trim);
+      PX(ctx, cx, tTop + 5, ramp.trimHi);
     } else {
-      R(ctx, cx - 5, tTop + 6, 10, 1, ramp.trim); // sash + arcane glow
-      PX(ctx, cx, tTop + 3, C.magicCore);
-      PX(ctx, cx - 3, tTop + 4, ramp.trim);
-      PX(ctx, cx + 2, tTop + 4, ramp.trim);
+      R(ctx, tx, tTop + 10, tw, 2, ramp.trim);
+      PX(ctx, cx, tTop + 6, C.magicCore);
+      PX(ctx, cx - 3, tTop + 7, ramp.trim);
+      PX(ctx, cx + 3, tTop + 7, ramp.trim);
     }
   }
 
-  // ---- shoulders ----
   if (cls === 'vanguard') {
-    R(ctx, cx - 6, tTop, 2, 3, ramp.cloth1); // fur pauldron
-    R(ctx, cx - 6, tTop, 2, 1, ramp.cloth2);
-    R(ctx, cx + 4, tTop, 2, 3, ramp.skin); // bare shoulder
+    R(ctx, cx - 11, tTop - 1, 4, 5, ramp.cloth1);
+    R(ctx, cx - 11, tTop - 1, 4, 1, ramp.cloth2);
+    R(ctx, cx + 7, tTop - 1, 4, 5, ramp.cloth1);
+    R(ctx, cx + 7, tTop - 1, 4, 1, ramp.cloth2);
   }
 
-  // ---- arms + hands ----
-  if (cls === 'arcanist' || cls === 'warden') {
-    R(ctx, cx - 7, tTop + 1, 2, 6, ramp.cloth1); // wide sleeves
-    R(ctx, cx + 5, tTop + 1, 2, 6, ramp.cloth1);
-    R(ctx, cx - 7, tTop + 1, 2, 1, ramp.cloth2);
-    R(ctx, cx - 7, tTop + 6, 2, 1, ramp.skin); // hands
-    R(ctx, cx + 5, tTop + 6, 2, 1, ramp.skin);
+  if (robe) {
+    R(ctx, cx - 11, tTop + 1, 4, 11, ramp.cloth1);
+    R(ctx, cx + 7, tTop + 1, 4, 11, ramp.cloth1);
+    R(ctx, cx - 11, tTop + 1, 1, 11, ramp.cloth2);
+    R(ctx, cx + 10, tTop + 1, 1, 11, ramp.cloth0);
+    R(ctx, cx - 10, tTop + 11, 3, 2, ramp.skin);
+    R(ctx, cx + 7, tTop + 11, 3, 2, ramp.skin);
   } else {
     const armC = cls === 'vanguard' ? ramp.skin : ramp.cloth1;
-    R(ctx, cx - 6, tTop + 1, 2, 5, armC);
-    R(ctx, cx + 4, tTop + 1, 2, 5, armC);
-    R(ctx, cx - 6, tTop + 5, 2, 1, ramp.skin); // hands
-    R(ctx, cx + 4, tTop + 5, 2, 1, ramp.skin);
+    const armHi = cls === 'vanguard' ? ramp.skinHi : ramp.cloth2;
+    R(ctx, cx - 10, tTop + 1, 3, 10, armC);
+    R(ctx, cx + 7, tTop + 1, 3, 10, armC);
+    R(ctx, cx - 10, tTop + 1, 1, 10, armHi);
+    R(ctx, cx + 9, tTop + 1, 1, 10, SH);
+    R(ctx, cx - 10, tTop + 10, 3, 2, ramp.skin);
+    R(ctx, cx + 7, tTop + 10, 3, 2, ramp.skin);
     if (cls === 'vanguard') {
-      R(ctx, cx - 6, tTop + 4, 2, 1, ramp.trim); // bracers
-      R(ctx, cx + 4, tTop + 4, 2, 1, ramp.trim);
+      R(ctx, cx - 10, tTop + 8, 3, 1, ramp.trim);
+      R(ctx, cx + 7, tTop + 8, 3, 1, ramp.trim);
+    } else {
+      R(ctx, cx - 10, tTop + 9, 3, 1, ramp.cloth0);
+      R(ctx, cx + 7, tTop + 9, 3, 1, ramp.cloth0);
     }
   }
 
-  // ---- head ----
-  R(ctx, cx - 3, hTop, 6, 6, ramp.skin);
-  R(ctx, cx - 3, hTop, 6, 1, ramp.skinHi);
-  R(ctx, cx + 2, hTop + 1, 1, 5, '#00000022');
+  const hw = 10;
+  const hx0 = cx - 5;
+  R(ctx, hx0, hTop, hw, 11, ramp.skin);
+  R(ctx, hx0, hTop, hw, 1, ramp.skinHi);
+  R(ctx, hx0, hTop, 2, 11, ramp.skinHi);
+  R(ctx, hx0 + hw - 2, hTop + 1, 2, 10, SH);
+  R(ctx, hx0 + 1, hTop + 10, hw - 2, 1, SH);
 
   if (cls === 'vanguard') {
-    // black mane + red headband
-    R(ctx, cx - 4, hTop - 1, 8, 2, ramp.hair);
-    R(ctx, cx - 4, hTop, 1, 5, ramp.hair);
-    R(ctx, cx + 3, hTop, 1, 5, ramp.hair);
-    R(ctx, cx - 4, hTop + 1, 8, 1, C.hpLow); // headband
-    PX(ctx, cx - 4, hTop + 1, '#ff8a7a');
+    R(ctx, hx0 - 1, hTop - 2, hw + 2, 4, ramp.hair);
+    R(ctx, hx0 - 1, hTop, 2, 9, ramp.hair);
+    R(ctx, hx0 + hw - 1, hTop, 2, 9, ramp.hair);
+    R(ctx, hx0, hTop + 2, hw, 2, C.hpLow);
+    R(ctx, hx0, hTop + 2, hw, 1, '#ff8a7a');
   } else if (cls === 'strider') {
-    // long flowing white hair
-    R(ctx, cx - 4, hTop - 1, 8, 2, ramp.hair);
-    R(ctx, cx - 5, hTop, 2, 8, ramp.hair); // long side locks
-    R(ctx, cx + 3, hTop, 2, 8, ramp.hair);
-    R(ctx, cx - 4, hTop - 1, 8, 1, ramp.trimHi);
+    R(ctx, hx0 - 1, hTop - 3, hw + 2, 4, ramp.hair);
+    R(ctx, hx0 - 2, hTop, 2, 8, ramp.hair);
+    R(ctx, hx0 + hw, hTop, 2, 8, ramp.hair);
+    R(ctx, hx0 - 2, hTop + 8, 1, 3, ramp.hair);
+    R(ctx, hx0 + hw + 1, hTop + 8, 1, 3, ramp.hair);
+    R(ctx, hx0 - 1, hTop - 3, hw + 2, 1, ramp.trimHi);
+    R(ctx, hx0 + 1, hTop + 2, hw - 2, 2, ramp.skinHi);
   } else if (cls === 'arcanist') {
-    // tall hat + long white beard
-    R(ctx, cx - 4, hTop - 1, 8, 2, ramp.cloth2);
-    R(ctx, cx - 4, hTop - 1, 8, 1, ramp.trimHi);
-    R(ctx, cx - 3, hTop - 3, 6, 3, ramp.cloth2);
-    R(ctx, cx - 3, hTop - 3, 1, 3, ramp.cloth1);
-    PX(ctx, cx, hTop - 3, C.magicCore);
-    R(ctx, cx - 4, hTop + 1, 8, 1, ramp.trim);
-    R(ctx, cx - 3, hTop + 4, 6, 4, ramp.hair); // beard
-    R(ctx, cx - 2, hTop + 8, 4, 2, ramp.hair);
-    R(ctx, cx - 3, hTop + 4, 6, 1, '#ffffff');
+    R(ctx, hx0 - 1, hTop - 1, hw + 2, 3, ramp.cloth2);
+    R(ctx, hx0 - 1, hTop - 1, hw + 2, 1, ramp.trimHi);
+    R(ctx, hx0 + 1, hTop - 5, hw - 2, 5, ramp.cloth2);
+    R(ctx, hx0 + 2, hTop - 6, hw - 5, 2, ramp.cloth2);
+    R(ctx, hx0 + 1, hTop - 5, 2, 5, ramp.cloth1);
+    PX(ctx, hx0 + 3, hTop - 5, C.magicCore);
+    R(ctx, hx0, hTop + 2, hw, 1, ramp.trim);
+    R(ctx, hx0, hTop + 7, hw, 5, ramp.hair);
+    R(ctx, hx0 + 2, hTop + 11, hw - 4, 3, ramp.hair);
+    R(ctx, hx0, hTop + 7, hw, 1, '#ffffff');
   } else {
-    // hooded cleric + halo
-    R(ctx, cx - 4, hTop - 2, 8, 4, ramp.cloth2);
-    R(ctx, cx - 4, hTop - 2, 8, 1, ramp.trimHi);
-    R(ctx, cx - 5, hTop, 1, 6, ramp.cloth1);
-    R(ctx, cx + 4, hTop, 1, 6, ramp.cloth1);
-    PX(ctx, cx - 2, hTop - 3, '#fff4c0');
-    PX(ctx, cx + 1, hTop - 3, '#fff4c0');
+    R(ctx, hx0 - 1, hTop - 2, hw + 2, 5, ramp.cloth2);
+    R(ctx, hx0 - 1, hTop - 2, hw + 2, 1, ramp.trimHi);
+    R(ctx, hx0 - 2, hTop, 2, 9, ramp.cloth1);
+    R(ctx, hx0 + hw, hTop, 2, 9, ramp.cloth1);
+    R(ctx, hx0, hTop - 4, hw, 1, '#fff4c0');
+    PX(ctx, hx0 - 1, hTop - 3, '#fff4c0');
+    PX(ctx, hx0 + hw, hTop - 3, '#fff4c0');
   }
 
-  // ---- eyes ----
   if (cls !== 'arcanist') {
-    const eye = cls === 'strider' ? '#c08aff' : '#2a3b6a'; // drow lavender eyes
+    const eye = cls === 'strider' ? '#c08aff' : '#2a3b6a';
     if (facing === 'down') {
-      PX(ctx, cx - 2, hTop + 3, eye);
-      PX(ctx, cx + 1, hTop + 3, eye);
+      R(ctx, hx0 + 2, hTop + 5, 2, 2, '#ffffff');
+      R(ctx, hx0 + hw - 4, hTop + 5, 2, 2, '#ffffff');
+      PX(ctx, hx0 + 3, hTop + 6, eye);
+      PX(ctx, hx0 + hw - 3, hTop + 6, eye);
+      R(ctx, hx0 + 2, hTop + 4, 2, 1, ramp.hair);
+      R(ctx, hx0 + hw - 4, hTop + 4, 2, 1, ramp.hair);
+      PX(ctx, cx, hTop + 7, SHd);
+      R(ctx, hx0 + 3, hTop + 9, hw - 6, 1, SH);
     } else if (facing === 'side') {
-      PX(ctx, cx + 1, hTop + 3, cls === 'strider' ? '#c08aff' : '#1a1024');
-      R(ctx, cx + 2, hTop + 2, 1, 2, ramp.skinHi);
+      R(ctx, hx0 + hw - 4, hTop + 5, 2, 2, '#ffffff');
+      PX(ctx, hx0 + hw - 3, hTop + 6, eye);
+      R(ctx, hx0 + hw - 4, hTop + 4, 2, 1, ramp.hair);
+      R(ctx, hx0 + hw - 1, hTop + 6, 2, 2, ramp.skinHi);
+      R(ctx, hx0 + hw - 3, hTop + 9, 3, 1, SH);
     }
+  } else if (facing !== 'up') {
+    PX(ctx, hx0 + 3, hTop + 5, '#cfe0ff');
+    PX(ctx, hx0 + hw - 4, hTop + 5, '#cfe0ff');
+    R(ctx, hx0 + 2, hTop + 4, 2, 1, '#e8e8ee');
+    R(ctx, hx0 + hw - 4, hTop + 4, 2, 1, '#e8e8ee');
   }
 
   if (facing !== 'up') drawWeapon(ctx, ox, cls, ramp, facing, pose);
