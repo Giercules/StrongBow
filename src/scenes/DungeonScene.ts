@@ -88,6 +88,20 @@ const ATMOSPHERE: Record<ThemeId, Atmosphere> = {
   town: { lightTint: 0xfff2d8, particleTint: 0xffe6b0, flameTint: 0xffb46a, portalTint: 0xc79bff, edgeTint: 0x3a2e18, mode: 'drift', frequency: 640 },
 };
 
+function townsfolkVariant(role: string): number {
+  const r = role.toLowerCase();
+  if (r.includes('flower')) return 0;
+  if (r.includes('crier')) return 1;
+  if (r.includes('pilgrim')) return 2;
+  if (r.includes('watch')) return 3;
+  if (r.includes('lute') || r.includes('minstrel') || r.includes('bard')) return 4;
+  if (r.includes('fortune')) return 5;
+  if (r.includes('merchant')) return 6;
+  let h = 0;
+  for (let i = 0; i < r.length; i++) h = (h + r.charCodeAt(i)) % 7;
+  return h;
+}
+
 // ---- DnD-flavored examine text for hand-placed decor + hazards + the NPC ----
 const DECOR_FLAVOR: Record<string, string> = {
   bones: 'Old bones, picked clean. Something still gnaws in the dark.',
@@ -708,14 +722,10 @@ export class DungeonScene extends Phaser.Scene {
           break;
         case 'npc': {
           if (this.level.town) {
-            const classes: HeroClassId[] = ['vanguard', 'strider', 'arcanist', 'warden'];
-            const cls = classes[(sp.x + sp.y) % classes.length];
-            const spr = this.add.sprite(c.x, c.y, `hero-${cls}-sheet`).setDepth(c.y).setTint(0xe8d8c0);
-            try {
-              spr.play(`${cls}-idle-down`);
-            } catch {
-              /* idle anim is optional */
-            }
+            const spr = this.add
+              .sprite(c.x, c.y, `townsfolk-${townsfolkVariant(sp.npcRole ?? '')}`)
+              .setScale(0.62 * settings.spriteScale())
+              .setDepth(c.y);
             this.shadows.add(spr);
             this.townNpcs.push({ sprite: spr, homeX: c.x, homeY: c.y, vx: 0, vy: 0, nextTurn: 0, label: sp.label ?? 'Townsfolk', role: sp.npcRole ?? 'a townsperson' });
           } else {

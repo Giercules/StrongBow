@@ -155,6 +155,7 @@ export class TextureFactory {
     img('town-butterfly', 16, 16, (c) => townArt.drawButterfly(c), true);
     img('town-bird', 16, 16, (c) => townArt.drawBird(c), true);
     img('town-dog', 16, 16, (c) => townArt.drawDog(c), true);
+    for (let v = 0; v < 7; v++) img(`townsfolk-${v}`, 28, 36, (c) => townArt.drawTownsfolk(c, 0, 0, v), true);
 
     // ---- pickups (outlined) ----
     sheet('coin-sheet', 16, 16, 4, (c, ox, f) => art.drawCoin(c, ox, f), true);

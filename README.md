@@ -1,12 +1,30 @@
 # StrongBow
 
 A browser-based, top-down arcade dungeon crawler with a mystical **Dungeons &
-Dragons** feel — **100% procedural pixel art**, an **epic procedural NES-style
+Dragons** feel — **hand-detailed HD pixel art**, an **epic procedural NES-style
 soundtrack**, a living **town-square hub**, and a **ten-realm campaign** where
 every realm has its own layout, hazards, foes and boss. Built with Phaser 4 +
-TypeScript + Vite. All original art and audio.
+TypeScript + Vite. All original art and audio, generated in code at runtime.
 
-![Sprite atlas](docs/sprite-atlas.png)
+![The heroes and the bestiary of the Undermaw](docs/sprite-atlas.png)
+
+## The Story
+
+> Ten times the world has sealed the **Undermaw** — the hungering dark beneath
+> the roots of the mountains — and ten times the seals have held.
+>
+> No longer. The spawning altars are bleeding the dead back into the light, and
+> one by one the lanterns of the realms are going out. In **Hearthwatch**, the
+> last free town above the pit, four unlikely champions answer a call the rest
+> of the world is too afraid to hear — a barbarian, a drow ranger, an aging
+> wizard, and a warden of the failing light.
+>
+> Beneath them wait **ten realms** — crypt, fire, ice, rot, brass, blood, bog,
+> storm, shadow — each ruled by a warden of the hunger, each darker than the
+> one above. Shatter their altars. Break their masters. Descend at last to the
+> **Sanctum of the Undermaw** and snuff out the hunger itself…
+>
+> **Ten realms. One hunger. Slay it ere it wakes.**
 
 ## Quick start
 
@@ -56,12 +74,22 @@ Global: **O** settings · **H** manual · **F2** save/load window · **2** add
 Player 2 · **Esc** close menu / quit. In town, stand next to a **gate** or
 **shopkeeper** and press **Use** to descend or trade.
 
+**Settings (O)** has tabs for **Audio** (mute, volumes, and a **music-track**
+picker), **View** (**sprite size** 100–200% and a **show-map** toggle), **Allies**
+(companion behaviour), **Keys** (rebind anything), **Cheats**, and the **Manual**.
+
 ## Hearthwatch — the town hub
 
 Every run begins (and every cleared realm returns you to) **Hearthwatch**, the
-last free town above the Undermaw: a sunlit cobbled plaza with a central
-fountain, lit braziers, festival banners, and townsfolk who **wander on their
-own** and can be **hailed for AI-flavored chatter**.
+last free town above the Undermaw: grassy lawns and cobbled roads ring a central
+fountain, dotted with **distinct timbered houses** under coloured roofs, lit
+braziers and festival banners. A **water moat** encircles the town, crossed by
+four **timber bridges** — the grand south span hung with heavy **chains** —
+leading to gatehouses at each cardinal point. **Butterflies and birds** drift
+over the square and a **stray dog** trots between the stalls, while the
+**townsfolk** — a flower-seller, a town crier, a hooded pilgrim, a watchman, a
+lute-player, a fortune-teller and a down-on-his-luck merchant, each with their
+own look — **wander on their own** and can be **hailed for AI-flavored chatter**.
 
 - **Ten descent gates** ring the square — one per realm. A gate glows when it's
   **unlocked** and stays **sealed** until you clear the realm before it. Step on
@@ -167,10 +195,15 @@ Press **F2** for the **Save/Load window**: six slots, each previewed with a
 **unlocked gates**, so your campaign progress survives. The title screen's **Load
 Game** opens the same browser.
 
-## Minimap & HUD
+## Screen, adventure log & HUD
 
-A live **minimap** (top-right) shows the party, remaining altars, the boss, and
-the exit. The right panel tracks each hero's HP/MP/XP, gold, and a controls box.
+The play area sits between two carved panels. On the **left**, a parchment
+**adventure log** scrolls the story of your run — narration, kills, loot, boss
+beats — beneath a **Dungeon Master feed** that streams live **Grok** commentary
+(with a connection light) when an AI provider is set. On the **right**, the party
+HUD tracks each hero's HP / MP / XP, gold, score and a live controls box. A
+toggleable **minimap** (top-right of the play area) shows the party, remaining
+altars, the boss and the exit.
 
 ## Epic audio
 
@@ -181,16 +214,15 @@ per-realm themes, a calm town theme, and an intense boss theme. Drop `theme.mp3`
 
 ## Procedural art (and optional overrides)
 
-All in-game art is generated in code at runtime. To swap any piece for a PNG, add
+All in-game art is generated in code at runtime — the heroes and the full
+bestiary are now **HD pixel art**, drawn at 2× the old resolution with rim-light
+shading, faces, and per-class gear and weapons. To swap any piece for a PNG, add
 an entry to `public/assets/manifest.json` (e.g. `hero-vanguard-sheet`,
 `ext-wall`); the list ships empty so the built-in procedural art is used
 everywhere.
 
-The README cover atlas is produced by a small Pillow script — regenerate it with:
-
-```bash
-python3 tools/gen_atlas.py    # writes docs/sprite-atlas.png
-```
+The README cover atlas above is rendered straight from the engine's own
+procedural art, so it always reflects exactly what you see in-game.
 
 ## In-game manual
 

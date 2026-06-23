@@ -38,7 +38,7 @@ export class MenuScene extends Phaser.Scene {
     this.tweens.add({ targets: riftGlow, alpha: { from: 0.24, to: 0.5 }, scale: { from: 6.2, to: 7.8 }, duration: 2400, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
 
     // ---- looming Undermaw silhouette ----
-    const boss = this.add.sprite(cx, 352, 'monster-hollow_king-sheet').setScale(5.2).setAlpha(0.72).setTint(0x120c1e).setDepth(3);
+    const boss = this.add.sprite(cx, 352, 'monster-hollow_king-sheet').setScale(2.6).setAlpha(0.72).setTint(0x120c1e).setDepth(3);
     boss.play('hollow_king-walk');
     this.tweens.add({ targets: boss, y: 344, duration: 3200, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
     this.add.particles(cx, 322, 'fx-glow-white', {
@@ -69,11 +69,11 @@ export class MenuScene extends Phaser.Scene {
     const tints = [0x4fa3ff, 0x5fe06a, 0xc06bff, 0xffcf5a];
     ALL_CLASSES.forEach((cls, i) => {
       const hx = cx - 150 + i * 100;
-      this.add.image(hx, 446, 'fx-light').setScale(2).setAlpha(0.18).setBlendMode(add).setDepth(5).setTint(tints[i]);
-      const s = this.add.sprite(hx, 458, `hero-${cls}-sheet`).setScale(3).setDepth(6);
+      this.add.image(hx, 430, 'fx-light').setScale(2).setAlpha(0.18).setBlendMode(add).setDepth(5).setTint(tints[i]);
+      const s = this.add.sprite(hx, 442, `hero-${cls}-sheet`).setScale(1.5).setDepth(6);
       s.play(`${cls}-idle-down`);
-      this.add.image(hx, 482, 'fx-shadow').setScale(1.7).setAlpha(0.5).setDepth(5);
-      this.tweens.add({ targets: s, y: 453, duration: 1200 + i * 120, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+      this.add.image(hx, 466, 'fx-shadow').setScale(1.7).setAlpha(0.5).setDepth(5);
+      this.tweens.add({ targets: s, y: 437, duration: 1200 + i * 120, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
     });
 
     // ---- cinematic vignette + rare lightning ----
@@ -89,13 +89,46 @@ export class MenuScene extends Phaser.Scene {
     // darkened plate behind the menu buttons for readability
     this.add.rectangle(cx, 298, 322, 198, 0x05060a, 0.5).setStrokeStyle(1, 0x6e521f, 0.6).setDepth(9.2);
 
+    const frame = this.add.graphics().setDepth(9.3);
+    frame.lineStyle(4, 0x2a1c0a, 1); frame.strokeRect(10, 10, GAME_WIDTH - 20, GAME_HEIGHT - 20);
+    frame.lineStyle(2, 0xcfa64e, 0.9); frame.strokeRect(15, 15, GAME_WIDTH - 30, GAME_HEIGHT - 30);
+    frame.lineStyle(1, 0x6e521f, 0.8); frame.strokeRect(19, 19, GAME_WIDTH - 38, GAME_HEIGHT - 38);
+    const bracket = (px: number, py: number, dx: number, dy: number): void => {
+      frame.fillStyle(0xcfa64e, 1);
+      frame.fillRect(dx > 0 ? px : px - 30, py - 2, 30, 4);
+      frame.fillRect(px - 2, dy > 0 ? py : py - 30, 4, 30);
+      frame.fillStyle(0xffe27a, 1); frame.fillRect(px - 3, py - 3, 6, 6);
+      frame.fillStyle(0x2e6b34, 1); frame.fillRect(dx > 0 ? px + 9 : px - 13, dy > 0 ? py + 9 : py - 13, 4, 4);
+    };
+    bracket(19, 19, 1, 1); bracket(GAME_WIDTH - 19, 19, -1, 1);
+    bracket(19, GAME_HEIGHT - 19, 1, -1); bracket(GAME_WIDTH - 19, GAME_HEIGHT - 19, -1, -1);
+    this.add.image(cx, 54, 'fx-glow-warm').setScale(5).setAlpha(0.4).setBlendMode(add).setDepth(9.4);
+    const crest = this.add.graphics().setDepth(9.55);
+    crest.fillStyle(0x140e06, 1); crest.fillCircle(cx, 54, 27);
+    crest.lineStyle(3, 0xcfa64e, 1); crest.strokeCircle(cx, 54, 27);
+    crest.lineStyle(1, 0x6e521f, 1); crest.strokeCircle(cx, 54, 22);
+    crest.lineStyle(3, 0xf0d27a, 1);
+    crest.beginPath(); crest.arc(cx - 3, 54, 15, -1.05, 1.05); crest.strokePath();
+    crest.lineStyle(1, 0xe8e8f4, 1);
+    crest.beginPath(); crest.moveTo(cx + 5, 41); crest.lineTo(cx + 5, 67); crest.strokePath();
+    crest.fillStyle(0xffe27a, 1); crest.fillRect(cx - 15, 53, 26, 2);
+    crest.fillTriangle(cx + 11, 50, cx + 11, 58, cx + 18, 54);
+    crest.fillRect(cx - 16, 51, 2, 6);
+    this.tweens.add({ targets: crest, alpha: { from: 0.85, to: 1 }, duration: 1800, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+    const ribbon = this.add.graphics().setDepth(9.7);
+    ribbon.fillStyle(0x140e06, 0.9); ribbon.fillRect(cx - 184, 162, 368, 18);
+    ribbon.fillStyle(0x2a1c0a, 1);
+    ribbon.fillTriangle(cx - 184, 162, cx - 184, 180, cx - 196, 171);
+    ribbon.fillTriangle(cx + 184, 162, cx + 184, 180, cx + 196, 171);
+    ribbon.lineStyle(1, 0xcfa64e, 0.85); ribbon.strokeRect(cx - 184, 162, 368, 18);
     // ---- epic layered title ----
     this.add.image(cx, 118, 'fx-glow-warm').setScale(9).setAlpha(0.3).setBlendMode(add).setDepth(9.5);
-    const titleBack = this.add.text(cx + 3, 121, 'STRONGBOW', { fontFamily: 'Cinzel, Cinzel, Georgia, serif', fontSize: '78px', color: '#000000', fontStyle: 'bold' }).setOrigin(0.5).setAlpha(0.55).setDepth(9.6);
-    const title = this.add.text(cx, 118, 'STRONGBOW', { fontFamily: 'Cinzel, Cinzel, Georgia, serif', fontSize: '78px', color: '#f0d27a', fontStyle: 'bold' }).setOrigin(0.5).setDepth(10);
-    title.setStroke('#3a2a0c', 6);
-    title.setShadow(0, 4, '#1a1206', 8, true, true);
-    this.tweens.add({ targets: [title, titleBack], scale: { from: 1, to: 1.03 }, duration: 1900, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+    const titleBack = this.add.text(cx + 3, 121, 'STRONGBOW', { fontFamily: 'Cinzel, Cinzel, Georgia, serif', fontSize: '82px', color: '#000000', fontStyle: 'bold' }).setOrigin(0.5).setAlpha(0.55).setDepth(9.6);
+    const title = this.add.text(cx, 118, 'STRONGBOW', { fontFamily: 'Cinzel, Cinzel, Georgia, serif', fontSize: '82px', color: '#f0d27a', fontStyle: 'bold' }).setOrigin(0.5).setDepth(10);
+    title.setStroke('#3a2a0c', 7);
+    title.setShadow(0, 4, '#1a1206', 10, true, true);
+    const titleHi = this.add.text(cx, 116, 'STRONGBOW', { fontFamily: 'Cinzel, Cinzel, Georgia, serif', fontSize: '82px', color: '#fff4cf', fontStyle: 'bold' }).setOrigin(0.5).setDepth(10.1).setAlpha(0.4);
+    this.tweens.add({ targets: [title, titleBack, titleHi], scale: { from: 1, to: 1.03 }, duration: 1900, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
 
     this.add.text(cx, 170, 'DESCENT INTO THE UNDERMAW', { fontFamily: 'Cinzel, Georgia, serif', fontSize: '16px', color: '#cfa64e', fontStyle: 'italic' }).setOrigin(0.5).setDepth(10);
     const rg = this.add.graphics().setDepth(10);
@@ -123,7 +156,7 @@ export class MenuScene extends Phaser.Scene {
 
     // AI connection status - large, glowing, below the characters
     const aiText = this.add
-      .text(cx, 500, 'AI: checking...', { fontFamily: 'MedievalSharp, "Trebuchet MS", cursive', fontSize: '15px', color: C.inkDim, fontStyle: 'bold' })
+      .text(cx, 486, 'AI: checking...', { fontFamily: 'MedievalSharp, "Trebuchet MS", cursive', fontSize: '15px', color: C.inkDim, fontStyle: 'bold' })
       .setOrigin(0.5)
       .setDepth(12);
     void aiService.checkConnection().then(({ connected, provider }) => {
@@ -137,9 +170,9 @@ export class MenuScene extends Phaser.Scene {
     });
 
     this.add
-      .text(cx, GAME_HEIGHT - 22, 'Click or press 1 / 2 to begin   -   H manual   -   sound enables on first click', {
+      .text(cx, GAME_HEIGHT - 34, 'Click or press 1 / 2 to begin   ·   H manual   ·   sound enables on first click', {
         fontFamily: 'MedievalSharp, "Trebuchet MS", cursive',
-        fontSize: '12px',
+        fontSize: '11px',
         color: C.inkDim,
       })
       .setOrigin(0.5)

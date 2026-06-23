@@ -37,7 +37,7 @@ function heroPage(classId: (typeof ALL_CLASSES)[number]): ManualPage {
   return {
     title: d.title,
     kind: 'text',
-    portrait: { sheet: `hero-${classId}-sheet`, frame: 0, scale: 5, caption: `${h.name} · ${h.role}` },
+    portrait: { sheet: `hero-${classId}-sheet`, frame: 0, scale: 2.5, caption: `${h.name} · ${h.role}` },
     body: [
       `HP ${h.base.maxHealth}   MP ${h.base.maxMana}   DMG ${h.base.damage}   SPD ${h.base.speed}`,
       d.origin,
@@ -88,7 +88,7 @@ function bestiaryPages(): ManualPage[] {
     return {
       icon: e.sheet,
       frame: 0,
-      scale: e.isBoss ? 1.1 : 2.0,
+      scale: e.isBoss ? 0.55 : 1.0,
       title: e.name,
       tag: `HP ${e.health}    DMG ${e.damage}    XP ${e.xp}`,
       lines: [ENEMY_DESC[id]],
@@ -172,7 +172,8 @@ export const MANUAL_PAGES: ManualPage[] = [
     body: [
       'Hit foes with elements: fire weapons BURN, magic CHILLS (slows), and critical hits SHOCK (extra damage). Big hits knock enemies back.',
       'Beware gold-glowing CHAMPIONS — tougher and harder-hitting, but they always drop strong gear.',
-      'A minimap (top-right) shows the party, altars, and the boss. Press F2 to open the save/load window.',
+      'A minimap (top-right) shows the party, altars and boss; the left-hand ADVENTURE LOG narrates your run, with live Grok "Dungeon Master" commentary when AI is connected.',
+      'Press O for Options: VIEW scales sprite size and toggles the map, AUDIO swaps the music track, ALLIES tunes companions, KEYS rebinds controls. Press F2 for the save/load window.',
       'WIN: destroy at least 3 spawning altars, slay the realm’s warden, then stand on the exit portal to descend. Hazards hurt but never trap you — keep moving.',
     ],
   },

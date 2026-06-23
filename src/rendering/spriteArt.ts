@@ -15,10 +15,10 @@ export type Facing = 'down' | 'up' | 'side';
 // Hero.ts halves its base display scale to keep on-screen size unchanged.
 export const HERO_FW = 40;
 export const HERO_FH = 48;
-export const MON_FW = 22;
-export const MON_FH = 22;
-export const BOSS_FW = 40;
-export const BOSS_FH = 40;
+export const MON_FW = 44;
+export const MON_FH = 44;
+export const BOSS_FW = 80;
+export const BOSS_FH = 80;
 
 export const R = (ctx: Ctx, x: number, y: number, w: number, h: number, c: string) => {
   ctx.fillStyle = c;
@@ -1312,228 +1312,208 @@ export function drawEdgeTint(ctx: Ctx, w: number, h: number): void {
 
 export function drawBoneArcher(ctx: Ctx, ox: number, frame: number, r: MonsterRamp): void {
   const cx = ox + MON_FW / 2;
-  const bob = frame === 1 || frame === 2 ? -1 : 0;
+  const bob = frame === 1 || frame === 2 ? -2 : 0;
   const draw = frame === 3;
-  // skull
-  R(ctx, cx - 3, 4 + bob, 6, 5, r.body2);
-  R(ctx, cx - 3, 4 + bob, 6, 1, r.body1);
-  R(ctx, cx - 2, 6 + bob, 2, 2, r.detail);
-  R(ctx, cx + 1, 6 + bob, 2, 2, r.detail);
-  PX(ctx, cx - 2, 6 + bob, r.eye);
-  PX(ctx, cx + 1, 6 + bob, r.eye);
-  R(ctx, cx - 2, 9 + bob, 4, 1, r.body1);
-  // ribcage torso
-  R(ctx, cx - 4, 10 + bob, 8, 7, r.body1);
-  R(ctx, cx - 4, 10 + bob, 8, 1, r.body2);
-  for (let i = 0; i < 3; i++) R(ctx, cx - 3, 11 + bob + i * 2, 6, 1, r.detail);
-  R(ctx, cx - 1, 11 + bob, 2, 6, r.body0);
-  // legs
-  R(ctx, cx - 3, 17 + bob, 2, 3, r.body0);
-  R(ctx, cx + 1, 17 + bob, 2, 3, r.body0);
-  // bow on the left limb
-  const bx = cx - 6;
-  R(ctx, bx, 7 + bob, 1, 11, r.accent);
-  PX(ctx, bx - 1, 8 + bob, r.accent);
-  PX(ctx, bx - 1, 16 + bob, r.accent);
-  if (draw) {
-    R(ctx, bx + 1, 12 + bob, 7, 1, '#e6dfba');
-    PX(ctx, bx + 8, 12 + bob, r.eye);
-  } else {
-    R(ctx, bx + 1, 12 + bob, 4, 1, '#e6dfba');
-  }
+  const D = 'rgba(0,0,0,0.22)';
+  R(ctx, cx - 6, 8 + bob, 12, 10, r.body2);
+  R(ctx, cx - 6, 8 + bob, 12, 2, r.body1);
+  R(ctx, cx + 4, 9 + bob, 2, 9, D);
+  R(ctx, cx - 4, 12 + bob, 4, 4, r.detail);
+  R(ctx, cx + 1, 12 + bob, 4, 4, r.detail);
+  R(ctx, cx - 3, 13 + bob, 2, 2, r.eye);
+  R(ctx, cx + 2, 13 + bob, 2, 2, r.eye);
+  R(ctx, cx - 1, 16 + bob, 2, 2, D);
+  R(ctx, cx - 4, 18 + bob, 8, 2, r.body1);
+  for (let i = 0; i < 4; i++) PX(ctx, cx - 3 + i * 2, 19 + bob, r.body2);
+  R(ctx, cx - 1, 20 + bob, 2, 14, r.body0);
+  R(ctx, cx - 8, 21 + bob, 16, 12, r.body1);
+  R(ctx, cx - 8, 21 + bob, 16, 1, r.body2);
+  R(ctx, cx + 6, 21 + bob, 2, 12, D);
+  for (let i = 0; i < 4; i++) { R(ctx, cx - 7, 23 + bob + i * 3, 6, 2, r.detail); R(ctx, cx + 1, 23 + bob + i * 3, 6, 2, r.detail); }
+  R(ctx, cx - 5, 34 + bob, 4, 6, r.body0);
+  R(ctx, cx + 1, 34 + bob, 4, 6, r.body0);
+  R(ctx, cx - 5, 34 + bob, 1, 6, r.body1);
+  const bx = cx - 12;
+  ctx.strokeStyle = r.accent; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.arc(bx + 4, 26 + bob, 12, 2.0, 4.28); ctx.stroke();
+  R(ctx, bx + 1, 16 + bob, 1, 20, '#e6dfba');
+  if (draw) { R(ctx, bx + 1, 25 + bob, 16, 2, '#e6dfba'); R(ctx, bx + 16, 24 + bob, 3, 3, r.eye); }
+  else R(ctx, bx + 1, 25 + bob, 8, 2, '#e6dfba');
 }
 
 export function drawBrute(ctx: Ctx, ox: number, frame: number, r: MonsterRamp): void {
   const cx = ox + MON_FW / 2;
-  const bob = frame === 1 ? -1 : 0;
-  const lunge = frame === 3 ? 2 : 0;
-  // hulking shoulders
-  R(ctx, cx - 7, 8 + bob, 14, 10, r.body1);
-  R(ctx, cx - 7, 8 + bob, 14, 1, r.body2);
-  R(ctx, cx - 7, 8 + bob, 2, 10, r.body2);
-  R(ctx, cx + 5, 8 + bob, 2, 10, r.body0);
-  // chest armour plate
-  R(ctx, cx - 4, 11 + bob, 8, 5, r.detail);
-  R(ctx, cx - 4, 11 + bob, 8, 1, r.accent);
-  // small sunken head + horns
-  R(ctx, cx - 3, 4 + bob, 6, 5, r.body2);
-  R(ctx, cx - 2, 6 + bob, 2, 2, r.eye);
-  R(ctx, cx + 1, 6 + bob, 2, 2, r.eye);
-  PX(ctx, cx - 4, 3 + bob, r.detail);
-  PX(ctx, cx + 3, 3 + bob, r.detail);
-  // arms + fists
-  R(ctx, cx - 9 - lunge, 12 + bob, 3, 5, r.body1);
-  R(ctx, cx + 6 + lunge, 12 + bob, 3, 5, r.body1);
-  R(ctx, cx - 9 - lunge, 16 + bob, 3, 2, r.accent);
-  R(ctx, cx + 6 + lunge, 16 + bob, 3, 2, r.accent);
-  // legs
-  R(ctx, cx - 4, 18 + bob, 3, 3, r.body0);
-  R(ctx, cx + 1, 18 + bob, 3, 3, r.body0);
-  if (frame === 3) R(ctx, cx - 2, 10 + bob, 4, 1, '#ffffff');
+  const bob = frame === 1 ? -2 : 0;
+  const lunge = frame === 3 ? 4 : 0;
+  const D = 'rgba(0,0,0,0.26)';
+  R(ctx, cx - 14, 16 + bob, 28, 20, r.body1);
+  R(ctx, cx - 14, 16 + bob, 28, 3, r.body2);
+  R(ctx, cx - 14, 16 + bob, 4, 20, r.body2);
+  R(ctx, cx + 10, 16 + bob, 4, 20, D);
+  R(ctx, cx - 8, 22 + bob, 16, 10, r.detail);
+  R(ctx, cx - 8, 22 + bob, 16, 2, r.accent);
+  for (const sx of [-6, 0, 6]) { PX(ctx, cx + sx, 24 + bob, r.accent); PX(ctx, cx + sx, 30 + bob, r.accent); }
+  R(ctx, cx - 6, 8 + bob, 12, 10, r.body2);
+  R(ctx, cx - 6, 8 + bob, 12, 1, r.body1);
+  R(ctx, cx - 4, 12 + bob, 4, 3, r.eye);
+  R(ctx, cx + 1, 12 + bob, 4, 3, r.eye);
+  R(ctx, cx - 9, 5 + bob, 3, 4, r.detail);
+  R(ctx, cx + 6, 5 + bob, 3, 4, r.detail);
+  R(ctx, cx - 4, 16 + bob, 8, 2, r.body0);
+  R(ctx, cx - 18 - lunge, 24 + bob, 6, 10, r.body1);
+  R(ctx, cx + 12 + lunge, 24 + bob, 6, 10, r.body1);
+  R(ctx, cx - 18 - lunge, 32 + bob, 6, 4, r.accent);
+  R(ctx, cx + 12 + lunge, 32 + bob, 6, 4, r.accent);
+  R(ctx, cx - 8, 36 + bob, 6, 6, r.body0);
+  R(ctx, cx + 2, 36 + bob, 6, 6, r.body0);
+  if (frame === 3) R(ctx, cx - 4, 20 + bob, 8, 2, '#ffffff');
 }
 
 export function drawImp(ctx: Ctx, ox: number, frame: number, r: MonsterRamp): void {
   const cx = ox + MON_FW / 2;
-  const bob = [0, -2, -1, -2][frame % 4];
-  const wing = frame % 2 === 0 ? 2 : 0;
-  // bat wings
-  R(ctx, cx - 7 - wing, 8 + bob, 3, 5, r.body0);
-  R(ctx, cx + 4 + wing, 8 + bob, 3, 5, r.body0);
-  PX(ctx, cx - 7 - wing, 7 + bob, r.detail);
-  PX(ctx, cx + 6 + wing, 7 + bob, r.detail);
-  // body
-  R(ctx, cx - 3, 9 + bob, 6, 6, r.body1);
-  R(ctx, cx - 3, 9 + bob, 6, 1, r.body2);
-  R(ctx, cx - 2, 11 + bob, 4, 3, r.accent);
-  // head + horns
-  R(ctx, cx - 3, 5 + bob, 6, 4, r.body2);
-  PX(ctx, cx - 3, 4 + bob, r.detail);
-  PX(ctx, cx + 2, 4 + bob, r.detail);
-  R(ctx, cx - 2, 6 + bob, 2, 1, r.eye);
-  R(ctx, cx + 1, 6 + bob, 2, 1, r.eye);
-  // tail
-  R(ctx, cx + 3, 14 + bob, 3, 1, r.body0);
-  PX(ctx, cx + 6, 13 + bob, r.accent);
-  // legs
-  R(ctx, cx - 2, 15 + bob, 2, 3, r.body0);
-  R(ctx, cx + 1, 15 + bob, 2, 3, r.body0);
+  const bob = [0, -4, -2, -4][frame % 4];
+  const wing = frame % 2 === 0 ? 4 : 0;
+  for (const s of [-1, 1]) {
+    const wx = cx + s * (8 + wing);
+    R(ctx, wx - (s < 0 ? 6 : 0), 14 + bob, 6, 10, r.body0);
+    R(ctx, wx - (s < 0 ? 6 : -4), 13 + bob, 2, 12, r.detail);
+    PX(ctx, wx + (s < 0 ? -6 : 6), 12 + bob, r.detail);
+  }
+  R(ctx, cx - 6, 18 + bob, 12, 12, r.body1);
+  R(ctx, cx - 6, 18 + bob, 12, 2, r.body2);
+  R(ctx, cx + 4, 18 + bob, 2, 12, 'rgba(0,0,0,0.22)');
+  R(ctx, cx - 4, 22 + bob, 8, 6, r.accent);
+  R(ctx, cx - 6, 9 + bob, 12, 9, r.body2);
+  R(ctx, cx - 6, 9 + bob, 12, 1, r.body1);
+  R(ctx, cx - 7, 5 + bob, 3, 5, r.detail);
+  R(ctx, cx + 4, 5 + bob, 3, 5, r.detail);
+  R(ctx, cx - 4, 12 + bob, 3, 2, r.eye);
+  R(ctx, cx + 2, 12 + bob, 3, 2, r.eye);
+  PX(ctx, cx - 3, 12 + bob, '#ffffff');
+  PX(ctx, cx + 3, 12 + bob, '#ffffff');
+  R(ctx, cx - 3, 16 + bob, 6, 1, r.detail);
+  R(ctx, cx + 5, 28 + bob, 6, 2, r.body0);
+  R(ctx, cx + 10, 26 + bob, 2, 3, r.accent);
+  R(ctx, cx - 4, 30 + bob, 3, 5, r.body0);
+  R(ctx, cx + 2, 30 + bob, 3, 5, r.body0);
 }
 
 export function drawColossus(ctx: Ctx, ox: number, frame: number, r: MonsterRamp): void {
   const cx = ox + BOSS_FW / 2;
-  const bob = [0, -1, -2, 0][frame % 4];
+  const bob = [0, -2, -4, 0][frame % 4];
   const cast = frame === 3;
-  // legs
-  R(ctx, cx - 9, 30 + bob, 6, 8, r.body0);
-  R(ctx, cx + 3, 30 + bob, 6, 8, r.body0);
-  // massive torso
-  R(ctx, cx - 12, 12 + bob, 24, 20, r.body1);
-  R(ctx, cx - 12, 12 + bob, 24, 2, r.body2);
-  R(ctx, cx - 12, 12 + bob, 3, 20, r.body2);
-  R(ctx, cx + 9, 12 + bob, 3, 20, r.body0);
-  // glowing molten fissures
-  for (let i = 0; i < 5; i++) R(ctx, cx - 9 + i * 4, 16 + bob + (i % 2) * 4, 2, 6, r.accent);
-  R(ctx, cx - 6, 22 + bob, 12, 2, C.fireCore);
-  // shoulders + arms
-  R(ctx, cx - 16, 14 + bob, 5, 10, r.body0);
-  R(ctx, cx + 11, 14 + bob, 5, 10, r.body0);
-  R(ctx, cx - 16, 23 + bob, 5, 3, r.accent);
-  R(ctx, cx + 11, 23 + bob, 5, 3, r.accent);
-  // head
-  R(ctx, cx - 5, 4 + bob, 10, 9, r.body2);
-  R(ctx, cx - 5, 4 + bob, 10, 1, '#ffffff');
-  R(ctx, cx - 4, 7 + bob, 3, 3, r.detail);
-  R(ctx, cx + 1, 7 + bob, 3, 3, r.detail);
-  R(ctx, cx - 4, 7 + bob, 3, 2, r.eye);
-  R(ctx, cx + 1, 7 + bob, 3, 2, r.eye);
-  R(ctx, cx - 3, 11 + bob, 6, 2, C.fireCore);
-  // flame crown when casting
+  const D = 'rgba(0,0,0,0.3)';
+  R(ctx, cx - 18, 60 + bob, 12, 16, r.body0);
+  R(ctx, cx + 6, 60 + bob, 12, 16, r.body0);
+  R(ctx, cx - 18, 60 + bob, 3, 16, r.body1);
+  R(ctx, cx - 24, 24 + bob, 48, 40, r.body1);
+  R(ctx, cx - 24, 24 + bob, 48, 4, r.body2);
+  R(ctx, cx - 24, 24 + bob, 6, 40, r.body2);
+  R(ctx, cx + 18, 24 + bob, 6, 40, D);
+  for (let i = 0; i < 6; i++) R(ctx, cx - 18 + i * 6, 32 + bob + (i % 2) * 8, 3, 12, r.accent);
+  R(ctx, cx - 12, 44 + bob, 24, 4, C.fireCore);
+  R(ctx, cx - 12, 44 + bob, 24, 1, '#fff4cf');
+  R(ctx, cx - 32, 28 + bob, 10, 20, r.body0);
+  R(ctx, cx + 22, 28 + bob, 10, 20, r.body0);
+  R(ctx, cx - 32, 46 + bob, 10, 6, r.accent);
+  R(ctx, cx + 22, 46 + bob, 10, 6, r.accent);
+  R(ctx, cx - 10, 8 + bob, 20, 18, r.body2);
+  R(ctx, cx - 10, 8 + bob, 20, 2, '#ffffff');
+  R(ctx, cx - 8, 14 + bob, 6, 6, r.detail);
+  R(ctx, cx + 2, 14 + bob, 6, 6, r.detail);
+  R(ctx, cx - 8, 14 + bob, 6, 4, r.eye);
+  R(ctx, cx + 2, 14 + bob, 6, 4, r.eye);
+  R(ctx, cx - 6, 22 + bob, 12, 3, C.fireCore);
+  for (let i = 0; i < 5; i++) PX(ctx, cx - 5 + i * 2.5, 23 + bob, r.body2);
   if (cast) {
-    for (let i = 0; i < 5; i++) R(ctx, cx - 5 + i * 2, 1 + bob, 1, 3, C.fireCore);
-    R(ctx, cx - 14, 18 + bob, 4, 4, r.accent);
-    R(ctx, cx + 10, 18 + bob, 4, 4, r.accent);
+    for (let i = 0; i < 7; i++) R(ctx, cx - 10 + i * 3, 2 + bob, 2, 6, C.fireCore);
+    R(ctx, cx - 30, 36 + bob, 8, 8, r.accent);
+    R(ctx, cx + 22, 36 + bob, 8, 8, r.accent);
   }
 }
 
 // --- bespoke themed monsters ------------------------------------------------
 
-// Plague Ooze — a squishing gelatinous blob (bog / toxic).
 export function drawOoze(ctx: Ctx, ox: number, frame: number, r: MonsterRamp): void {
   const cx = ox + MON_FW / 2;
-  const squish = [0, 1, 2, 1][frame % 4];
-  const w = 12 + squish;
-  const h = 12 - squish;
-  const top = 18 - h;
+  const squish = [0, 2, 4, 2][frame % 4];
+  const w = 26 + squish;
+  const h = 26 - squish;
+  const top = 38 - h;
   ctx.fillStyle = r.body1;
-  ctx.beginPath();
-  ctx.ellipse(cx, top + h / 2, w / 2, h / 2, 0, 0, Math.PI * 2);
-  ctx.fill();
+  ctx.beginPath(); ctx.ellipse(cx, top + h / 2, w / 2, h / 2, 0, 0, Math.PI * 2); ctx.fill();
   ctx.fillStyle = r.body2;
-  ctx.beginPath();
-  ctx.ellipse(cx - 1, top + h / 2 - 1, w / 2 - 2, h / 2 - 2, 0, 0, Math.PI * 2);
-  ctx.fill();
-  R(ctx, cx - 4, top + 1, 3, 2, r.accent); // sheen
-  R(ctx, cx - 3, top + h / 2, 2, 2, r.eye);
-  R(ctx, cx + 1, top + h / 2, 2, 2, r.eye);
-  PX(ctx, cx - 3, top + h / 2, r.detail);
-  PX(ctx, cx + 2, top + h / 2, r.detail);
-  PX(ctx, cx - 4, top + h, r.body0);
-  PX(ctx, cx + 4, top + h - 1, r.body0);
-  if (frame === 3) R(ctx, cx - 1, top - 2, 2, 3, r.accent); // spit
+  ctx.beginPath(); ctx.ellipse(cx - 2, top + h / 2 - 2, w / 2 - 4, h / 2 - 4, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = r.body0;
+  ctx.beginPath(); ctx.ellipse(cx, top + h - 3, w / 2 - 2, 4, 0, 0, Math.PI * 2); ctx.fill();
+  R(ctx, cx - 8, top + 3, 6, 4, r.accent);
+  R(ctx, cx - 7, top + h / 2, 5, 5, r.eye);
+  R(ctx, cx + 2, top + h / 2, 5, 5, r.eye);
+  PX(ctx, cx - 6, top + h / 2 + 1, r.detail);
+  PX(ctx, cx + 3, top + h / 2 + 1, r.detail);
+  for (const dx of [-9, -3, 5, 9]) PX(ctx, cx + dx, top + h - 1, r.body0);
+  if (frame === 3) R(ctx, cx - 2, top - 4, 4, 6, r.accent);
 }
 
-// Brass Sentinel — a boxy clockwork construct with a glowing core (clockwork).
 export function drawConstruct(ctx: Ctx, ox: number, frame: number, r: MonsterRamp): void {
   const cx = ox + MON_FW / 2;
-  const bob = frame === 1 ? -1 : 0;
+  const bob = frame === 1 ? -2 : 0;
   const fire = frame === 3;
-  R(ctx, cx - 4, 17 + bob, 3, 4, r.body0);
-  R(ctx, cx + 1, 17 + bob, 3, 4, r.body0);
-  R(ctx, cx - 5, 8 + bob, 10, 9, r.body1);
-  R(ctx, cx - 5, 8 + bob, 10, 1, r.body2);
-  R(ctx, cx - 5, 8 + bob, 1, 9, r.body2);
-  R(ctx, cx + 4, 8 + bob, 1, 9, r.body0);
-  PX(ctx, cx - 4, 9 + bob, r.accent);
-  PX(ctx, cx + 3, 9 + bob, r.accent);
-  PX(ctx, cx - 4, 15 + bob, r.accent);
-  PX(ctx, cx + 3, 15 + bob, r.accent);
-  R(ctx, cx - 2, 11 + bob, 4, 3, r.eye); // core
-  PX(ctx, cx - 1, 12 + bob, '#ffffff');
-  R(ctx, cx - 3, 3 + bob, 6, 5, r.body2); // head
-  R(ctx, cx - 2, 5 + bob, 4, 1, r.eye);
-  R(ctx, cx - 7, 9 + bob, 2, 6, r.body1); // arms
-  R(ctx, cx + 5, 9 + bob, 2, 6, r.body1);
-  if (fire) R(ctx, cx + 7, 11 + bob, 3, 1, r.eye);
+  const D = 'rgba(0,0,0,0.28)';
+  R(ctx, cx - 8, 34 + bob, 6, 8, r.body0);
+  R(ctx, cx + 2, 34 + bob, 6, 8, r.body0);
+  R(ctx, cx - 10, 16 + bob, 20, 18, r.body1);
+  R(ctx, cx - 10, 16 + bob, 20, 2, r.body2);
+  R(ctx, cx - 10, 16 + bob, 2, 18, r.body2);
+  R(ctx, cx + 8, 16 + bob, 2, 18, D);
+  for (const c of [[-8, 18], [6, 18], [-8, 30], [6, 30]]) { R(ctx, cx + c[0], bob + c[1], 2, 2, r.accent); }
+  R(ctx, cx - 4, 22 + bob, 8, 6, r.eye);
+  R(ctx, cx - 2, 24 + bob, 4, 2, '#ffffff');
+  R(ctx, cx - 6, 6 + bob, 12, 10, r.body2);
+  R(ctx, cx - 6, 6 + bob, 12, 1, r.body1);
+  R(ctx, cx - 4, 10 + bob, 8, 2, r.eye);
+  R(ctx, cx - 14, 18 + bob, 4, 12, r.body1);
+  R(ctx, cx + 10, 18 + bob, 4, 12, r.body1);
+  if (fire) R(ctx, cx + 14, 22 + bob, 6, 2, r.eye);
 }
 
-// Storm Wisp — a floating ball of energy crackling with arcs (storm).
 export function drawWisp(ctx: Ctx, ox: number, frame: number, r: MonsterRamp): void {
   const cx = ox + MON_FW / 2;
-  const bob = [0, -2, -1, -2][frame % 4];
-  const cy = 9 + bob;
-  ctx.fillStyle = r.body0;
-  ctx.beginPath();
-  ctx.ellipse(cx, cy, 6, 6, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = r.body1;
-  ctx.beginPath();
-  ctx.ellipse(cx, cy, 4.5, 4.5, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = r.body2;
-  ctx.beginPath();
-  ctx.ellipse(cx, cy, 3, 3, 0, 0, Math.PI * 2);
-  ctx.fill();
-  R(ctx, cx - 1, cy - 1, 2, 2, r.eye);
-  PX(ctx, cx - 6, cy - 3, r.accent);
-  PX(ctx, cx + 6, cy + 2, r.accent);
-  PX(ctx, cx - 5, cy + 4, r.accent);
-  PX(ctx, cx + 5, cy - 4, r.accent);
-  R(ctx, cx - 1, cy + 5, 2, 4, r.body1); // tail
-  if (frame === 3) R(ctx, cx - 1, cy - 7, 2, 3, r.eye);
+  const bob = [0, -4, -2, -4][frame % 4];
+  const cy = 18 + bob;
+  for (const [rad, col] of [[12, r.body0], [9, r.body1], [6, r.body2]] as [number, string][]) {
+    ctx.fillStyle = col; ctx.beginPath(); ctx.ellipse(cx, cy, rad, rad, 0, 0, Math.PI * 2); ctx.fill();
+  }
+  R(ctx, cx - 2, cy - 2, 4, 4, r.eye);
+  PX(ctx, cx - 1, cy - 1, '#ffffff');
+  for (const [dx, dy] of [[-12, -6], [12, 4], [-10, 8], [10, -8], [0, -13]] as [number, number][]) {
+    R(ctx, cx + dx, cy + dy, 2, 2, r.accent);
+  }
+  R(ctx, cx - 2, cy + 10, 4, 8, r.body1);
+  if (frame === 3) { R(ctx, cx - 2, cy - 16, 4, 6, r.eye); R(ctx, cx - 14, cy, 6, 2, r.accent); }
 }
 
-// Shadow Stalker — a lanky smoke-bodied prowler with glowing eyes (shadow).
 export function drawStalker(ctx: Ctx, ox: number, frame: number, r: MonsterRamp): void {
   const cx = ox + MON_FW / 2;
-  const bob = frame === 1 ? -1 : 0;
-  const lunge = frame === 3 ? 2 : 0;
+  const bob = frame === 1 ? -2 : 0;
+  const lunge = frame === 3 ? 4 : 0;
   ctx.fillStyle = r.body1;
-  ctx.beginPath();
-  ctx.ellipse(cx, 12 + bob, 5, 7, 0, 0, Math.PI * 2);
-  ctx.fill();
+  ctx.beginPath(); ctx.ellipse(cx, 24 + bob, 10, 14, 0, 0, Math.PI * 2); ctx.fill();
   ctx.fillStyle = r.body0;
-  ctx.beginPath();
-  ctx.ellipse(cx, 15 + bob, 6, 5, 0, 0, Math.PI * 2);
-  ctx.fill();
-  R(ctx, cx - 3, 5 + bob, 6, 5, r.body2); // head
-  R(ctx, cx - 2, 7 + bob, 1, 1, r.eye);
-  R(ctx, cx + 1, 7 + bob, 1, 1, r.eye);
-  R(ctx, cx - 6 - lunge, 11 + bob, 2, 4, r.accent); // claws
-  R(ctx, cx + 4 + lunge, 11 + bob, 2, 4, r.accent);
-  R(ctx, cx - 3, 18 + bob, 2, 3, r.body0); // legs
-  R(ctx, cx + 1, 18 + bob, 2, 3, r.body0);
-  PX(ctx, cx - 5, 9 + bob, r.detail);
-  PX(ctx, cx + 5, 13 + bob, r.detail);
+  ctx.beginPath(); ctx.ellipse(cx, 30 + bob, 12, 10, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = r.body2;
+  ctx.beginPath(); ctx.ellipse(cx, 14 + bob, 7, 8, 0, 0, Math.PI * 2); ctx.fill();
+  R(ctx, cx - 4, 12 + bob, 3, 2, r.eye);
+  R(ctx, cx + 2, 12 + bob, 3, 2, r.eye);
+  PX(ctx, cx - 3, 12 + bob, '#ffffff');
+  PX(ctx, cx + 3, 12 + bob, '#ffffff');
+  R(ctx, cx - 13 - lunge, 22 + bob, 4, 9, r.accent);
+  R(ctx, cx + 9 + lunge, 22 + bob, 4, 9, r.accent);
+  R(ctx, cx - 14 - lunge, 30 + bob, 3, 3, r.accent);
+  R(ctx, cx + 11 + lunge, 30 + bob, 3, 3, r.accent);
+  R(ctx, cx - 5, 36 + bob, 3, 6, r.body0);
+  R(ctx, cx + 2, 36 + bob, 3, 6, r.body0);
+  for (const [dx, dy] of [[-10, 18], [10, 22], [0, 6]] as [number, number][]) PX(ctx, cx + dx, dy + bob, r.detail);
 }
 
 export function drawRadialLight(ctx: Ctx, w: number, h: number, inner = 'rgba(255,206,130,0.95)', outer = 'rgba(255,150,40,0)'): void {
@@ -1877,129 +1857,126 @@ export function drawHumanoid(
 // ============================================================================
 export function drawGrunt(ctx: Ctx, ox: number, frame: number, r: MonsterRamp): void {
   const cx = ox + MON_FW / 2;
-  const bob = frame === 1 ? -1 : frame === 3 ? 1 : 0;
-  const lunge = frame === 3 ? 2 : 0;
-  R(ctx, cx - 5, 8 + bob, 10, 9, r.body1);
-  R(ctx, cx - 5, 8 + bob, 10, 1, r.body2);
-  R(ctx, cx - 5, 8 + bob, 2, 9, r.body2);
-  R(ctx, cx + 3, 8 + bob, 2, 9, r.body0);
-  R(ctx, cx - 2, 11 + bob, 4, 4, r.accent);
-  R(ctx, cx - 5, 5 + bob, 2, 3, r.detail);
-  R(ctx, cx + 3, 5 + bob, 2, 3, r.detail);
-  PX(ctx, cx - 5, 4 + bob, r.body0);
-  PX(ctx, cx + 4, 4 + bob, r.body0);
-  R(ctx, cx - 3, 6 + bob, 6, 4, r.body1);
-  R(ctx, cx - 2, 7 + bob, 2, 2, r.eye);
-  R(ctx, cx + 1, 7 + bob, 2, 2, r.eye);
-  PX(ctx, cx - 2, 7 + bob, '#ffffff');
-  PX(ctx, cx + 1, 7 + bob, '#ffffff');
+  const bob = frame === 1 ? -2 : frame === 3 ? 2 : 0;
+  const lunge = frame === 3 ? 4 : 0;
+  const D = 'rgba(0,0,0,0.24)';
+  R(ctx, cx - 10, 16 + bob, 20, 18, r.body1);
+  R(ctx, cx - 10, 16 + bob, 20, 2, r.body2);
+  R(ctx, cx - 10, 16 + bob, 4, 18, r.body2);
+  R(ctx, cx + 6, 16 + bob, 4, 18, D);
+  R(ctx, cx - 4, 22 + bob, 8, 8, r.accent);
+  R(ctx, cx - 4, 22 + bob, 8, 1, r.detail);
+  R(ctx, cx - 10, 10 + bob, 5, 6, r.detail);
+  R(ctx, cx + 6, 10 + bob, 5, 6, r.detail);
+  PX(ctx, cx - 10, 8 + bob, r.body0);
+  PX(ctx, cx + 9, 8 + bob, r.body0);
+  R(ctx, cx - 6, 12 + bob, 12, 8, r.body1);
+  R(ctx, cx - 6, 12 + bob, 12, 1, r.body2);
+  R(ctx, cx - 4, 14 + bob, 4, 4, r.eye);
+  R(ctx, cx + 1, 14 + bob, 4, 4, r.eye);
+  PX(ctx, cx - 3, 15 + bob, '#ffffff');
+  PX(ctx, cx + 2, 15 + bob, '#ffffff');
   if (frame === 3) {
-    R(ctx, cx - 2, 10 + bob, 4, 1, '#1a0a0a');
-    PX(ctx, cx - 2, 10 + bob, '#ffffff');
-    PX(ctx, cx + 1, 10 + bob, '#ffffff');
+    R(ctx, cx - 4, 19 + bob, 8, 2, '#1a0a0a');
+    for (let i = 0; i < 4; i++) PX(ctx, cx - 3 + i * 2, 20 + bob, '#ffffff');
   }
-  R(ctx, cx - 4, 17 + bob, 3, 3, r.body0);
-  R(ctx, cx + 1, 17 + bob, 3, 3, r.body0);
-  R(ctx, cx - 6 - lunge, 10 + bob, 2, 4, r.body1);
-  R(ctx, cx + 4 + lunge, 10 + bob, 2, 4, r.body1);
-  PX(ctx, cx - 6 - lunge, 14 + bob, r.accent);
-  PX(ctx, cx + 5 + lunge, 14 + bob, r.accent);
+  R(ctx, cx - 8, 34 + bob, 6, 6, r.body0);
+  R(ctx, cx + 2, 34 + bob, 6, 6, r.body0);
+  R(ctx, cx - 12 - lunge, 20 + bob, 4, 9, r.body1);
+  R(ctx, cx + 8 + lunge, 20 + bob, 4, 9, r.body1);
+  R(ctx, cx - 12 - lunge, 28 + bob, 4, 2, r.accent);
+  R(ctx, cx + 8 + lunge, 28 + bob, 4, 2, r.accent);
 }
 
 export function drawGhost(ctx: Ctx, ox: number, frame: number, r: MonsterRamp): void {
   const cx = ox + MON_FW / 2;
-  const bob = [0, -1, -2, -1][frame % 4];
+  const bob = [0, -2, -4, -2][frame % 4];
   ctx.globalAlpha = 0.92;
-  R(ctx, cx - 5, 6 + bob, 10, 9, r.body1);
-  R(ctx, cx - 4, 4 + bob, 8, 3, r.body1);
-  R(ctx, cx - 3, 3 + bob, 6, 2, r.body2);
-  R(ctx, cx - 5, 6 + bob, 2, 9, r.body2);
-  R(ctx, cx + 3, 6 + bob, 2, 9, r.body0);
+  R(ctx, cx - 10, 12 + bob, 20, 18, r.body1);
+  R(ctx, cx - 8, 8 + bob, 16, 6, r.body1);
+  R(ctx, cx - 6, 6 + bob, 12, 4, r.body2);
+  R(ctx, cx - 10, 12 + bob, 4, 18, r.body2);
+  R(ctx, cx + 6, 12 + bob, 4, 18, 'rgba(0,0,0,0.2)');
+  R(ctx, cx - 5, 12 + bob, 10, 8, 'rgba(0,0,0,0.45)');
+  R(ctx, cx - 5, 14 + bob, 4, 3, r.detail);
+  R(ctx, cx + 1, 14 + bob, 4, 3, r.detail);
+  R(ctx, cx - 4, 14 + bob, 2, 2, r.eye);
+  R(ctx, cx + 2, 14 + bob, 2, 2, r.eye);
+  PX(ctx, cx - 5, 9 + bob, r.accent);
   const phase = frame % 4;
-  for (let i = 0; i < 5; i++) {
-    const wob = ((i + phase) % 2) * 2;
-    R(ctx, cx - 5 + i * 2, 15 + bob - wob, 2, 3 + wob, r.body1);
+  for (let i = 0; i < 6; i++) {
+    const wob = ((i + phase) % 2) * 4;
+    R(ctx, cx - 10 + i * 4, 30 + bob - wob, 4, 6 + wob, r.body1);
   }
-  R(ctx, cx - 3, 7 + bob, 2, 3, r.detail);
-  R(ctx, cx + 1, 7 + bob, 2, 3, r.detail);
-  R(ctx, cx - 3, 7 + bob, 2, 1, r.eye);
-  R(ctx, cx + 1, 7 + bob, 2, 1, r.eye);
-  PX(ctx, cx - 3, 5 + bob, r.accent);
   ctx.globalAlpha = 1;
 }
 
 export function drawDemon(ctx: Ctx, ox: number, frame: number, r: MonsterRamp): void {
   const cx = ox + MON_FW / 2;
-  const bob = frame === 1 ? -1 : frame === 2 ? -1 : 0;
-  const wing = frame === 3 ? 2 : frame === 1 ? 1 : 0;
-  R(ctx, cx - 8 - wing, 7 + bob, 3, 6, r.body0);
-  R(ctx, cx + 5 + wing, 7 + bob, 3, 6, r.body0);
-  R(ctx, cx - 8 - wing, 7 + bob, 1, 6, r.detail);
-  R(ctx, cx + 7 + wing, 7 + bob, 1, 6, r.detail);
-  R(ctx, cx - 5, 8 + bob, 10, 9, r.body1);
-  R(ctx, cx - 5, 8 + bob, 2, 9, r.body2);
-  R(ctx, cx + 3, 8 + bob, 2, 9, r.body0);
-  R(ctx, cx - 2, 11 + bob, 4, 4, r.accent);
-  PX(ctx, cx, 12 + bob, C.fireCore);
-  R(ctx, cx - 5, 4 + bob, 2, 4, r.detail);
-  R(ctx, cx + 3, 4 + bob, 2, 4, r.detail);
-  PX(ctx, cx - 6, 3 + bob, r.detail);
-  PX(ctx, cx + 5, 3 + bob, r.detail);
-  R(ctx, cx - 3, 6 + bob, 6, 4, r.body1);
-  R(ctx, cx - 2, 7 + bob, 2, 2, r.eye);
-  R(ctx, cx + 1, 7 + bob, 2, 2, r.eye);
-  PX(ctx, cx - 2, 7 + bob, '#fff');
-  PX(ctx, cx + 1, 7 + bob, '#fff');
-  R(ctx, cx - 4, 17 + bob, 3, 3, r.body0);
-  R(ctx, cx + 1, 17 + bob, 3, 3, r.body0);
-  R(ctx, cx + 4, 15 + bob, 3, 1, r.body0);
-  PX(ctx, cx + 7, 15 + bob, r.accent);
-  if (frame === 3) {
-    R(ctx, cx - 2, 10 + bob, 4, 1, '#1a0000');
-    PX(ctx, cx - 2, 10 + bob, '#fff');
-    PX(ctx, cx + 1, 10 + bob, '#fff');
+  const bob = frame === 1 || frame === 2 ? -2 : 0;
+  const wing = frame === 3 ? 4 : frame === 1 ? 2 : 0;
+  const D = 'rgba(0,0,0,0.24)';
+  for (const s of [-1, 1]) {
+    const wx = cx + s * (10 + wing);
+    R(ctx, wx - (s < 0 ? 6 : 0), 12 + bob, 6, 12, r.body0);
+    R(ctx, wx - (s < 0 ? 6 : -4), 11 + bob, 2, 14, r.detail);
   }
+  R(ctx, cx - 10, 16 + bob, 20, 18, r.body1);
+  R(ctx, cx - 10, 16 + bob, 4, 18, r.body2);
+  R(ctx, cx + 6, 16 + bob, 4, 18, D);
+  R(ctx, cx - 4, 22 + bob, 8, 8, r.accent);
+  R(ctx, cx - 1, 25 + bob, 3, 3, C.fireCore);
+  R(ctx, cx - 10, 8 + bob, 4, 7, r.detail);
+  R(ctx, cx + 6, 8 + bob, 4, 7, r.detail);
+  PX(ctx, cx - 11, 6 + bob, r.detail);
+  PX(ctx, cx + 10, 6 + bob, r.detail);
+  R(ctx, cx - 6, 11 + bob, 12, 8, r.body2);
+  R(ctx, cx - 6, 11 + bob, 12, 1, r.body1);
+  R(ctx, cx - 4, 14 + bob, 4, 3, r.eye);
+  R(ctx, cx + 1, 14 + bob, 4, 3, r.eye);
+  PX(ctx, cx - 3, 15 + bob, '#fff');
+  PX(ctx, cx + 2, 15 + bob, '#fff');
+  R(ctx, cx - 8, 34 + bob, 6, 6, r.body0);
+  R(ctx, cx + 2, 34 + bob, 6, 6, r.body0);
+  R(ctx, cx + 8, 30 + bob, 6, 2, r.body0);
+  R(ctx, cx + 13, 28 + bob, 2, 3, r.accent);
+  if (frame === 3) { R(ctx, cx - 4, 19 + bob, 8, 2, '#1a0000'); for (let i = 0; i < 4; i++) PX(ctx, cx - 3 + i * 2, 20 + bob, '#fff'); }
 }
 
 export function drawBoss(ctx: Ctx, ox: number, frame: number, r: MonsterRamp): void {
   const cx = ox + BOSS_FW / 2;
-  const bob = [0, -1, -2, 0][frame % 4];
+  const bob = [0, -2, -4, 0][frame % 4];
   const cast = frame === 3;
-  R(ctx, cx - 12, 12 + bob, 24, 22, r.body0);
-  R(ctx, cx - 12, 12 + bob, 2, 22, r.body1);
-  R(ctx, cx + 10, 12 + bob, 2, 22, r.detail);
-  for (let i = 0; i < 6; i++) {
-    const h = (i % 2) * 3;
-    R(ctx, cx - 12 + i * 4, 32 + bob - h, 3, 4 + h, r.body0);
-  }
-  R(ctx, cx - 7, 14 + bob, 14, 14, r.body1);
-  R(ctx, cx - 7, 14 + bob, 14, 1, r.body2);
-  for (let i = 0; i < 4; i++) R(ctx, cx - 6, 17 + bob + i * 2, 12, 1, r.detail);
-  R(ctx, cx - 3, 18 + bob, 6, 6, r.accent);
-  R(ctx, cx - 1, 20 + bob, 2, 2, C.portalCore);
-  R(ctx, cx - 11, 13 + bob, 5, 4, r.body0);
-  R(ctx, cx + 6, 13 + bob, 5, 4, r.body0);
-  R(ctx, cx - 11, 11 + bob, 2, 3, r.detail);
-  R(ctx, cx + 9, 11 + bob, 2, 3, r.detail);
-  R(ctx, cx - 5, 4 + bob, 10, 9, '#d8dce8');
-  R(ctx, cx - 5, 4 + bob, 10, 1, '#ffffff');
-  R(ctx, cx - 4, 7 + bob, 3, 3, r.detail);
-  R(ctx, cx + 1, 7 + bob, 3, 3, r.detail);
-  R(ctx, cx - 4, 7 + bob, 3, 2, r.eye);
-  R(ctx, cx + 1, 7 + bob, 3, 2, r.eye);
-  R(ctx, cx - 3, 11 + bob, 6, 2, '#9aa0b4');
-  for (let i = 0; i < 5; i++) PX(ctx, cx - 2 + i, 12 + bob, r.detail);
-  R(ctx, cx - 5, 2 + bob, 10, 2, C.coinMid);
-  R(ctx, cx - 5, 1 + bob, 1, 2, C.coinHi);
-  R(ctx, cx - 1, 0 + bob, 2, 2, C.coinHi);
-  R(ctx, cx + 4, 1 + bob, 1, 2, C.coinHi);
-  PX(ctx, cx, 1 + bob, C.gem);
-  const ay = cast ? 6 : 10;
-  R(ctx, cx + 9, ay + bob, 2, 14, r.body1);
-  R(ctx, cx + 7, ay - 2 + bob, 6, 2, '#aeb6cc');
-  R(ctx, cx + 12, ay - 4 + bob, 2, 4, '#dfe6ff');
-  if (cast) {
-    R(ctx, cx - 14, 16 + bob, 4, 4, r.accent);
-    PX(ctx, cx - 13, 17 + bob, C.portalCore);
-  }
+  const D = 'rgba(0,0,0,0.3)';
+  R(ctx, cx - 24, 24 + bob, 48, 44, r.body0);
+  R(ctx, cx - 24, 24 + bob, 4, 44, r.body1);
+  R(ctx, cx + 20, 24 + bob, 4, 44, D);
+  for (let i = 0; i < 7; i++) { const h = (i % 2) * 6; R(ctx, cx - 24 + i * 7, 64 + bob - h, 6, 8 + h, r.body0); }
+  R(ctx, cx - 14, 28 + bob, 28, 28, r.body1);
+  R(ctx, cx - 14, 28 + bob, 28, 2, r.body2);
+  for (let i = 0; i < 4; i++) R(ctx, cx - 12, 34 + bob + i * 4, 24, 2, r.detail);
+  R(ctx, cx - 6, 36 + bob, 12, 12, r.accent);
+  R(ctx, cx - 3, 40 + bob, 6, 4, C.portalCore);
+  R(ctx, cx - 22, 26 + bob, 10, 8, r.body0);
+  R(ctx, cx + 12, 26 + bob, 10, 8, r.body0);
+  R(ctx, cx - 22, 22 + bob, 4, 6, r.detail);
+  R(ctx, cx + 18, 22 + bob, 4, 6, r.detail);
+  R(ctx, cx - 10, 8 + bob, 20, 18, '#d8dce8');
+  R(ctx, cx - 10, 8 + bob, 20, 2, '#ffffff');
+  R(ctx, cx - 8, 14 + bob, 6, 6, r.detail);
+  R(ctx, cx + 2, 14 + bob, 6, 6, r.detail);
+  R(ctx, cx - 8, 14 + bob, 6, 4, r.eye);
+  R(ctx, cx + 2, 14 + bob, 6, 4, r.eye);
+  R(ctx, cx - 6, 22 + bob, 12, 3, '#9aa0b4');
+  for (let i = 0; i < 6; i++) PX(ctx, cx - 5 + i * 2, 23 + bob, r.detail);
+  R(ctx, cx - 10, 4 + bob, 20, 4, C.coinMid);
+  R(ctx, cx - 10, 2 + bob, 2, 4, C.coinHi);
+  R(ctx, cx - 2, 0 + bob, 4, 4, C.coinHi);
+  R(ctx, cx + 8, 2 + bob, 2, 4, C.coinHi);
+  PX(ctx, cx, 2 + bob, C.gem);
+  const ay = cast ? 10 : 18;
+  R(ctx, cx + 18, ay + bob, 4, 28, r.body1);
+  R(ctx, cx + 14, ay - 4 + bob, 12, 4, '#aeb6cc');
+  R(ctx, cx + 24, ay - 8 + bob, 4, 8, '#dfe6ff');
+  if (cast) { R(ctx, cx - 28, 32 + bob, 8, 8, r.accent); R(ctx, cx - 26, 34 + bob, 4, 4, C.portalCore); }
 }

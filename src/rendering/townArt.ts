@@ -194,3 +194,65 @@ export function drawDog(ctx: Ctx): void {
   R(ctx, 3, 8, 1, 3, body); // tail
   PX(ctx, 3, 7, hi);
 }
+
+const TF_SKIN = ['#caa07a', '#b07a4e', '#d8b48c', '#9a6e4a', '#c89a6a', '#9a6e4a', '#caa07a'];
+const TF_ROBE = ['#7a5a3a', '#3a6a3a', '#cfc4a0', '#465566', '#5a3a7a', '#42305a', '#8a6a3a'];
+const TF_ROBE_HI = ['#9a7a52', '#56965a', '#e8e0c0', '#6a7688', '#7a5a9a', '#5a4080', '#a8865a'];
+
+export function drawTownsfolk(ctx: Ctx, ox: number, oy: number, variant: number): void {
+  const v = ((variant % 7) + 7) % 7;
+  const cx = ox + 14;
+  const skin = TF_SKIN[v];
+  const robe = TF_ROBE[v];
+  const robeHi = TF_ROBE_HI[v];
+  const SH = 'rgba(0,0,0,0.18)';
+  R(ctx, cx - 4, oy + 26, 3, 6, '#3a2c1c');
+  R(ctx, cx + 1, oy + 26, 3, 6, '#3a2c1c');
+  R(ctx, cx - 4, oy + 31, 3, 2, '#1a120a');
+  R(ctx, cx + 1, oy + 31, 3, 2, '#1a120a');
+  R(ctx, cx - 6, oy + 14, 12, 14, robe);
+  R(ctx, cx - 6, oy + 14, 12, 2, robeHi);
+  R(ctx, cx - 6, oy + 14, 2, 14, robeHi);
+  R(ctx, cx + 4, oy + 14, 2, 14, SH);
+  R(ctx, cx - 8, oy + 15, 2, 9, robe);
+  R(ctx, cx + 6, oy + 15, 2, 9, robe);
+  R(ctx, cx - 8, oy + 23, 2, 2, skin);
+  R(ctx, cx + 6, oy + 23, 2, 2, skin);
+  R(ctx, cx - 4, oy + 5, 8, 9, skin);
+  R(ctx, cx - 4, oy + 5, 8, 1, '#e6c89a');
+  R(ctx, cx + 2, oy + 6, 1, 7, SH);
+  PX(ctx, cx - 2, oy + 9, '#2a1c10');
+  PX(ctx, cx + 1, oy + 9, '#2a1c10');
+  if (v === 0) {
+    R(ctx, cx - 5, oy + 3, 10, 3, '#8a8a92');
+    R(ctx, cx - 6, oy + 13, 13, 2, '#8a8a92');
+    R(ctx, cx + 6, oy + 22, 4, 4, '#5a3a1c');
+    PX(ctx, cx + 6, oy + 22, '#e0457a'); PX(ctx, cx + 8, oy + 22, '#ffd24a'); PX(ctx, cx + 9, oy + 21, '#7a5aff');
+  } else if (v === 1) {
+    R(ctx, cx - 5, oy + 2, 10, 3, '#243a24'); R(ctx, cx - 7, oy + 4, 14, 2, '#243a24');
+    R(ctx, cx + 6, oy + 17, 2, 7, '#e8e0c0');
+  } else if (v === 2) {
+    R(ctx, cx - 5, oy + 3, 10, 6, robeHi);
+    R(ctx, cx - 5, oy + 3, 10, 1, '#fff4cf');
+    R(ctx, cx - 6, oy + 6, 1, 6, robe); R(ctx, cx + 5, oy + 6, 1, 6, robe);
+    R(ctx, cx - 10, oy + 6, 2, 22, '#5a3a1c');
+    PX(ctx, cx - 10, oy + 5, '#cfa64e');
+  } else if (v === 3) {
+    R(ctx, cx - 4, oy + 3, 8, 3, '#8b94a8'); R(ctx, cx - 4, oy + 3, 8, 1, '#dfe6ff');
+    R(ctx, cx - 5, oy + 5, 1, 3, '#8b94a8'); R(ctx, cx + 4, oy + 5, 1, 3, '#8b94a8');
+    R(ctx, cx + 9, oy + 1, 2, 28, '#6e4a24'); R(ctx, cx + 8, oy, 4, 4, '#cfd6ff');
+  } else if (v === 4) {
+    R(ctx, cx - 5, oy + 2, 10, 3, '#7a2a4a'); PX(ctx, cx + 5, oy, '#ffd24a'); PX(ctx, cx + 5, oy + 1, '#ffd24a');
+    R(ctx, cx - 12, oy + 16, 6, 8, '#8a5a2a'); R(ctx, cx - 12, oy + 16, 6, 1, '#b07a3a');
+    R(ctx, cx - 8, oy + 11, 1, 6, '#6e4a24');
+  } else if (v === 5) {
+    R(ctx, cx - 6, oy + 2, 12, 9, robe);
+    R(ctx, cx - 4, oy + 8, 8, 4, 'rgba(0,0,0,0.55)');
+    PX(ctx, cx - 2, oy + 10, '#c79bff'); PX(ctx, cx + 1, oy + 10, '#c79bff');
+  } else {
+    R(ctx, cx - 4, oy + 4, 8, 2, '#6a4a2a'); R(ctx, cx - 4, oy + 4, 1, 4, '#6a4a2a'); R(ctx, cx + 3, oy + 4, 1, 4, '#6a4a2a');
+    R(ctx, cx - 5, oy + 17, 10, 9, '#b89a6a'); R(ctx, cx - 5, oy + 17, 10, 1, '#cdb488');
+    R(ctx, cx + 3, oy + 20, 3, 3, '#7a5a2a'); PX(ctx, cx + 4, oy + 21, '#ffd24a');
+  }
+}
+

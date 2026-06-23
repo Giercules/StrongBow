@@ -57,11 +57,13 @@ export class Monster extends Phaser.Physics.Arcade.Sprite {
     scene.add.existing(this);
     scene.physics.add.existing(this);
     this.setOrigin(0.5, 0.82);
-    const scale = (this.def.scale ?? 1) * 1.12 * settings.spriteScale(); // beefier sprites; body scales with it
+    const scale = (this.def.scale ?? 1) * 0.56 * settings.spriteScale();
     this.setScale(scale);
     const body = this.body as ArcadeBody;
-    body.setSize(12 * scale, 10 * scale);
-    body.setOffset((this.width - 12 * scale) / 2, this.height * 0.55);
+    const bw = this.width * 0.42;
+    const bh = this.height * 0.4;
+    body.setSize(bw, bh);
+    body.setOffset((this.width - bw) / 2, this.height * 0.42);
     this.setDepth(y);
     this.play(`${enemyId}-walk`);
     if (this.isBoss) this.setTint(0xffffff);
