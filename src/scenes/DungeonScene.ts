@@ -276,6 +276,7 @@ export class DungeonScene extends Phaser.Scene {
   }[] = [];
   private portals: { sprite: Phaser.GameObjects.Sprite; realmId: string; label: string; x: number; y: number }[] = [];
   private doors: { x: number; y: number; interiorId: string; label: string }[] = [];
+  private returnPortal: { x: number; y: number } | null = null;
   private merchants: { sprite: Phaser.GameObjects.Sprite; shop: ShopKind; label: string; x: number; y: number }[] = [];
   private townLife: Phaser.GameObjects.Sprite[] = [];
 
@@ -318,6 +319,11 @@ export class DungeonScene extends Phaser.Scene {
         this.registry.remove('townReturn');
       }
     }
+    const dret = this.registry.get('dungeonReturnTile') as { x: number; y: number } | undefined;
+    if (dret && !this.level.town) {
+      this.startTile = { x: dret.x, y: dret.y };
+      this.registry.remove('dungeonReturnTile');
+    }
     this.createHeroes();
     this.createCompanions();
     const carry = this.registry.get('carryParty') as SaveAlly[] | undefined;
@@ -335,6 +341,7 @@ export class DungeonScene extends Phaser.Scene {
         if (mp) p.inventory.add(mp);
       }
     }
+    if (this.level.id === 'town' && this.registry.get('cameByPortal')) this.spawnReturnPortal();
     this.setupColliders();
     this.flow = new FlowField(this.level.width, this.level.height, (x, y) => this.isWalkable(x, y));
 
@@ -505,6 +512,7 @@ export class DungeonScene extends Phaser.Scene {
     this.portals = [];
     this.merchants = [];
     this.doors = [];
+    this.returnPortal = null;
   }
 
   private tileCenter(tx: number, ty: number): { x: number; y: number } {
@@ -2245,6 +2253,12 @@ export class DungeonScene extends Phaser.Scene {
     if (cheats.goldMult > 0 && !m.isBoss && Math.random() < 0.45) {
       this.spawnCoin(m.x, m.y, Math.max(1, Math.round((2 + m.def.xp * 0.4) * cheats.goldMult)));
     }
+    // rare scroll drop
+    if (!m.isBoss && Math.random() < 0.022 * cheats.lootMult) {
+      const sid = ['town_portal_scroll', 'scroll_mending', 'scroll_renewal'][Math.floor(Math.random() * 3)];
+      const sc = Content.item(sid);
+      if (sc) this.spawnLootPickup(m.x, m.y, sc);
+    }
   }
 
   /** Drop a collectable coin pickup worth `amount` gold. */
@@ -2612,6 +2626,13 @@ export class DungeonScene extends Phaser.Scene {
       this.useMerchant(bestM, player);
       return true;
     }
+    if (this.returnPortal) {
+      const rc = this.tileCenter(this.returnPortal.x, this.returnPortal.y);
+      if (Phaser.Math.Distance.Between(player.x, player.y, rc.x, rc.y) < 32) {
+        this.useReturnPortal();
+        return true;
+      }
+    }
     let bestD: (typeof this.doors)[number] | null = null;
     let bdd = 42;
     for (const dr of this.doors) {
@@ -2649,9 +2670,98 @@ export class DungeonScene extends Phaser.Scene {
     this.registry.set('twoPlayer', this.twoPlayer);
     this.registry.set('fromTown', true);
     this.registry.set('hireSpent', true); // hired allies lapse once you return to town
+    this.registry.remove('cameByPortal');
+    this.registry.remove('portalReturn');
     this.registry.remove('loadSave');
     this.cameras.main.fadeOut(700, 0, 0, 0);
     this.time.delayedCall(900, () => {
+      this.scene.stop('HudScene');
+      this.scene.start('DungeonScene');
+    });
+  }
+
+  /** Use a scroll from the inventory. Town Portal teleports home (and back);
+   *  mending/renewal restore the party. */
+  useScroll(item: ItemDefinition): void {
+    const player = this.players.find((p) => p.alive) ?? this.players[0];
+    if (!player) return;
+    if (item.scroll === 'town_portal') {
+      if (this.level.town || this.level.interior) {
+        this.showBark('A Town Portal only opens from within the depths.', 3000, 'system');
+        return;
+      }
+      player.inventory.consume(item);
+      this.castTownPortal(player);
+      return;
+    }
+    player.inventory.consume(item);
+    if (item.scroll === 'mending') {
+      for (const a of this.allies) if (a.alive) a.heal(a.stats.maxHealth);
+      this.showBark('A Scroll of Mending knits the party whole.', 2600, 'loot');
+    } else if (item.scroll === 'renewal') {
+      for (const a of this.allies) if (a.alive) a.restoreMana(a.stats.maxMana);
+      this.showBark('A Scroll of Renewal floods the party with mana.', 2600, 'loot');
+    }
+    audio.sfx('potion');
+  }
+
+  /** Tear a portal home: remember this spot, then load town with a return gate. */
+  private castTownPortal(player: Hero): void {
+    if (this.won) return;
+    this.won = true;
+    audio.sfx('portal');
+    this.showBark('You tear a portal home to Hearthwatch...', 2600, 'event');
+    this.registry.set('portalReturn', {
+      levelId: this.level.id,
+      tile: { x: Math.round(player.x / TILE_SIZE), y: Math.round(player.y / TILE_SIZE) },
+      fromTown: this.registry.get('fromTown') ?? false,
+      unlockedRealms: this.unlockedRealms(),
+    });
+    this.registry.set('cameByPortal', true);
+    this.registry.set('carryParty', this.players.map((a) => this.allyToSave(a)));
+    this.registry.set('levelId', 'town');
+    this.registry.set('twoPlayer', this.twoPlayer);
+    this.registry.set('fromTown', false);
+    this.registry.remove('loadSave');
+    this.cameras.main.fadeOut(600, 0, 0, 0);
+    this.time.delayedCall(750, () => {
+      this.scene.stop('HudScene');
+      this.scene.start('DungeonScene');
+    });
+  }
+
+  /** A shimmering gate in town back down to where the portal was cast. */
+  private spawnReturnPortal(): void {
+    const x = 50;
+    const y = 49;
+    const c = this.tileCenter(x, y);
+    const spr = this.add.sprite(c.x, c.y, 'portal-sheet').setDepth(c.y).setScale(1.6).setTint(0x7fd0ff);
+    spr.play('portal');
+    this.add.image(c.x, c.y, 'fx-glow-white').setScale(2.4).setAlpha(0.5).setBlendMode(Phaser.BlendModes.ADD).setDepth(c.y - 1).setTint(0x7fd0ff);
+    this.add
+      .text(c.x, c.y - 24, 'Return to the depths', { fontFamily: 'MedievalSharp, "Trebuchet MS", cursive', fontSize: '10px', color: '#bfe6ff', align: 'center', stroke: '#000', strokeThickness: 3 })
+      .setOrigin(0.5)
+      .setDepth(c.y + 40);
+    this.returnPortal = { x, y };
+  }
+
+  /** Step back through the town portal to the remembered dungeon spot. */
+  private useReturnPortal(): void {
+    const ret = this.registry.get('portalReturn') as { levelId: string; tile: { x: number; y: number }; fromTown: boolean; unlockedRealms: number } | undefined;
+    if (!ret || this.won) return;
+    this.won = true;
+    audio.sfx('portal');
+    this.showBark('You step back through the portal into the depths...', 2600, 'event');
+    this.registry.set('carryParty', this.players.map((a) => this.allyToSave(a)));
+    this.registry.set('levelId', ret.levelId);
+    this.registry.set('fromTown', ret.fromTown);
+    this.registry.set('unlockedRealms', ret.unlockedRealms);
+    this.registry.set('dungeonReturnTile', ret.tile);
+    this.registry.remove('cameByPortal');
+    this.registry.remove('portalReturn');
+    this.registry.remove('loadSave');
+    this.cameras.main.fadeOut(600, 0, 0, 0);
+    this.time.delayedCall(750, () => {
       this.scene.stop('HudScene');
       this.scene.start('DungeonScene');
     });

@@ -1203,6 +1203,16 @@ export function drawIconBoots(ctx: Ctx): void {
   R(ctx, 5, 5, 5, 1, dk); PX(ctx, 6, 3, '#caa46a');
 }
 
+export function drawIconScroll(ctx: Ctx): void {
+  const p = '#e8dcb0', pHi = '#f6efd0', pDk = '#bcaa78', rib = '#b03030';
+  R(ctx, 4, 3, 8, 10, p);
+  R(ctx, 4, 3, 8, 1, pHi);
+  R(ctx, 3, 2, 10, 2, pDk); R(ctx, 3, 2, 10, 1, p);
+  R(ctx, 3, 12, 10, 2, pDk); R(ctx, 3, 13, 10, 1, p);
+  R(ctx, 6, 6, 4, 1, pDk); R(ctx, 6, 8, 5, 1, pDk); R(ctx, 6, 10, 3, 1, pDk);
+  R(ctx, 7, 1, 2, 14, rib); PX(ctx, 7, 7, '#ff6a6a');
+}
+
 // ============================================================================
 // FX
 // ============================================================================

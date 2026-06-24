@@ -49,6 +49,9 @@ const STOCK: Record<Exclude<ShopKind, 'home' | 'guild'>, StockEntry[]> = {
   apothecary: [
     { id: 'health_potion', price: 30 },
     { id: 'mana_potion', price: 30 },
+    { id: 'town_portal_scroll', price: 60 },
+    { id: 'scroll_mending', price: 45 },
+    { id: 'scroll_renewal', price: 45 },
     { id: 'warding_ring', price: 120 },
     { id: 'amulet_of_focus', price: 140 },
   ],

@@ -201,6 +201,7 @@ export class TextureFactory {
     img('icon-legs', 16, 16, art.drawIconLegs, true);
     img('icon-gloves', 16, 16, art.drawIconGloves, true);
     img('icon-boots', 16, 16, art.drawIconBoots, true);
+    img('icon-scroll', 16, 16, art.drawIconScroll, true);
 
     // ---- FX (no outline) ----
     sheet('fx-magic', 32, 32, 5, (c, ox, f) => art.drawMagicBurst(c, ox, f));

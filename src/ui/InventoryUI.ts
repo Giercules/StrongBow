@@ -185,6 +185,11 @@ export class InventoryUI {
 
   private useItem(item: ItemDefinition): void {
     if (!this.hero) return;
+    if (item.scroll) {
+      (this.scene as unknown as { useScroll?: (it: ItemDefinition) => void }).useScroll?.(item);
+      this.close();
+      return;
+    }
     if (item.slot === 'consumable') {
       const r = this.hero.inventory.consume(item);
       if (r.consumed) {

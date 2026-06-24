@@ -159,6 +159,36 @@ export const ITEMS: Record<string, ItemDefinition> = {
     mana: 50,
     flavor: 'Cold, blue, and bracing.',
   },
+  town_portal_scroll: {
+    id: 'town_portal_scroll',
+    name: 'Town Portal Scroll',
+    slot: 'consumable',
+    rarity: 'common',
+    icon: 'icon-scroll',
+    mods: {},
+    scroll: 'town_portal',
+    flavor: 'Tears a gate home to Hearthwatch — and a way back to the depths.',
+  },
+  scroll_mending: {
+    id: 'scroll_mending',
+    name: 'Scroll of Mending',
+    slot: 'consumable',
+    rarity: 'common',
+    icon: 'icon-scroll',
+    mods: {},
+    scroll: 'mending',
+    flavor: 'Knits flesh and bone whole in a single instant.',
+  },
+  scroll_renewal: {
+    id: 'scroll_renewal',
+    name: 'Scroll of Renewal',
+    slot: 'consumable',
+    rarity: 'common',
+    icon: 'icon-scroll',
+    mods: {},
+    scroll: 'renewal',
+    flavor: 'Floods the veins with cold, blue power.',
+  },
 };
 
 export const ALL_ITEMS = Object.values(ITEMS);

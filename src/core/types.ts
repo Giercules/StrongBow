@@ -141,6 +141,8 @@ export interface ItemDefinition {
   heal?: number;
   mana?: number;
   effects?: string[];
+  /** Consumable scroll effect, if any. */
+  scroll?: 'town_portal' | 'mending' | 'renewal';
   /** Quality grade for minted (dropped) gear; absent on static/consumable items. */
   grade?: Grade;
   /** Base template id this item was minted from (minted gear only). */
