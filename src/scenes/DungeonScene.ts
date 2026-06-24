@@ -1998,14 +1998,14 @@ export class DungeonScene extends Phaser.Scene {
       };
       step();
     };
-    for (let i = 0; i < 6; i++) {
+    for (let i = 0; i < 3; i++) {
       const p = randPoint();
       const b = this.add.sprite(p.x, p.y, 'town-butterfly').setDepth(5000).setScale(0.8 + Math.random() * 0.4);
       this.tweens.add({ targets: b, scaleX: { from: b.scaleX, to: b.scaleX * 0.4 }, duration: 150 + Math.random() * 120, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
       wander(b, 26 + Math.random() * 18, true);
       this.townLife.push(b);
     }
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < 2; i++) {
       const p = randPoint();
       const bird = this.add.sprite(p.x, p.y, 'town-bird').setDepth(5001).setScale(0.9 + Math.random() * 0.3);
       this.tweens.add({ targets: bird, y: bird.y - 3, duration: 220 + Math.random() * 160, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
