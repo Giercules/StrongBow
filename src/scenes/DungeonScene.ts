@@ -30,7 +30,7 @@ import { framedPanel, makeButton } from '../ui/uiHelpers';
 import type { Modal } from '../ui/uiHelpers';
 import { getTheme } from '../data/gen/themes';
 import { settings } from '../core/GameSettings';
-import { formatHudControls } from '../core/KeyBindings';
+import { formatHudControls, formatHudControlsPad } from '../core/KeyBindings';
 import type { HeroClassId, LevelData, HudRegistryData, HudHeroSlot, ItemDefinition, ItemSlot, EnemyId, Grade, ThemeId, LogEntry, LogRegistryData } from '../core/types';
 import { migrateEquipKey, migrateItemSlot } from '../core/equipment';
 import { Content } from '../content/ContentRegistry';
@@ -2637,7 +2637,7 @@ export class DungeonScene extends Phaser.Scene {
       levelName: this.level.name,
       twoPlayer: this.twoPlayer,
       elapsedMs: this.time.now - this.startTime,
-      controls: formatHudControls(settings.bindings, this.twoPlayer),
+      controls: this.input2?.hasPad() ? formatHudControlsPad(this.twoPlayer) : formatHudControls(settings.bindings, this.twoPlayer),
     };
     this.registry.set(HUD_REGISTRY_KEY, data);
   }

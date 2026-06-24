@@ -131,6 +131,19 @@ export function formatHudControls(b: GameBindings, twoPlayer: boolean): string[]
   return lines;
 }
 
+/** Controller control lines for the HUD reference box (shown when a pad is connected). */
+export function formatHudControlsPad(twoPlayer: boolean): string[] {
+  const lines = [
+    'P1  Stick / D-Pad move',
+    'A atk  ·  X mag  ·  B use',
+    'Y dodge  ·  RB ability',
+    'LB bag  ·  Start set  ·  Select help',
+    'F2 save  ·  restore on title',
+  ];
+  if (twoPlayer) lines.push('P2  pad 2 · same layout');
+  return lines;
+}
+
 /** Merge stored (possibly partial) bindings over defaults. */
 export function mergeBindings(saved?: Partial<GameBindings>): GameBindings {
   const d = defaultBindings();
