@@ -15,14 +15,28 @@ const CODE_TO_NAME: Record<number, string> = (() => {
   return m;
 })();
 
-/** Resolves the current key bindings into live Phaser keys and queries them. */
+// Gamepad face/shoulder buttons mapped to the rebindable actions that have one.
+type PadName = 'A' | 'B' | 'X' | 'Y' | 'L1' | 'R1';
+const PAD_FOR_ACTION: Partial<Record<PlayerAction, PadName>> = {
+  attack: 'A',
+  use: 'B',
+  magic: 'X',
+  inventory: 'L1',
+};
+const STICK_DEADZONE = 0.35;
+
+/** Resolves the current key bindings into live Phaser keys and queries them.
+ *  Gamepad input is layered on top: pad 0 drives P1, pad 1 drives P2. */
 export class DungeonInput {
+  private scene: Phaser.Scene;
   private kb: Phaser.Input.Keyboard.KeyboardPlugin;
   private keys = new Map<string, Phaser.Input.Keyboard.Key>();
+  private padPrev = new Map<string, boolean>();
   /** True while waiting to capture a key for rebinding (suppresses gameplay/menu input). */
   capturing = false;
 
   constructor(scene: Phaser.Scene) {
+    this.scene = scene;
     this.kb = scene.input.keyboard!;
     this.rebuild();
   }
@@ -48,29 +62,91 @@ export class DungeonInput {
     return this.keys.get(name);
   }
 
+  // ---- gamepad helpers ----------------------------------------------------
+  private pad(player: 'p1' | 'p2'): Phaser.Input.Gamepad.Gamepad | undefined {
+    const gp = this.scene.input.gamepad;
+    if (!gp) return undefined;
+    return gp.getPad(player === 'p1' ? 0 : 1) as Phaser.Input.Gamepad.Gamepad | undefined;
+  }
+
+  private padBool(pad: Phaser.Input.Gamepad.Gamepad, name: PadName): boolean {
+    switch (name) {
+      case 'A': return pad.A;
+      case 'B': return pad.B;
+      case 'X': return pad.X;
+      case 'Y': return pad.Y;
+      case 'L1': return pad.L1 > 0;
+      case 'R1': return pad.R1 > 0;
+    }
+  }
+
+  /** Rising-edge detector for a named pad button (per player). */
+  private padEdge(player: 'p1' | 'p2', name: PadName): boolean {
+    const pad = this.pad(player);
+    const now = !!pad && this.padBool(pad, name);
+    const key = player + ':' + name;
+    const was = this.padPrev.get(key) ?? false;
+    this.padPrev.set(key, now);
+    return now && !was;
+  }
+
+  /** Rising-edge detector for a raw pad button index (menu buttons). */
+  private padIndexEdge(player: 'p1' | 'p2', idx: number): boolean {
+    const pad = this.pad(player);
+    const now = !!pad && !!pad.buttons[idx]?.pressed;
+    const key = player + ':#' + idx;
+    const was = this.padPrev.get(key) ?? false;
+    this.padPrev.set(key, now);
+    return now && !was;
+  }
+  // -------------------------------------------------------------------------
+
   isDown(player: 'p1' | 'p2', action: PlayerAction): boolean {
     if (this.capturing) return false;
     const k = this.key(settings.bindings[player][action]);
-    return !!k && k.isDown;
+    if (k && k.isDown) return true;
+    const pn = PAD_FOR_ACTION[action];
+    const pad = this.pad(player);
+    return !!(pn && pad && this.padBool(pad, pn));
   }
 
   justDown(player: 'p1' | 'p2', action: PlayerAction): boolean {
     if (this.capturing) return false;
     const k = this.key(settings.bindings[player][action]);
-    return !!k && Phaser.Input.Keyboard.JustDown(k);
+    if (k && Phaser.Input.Keyboard.JustDown(k)) return true;
+    const pn = PAD_FOR_ACTION[action];
+    return !!pn && this.padEdge(player, pn);
+  }
+
+  /** Edge-triggered non-rebindable combat actions (dodge / class ability). */
+  padJustDown(player: 'p1' | 'p2', action: 'dodge' | 'ability'): boolean {
+    if (this.capturing) return false;
+    return this.padEdge(player, action === 'dodge' ? 'Y' : 'R1');
   }
 
   move(player: 'p1' | 'p2'): MoveInput {
-    return {
-      x: (this.isDown(player, 'right') ? 1 : 0) - (this.isDown(player, 'left') ? 1 : 0),
-      y: (this.isDown(player, 'down') ? 1 : 0) - (this.isDown(player, 'up') ? 1 : 0),
-    };
+    if (this.capturing) return { x: 0, y: 0 };
+    let x = (this.isDown(player, 'right') ? 1 : 0) - (this.isDown(player, 'left') ? 1 : 0);
+    let y = (this.isDown(player, 'down') ? 1 : 0) - (this.isDown(player, 'up') ? 1 : 0);
+    const pad = this.pad(player);
+    if (pad) {
+      const sx = pad.leftStick.x;
+      const sy = pad.leftStick.y;
+      if (pad.right || sx > STICK_DEADZONE) x = 1;
+      else if (pad.left || sx < -STICK_DEADZONE) x = -1;
+      if (pad.down || sy > STICK_DEADZONE) y = 1;
+      else if (pad.up || sy < -STICK_DEADZONE) y = -1;
+    }
+    return { x, y };
   }
 
   globalJustDown(action: GlobalAction): boolean {
     if (this.capturing) return false;
     const k = this.key(settings.bindings.global[action]);
-    return !!k && Phaser.Input.Keyboard.JustDown(k);
+    if (k && Phaser.Input.Keyboard.JustDown(k)) return true;
+    // Pad 0: Start (9) opens settings, Select/Back (8) opens the manual.
+    const idx = action === 'settings' ? 9 : action === 'manual' ? 8 : -1;
+    return idx >= 0 && this.padIndexEdge('p1', idx);
   }
 
   /** Capture the next key press as a KeyCode name (for Settings rebinding). */

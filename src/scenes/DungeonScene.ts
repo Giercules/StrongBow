@@ -1099,8 +1099,8 @@ export class DungeonScene extends Phaser.Scene {
       if (this.input2.isDown('p1', 'attack')) p1.tryMelee(time);
       if (this.input2.justDown('p1', 'magic')) p1.tryMagic(time);
       if (this.input2.justDown('p1', 'use')) this.interact(p1);
-      if (Phaser.Input.Keyboard.JustDown(this.dodgeKey) && p1.tryDodge(time)) this.spawnDodgeFx(p1);
-      if (Phaser.Input.Keyboard.JustDown(this.abilityKey) && p1.canAbility(time)) {
+      if ((Phaser.Input.Keyboard.JustDown(this.dodgeKey) || this.input2.padJustDown('p1', 'dodge')) && p1.tryDodge(time)) this.spawnDodgeFx(p1);
+      if ((Phaser.Input.Keyboard.JustDown(this.abilityKey) || this.input2.padJustDown('p1', 'ability')) && p1.canAbility(time)) {
         this.useAbility(p1, time);
         p1.markAbilityUsed(time);
       }

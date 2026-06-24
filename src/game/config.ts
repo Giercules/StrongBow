@@ -12,6 +12,7 @@ import { LeftPanelScene } from '../scenes/LeftPanelScene';
 export const gameConfig: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
   parent: 'app',
+  input: { gamepad: true },
   width: GAME_WIDTH,
   height: GAME_HEIGHT,
   backgroundColor: '#05060a',
