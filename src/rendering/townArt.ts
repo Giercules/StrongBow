@@ -99,11 +99,20 @@ export function drawTownGate(ctx: Ctx, ox: number, oy: number): void {
 }
 
 function roof(ctx: Ctx, ox: number, oy: number, base: string, hi: string, dk: string): void {
-  R(ctx, ox, oy + 10, 32, 14, base);
-  R(ctx, ox, oy + 10, 32, 4, hi);
-  for (let x = 0; x < 32; x += 6) R(ctx, ox + x, oy + 14, 2, 10, dk);
-  R(ctx, ox, oy + 22, 32, 2, dk);
-  R(ctx, ox, oy + 24, 32, 2, '#2a1c0e');
+  // An opaque, shingled pitched roof that fills the cell so a single row reads
+  // as a real roof rather than a thin band.
+  R(ctx, ox, oy + 3, 32, 23, base); // roof slab
+  R(ctx, ox, oy + 3, 32, 3, hi); // sunlit ridge cap
+  R(ctx, ox, oy + 6, 32, 1, dk);
+  for (const ry of [10, 15, 20]) {
+    R(ctx, ox, oy + ry, 32, 1, dk); // shingle course shadow
+    R(ctx, ox, oy + ry + 1, 32, 1, hi); // course highlight
+    for (let sx = (ry % 8); sx < 32; sx += 8) R(ctx, ox + sx, oy + ry - 2, 1, 2, dk); // seams
+  }
+  R(ctx, ox, oy + 24, 32, 2, dk); // eave
+  R(ctx, ox, oy + 26, 32, 2, '#241a0e'); // under-eave shadow
+  R(ctx, ox, oy + 3, 2, 23, hi); // left gable (lit)
+  R(ctx, ox + 30, oy + 3, 2, 23, dk); // right gable (shade)
 }
 export function drawHouseRoofRed(ctx: Ctx, ox: number, oy: number): void { roof(ctx, ox, oy, '#9c3a2a', '#c85a3e', '#5a1e14'); }
 export function drawHouseRoofBlue(ctx: Ctx, ox: number, oy: number): void { roof(ctx, ox, oy, '#34507a', '#4f72a8', '#1e2f4a'); }
@@ -116,6 +125,53 @@ export function drawHouseDoor(ctx: Ctx, ox: number, oy: number): void {
   R(ctx, ox + 15, oy + 10, 1, 20, '#3a2410');
   R(ctx, ox + 10, oy + 8, 12, 2, '#7a5128');
   PX(ctx, ox + 19, oy + 21, '#cfa64e');
+}
+
+// ---- building facades (seamless plaster + timber framing only where needed) -
+export function drawHouseWall(ctx: Ctx, ox: number, oy: number): void {
+  // Plain plaster that tiles seamlessly (no edge bands) — framing/footing are
+  // applied as separate edge/base tiles by the town builder.
+  R(ctx, ox, oy, 32, 32, '#cdbb95');
+  for (const [x, y, c] of [
+    [6, 5, '#c2af86'], [14, 11, '#d8c79e'], [23, 7, '#c2af86'], [10, 20, '#d8c79e'],
+    [19, 25, '#c2af86'], [27, 17, '#d8c79e'], [4, 28, '#c2af86'], [29, 3, '#c2af86'],
+  ] as [number, number, string][]) PX(ctx, ox + x, oy + y, c);
+}
+export function drawHousePost(ctx: Ctx, ox: number, oy: number): void {
+  drawHouseWall(ctx, ox, oy);
+  R(ctx, ox + 12, oy, 9, 32, '#6e4a24'); // vertical timber post
+  R(ctx, ox + 12, oy, 2, 32, '#8a6132');
+  R(ctx, ox + 19, oy, 2, 32, '#42301a');
+  PX(ctx, ox + 16, oy + 7, '#3a2410');
+  PX(ctx, ox + 16, oy + 24, '#3a2410');
+}
+export function drawHouseBeam(ctx: Ctx, ox: number, oy: number): void {
+  drawHouseWall(ctx, ox, oy);
+  R(ctx, ox, oy + 1, 32, 6, '#6e4a24'); // horizontal header beam under the eaves
+  R(ctx, ox, oy + 1, 32, 1, '#8a6132');
+  R(ctx, ox, oy + 6, 32, 1, '#42301a');
+}
+export function drawHouseBase(ctx: Ctx, ox: number, oy: number): void {
+  drawHouseWall(ctx, ox, oy);
+  R(ctx, ox, oy + 18, 32, 14, '#8a8276'); // stone ground-floor foundation
+  R(ctx, ox, oy + 18, 32, 1, '#a8a092');
+  for (let i = 0; i < 32; i += 8) R(ctx, ox + i, oy + 18, 1, 14, '#5f584e');
+  R(ctx, ox, oy + 25, 32, 1, '#5f584e');
+  R(ctx, ox + 4, oy + 21, 5, 3, '#7a7268');
+  R(ctx, ox + 20, oy + 27, 6, 3, '#7a7268');
+}
+export function drawHouseWindow(ctx: Ctx, ox: number, oy: number): void {
+  drawHouseWall(ctx, ox, oy);
+  const fr = '#42301a', glass = '#34506e', glassHi = '#4a6e96', glow = '#ffcf7a';
+  R(ctx, ox + 6, oy + 6, 20, 16, fr); // frame
+  R(ctx, ox + 8, oy + 8, 16, 12, glass);
+  R(ctx, ox + 8, oy + 14, 16, 6, glow); // warm interior light
+  R(ctx, ox + 8, oy + 8, 7, 6, glassHi);
+  R(ctx, ox + 15, oy + 8, 2, 12, fr);
+  R(ctx, ox + 8, oy + 13, 16, 1, fr);
+  R(ctx, ox + 5, oy + 21, 22, 2, '#7a5128'); // sill
+  R(ctx, ox + 5, oy + 21, 22, 1, '#9a7a4a');
+  PX(ctx, ox + 10, oy + 10, '#cfe0ff');
 }
 
 // ---- little living things (single-frame; animated by tweens in-scene) ------

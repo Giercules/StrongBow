@@ -87,8 +87,22 @@ export function buildTown(): LevelData {
 
   const house = (x0: number, y0: number, x1: number, y1: number, roofKey: string) => {
     rect(x0, y0, x1, y1, Tile.WALL);
-    for (let x = x0; x <= x1; x++) decor.push({ x, y: y0, key: roofKey });
     const doorX = Math.floor((x0 + x1) / 2);
+    // facade: a header beam under the eaves, timber corner posts, glazed windows
+    // on two courses, and a stone ground-floor base.
+    for (let y = y0 + 1; y <= y1; y++) {
+      for (let x = x0; x <= x1; x++) {
+        const edge = x === x0 || x === x1;
+        let key = 'house-wall';
+        if (y === y1) key = 'house-base';
+        else if (y === y0 + 1) key = 'house-beam';
+        else if (edge) key = 'house-post';
+        if ((y === y0 + 3 || y === y0 + 5) && !edge && (x - x0) % 2 === 1) key = 'house-window';
+        decor.push({ x, y, key });
+      }
+    }
+    // pitched roof across the top course; door overlaid on the stone base
+    for (let x = x0; x <= x1; x++) decor.push({ x, y: y0, key: roofKey });
     decor.push({ x: doorX, y: y1, key: 'house-door' });
     for (let y = y0 - 1; y <= y1 + 1; y++) for (let x = x0 - 1; x <= x1 + 1; x++) mark(noFoliage, x, y);
   };
