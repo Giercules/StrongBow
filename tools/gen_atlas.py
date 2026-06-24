@@ -317,6 +317,72 @@ def tl_banner():
     im, d = t_fill("#1a1d2e"); d.rectangle([11, 2, 17, 22], fill=hx("#9a2a2a")); d.rectangle([11, 2, 17, 4], fill=hx("#ffd24a")); d.rectangle([13, 8, 15, 14], fill=hx("#ffd24a")); d.polygon([(11, 22), (17, 22), (14, 26)], fill=hx("#9a2a2a")); return im
 
 
+def servant(tint, kind):
+    im, d = C()
+    d.ellipse([3, 3, 25, 25], fill=hx(tint, 55))  # spectral aura
+    d.rectangle([9, 10, 18, 20], fill=hx("#e9e3c9"))
+    for ry in range(11, 20, 2):
+        d.line([9, ry, 18, ry], fill=hx("#9a9070"))
+    d.ellipse([9, 4, 18, 13], fill=hx("#efe9cf"))  # skull
+    d.point((11, 9), fill=hx(tint))
+    d.point((16, 9), fill=hx(tint))
+    if kind == "tank":
+        d.rectangle([3, 10, 7, 20], fill=hx(tint))  # shield
+    elif kind == "archer":
+        d.arc([19, 5, 27, 22], 300, 60, fill=hx(tint))  # bow
+    elif kind == "mage":
+        d.ellipse([19, 3, 26, 10], fill=hx(tint))  # orb
+    elif kind == "thief":
+        d.line([20, 8, 25, 16], fill=hx(tint), width=2)  # dagger
+    return outline(im)
+
+
+def tl_house():
+    im, d = t_fill("#cdbb95")
+    d.rectangle([0, 0, 2, 28], fill=hx("#6e4a24")); d.rectangle([25, 0, 28, 28], fill=hx("#6e4a24"))
+    d.rectangle([0, 0, 28, 4], fill=hx("#9c3a2a"))
+    d.rectangle([9, 9, 19, 19], fill=hx("#34506e")); d.rectangle([9, 14, 19, 19], fill=hx("#ffcf7a"))
+    d.line([14, 9, 14, 19], fill=hx("#42301a")); d.line([9, 14, 19, 14], fill=hx("#42301a"))
+    return im
+
+
+def tl_roof():
+    im, d = t_fill("#9c3a2a"); d.rectangle([0, 0, 28, 4], fill=hx("#c85a3e"))
+    for ry in (9, 16, 23):
+        d.line([0, ry, 28, ry], fill=hx("#5a1e14"))
+    return im
+
+
+def tl_bar():
+    im, d = t_fill("#6e4a28"); d.rectangle([2, 8, 26, 20], fill=hx("#5a3a1c")); d.rectangle([2, 6, 26, 9], fill=hx("#8a6132"))
+    d.rectangle([6, 2, 9, 6], fill=hx("#caa56a")); d.rectangle([18, 2, 21, 6], fill=hx("#caa56a")); return im
+
+
+def tl_table():
+    im, d = t_fill("#6e4a28"); d.ellipse([6, 8, 22, 22], fill=hx("#6e4a24")); d.ellipse([9, 10, 18, 18], fill=hx("#8a6132")); d.rectangle([11, 11, 14, 14], fill=hx("#caa56a")); return im
+
+
+def tl_hearth():
+    im, d = t_fill("#6e4a28"); d.rectangle([3, 3, 25, 25], fill=hx("#7a7268")); d.rectangle([8, 10, 20, 25], fill=hx("#150f0a"))
+    d.rectangle([10, 16, 18, 25], fill=hx("#d2541c")); d.rectangle([13, 18, 16, 25], fill=hx("#ffb02a")); return im
+
+
+def tl_barrel():
+    im, d = t_fill("#6e4a28"); d.rectangle([8, 4, 20, 24], fill=hx("#6e4a24"))
+    for hy in (8, 15, 21):
+        d.rectangle([7, hy, 21, hy + 1], fill=hx("#2e1d0e"))
+    d.rectangle([11, 4, 13, 24], fill=hx("#8a6132")); return im
+
+
+def tl_anvil():
+    im, d = t_fill("#6e4a28"); d.rectangle([9, 20, 19, 26], fill=hx("#3a2410")); d.rectangle([7, 12, 21, 17], fill=hx("#3a3f4a")); d.rectangle([5, 11, 23, 13], fill=hx("#4a515e")); return im
+
+
+def tl_wrack():
+    im, d = t_fill("#6e4a28"); d.rectangle([3, 3, 25, 5], fill=hx("#5a3a1c")); d.rectangle([3, 23, 25, 25], fill=hx("#5a3a1c"))
+    d.rectangle([8, 5, 9, 23], fill=hx("#cfd8ea")); d.rectangle([14, 5, 15, 23], fill=hx("#caa56a")); d.polygon([(18, 5), (22, 8), (18, 11)], fill=hx("#aab4c8")); return im
+
+
 ITEMS = [
     ("Sword", ic_sword()), ("Bow", ic_bow()), ("Staff", ic_staff()), ("Mace", ic_mace()), ("Armor", ic_armor()),
     ("Ring", ic_ring()), ("Amulet", ic_amulet()), ("Coin", ic_coin()), ("Gem", ic_gem()), ("Ration", ic_ration()),
@@ -331,7 +397,17 @@ TILES = [
     ("Shop Banner", tl_banner()), ("Gate", tl_portal("#c79bff")),
 ]
 
-canvas = Image.new("RGBA", (W, 2000), hx("#10131f"))
+SERVANTS = [
+    ("Tank", servant("#9fd8ff", "tank")), ("Archer", servant("#86f0d0", "archer")),
+    ("Mage", servant("#c89bff", "mage")), ("Thief", servant("#8affa0", "thief")),
+]
+
+INTERIORS = [
+    ("House", tl_house()), ("Roof", tl_roof()), ("Tavern Bar", tl_bar()), ("Table", tl_table()),
+    ("Hearth", tl_hearth()), ("Barrel", tl_barrel()), ("Anvil", tl_anvil()), ("Weapon Rack", tl_wrack()),
+]
+
+canvas = Image.new("RGBA", (W, 2300), hx("#10131f"))
 dr = ImageDraw.Draw(canvas)
 for y in range(canvas.height):
     t = y / canvas.height
@@ -362,7 +438,7 @@ def grid(entries, y, per, scale, box):
 
 
 dr.text((28, 20), "STRONGBOW", font=FT, fill=hx("#ffd24a"))
-dr.text((30, 70), "100% original procedural pixel art  -  ten themed realms  -  a living town hub", font=FS, fill=hx("#9aa6c8"))
+dr.text((30, 70), "100% original procedural pixel art  -  ten themed realms  -  a town hub with enterable interiors", font=FS, fill=hx("#9aa6c8"))
 y = 104
 y = header("HEROES", y)
 y = grid(HEROES, y, 4, 3, 92)
@@ -374,6 +450,10 @@ y = header("ITEMS & PICKUPS", y)
 y = grid(ITEMS, y, 7, 2, 64)
 y = header("WORLD & TOWN", y)
 y = grid(TILES, y, 8, 2, 64)
+y = header("SKELETAL SERVANTS (NECROMANCER)", y)
+y = grid(SERVANTS, y, 4, 3, 92)
+y = header("TOWN BUILDINGS & INTERIORS", y)
+y = grid(INTERIORS, y, 8, 2, 64)
 out = canvas.crop((0, 0, W, y + 6))
 os.makedirs(os.path.dirname(OUT), exist_ok=True)
 out.save(OUT)

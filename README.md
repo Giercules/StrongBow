@@ -78,7 +78,8 @@ Player 2 · **Esc** close menu / quit. In town, stand next to a **gate** or
 **Gamepad:** left stick / D-Pad move · **A** attack · **X** magic · **B** use ·
 **Y** dodge · **RB** ability · **LB** inventory · **Start** settings · **Select**
 manual. Menus are fully navigable with the D-Pad + A/B, and the HUD controls box
-switches to the controller layout when a pad is connected.
+switches to the controller layout when a pad is connected. The **Necromancer**
+**holds** the ability button to open a summon radial (aim with mouse or stick).
 
 **Settings (O)** has tabs for **Audio** (mute, volumes, **music-track** picker),
 **View** (**sprite size**, **show-map**), **AI** (provider), **Allies** (companion
@@ -89,8 +90,9 @@ behaviour), **Keys** (rebind anything; shows the gamepad mapping when connected)
 
 Every run begins (and every cleared realm returns you to) **Hearthwatch**, the
 last free town above the Undermaw: grassy lawns and cobbled roads ring a central
-fountain, dotted with **distinct timbered houses** under coloured roofs, lit
-braziers and festival banners. A **water moat** encircles the town, crossed by
+fountain, dotted with **timber-framed houses** that now have **pitched shingled roofs,
+glazed windows and doors you can step through**, lit braziers and festival
+banners. A **water moat** encircles the town, crossed by
 four **timber bridges** — the grand south span hung with heavy **chains** —
 leading to gatehouses at each cardinal point. **Butterflies and birds** drift
 over the square and a **stray dog** trots between the stalls, while the
@@ -98,12 +100,17 @@ over the square and a **stray dog** trots between the stalls, while the
 lute-player, a fortune-teller and a down-on-his-luck merchant, each with their
 own look — **wander on their own** and can be **hailed for AI-flavored chatter**.
 
+Walk to a building's **door** and press **Use** to step **inside** — the
+shopkeepers and the guildmaster now wait within furnished interiors (use the
+inner door to step back out).
+
 - **Ten descent gates** ring the square — one per realm. A gate glows when it's
   **unlocked** and stays **sealed** until you clear the realm before it. Step on
-  a gate and press **Use** to descend with your whole party intact.
+  a gate and press **Use** to descend.
 - **Brunda's Forge** (blacksmith) — buy weapons & armor.
 - **The Green Vial** (apothecary) — potions and trinkets.
-- **The Gilded Tankard** (tavern) — food and drink.
+- **The Gilded Tankard** (tavern, keeper inside) — food, drink and rumour.
+- **The Fighters Guild** — **hire allies** for your next descent (see Heroes).
 - **Your Lodge** — rest to **fully restore** the party's HP and MP, free.
 
 Gold, gear, levels and unlocked gates **persist** across town ⇄ realm trips and
@@ -152,11 +159,16 @@ active ability (**F**):
 - **Warden** — a hooded holy cleric with a mace and sacred light. Steady regen;
   **Sanctuary** heals the party and smites nearby foes.
 - **Necromancer** — a shrouded grave-binder in black-violet robes; ranged caster.
-  **Raise Dead** summons skeleton warriors and bone casters (max 3) to fight for you.
+  **Hold** the ability to open a radial and raise one of four servants — **Tank**,
+  **Archer**, **Mage**, or **Thief** (which blinks behind foes to backstab) — up to
+  three at once. Summons **expire on a timer that lengthens as the necromancer levels**.
 
-Solo play grants 3 AI companions, co-op grants 2. They follow the active player,
-path around corners, **spread out naturally** instead of stacking, fight, smash
-altars they pass, and **blink to you** if they fall too far behind.
+Allies are **hired per descent at the Fighters Guild** — there are no free
+followers. Pay gold for each (the price rises with your level), hire as many as
+you can afford, and **re-hire after every run**. Hired allies follow the active
+player, path around corners, **spread out naturally** instead of stacking, smash
+altars they pass, **use their own class abilities** when it helps, and **blink to
+you** if they fall too far behind.
 
 ## Combat & feel
 
@@ -209,7 +221,9 @@ Game** opens the same browser.
 
 ## Screen, adventure log & HUD
 
-The play area sits between two carved panels. On the **left**, a parchment
+The game **fills the whole browser window** — the two carved HUD panels pin to
+the left and right **screen edges** and the play area stretches between them. On
+the **left**, a parchment
 **adventure log** scrolls the story of your run — narration, kills, loot, boss
 beats — beneath a **Dungeon Master feed** that streams live **Grok** commentary
 (with a connection light) when an AI provider is set. On the **right**, the party
@@ -226,12 +240,15 @@ per-realm themes, a calm town theme, and an intense boss theme. Drop `theme.mp3`
 
 ## Procedural art (and optional overrides)
 
-All in-game art is generated in code at runtime as **HD pixel art**. A growing set
-of pieces also ships as hand-made PNG overrides via `public/assets/manifest.json`
-— HD floors, walls, chest/door/gem/key/crystal, the health & mana potions, and the
-town butterfly/bird. To swap any other texture, add a manifest entry (e.g.
-`monster-imp-sheet`, `ext-wall`); see `public/assets/sprites/SPRITE_GUIDE.md` for
-frame sizes, sheet layouts, and ready-to-use art prompts.
+All in-game art is generated in code at runtime as **HD pixel art**. Around
+**sixty** pieces also ship as hand-made PNG overrides via
+`public/assets/manifest.json` — HD floors and walls, doors, chests, gems/keys/
+crystal, **animated hazards** (water, lava, poison, spikes, portal, torch), the
+**animated coin & summoning-rift generator**, ~two dozen **32px dungeon props**,
+all **12 item icons**, the health & mana potions, and the town butterfly/bird. To
+swap any other texture, add a manifest entry (e.g. `monster-imp-sheet`,
+`ext-wall`); see `public/assets/sprites/SPRITE_GUIDE.md` for frame sizes, sheet
+layouts, and ready-to-use art prompts.
 
 The README cover atlas above is rendered straight from the engine's own
 procedural art, so it always reflects exactly what you see in-game.

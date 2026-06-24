@@ -157,13 +157,23 @@ export const MANUAL_PAGES: ManualPage[] = [
     ],
   },
   {
+    title: 'Hearthwatch — the Town',
+    kind: 'text',
+    body: [
+      'Every run begins — and every cleared realm returns you to — HEARTHWATCH, the last free town above the Undermaw. Lawns and cobbled roads ring a central fountain inside a moat crossed by four timber bridges, with a gatehouse at each point. Butterflies and birds flit overhead while the townsfolk wander, ready to be hailed for a tale.',
+      'Its timber-framed buildings now have proper pitched roofs, glazed windows and doors — and you can step INSIDE. Walk to a building door and press Use to enter; use the inner door to step back out to the square.',
+      'BRUNDA\'S FORGE (weapons & armor), THE GREEN VIAL (apothecary), THE GILDED TANKARD (tavern), and YOUR LODGE (rest to fully restore the party, free) keep their keepers within. The FIGHTERS GUILD is where you hire allies for your descent.',
+      'Ten descent gates ring the square, one per realm. A gate glows when unlocked and stays sealed until you clear the realm before it; step on a gate and press Use to descend. Gold, gear, levels and unlocked gates persist across every town and realm.',
+    ],
+  },
+  {
     title: 'How to Play',
     kind: 'text',
     body: [
       'Move with WASD (P1) or the Arrow keys (P2), or hold the left mouse button to walk toward the cursor. Or plug in a GAMEPAD: left stick / D-Pad moves, A attacks, X magic, B use, Y dodge, RB ability.',
       'Hold attack to strike — each hero differs: Vanguard cleaves, Warden bludgeons, Strider looses arrows, Arcanist and Necromancer hurl bolts.',
       'Tap magic for an attack (costs mana). Use / interact opens chests and lights shrines.',
-      'Press SPACE to dodge-roll (brief invulnerability), and F for your class ability: Vanguard Seismic Slam, Strider Volley, Arcanist Meteor, Warden Sanctuary, or Necromancer Raise Dead (summons skeletal servants).',
+      'Press SPACE to dodge-roll (brief invulnerability), and F for your class ability: Vanguard Seismic Slam, Strider Volley, Arcanist Meteor, Warden Sanctuary. The Necromancer instead HOLDS the ability to open a radial — aim with mouse or stick to pick a Tank, Archer, Mage or Thief skeleton; a quick tap raises the last-chosen servant.',
     ],
   },
   {
@@ -172,8 +182,8 @@ export const MANUAL_PAGES: ManualPage[] = [
     body: [
       'Hit foes with elements: fire weapons BURN, magic CHILLS (slows), and critical hits SHOCK (extra damage). Big hits knock enemies back.',
       'Beware gold-glowing CHAMPIONS — tougher and harder-hitting, but they always drop strong gear. Every enemy shows a small HP bar above its head, and dropped loot beams in its rarity colour.',
-      'A minimap (top-right) shows the party, altars and boss; the left-hand ADVENTURE LOG narrates your run (scroll it with the mouse wheel), with live Grok "Dungeon Master" commentary when AI is connected.',
-      'Press O for Options — every tab is fully navigable by gamepad too: VIEW (sprite size, map), AUDIO (music track), ALLIES (companions), KEYS (rebind), CHEATS (incl. DIFFICULTY: easy/moderate/hard), HELP. Press F2 for save/load.',
+      'A minimap (top-right) shows the party and boss, but spawning altars stay hidden until a hero explores near them — each level is a hunt. The left-hand ADVENTURE LOG narrates your run (scroll it with the mouse wheel), with live Grok "Dungeon Master" commentary when AI is connected.',
+      'Press O for Options — every tab is fully navigable by gamepad too: VIEW (sprite size, map), AUDIO (music track), ALLIES (companions), KEYS (rebind — shows both keyboard and gamepad mappings), CHEATS (incl. DIFFICULTY: easy/moderate/hard), HELP. Press F2 for save/load.',
       'WIN: shatter the spawning altars (DIFFICULTY sets how many — easy 2, moderate 3, hard all), slay the realm’s warden, then stand on the exit portal to descend. Cleared gates show a green check back in town.',
     ],
   },
@@ -181,8 +191,9 @@ export const MANUAL_PAGES: ManualPage[] = [
     title: 'The Party',
     kind: 'text',
     body: [
-      'Solo play grants three AI companions; co-op grants two. They follow whoever moved last and join the fight.',
-      'Every class aids the group: the Warden heals nearby allies, the Vanguard shields them, the Strider sharpens their aim, the Arcanist empowers their blows, and the Necromancer raises skeleton warriors and bone casters to fight at your side.',
+      'Allies no longer follow for free. In Hearthwatch, step into the FIGHTERS GUILD and hire sellswords for your next descent — pay gold per ally (the price rises as you level) and hire as many as you can afford.',
+      'The contract lasts a single run: once you return to town it lapses, so re-hire before you descend again.',
+      'Hired allies follow whoever moved last, path around corners, spread out instead of stacking, and use their own class abilities when it helps — the Warden heals the hurt, the Vanguard slams clusters, the Arcanist drops meteors, the Strider looses volleys, and a hired Necromancer keeps raising the dead.',
       'Slain foes grant XP to the killer and a share to the whole party. Tune companion behaviour in Settings -> Allies.',
     ],
   },

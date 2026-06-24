@@ -42,7 +42,7 @@ export const HEROES: Record<HeroClassId, HeroClassDef> = {
     name: 'Necromancer',
     role: 'Summoner',
     blurb: 'Master of the grave. Raises the dead to fight in their stead.',
-    signature: 'Raises skeletal servants with the ability key.',
+    signature: 'Hold the ability to raise Tank, Archer, Mage or Thief skeletons — they fight, then crumble.',
     base: { maxHealth: 82, maxMana: 110, damage: 9, speed: 122, armor: 1, critChance: 0.03, fire: 0, regen: 0.3, luck: 4 },
     skillIds: ['nec_legion', 'nec_grimoire', 'nec_blight', 'nec_horde'],
   },
