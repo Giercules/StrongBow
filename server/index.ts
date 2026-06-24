@@ -19,7 +19,7 @@ const PORT = Number(process.env.PORT) || Number(process.env.AI_PROXY_PORT) || 38
 const MODELS = {
   openai: process.env.OPENAI_MODEL || 'gpt-4o-mini',
   anthropic: process.env.ANTHROPIC_MODEL || 'claude-3-5-haiku-20241022',
-  xai: process.env.XAI_MODEL || 'grok-2-latest',
+  xai: process.env.XAI_MODEL || 'grok-4.3',
 };
 
 const SYSTEM_TONE =

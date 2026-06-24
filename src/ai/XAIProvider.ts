@@ -5,6 +5,7 @@ import { SYSTEM_TONE } from './AIProvider';
 export class XAIProvider implements AIProvider {
   readonly id = 'xai';
   private key = import.meta.env.VITE_XAI_API_KEY ?? '';
+  private model = import.meta.env.VITE_XAI_MODEL ?? 'grok-4.3';
 
   available(): boolean {
     return !!this.key;
@@ -18,7 +19,7 @@ export class XAIProvider implements AIProvider {
         Authorization: `Bearer ${this.key}`,
       },
       body: JSON.stringify({
-        model: 'grok-2-latest',
+        model: this.model,
         max_tokens: req.maxTokens ?? 40,
         temperature: 0.9,
         messages: [
