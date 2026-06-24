@@ -94,6 +94,7 @@ export class CharacterSheetUI {
       ['Regen', `${s.regen.toFixed(1)}/s`],
       ['Luck', `${s.luck}`],
     ];
+    if (h.classId === 'necromancer') stats.push(['Max summons', `${h.maxSummons()}`]);
     stats.forEach((st, i) => {
       const yy = y0 + 56 + i * 17;
       this.label(right, yy, st[0], C.inkDim, 11);

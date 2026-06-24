@@ -54,6 +54,7 @@ import { aiService, type BarkContext } from '../ai/AIService';
 import { InventoryUI } from '../ui/InventoryUI';
 import { ShopUI } from '../ui/ShopUI';
 import { GuildHireUI } from '../ui/GuildHireUI';
+import { ENEMIES, ENEMY_IDS } from '../data/enemies';
 
 type SkeletonType = 'tank' | 'archer' | 'mage' | 'thief';
 const SKELETON_INFO: Record<SkeletonType, { cls: HeroClassId; name: string; sheet: string; walk: string; attack: string }> = {
@@ -63,6 +64,8 @@ const SKELETON_INFO: Record<SkeletonType, { cls: HeroClassId; name: string; shee
   thief: { cls: 'vanguard', name: 'skeleton thief', sheet: 'monster-skel_thief-sheet', walk: 'skel_thief-walk', attack: 'skel_thief-attack' },
 };
 const SKELETON_ORDER: SkeletonType[] = ['tank', 'archer', 'mage', 'thief'];
+type SummonChoice = SkeletonType | 'beast';
+const BEAST_LEVEL = 8; // necromancer can bind monsters from this level up
 import type { ShopKind } from '../core/types';
 import { SkillTreeUI } from '../ui/SkillTreeUI';
 import { SettingsUI } from '../ui/SettingsUI';
@@ -173,11 +176,11 @@ export class DungeonScene extends Phaser.Scene {
   private summonIdx = 0;
   private vignette?: Phaser.GameObjects.Image;
   private edgeGrade?: Phaser.GameObjects.Image;
-  private selectedSkeleton: SkeletonType = 'tank';
+  private selectedSkeleton: SummonChoice = 'tank';
   private radialOpen = false;
-  private radialPick: SkeletonType = 'tank';
+  private radialPick: SummonChoice = 'tank';
   private radial?: Phaser.GameObjects.Container;
-  private radialNodes: { t: SkeletonType; dx: number; dy: number; g: Phaser.GameObjects.Graphics; txt: Phaser.GameObjects.Text }[] = [];
+  private radialNodes: { t: SummonChoice; dx: number; dy: number; g: Phaser.GameObjects.Graphics; txt: Phaser.GameObjects.Text }[] = [];
   private abilityDownAt = 0;
   private monsters: Monster[] = [];
   private generators: Generator[] = [];
@@ -1419,7 +1422,7 @@ export class DungeonScene extends Phaser.Scene {
     switch (comp.classId) {
       case 'necromancer': {
         const free = settings.get('gameplay').infiniteMana;
-        const cap = 3 + (comp.stats.summonBonus ?? 0);
+        const cap = comp.maxSummons();
         const live = this.summons.filter((sk) => sk.active && sk.alive).length;
         return live < cap && (free || comp.mana >= 20);
       }
@@ -1453,7 +1456,7 @@ export class DungeonScene extends Phaser.Scene {
   private summonSkeleton(necro: Hero, quiet = false, type?: SkeletonType): void {
     const time = this.time.now;
     this.summons = this.summons.filter((s) => s.active && s.alive);
-    const cap = 3 + (necro.stats.summonBonus ?? 0);
+    const cap = necro.maxSummons();
     if (this.summons.length >= cap) {
       if (!quiet) this.showBark(`Your servants already crowd the dark (max ${cap}).`, 2400, 'system');
       return;
@@ -1532,8 +1535,46 @@ export class DungeonScene extends Phaser.Scene {
       this.showBark('Your magic must gather again before you raise more dead.', 1800, 'system');
       return;
     }
-    this.summonSkeleton(necro, false, this.selectedSkeleton);
+    if (this.selectedSkeleton === 'beast') this.summonMonster(necro);
+    else this.summonSkeleton(necro, false, this.selectedSkeleton);
     necro.markAbilityUsed(time);
+  }
+
+  /** High-level necromancy: bind a random bestiary monster as a (temporary) ally. */
+  private summonMonster(necro: Hero): void {
+    const time = this.time.now;
+    this.summons = this.summons.filter((s) => s.active && s.alive);
+    if (this.summons.length >= necro.maxSummons()) {
+      this.showBark(`Your servants already crowd the dark (max ${necro.maxSummons()}).`, 2400, 'system');
+      return;
+    }
+    const free = settings.get('gameplay').infiniteMana;
+    const cost = 30;
+    if (!free && necro.mana < cost) {
+      this.showBark('Not enough mana to bind a beast.', 2400, 'system');
+      return;
+    }
+    if (!free) necro.mana = Math.max(0, necro.mana - cost);
+    const pool = ENEMY_IDS.filter((id) => !ENEMIES[id].isBoss);
+    const id = pool[Math.floor(Math.random() * pool.length)];
+    const def = ENEMIES[id];
+    const sk = new Companion(this, necro.x + Phaser.Math.Between(-16, 16), necro.y + Phaser.Math.Between(-8, 18), 'vanguard');
+    sk.makeSkeleton(`monster-${id}-sheet`, `${id}-walk`, `${id}-attack`);
+    sk.stats.maxHealth = def.health;
+    sk.health = def.health;
+    sk.stats.damage = def.damage;
+    sk.stats.speed = def.speed;
+    sk.expireAt = time + 9000 + necro.level * 1800;
+    this.companions.push(sk);
+    this.allies.push(sk);
+    this.summons.push(sk);
+    this.allyGroup.add(sk);
+    this.shadows.add(sk, 3);
+    const fx = this.add.sprite(sk.x, sk.y, 'fx-magic').setDepth(sk.y + 16).setScale(2.4).setTint(0xb6ffd0);
+    fx.play('fx-magic');
+    fx.once('animationcomplete', () => fx.destroy());
+    audio.sfx('magic');
+    this.showBark(`${necro.def.name} binds a ${def.name} to their will!`, 2600, 'event');
   }
 
   private openSummonRadial(): void {
@@ -1547,8 +1588,17 @@ export class DungeonScene extends Phaser.Scene {
     bg.lineStyle(2, 0x9b7be0, 0.85);
     bg.strokeCircle(0, 0, 94);
     cont.add(bg);
-    cont.add(this.add.text(0, 0, 'RAISE', { fontFamily: 'MedievalSharp, "Trebuchet MS", cursive', fontSize: '11px', color: '#b79bff' }).setOrigin(0.5));
     this.radialNodes = [];
+    const beastOk = (this.players[0]?.level ?? 1) >= BEAST_LEVEL;
+    if (beastOk) {
+      const cg = this.add.graphics();
+      cont.add(cg);
+      const ctxt = this.add.text(0, 0, 'BEAST', { fontFamily: 'MedievalSharp, "Trebuchet MS", cursive', fontSize: '10px', color: '#b6ffd0', stroke: '#000', strokeThickness: 3 }).setOrigin(0.5);
+      cont.add(ctxt);
+      this.radialNodes.push({ t: 'beast', dx: 0, dy: 0, g: cg, txt: ctxt });
+    } else {
+      cont.add(this.add.text(0, 0, 'RAISE', { fontFamily: 'MedievalSharp, "Trebuchet MS", cursive', fontSize: '11px', color: '#b79bff' }).setOrigin(0.5));
+    }
     const layout: [SkeletonType, number, number, string][] = [
       ['tank', 0, -60, 'TANK'],
       ['archer', 62, 0, 'ARCHER'],
@@ -1568,16 +1618,21 @@ export class DungeonScene extends Phaser.Scene {
 
   private updateSummonRadial(): void {
     if (!this.radial) return;
+    const beastOk = (this.players[0]?.level ?? 1) >= BEAST_LEVEL;
     let ang: number | null = null;
+    let center = false;
     const st = this.input2.move('p1');
     if (st.x || st.y) ang = Math.atan2(st.y, st.x);
     else {
       const ptr = this.input.activePointer;
       const pdx = ptr.x - PLAY_AREA_X - PLAY_AREA_WIDTH / 2;
       const pdy = ptr.y - GAME_HEIGHT / 2;
-      if (Math.hypot(pdx, pdy) > 20) ang = Math.atan2(pdy, pdx);
+      const mag = Math.hypot(pdx, pdy);
+      if (mag < 26 && beastOk) center = true;
+      else if (mag > 20) ang = Math.atan2(pdy, pdx);
     }
-    if (ang !== null) {
+    if (center) this.radialPick = 'beast';
+    else if (ang !== null) {
       const deg = ((ang * 180) / Math.PI + 360) % 360;
       this.radialPick = deg >= 315 || deg < 45 ? 'archer' : deg < 135 ? 'mage' : deg < 225 ? 'thief' : 'tank';
     }
@@ -1612,14 +1667,27 @@ export class DungeonScene extends Phaser.Scene {
     this.summons = this.summons.filter((s) => s !== sk);
   }
 
+  /** True if nothing solid blocks the straight line between two world points. */
+  private hasLineOfSight(x1: number, y1: number, x2: number, y2: number): boolean {
+    const steps = Math.ceil(Phaser.Math.Distance.Between(x1, y1, x2, y2) / 8);
+    for (let i = 1; i < steps; i++) {
+      const f = i / steps;
+      const tx = Math.floor((x1 + (x2 - x1) * f) / TILE_SIZE);
+      const ty = Math.floor((y1 + (y2 - y1) * f) / TILE_SIZE);
+      if (!this.isWalkable(tx, ty)) return false;
+    }
+    return true;
+  }
+
   /** Thief skeleton: blink behind the nearest foe and backstab for heavy damage. */
   private thiefStrike(thief: Companion, monsters: Monster[], time: number): void {
     if (time < thief.nextBlink) return;
     let target: Monster | null = null;
-    let bd = 300;
+    let bd = 260;
     for (const m of monsters) {
       const d = Phaser.Math.Distance.Between(thief.x, thief.y, m.x, m.y);
-      if (d < bd) {
+      // only blink to foes in the SAME room (clear line of sight, no walls between)
+      if (d < bd && this.hasLineOfSight(thief.x, thief.y, m.x, m.y)) {
         bd = d;
         target = m;
       }

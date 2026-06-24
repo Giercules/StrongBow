@@ -338,6 +338,11 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
   abilityCooldown(): number {
     return Math.round(7000 * (1 - (this.stats.cdr ?? 0)));
   }
+
+  /** Necromancer servant cap: starts at 2, grows to 5 with level, + summon affixes. */
+  maxSummons(): number {
+    return Math.min(5, 2 + Math.floor((this.level - 1) / 3)) + (this.stats.summonBonus ?? 0);
+  }
   canAbility(time: number): boolean {
     return this.alive && time >= this.nextAbilityAt;
   }
