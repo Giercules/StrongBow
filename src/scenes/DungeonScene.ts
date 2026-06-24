@@ -772,8 +772,10 @@ export class DungeonScene extends Phaser.Scene {
         }
         case 'portal': {
           const idx = Content.levelOrder.indexOf(sp.realmId ?? '');
-          const unlocked = idx >= 0 && idx < this.unlockedRealms();
-          const tint = unlocked ? 0xc79bff : 0x4a4a52;
+          const ur = this.unlockedRealms();
+          const unlocked = idx >= 0 && idx < ur;
+          const cleared = idx >= 0 && idx < ur - 1;
+          const tint = cleared ? 0x7fe0a0 : unlocked ? 0xc79bff : 0x4a4a52;
           const spr = this.add.sprite(c.x, c.y, 'portal-sheet').play('portal').setScale(1.2).setDepth(c.y).setTint(tint);
           const glow = this.add
             .image(c.x, c.y, 'fx-glow-white')
@@ -783,11 +785,18 @@ export class DungeonScene extends Phaser.Scene {
             .setDepth(c.y - 1)
             .setTint(tint);
           this.tweens.add({ targets: glow, alpha: { from: unlocked ? 0.3 : 0.1, to: unlocked ? 0.62 : 0.2 }, duration: 1500, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
-          const cap = `${idx + 1}. ${sp.label ?? 'Realm'}${unlocked ? '' : '  (sealed)'}`;
+          const state = cleared ? '  ✓ cleared' : unlocked ? '' : '  (sealed)';
+          const cap = `${idx + 1}. ${sp.label ?? 'Realm'}${state}`;
           this.add
-            .text(c.x, c.y - 30, cap, { fontFamily: 'MedievalSharp, "Trebuchet MS", cursive', fontSize: '11px', color: unlocked ? '#ffe9a8' : '#9a9aa6', align: 'center', stroke: '#000', strokeThickness: 3 })
+            .text(c.x, c.y - 30, cap, { fontFamily: 'MedievalSharp, "Trebuchet MS", cursive', fontSize: '11px', color: cleared ? '#9fe7b0' : unlocked ? '#ffe9a8' : '#9a9aa6', align: 'center', stroke: '#000', strokeThickness: 3 })
             .setOrigin(0.5)
             .setDepth(c.y + 40);
+          if (cleared) {
+            this.add
+              .text(c.x, c.y - 46, '✓', { fontFamily: 'MedievalSharp, "Trebuchet MS", cursive', fontSize: '20px', color: '#7fe0a0', stroke: '#08120a', strokeThickness: 4 })
+              .setOrigin(0.5)
+              .setDepth(c.y + 41);
+          }
           this.shadows.add(spr);
           this.portals.push({ sprite: spr, realmId: sp.realmId ?? '', label: sp.label ?? 'Realm', x: sp.x, y: sp.y });
           break;
