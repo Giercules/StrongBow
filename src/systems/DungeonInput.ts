@@ -23,6 +23,20 @@ const PAD_FOR_ACTION: Partial<Record<PlayerAction, PadName>> = {
   magic: 'X',
   inventory: 'L1',
 };
+
+// Human-readable controller button per action, for the Settings display.
+const PAD_LABEL: Record<PlayerAction, string> = {
+  up: 'Stick ↑',
+  down: 'Stick ↓',
+  left: 'Stick ←',
+  right: 'Stick →',
+  attack: 'A',
+  magic: 'X',
+  use: 'B',
+  inventory: 'LB',
+  sheet: '—',
+  growth: '—',
+};
 const STICK_DEADZONE = 0.35;
 
 /** Resolves the current key bindings into live Phaser keys and queries them.
@@ -102,6 +116,16 @@ export class DungeonInput {
     this.padPrev.set(key, now);
     return now && !was;
   }
+  /** True when a controller is connected (drives the Settings display). */
+  hasPad(): boolean {
+    return !!this.pad('p1');
+  }
+
+  /** Controller button label for an action, shown in Settings. */
+  padLabel(action: PlayerAction): string {
+    return PAD_LABEL[action] ?? '—';
+  }
+
   // -------------------------------------------------------------------------
 
   isDown(player: 'p1' | 'p2', action: PlayerAction): boolean {

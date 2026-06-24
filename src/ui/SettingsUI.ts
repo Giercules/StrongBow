@@ -260,8 +260,14 @@ export class SettingsUI {
 
   private tabControls(): void {
     const x0 = this.modal!.cx - PANEL_W / 2;
-    this.text(x0 + 24, this.rowY, `Editing ${this.cPlayer.toUpperCase()}   ( L/R switch - Up/Dn select - Enter rebind - R reset - Shift+R all )`, C.inkDim, 9.5);
-    this.rowY += 22;
+    const padOn = !!this.deps.input?.hasPad();
+    this.text(x0 + 24, this.rowY, `Editing ${this.cPlayer.toUpperCase()}   ( L/R switch - Up/Dn select - Enter rebind - R reset )`, C.inkDim, 9.5);
+    this.rowY += 20;
+    if (padOn) {
+      this.text(x0 + PANEL_W - 122, this.rowY, 'KEY', C.inkDim, 9, 1).setX(x0 + PANEL_W - 122);
+      this.text(x0 + PANEL_W - 40, this.rowY, 'GAMEPAD', C.inkDim, 9, 1).setX(x0 + PANEL_W - 40);
+      this.rowY += 14;
+    }
     REBINDABLE_ACTIONS.forEach((action, i) => {
       const yy = this.rowY + i * 22;
       const selected = i === this.cSel;
@@ -276,8 +282,18 @@ export class SettingsUI {
       this.text(x0 + 30, yy + 10, ACTION_LABELS[action], C.ink, 11);
       const key = settings.bindings[this.cPlayer][action];
       const show = selected && this.capturing ? 'press a key...' : keyLabel(key);
-      this.text(x0 + PANEL_W - 40, yy + 10, show, selected && this.capturing ? C.coinHi : C.hudBorder, 11, 1).setX(x0 + PANEL_W - 40);
+      if (padOn) {
+        this.text(x0 + PANEL_W - 122, yy + 10, show, selected && this.capturing ? C.coinHi : C.hudBorder, 11, 1).setX(x0 + PANEL_W - 122);
+        const pl = this.deps.input!.padLabel(action);
+        this.text(x0 + PANEL_W - 40, yy + 10, pl, pl === '—' ? C.inkDim : '#7fd0ff', 11, 1).setX(x0 + PANEL_W - 40);
+      } else {
+        this.text(x0 + PANEL_W - 40, yy + 10, show, selected && this.capturing ? C.coinHi : C.hudBorder, 11, 1).setX(x0 + PANEL_W - 40);
+      }
     });
+    if (padOn) {
+      const fy = this.rowY + REBINDABLE_ACTIONS.length * 22 + 8;
+      this.text(x0 + 24, fy, 'Controller also: Y dodge - RB ability - Start settings - Select help', '#7fd0ff', 9.5);
+    }
   }
 
   private tabManual(): void {
