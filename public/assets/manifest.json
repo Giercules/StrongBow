@@ -1,5 +1,5 @@
 {
-  "_comment": "External art overrides for StrongBow. Each entry replaces the built-in PROCEDURAL texture of `key` with an image file. The list is intentionally EMPTY so the game uses the full procedural art set (redesigned heroes, themed per-level walls/floors, recoloured monsters, etc.). To override a piece with a PNG, add an entry like { \"key\": \"hero-vanguard-sheet\", \"path\": \"assets/sprites/warrior.png\", \"kind\": \"spritesheet\", \"frameWidth\": 20, \"frameHeight\": 24 }. Special keys: ext-floor / ext-wall retile the whole dungeon.",
+  "_comment": "External art overrides for StrongBow. Each entry replaces the built-in PROCEDURAL texture of `key` with an image file. The game ships a full set of HD PNG overrides (hazards, props, item icons, pickups). To override a piece, add an entry like { \"key\": \"hero-vanguard-sheet\", \"path\": \"assets/sprites/warrior.png\", \"kind\": \"spritesheet\", \"frameWidth\": 20, \"frameHeight\": 24 }. Remove an entry to fall back to the procedural art. See assets/sprites/SPRITE_GUIDE.md for the full key list and frame sizes.",
   "sprites": [
     {
       "key": "town-butterfly",
