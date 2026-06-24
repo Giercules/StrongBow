@@ -80,6 +80,48 @@
       "key": "crystal",
       "path": "assets/sprites/crystal-hd.png",
       "kind": "image"
+    },
+    {
+      "key": "water-sheet",
+      "path": "assets/sprites/water-sheet.png",
+      "kind": "spritesheet",
+      "frameWidth": 16,
+      "frameHeight": 16
+    },
+    {
+      "key": "lava-sheet",
+      "path": "assets/sprites/lava-sheet.png",
+      "kind": "spritesheet",
+      "frameWidth": 16,
+      "frameHeight": 16
+    },
+    {
+      "key": "poison-sheet",
+      "path": "assets/sprites/poison-sheet.png",
+      "kind": "spritesheet",
+      "frameWidth": 16,
+      "frameHeight": 16
+    },
+    {
+      "key": "spikes-sheet",
+      "path": "assets/sprites/spikes-sheet.png",
+      "kind": "spritesheet",
+      "frameWidth": 16,
+      "frameHeight": 16
+    },
+    {
+      "key": "portal-sheet",
+      "path": "assets/sprites/portal-sheet.png",
+      "kind": "spritesheet",
+      "frameWidth": 16,
+      "frameHeight": 16
+    },
+    {
+      "key": "torch-sheet",
+      "path": "assets/sprites/torch-sheet.png",
+      "kind": "spritesheet",
+      "frameWidth": 16,
+      "frameHeight": 16
     }
   ]
 }
