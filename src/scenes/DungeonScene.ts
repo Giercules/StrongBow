@@ -1367,6 +1367,7 @@ export class DungeonScene extends Phaser.Scene {
       meteor.once('animationcomplete', () => meteor.destroy());
       this.add.image(tx, ty, 'fx-glow-warm').setScale(3.2).setAlpha(0.85).setBlendMode(Phaser.BlendModes.ADD).setDepth(ty + 10);
       this.aoeHit(h, tx, ty, radius, Math.round(h.magicDamage() * 2.1), time, 'burn', 70);
+      this.cameras.main.shake(220, 0.008);
       audio.sfx('magic');
     } else {
       // Vanguard — Seismic Slam: a shockwave that flings foes back and stuns, and steels the Vanguard.
@@ -1375,6 +1376,7 @@ export class DungeonScene extends Phaser.Scene {
       ring.play('fx-magic');
       ring.once('animationcomplete', () => ring.destroy());
       this.aoeHit(h, cx, cy, radius, Math.round(h.attackDamage().dmg * 1.9), time, 'shock', 320);
+      this.cameras.main.shake(240, 0.009);
       h.heal(Math.round(h.stats.maxHealth * 0.12));
       audio.sfx('hit');
     }
@@ -1830,6 +1832,13 @@ export class DungeonScene extends Phaser.Scene {
       .setDepth(y - 1)
       .setTint(tint);
     this.tweens.add({ targets: glow, alpha: { from: 0.5, to: 0.28 }, scale: { from: 1.5, to: 1.2 }, duration: 700, yoyo: true, repeat: -1 });
+    // rarity beam — a coloured shaft so good drops read from across the room
+    const beam = this.add.rectangle(x, y - 12, 4, 34, tint, 0.55).setOrigin(0.5, 1).setBlendMode(Phaser.BlendModes.ADD).setDepth(y - 2);
+    this.tweens.add({ targets: beam, alpha: { from: 0.55, to: 0.18 }, scaleY: { from: 1, to: 1.3 }, duration: 820, yoyo: true, repeat: -1 });
+    spr.once('destroy', () => {
+      glow.destroy();
+      beam.destroy();
+    });
     // little pop so a fresh drop reads as "new"
     spr.setScale(0);
     this.tweens.add({ targets: spr, scale: 1, duration: 240, ease: 'Back.easeOut', onComplete: () => this.floatBob(spr) });
@@ -1843,6 +1852,7 @@ export class DungeonScene extends Phaser.Scene {
     this.showBark(`${bossName} falls! The exit awakens.`, 3400, 'combat');
     this.dmSetPiece(aiService.generateVictory(this.level.name, this.players[0]?.classId));
     audio.sfx('victory');
+    this.cameras.main.shake(360, 0.012);
     // The realm's warden always yields a guaranteed, high-grade themed reward.
     if (this.boss) this.dropLoot(this.boss.x, this.boss.y, 'runed');
   }
