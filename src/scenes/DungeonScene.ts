@@ -49,7 +49,7 @@ import { FlowField } from '../systems/Pathfinding';
 import type { SaveData, SaveAlly } from '../systems/SaveSystem';
 import { SaveLoadUI } from '../ui/SaveLoadUI';
 import { audio } from '../systems/AudioSystem';
-import { aiService } from '../ai/AIService';
+import { aiService, type BarkContext } from '../ai/AIService';
 import { InventoryUI } from '../ui/InventoryUI';
 import { ShopUI } from '../ui/ShopUI';
 import type { ShopKind } from '../core/types';
@@ -220,6 +220,7 @@ export class DungeonScene extends Phaser.Scene {
   private quest = '';
   private startTime = 0;
   private lastBarkAt = 0;
+  private lowHealthWarned = false;
   private startTile = { x: 4, y: 4 };
   private paused = false;
   private won = false;
@@ -414,6 +415,7 @@ export class DungeonScene extends Phaser.Scene {
     this.boss = null;
     this.bossAlive = false;
     this.bossMusicOn = false;
+    this.lowHealthWarned = false;
     this.paused = false;
     this.won = false;
     this.activeIdx = 0;
@@ -857,6 +859,7 @@ export class DungeonScene extends Phaser.Scene {
     gen.onDestroyed = () => {
       this.generatorsDestroyed++;
       this.showBark('A spawning altar is destroyed!', 3400, 'combat');
+      this.grokNarrate(this.barkContext('the heroes shatter a spawning altar'), { force: true });
       // Altars reliably cough up themed gear (honed or better).
       if (Math.random() < generatorDropChance(this.bestLuck())) this.dropLoot(gen.x, gen.y, 'honed');
     };
@@ -1104,6 +1107,7 @@ export class DungeonScene extends Phaser.Scene {
         this.useAbility(p1, time);
         p1.markAbilityUsed(time);
       }
+      this.checkLowHealth(p1);
     }
     if (p1) p1.tick(time, delta);
 
@@ -2265,6 +2269,7 @@ export class DungeonScene extends Phaser.Scene {
     if (near) {
       this.bossMusicOn = true;
       audio.playMusic('boss');
+      this.grokNarrate(this.barkContext('the realm warden rises and the final battle begins'), { force: true });
     }
   }
 
@@ -2507,18 +2512,41 @@ export class DungeonScene extends Phaser.Scene {
     this.syncLogData();
   }
 
-  private grokNarrate(prompt: string, opts: { force?: boolean } = {}): void {
+  private grokNarrate(ctx: BarkContext | string, opts: { force?: boolean } = {}): void {
     if (!settings.get('aiBarksEnabled')) return;
     if (!opts.force && this.time.now - this.lastBarkAt < DungeonScene.BARK_COOLDOWN) return;
     this.lastBarkAt = this.time.now;
     this.setGrokStatus('thinking');
     void aiService
-      .generateBark(prompt)
+      .generateBark(ctx)
       .then(({ text, live }) => {
         this.setGrokStatus('connected');
         if (text) this.pushLog(text, live ? 'grok' : 'event');
       })
       .catch(() => this.setGrokStatus('connected'));
+  }
+
+  /** Build a Dungeon Master context snapshot from current run state. */
+  private barkContext(event: string, extra: Partial<BarkContext> = {}): BarkContext {
+    const p = this.players[0];
+    return {
+      event,
+      realm: this.level.name,
+      heroClass: p?.classId,
+      altarsLeft: Math.max(0, this.generatorsTotal - this.generatorsDestroyed),
+      ...extra,
+    };
+  }
+
+  /** Fire a one-shot ominous bark when a hero drops into the danger zone. */
+  private checkLowHealth(hero: Hero): void {
+    const frac = hero.health / Math.max(1, hero.stats.maxHealth);
+    if (frac > 0 && frac < 0.25 && !this.lowHealthWarned) {
+      this.lowHealthWarned = true;
+      this.grokNarrate(this.barkContext('the hero is gravely wounded and near death', { healthPercent: Math.round(frac * 100) }));
+    } else if (frac > 0.45) {
+      this.lowHealthWarned = false;
+    }
   }
 
   private formatTime(): string {

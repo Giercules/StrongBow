@@ -7,6 +7,14 @@ import { ProxyAIProvider } from './ProxyAIProvider';
 import { AI_USE_PROXY } from './aiConfig';
 import { settings } from '../core/GameSettings';
 
+export interface BarkContext {
+  event: string;
+  realm?: string;
+  heroClass?: string;
+  altarsLeft?: number;
+  healthPercent?: number;
+}
+
 class AIService {
   private fallback = new FallbackProvider();
   private primary: AIProvider;
@@ -81,9 +89,24 @@ class AIService {
     return (await this.run(req, 'offlineOnly')).text;
   }
 
-  async generateBark(event: string): Promise<{ text: string; live: boolean }> {
+  async generateBark(ctx: BarkContext | string): Promise<{ text: string; live: boolean }> {
     if (!settings.get('aiBarksEnabled')) return { text: '', live: false };
-    return this.run({ context: 'bark', prompt: `Narrate this moment in one vivid line: ${event}.`, maxTokens: 40 }, 'never');
+    const event = typeof ctx === 'string' ? ctx : ctx.event;
+    const facts =
+      typeof ctx === 'string'
+        ? ''
+        : [
+            ctx.realm ? `Realm: ${ctx.realm}.` : '',
+            ctx.heroClass ? `Hero class: ${ctx.heroClass}.` : '',
+            ctx.altarsLeft != null ? `Altars remaining: ${ctx.altarsLeft}.` : '',
+            ctx.healthPercent != null ? `Hero health: ${ctx.healthPercent}%.` : '',
+          ]
+            .filter(Boolean)
+            .join(' ');
+    const prompt = facts
+      ? `Narrate this moment in one vivid line: ${event}. ${facts}`
+      : `Narrate this moment in one vivid line: ${event}.`;
+    return this.run({ context: 'bark', prompt, maxTokens: 40 }, 'never');
   }
 
   async generateCompanionBark(): Promise<string> {
