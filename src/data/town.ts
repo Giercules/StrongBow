@@ -124,6 +124,13 @@ export function buildTown(): LevelData {
   decor.push({ x: 87, y: 11, key: 'banner' });
   spawns.push({ kind: 'merchant', shop: 'home', x: 87, y: 21, label: 'Your Lodge' });
 
+  // The Fighters Guild — hire sellswords inside.
+  house(48, 11, 60, 19, 'house-roof-teak');
+  decor.push({ x: 54, y: 11, key: 'banner' });
+  decor.push({ x: 50, y: 11, key: 'weapon-rack' });
+  decor.push({ x: 58, y: 11, key: 'weapon-rack' });
+  spawns.push({ kind: 'door', x: 54, y: 19, interiorId: 'interior_guild', label: 'Fighters Guild' });
+
   house(20, 54, 28, 60, 'house-roof-red');
   house(80, 54, 90, 60, 'house-roof-green');
 

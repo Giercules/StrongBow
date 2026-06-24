@@ -53,6 +53,7 @@ import { audio } from '../systems/AudioSystem';
 import { aiService, type BarkContext } from '../ai/AIService';
 import { InventoryUI } from '../ui/InventoryUI';
 import { ShopUI } from '../ui/ShopUI';
+import { GuildHireUI } from '../ui/GuildHireUI';
 import type { ShopKind } from '../core/types';
 import { SkillTreeUI } from '../ui/SkillTreeUI';
 import { SettingsUI } from '../ui/SettingsUI';
@@ -242,6 +243,7 @@ export class DungeonScene extends Phaser.Scene {
 
   // ---- town-square hub state (only populated when this.level.town) ----
   private shopUI!: ShopUI;
+  private guildUI!: GuildHireUI;
   private townNpcs: {
     sprite: Phaser.GameObjects.Sprite;
     homeX: number;
@@ -267,6 +269,10 @@ export class DungeonScene extends Phaser.Scene {
     const save = this.registry.get('loadSave') as SaveData | undefined;
     const levelId = (save?.levelId as string) ?? (this.registry.get('levelId') as string) ?? 'sunken_crypt';
     this.level = Content.getLevel(levelId);
+    if (this.level.id === 'town' && this.registry.get('hireSpent')) {
+      this.registry.set('hiredAllies', []);
+      this.registry.remove('hireSpent');
+    }
 
     const wPx = this.level.width * TILE_SIZE;
     const hPx = this.level.height * TILE_SIZE;
@@ -346,6 +352,7 @@ export class DungeonScene extends Phaser.Scene {
     this.saveLoadUI = new SaveLoadUI(this);
     this.settingsUI = new SettingsUI(this, { input: this.input2, onOpenManual: () => this.manualUI.open() });
     this.shopUI = new ShopUI(this);
+    this.guildUI = new GuildHireUI(this);
     const kb = this.input.keyboard!;
     this.escKey = kb.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
     this.continueKey = kb.addKey(Phaser.Input.Keyboard.KeyCodes.C);
@@ -965,7 +972,10 @@ export class DungeonScene extends Phaser.Scene {
 
   private createCompanions(): void {
     const used = new Set(this.players.map((p) => p.classId));
-    const pool = ALL_CLASSES.filter((c) => !used.has(c));
+    // Allies no longer follow for free — only those hired at the Fighters Guild
+    // (for this descent) march with the party.
+    const hired = (this.registry.get('hiredAllies') as HeroClassId[] | undefined) ?? [];
+    const pool = ALL_CLASSES.filter((c) => !used.has(c) && hired.includes(c));
     const c = this.tileCenter(this.startTile.x, this.startTile.y);
     pool.forEach((cls, i) => {
       const comp = new Companion(this, c.x + Phaser.Math.Between(-20, 20), c.y + 16 + i * 6, cls);
@@ -1031,6 +1041,7 @@ export class DungeonScene extends Phaser.Scene {
       this.manualUI.isOpen() ||
       this.saveLoadUI.isOpen() ||
       this.shopUI.isOpen() ||
+      this.guildUI.isOpen() ||
       this.quitConfirm !== null
     );
   }
@@ -1043,6 +1054,7 @@ export class DungeonScene extends Phaser.Scene {
     if (this.manualUI.isOpen()) this.manualUI.close();
     if (this.saveLoadUI.isOpen()) this.saveLoadUI.close();
     if (this.shopUI.isOpen()) this.shopUI.close();
+    if (this.guildUI.isOpen()) this.guildUI.close();
   }
 
   private pollMenus(): void {
@@ -2315,6 +2327,7 @@ export class DungeonScene extends Phaser.Scene {
     this.registry.set('levelId', realmId);
     this.registry.set('twoPlayer', this.twoPlayer);
     this.registry.set('fromTown', true);
+    this.registry.set('hireSpent', true); // hired allies lapse once you return to town
     this.registry.remove('loadSave');
     this.cameras.main.fadeOut(700, 0, 0, 0);
     this.time.delayedCall(900, () => {
@@ -2351,6 +2364,10 @@ export class DungeonScene extends Phaser.Scene {
       audio.sfx('shrine');
       this.showBark('You rest at your lodge. The whole party is restored to full.', 5000);
       this.floatPickup(player.x, player.y - 8, 'Rested', '#9fe0ff');
+      return;
+    }
+    if (m.shop === 'guild') {
+      this.guildUI.open(player, this.players.map((p) => p.classId));
       return;
     }
     this.shopUI.open(m.shop, player, m.label);
