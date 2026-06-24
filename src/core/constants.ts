@@ -41,6 +41,14 @@ export const HUD_REGISTRY_KEY = 'hudData';
 export const LOG_REGISTRY_KEY = 'logData';
 export const GENERATORS_TO_DESTROY = 3;
 
+// Difficulty presets: how many generators the exit demands, and an enemy
+// density multiplier layered on top of the monster-count cheat.
+export const DIFFICULTY = {
+  easy: { requiredGenerators: 2, enemyMult: 0.7 },
+  moderate: { requiredGenerators: 3, enemyMult: 1 },
+  hard: { requiredGenerators: 99, enemyMult: 1.4 },
+} as const;
+
 export enum Tile {
   VOID = 0,
   FLOOR = 1,

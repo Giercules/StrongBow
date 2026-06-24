@@ -291,7 +291,10 @@ export interface CompanionAISettings {
 
 export type AIProviderId = 'openai' | 'anthropic' | 'xai' | 'fallback';
 
+export type Difficulty = 'easy' | 'moderate' | 'hard';
+
 export interface GameplaySettings {
+  difficulty: Difficulty;
   monsterCount: number;
   xpMultiplier: number;
   playerDamageMult: number;

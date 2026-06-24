@@ -16,6 +16,7 @@ const DEFAULT_COMPANION_AI: CompanionAISettings = {
 };
 
 const DEFAULT_GAMEPLAY: GameplaySettings = {
+  difficulty: 'moderate',
   monsterCount: 1,
   xpMultiplier: 1,
   playerDamageMult: 1,

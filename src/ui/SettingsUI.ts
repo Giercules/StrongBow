@@ -7,7 +7,7 @@ import { audio, MUSIC_TRACKS, musicTrackLabel } from '../systems/AudioSystem';
 import { aiService } from '../ai/AIService';
 import { REBINDABLE_ACTIONS, ACTION_LABELS, keyLabel } from '../core/KeyBindings';
 import { SPRITE_SCALE_MIN, SPRITE_SCALE_MAX } from '../core/constants';
-import type { AIProviderId } from '../core/types';
+import type { AIProviderId, Difficulty } from '../core/types';
 import type { DungeonInput } from '../systems/DungeonInput';
 
 const PROVIDERS: AIProviderId[] = ['fallback', 'openai', 'anthropic', 'xai'];
@@ -363,7 +363,15 @@ export class SettingsUI {
   private tabCheats(): void {
     const right = this.modal!.cx + PANEL_W / 2 - 24;
     const g = settings.get('gameplay');
-    let y = this.rowLabel('Monster count');
+    let y = this.rowLabel('Difficulty');
+    const diffs: Difficulty[] = ['easy', 'moderate', 'hard'];
+    const cycleDiff = () => {
+      const i = diffs.indexOf(g.difficulty);
+      settings.setGameplay('difficulty', diffs[(i + 1) % diffs.length]);
+    };
+    this.btn(right - 60, y, 110, g.difficulty.toUpperCase(), cycleDiff, C.ivy);
+    this.focusRow(y, { activate: cycleDiff, left: cycleDiff, right: cycleDiff });
+    y = this.rowLabel('Monster count');
     this.stepper(right, y, g.monsterCount.toFixed(2) + 'x', () => settings.setGameplay('monsterCount', Math.max(0.5, +(g.monsterCount - 0.25).toFixed(2))), () => settings.setGameplay('monsterCount', Math.min(4, +(g.monsterCount + 0.25).toFixed(2))));
     y = this.rowLabel('XP multiplier');
     this.stepper(right, y, g.xpMultiplier.toFixed(1) + 'x', () => settings.setGameplay('xpMultiplier', Math.max(1, +(g.xpMultiplier - 0.5).toFixed(1))), () => settings.setGameplay('xpMultiplier', Math.min(10, +(g.xpMultiplier + 0.5).toFixed(1))));

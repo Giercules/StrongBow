@@ -9,6 +9,7 @@ import {
   HUD_REGISTRY_KEY,
   LOG_REGISTRY_KEY,
   GENERATORS_TO_DESTROY,
+  DIFFICULTY,
   WATER_SPEED_MULT,
   LAVA_DPS,
   ICE_SPEED_MULT,
@@ -871,7 +872,7 @@ export class DungeonScene extends Phaser.Scene {
 
   private spawnGenerator(tx: number, ty: number, enemyId: string, interval: number, maxAlive: number, hp: number): void {
     const c = this.tileCenter(tx, ty);
-    const mc = settings.get('gameplay').monsterCount;
+    const mc = settings.get('gameplay').monsterCount * DIFFICULTY[settings.get('gameplay').difficulty].enemyMult;
     maxAlive = Math.max(1, Math.round(maxAlive * mc));
     interval = Math.max(700, Math.round(interval / mc));
     const gen = new Generator(this, c.x, c.y, enemyId as never, interval, maxAlive, hp);
@@ -885,7 +886,7 @@ export class DungeonScene extends Phaser.Scene {
       this.showBark('A spawning altar is destroyed!', 3400, 'combat');
       this.grokNarrate(this.barkContext('the heroes shatter a spawning altar'), { force: true });
       void aiService
-        .generateAltarProgress(this.level.name, Math.max(0, this.generatorsTotal - this.generatorsDestroyed))
+        .generateAltarProgress(this.level.name, Math.max(0, this.requiredGenerators() - this.generatorsDestroyed))
         .then(({ text }) => {
           if (text) this.questBeat = text;
         });
@@ -2302,9 +2303,15 @@ export class DungeonScene extends Phaser.Scene {
     }
   }
 
+  /** Generators that must fall before the exit opens, scaled by difficulty. */
+  private requiredGenerators(): number {
+    const need = DIFFICULTY[settings.get('gameplay').difficulty].requiredGenerators;
+    return Math.min(need, this.generatorsTotal);
+  }
+
   private checkExit(): void {
     if (this.won) return;
-    if (this.generatorsDestroyed < GENERATORS_TO_DESTROY || this.bossAlive) return;
+    if (this.generatorsDestroyed < this.requiredGenerators() || this.bossAlive) return;
     const onExit = this.players.some((p) => p.alive && this.tileAt(p.x, p.y) === Tile.EXIT);
     if (onExit) this.win();
   }
@@ -2584,7 +2591,7 @@ export class DungeonScene extends Phaser.Scene {
       event,
       realm: this.level.name,
       heroClass: p?.classId,
-      altarsLeft: Math.max(0, this.generatorsTotal - this.generatorsDestroyed),
+      altarsLeft: Math.max(0, this.requiredGenerators() - this.generatorsDestroyed),
       ...extra,
     };
   }
@@ -2630,8 +2637,8 @@ export class DungeonScene extends Phaser.Scene {
     });
     const data: HudRegistryData = {
       slots,
-      generatorsLeft: Math.max(0, this.generatorsTotal - this.generatorsDestroyed),
-      generatorsTotal: this.generatorsTotal,
+      generatorsLeft: Math.max(0, this.requiredGenerators() - this.generatorsDestroyed),
+      generatorsTotal: this.requiredGenerators(),
       bossAlive: this.bossAlive,
       quest: this.questBeat ? `${this.quest}  —  ${this.questBeat}` : this.quest,
       levelName: this.level.name,
