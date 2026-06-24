@@ -168,6 +168,7 @@ HEROES = [
     ("Strider", hero("#2f8a3a", "#1c5a2a", None, "bow")),
     ("Arcanist", hero("#6a3cc0", "#34147a", None, "staff")),
     ("Warden", hero("#c79a2e", "#8a6a1e", None, "mace")),
+    ("Necromancer", hero("#2a1f3e", "#140f1e", None, "staff")),
 ]
 
 MOBS = [

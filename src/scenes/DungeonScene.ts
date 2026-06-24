@@ -1322,7 +1322,7 @@ export class DungeonScene extends Phaser.Scene {
   }
 
   private abilityName(c: HeroClassId): string {
-    const names: Record<HeroClassId, string> = { vanguard: 'Shield Slam', strider: 'Multishot', arcanist: 'Arcane Nova', warden: 'Sanctuary', necromancer: 'Raise Dead' };
+    const names: Record<HeroClassId, string> = { vanguard: 'Seismic Slam', strider: 'Volley', arcanist: 'Meteor', warden: 'Sanctuary', necromancer: 'Raise Dead' };
     return names[c];
   }
 

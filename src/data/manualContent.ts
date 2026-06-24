@@ -160,10 +160,10 @@ export const MANUAL_PAGES: ManualPage[] = [
     title: 'How to Play',
     kind: 'text',
     body: [
-      'Move with WASD (Player 1) or the Arrow keys (Player 2). Or hold the left mouse button in the play area to walk toward the cursor.',
-      'Hold attack to strike — each hero differs: Vanguard cleaves, Warden bludgeons, Strider looses arrows, Arcanist hurls bolts.',
-      'Tap magic for an area blast (costs mana). Use / interact opens chests and lights shrines.',
-      'Press SPACE to dodge-roll (brief invulnerability), and F for your class ability: Shield Slam, Multishot, Arcane Nova, or Sanctuary.',
+      'Move with WASD (P1) or the Arrow keys (P2), or hold the left mouse button to walk toward the cursor. Or plug in a GAMEPAD: left stick / D-Pad moves, A attacks, X magic, B use, Y dodge, RB ability.',
+      'Hold attack to strike — each hero differs: Vanguard cleaves, Warden bludgeons, Strider looses arrows, Arcanist and Necromancer hurl bolts.',
+      'Tap magic for an attack (costs mana). Use / interact opens chests and lights shrines.',
+      'Press SPACE to dodge-roll (brief invulnerability), and F for your class ability: Vanguard Seismic Slam, Strider Volley, Arcanist Meteor, Warden Sanctuary, or Necromancer Raise Dead (summons skeletal servants).',
     ],
   },
   {
@@ -171,10 +171,10 @@ export const MANUAL_PAGES: ManualPage[] = [
     kind: 'text',
     body: [
       'Hit foes with elements: fire weapons BURN, magic CHILLS (slows), and critical hits SHOCK (extra damage). Big hits knock enemies back.',
-      'Beware gold-glowing CHAMPIONS — tougher and harder-hitting, but they always drop strong gear.',
-      'A minimap (top-right) shows the party, altars and boss; the left-hand ADVENTURE LOG narrates your run, with live Grok "Dungeon Master" commentary when AI is connected.',
-      'Press O for Options: VIEW scales sprite size and toggles the map, AUDIO swaps the music track, ALLIES tunes companions, KEYS rebinds controls. Press F2 for the save/load window.',
-      'WIN: destroy at least 3 spawning altars, slay the realm’s warden, then stand on the exit portal to descend. Hazards hurt but never trap you — keep moving.',
+      'Beware gold-glowing CHAMPIONS — tougher and harder-hitting, but they always drop strong gear. Every enemy shows a small HP bar above its head, and dropped loot beams in its rarity colour.',
+      'A minimap (top-right) shows the party, altars and boss; the left-hand ADVENTURE LOG narrates your run (scroll it with the mouse wheel), with live Grok "Dungeon Master" commentary when AI is connected.',
+      'Press O for Options — every tab is fully navigable by gamepad too: VIEW (sprite size, map), AUDIO (music track), ALLIES (companions), KEYS (rebind), CHEATS (incl. DIFFICULTY: easy/moderate/hard), HELP. Press F2 for save/load.',
+      'WIN: shatter the spawning altars (DIFFICULTY sets how many — easy 2, moderate 3, hard all), slay the realm’s warden, then stand on the exit portal to descend. Cleared gates show a green check back in town.',
     ],
   },
   {
@@ -182,7 +182,7 @@ export const MANUAL_PAGES: ManualPage[] = [
     kind: 'text',
     body: [
       'Solo play grants three AI companions; co-op grants two. They follow whoever moved last and join the fight.',
-      'Every class aids the group: the Warden heals nearby allies, the Vanguard shields them from harm, the Strider sharpens their aim, and the Arcanist empowers their blows.',
+      'Every class aids the group: the Warden heals nearby allies, the Vanguard shields them, the Strider sharpens their aim, the Arcanist empowers their blows, and the Necromancer raises skeleton warriors and bone casters to fight at your side.',
       'Slain foes grant XP to the killer and a share to the whole party. Tune companion behaviour in Settings -> Allies.',
     ],
   },
@@ -190,9 +190,9 @@ export const MANUAL_PAGES: ManualPage[] = [
     title: 'Growth & Gear',
     kind: 'text',
     body: [
-      'Each level grants a skill point and an attribute point. Open Growth (K) to raise class skills (1-3) and the attributes Might, Vitality, Focus, and Fortune (4-7).',
+      'Each level grants a skill point and an attribute point. Open Growth (K) to raise class skills and the attributes Might, Vitality, Focus, and Fortune. Some skills boost abilities directly — the Necromancer Horde (+1 servant) and the Arcanist Chain Magic (spells arc to more foes).',
       'FORTUNE raises your luck: more loot drops, and far better odds of the higher equipment grades.',
-      'Foes, altars and chests drop gear themed to the realm, in five grades: Cracked, Honed, Runed, Ascendant, and Godforged — each stronger, with more bonus affixes.',
+      'Foes, altars and chests drop gear themed to the realm, in five grades: Cracked, Honed, Runed, Ascendant, and Godforged — each with more affixes, including class-ability affixes: of the Legion (+1 summon), of Alacrity (-cooldown), of Arcing (spells chain). Hover any item for its full stats.',
       'Open Inventory (I) to equip backpack gear (1-9), unequip (U), or drink a potion (C). The backpack pages with Left/Right (9 per page) and tidies with S (sort). Open the Character Sheet (P) for full stats.',
     ],
   },

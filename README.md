@@ -15,9 +15,10 @@ TypeScript + Vite. All original art and audio, generated in code at runtime.
 >
 > No longer. The spawning altars are bleeding the dead back into the light, and
 > one by one the lanterns of the realms are going out. In **Hearthwatch**, the
-> last free town above the pit, four unlikely champions answer a call the rest
+> last free town above the pit, five unlikely champions answer a call the rest
 > of the world is too afraid to hear — a barbarian, a drow ranger, an aging
-> wizard, and a warden of the failing light.
+> wizard, a warden of the failing light, and a necromancer who turns the dead
+> against their master.
 >
 > Beneath them wait **ten realms** — crypt, fire, ice, rot, brass, blood, bog,
 > storm, shadow — each ruled by a warden of the hunger, each darker than the
@@ -74,9 +75,15 @@ Global: **O** settings · **H** manual · **F2** save/load window · **2** add
 Player 2 · **Esc** close menu / quit. In town, stand next to a **gate** or
 **shopkeeper** and press **Use** to descend or trade.
 
-**Settings (O)** has tabs for **Audio** (mute, volumes, and a **music-track**
-picker), **View** (**sprite size** 100–200% and a **show-map** toggle), **Allies**
-(companion behaviour), **Keys** (rebind anything), **Cheats**, and the **Manual**.
+**Gamepad:** left stick / D-Pad move · **A** attack · **X** magic · **B** use ·
+**Y** dodge · **RB** ability · **LB** inventory · **Start** settings · **Select**
+manual. Menus are fully navigable with the D-Pad + A/B, and the HUD controls box
+switches to the controller layout when a pad is connected.
+
+**Settings (O)** has tabs for **Audio** (mute, volumes, **music-track** picker),
+**View** (**sprite size**, **show-map**), **AI** (provider), **Allies** (companion
+behaviour), **Keys** (rebind anything; shows the gamepad mapping when connected),
+**Cheats** (incl. **Difficulty: easy / moderate / hard**), and the **Manual**.
 
 ## Hearthwatch — the town hub
 
@@ -125,24 +132,27 @@ Each realm has its **own macro-layout** (so no two read alike), plus its own
 walls, floors, decor, hazards, enemy roster, boss, themed loot, music, lighting,
 ambient particles, and screen-edge color grade.
 
-**To clear a realm:** destroy at least **3 spawning altars**, slay the
-**warden**, then reach the **exit portal** to return to town. Your whole party —
-including ranged allies — can target and break the altars. Hazards (fire, ice,
+**To clear a realm:** shatter its **spawning altars** — **Difficulty** sets how
+many (easy 2, moderate 3, hard all) — slay the **warden**, then reach the **exit
+portal** to return to town; cleared gates show a green ✓. Your whole party —
+including ranged allies and summons — can target and break the altars. Hazards (fire, ice,
 sludge, spikes) hurt but never trap you.
 
 ## Heroes
 
-Four iconic archetypes, each with a distinct silhouette, weapon, group aura, and
+Five iconic archetypes, each with a distinct silhouette, weapon, group aura, and
 active ability (**F**):
 
-- **Vanguard** — a Conan-style barbarian; bare-chested brawler with a great
-  broadsword. Tanks blows, **Shield Slam** knockback nova, shields nearby allies.
-- **Strider** — a Drizzt-style drow ranger; grey-skinned, white-haired, cloaked,
-  with a bow. High crit/speed, **Multishot** arrow fan, sharpens allies' aim.
-- **Arcanist** — a Merlin-style wizard; blue robe, tall hat, long beard, gem
-  staff. Deep mana + fire magic, **Arcane Nova** AOE, empowers allies' blows.
-- **Warden** — a hooded holy cleric; cream-and-gold robe, mace, sacred light.
-  Steady regen, **Sanctuary** party heal.
+- **Vanguard** — a Conan-style barbarian with a great broadsword. Tanks blows;
+  **Seismic Slam** flings foes back, stuns them, and steels the Vanguard.
+- **Strider** — a Drizzt-style drow ranger with a bow. High crit/speed;
+  **Volley** looses a wide seven-arrow fan.
+- **Arcanist** — a Merlin-style wizard with a gem staff. Deep mana + fire magic;
+  **Meteor** drops a fiery blast on the nearest cluster and Burns it.
+- **Warden** — a hooded holy cleric with a mace and sacred light. Steady regen;
+  **Sanctuary** heals the party and smites nearby foes.
+- **Necromancer** — a shrouded grave-binder in black-violet robes; ranged caster.
+  **Raise Dead** summons skeleton warriors and bone casters (max 3) to fight for you.
 
 Solo play grants 3 AI companions, co-op grants 2. They follow the active player,
 path around corners, **spread out naturally** instead of stacking, fight, smash
@@ -166,7 +176,9 @@ altars they pass, and **blink to you** if they fall too far behind.
 
 - Foes, altars, chests, and bosses drop **gear themed to the realm**, in five
   grades: **Cracked · Honed · Runed · Ascendant · Godforged** — each stronger,
-  with more bonus affixes.
+  with more affixes, including **class-ability affixes**: *of the Legion* (+1
+  summon), *of Alacrity* (−ability cooldown), *of Arcing* (spells chain). **Hover
+  any item** to read its full stats.
 - The **Fortune** attribute (Luck) raises drop rate and tilts rolls toward the
   higher grades.
 - **Growth (K):** raise class skills and the attributes Might / Vitality / Focus
@@ -214,12 +226,12 @@ per-realm themes, a calm town theme, and an intense boss theme. Drop `theme.mp3`
 
 ## Procedural art (and optional overrides)
 
-All in-game art is generated in code at runtime — the heroes and the full
-bestiary are now **HD pixel art**, drawn at 2× the old resolution with rim-light
-shading, faces, and per-class gear and weapons. To swap any piece for a PNG, add
-an entry to `public/assets/manifest.json` (e.g. `hero-vanguard-sheet`,
-`ext-wall`); the list ships empty so the built-in procedural art is used
-everywhere.
+All in-game art is generated in code at runtime as **HD pixel art**. A growing set
+of pieces also ships as hand-made PNG overrides via `public/assets/manifest.json`
+— HD floors, walls, chest/door/gem/key/crystal, the health & mana potions, and the
+town butterfly/bird. To swap any other texture, add a manifest entry (e.g.
+`monster-imp-sheet`, `ext-wall`); see `public/assets/sprites/SPRITE_GUIDE.md` for
+frame sizes, sheet layouts, and ready-to-use art prompts.
 
 The README cover atlas above is rendered straight from the engine's own
 procedural art, so it always reflects exactly what you see in-game.
