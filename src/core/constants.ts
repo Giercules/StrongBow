@@ -6,10 +6,25 @@ export const TILE_SIZE = 16;
 
 export const LEFT_PANEL_WIDTH = 200;
 export const HUD_PANEL_WIDTH = 220;
-export const GAME_WIDTH = 960;
-export const PLAY_AREA_WIDTH = GAME_WIDTH - LEFT_PANEL_WIDTH - HUD_PANEL_WIDTH;
-export const PLAY_AREA_X = LEFT_PANEL_WIDTH;
+// Fixed design height; the canvas WIDTH flexes to the browser-window aspect so
+// the game fills the whole window with the HUD panels pinned to the true left
+// and right edges. Vertical layout never changes (everything keys off 540).
 export const GAME_HEIGHT = 540;
+export const MIN_GAME_WIDTH = 880; // keep the play area from getting too cramped
+export const MAX_GAME_WIDTH = 1320; // and from over-stretching on ultrawide windows
+export let GAME_WIDTH = 960;
+export let PLAY_AREA_X = LEFT_PANEL_WIDTH;
+export let PLAY_AREA_WIDTH = GAME_WIDTH - LEFT_PANEL_WIDTH - HUD_PANEL_WIDTH;
+
+/** Recompute the canvas width (and the middle play-area span) for the current
+ *  window size. Called at boot and on window resize. Height stays fixed at 540. */
+export function applyViewportSize(winW: number, winH: number): void {
+  const ratio = winW > 0 && winH > 0 ? winW / winH : 16 / 9;
+  const w = Math.round(GAME_HEIGHT * ratio);
+  GAME_WIDTH = Math.max(MIN_GAME_WIDTH, Math.min(MAX_GAME_WIDTH, w));
+  PLAY_AREA_X = LEFT_PANEL_WIDTH;
+  PLAY_AREA_WIDTH = GAME_WIDTH - LEFT_PANEL_WIDTH - HUD_PANEL_WIDTH;
+}
 
 export const SPRITE_SCALE_MIN = 1.0;
 export const SPRITE_SCALE_MAX = 2.0;

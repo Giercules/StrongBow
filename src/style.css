@@ -31,16 +31,11 @@ body {
   justify-content: center;
 }
 
-/* Phaser injects a <canvas> into #app. Keep crisp pixels and add an arcade frame. */
+/* Phaser injects a <canvas> into #app. Keep crisp pixels and let it fill the
+   whole window (the HUD panels are drawn at the canvas edges = window edges). */
 #app canvas {
   image-rendering: pixelated;
   image-rendering: crisp-edges;
-  border-radius: 10px;
-  box-shadow:
-    0 0 0 2px #2a2f48,
-    0 0 0 6px #11131f,
-    0 0 60px 4px rgba(0, 0, 0, 0.8),
-    0 0 120px 8px rgba(64, 40, 8, 0.25);
   max-width: 100vw;
   max-height: 100vh;
 }

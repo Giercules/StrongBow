@@ -9,7 +9,8 @@ import { DungeonScene } from '../scenes/DungeonScene';
 import { HudScene } from '../scenes/HudScene';
 import { LeftPanelScene } from '../scenes/LeftPanelScene';
 
-export const gameConfig: Phaser.Types.Core.GameConfig = {
+export function createGameConfig(): Phaser.Types.Core.GameConfig {
+  return {
   type: Phaser.AUTO,
   parent: 'app',
   input: { gamepad: true },
@@ -34,4 +35,5 @@ export const gameConfig: Phaser.Types.Core.GameConfig = {
     },
   },
   scene: [BootScene, MenuScene, CharacterSelectScene, ForgeScene, LevelSelectScene, DungeonScene, HudScene, LeftPanelScene],
-};
+  };
+}

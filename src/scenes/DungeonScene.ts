@@ -161,6 +161,8 @@ export class DungeonScene extends Phaser.Scene {
   private allies: Hero[] = [];
   private summons: Companion[] = [];
   private summonIdx = 0;
+  private vignette?: Phaser.GameObjects.Image;
+  private edgeGrade?: Phaser.GameObjects.Image;
   private monsters: Monster[] = [];
   private generators: Generator[] = [];
   private blockers: Phaser.GameObjects.Rectangle[] = [];
@@ -293,8 +295,10 @@ export class DungeonScene extends Phaser.Scene {
     this.cameras.main.startFollow(this.cameraTarget, true, 0.12, 0.12);
     this.cameras.main.setZoom(OPTIMAL_ZOOM);
     this.cameras.main.fadeIn(260, 0, 0, 0);
+    this.game.events.on('viewportresize', this.onViewportResize, this);
+    this.events.once('shutdown', () => this.game.events.off('viewportresize', this.onViewportResize, this));
 
-    this.add.image(PLAY_AREA_WIDTH / 2, GAME_HEIGHT / 2, 'fx-vignette').setScrollFactor(0).setDisplaySize(PLAY_AREA_WIDTH, GAME_HEIGHT).setDepth(DEPTH.VIGNETTE);
+    this.vignette = this.add.image(PLAY_AREA_WIDTH / 2, GAME_HEIGHT / 2, 'fx-vignette').setScrollFactor(0).setDisplaySize(PLAY_AREA_WIDTH, GAME_HEIGHT).setDepth(DEPTH.VIGNETTE);
 
     // soft light that travels with the party so heroes are always lit; its tint
     // shifts with the level theme for instant mood.
@@ -307,7 +311,7 @@ export class DungeonScene extends Phaser.Scene {
       .setBlendMode(Phaser.BlendModes.ADD)
       .setDepth(DEPTH.VIGNETTE - 1);
     // themed screen-edge colour grade, layered over the dark vignette
-    this.add
+    this.edgeGrade = this.add
       .image(PLAY_AREA_WIDTH / 2, GAME_HEIGHT / 2, 'fx-edge')
       .setScrollFactor(0)
       .setDisplaySize(PLAY_AREA_WIDTH, GAME_HEIGHT)
@@ -1302,6 +1306,25 @@ export class DungeonScene extends Phaser.Scene {
   }
 
   /** Necromancer ability: raise a skeletal servant (alternating warrior/caster, max 3). */
+  /** Re-pin the play-area camera + screen overlays when the window (and thus the
+   *  middle play-area width) changes. Height is fixed so only X spans move. */
+  private onViewportResize(): void {
+    const cam = this.cameras?.main;
+    if (!cam) return;
+    cam.setViewport(PLAY_AREA_X, 0, PLAY_AREA_WIDTH, GAME_HEIGHT);
+    this.vignette?.setPosition(PLAY_AREA_WIDTH / 2, GAME_HEIGHT / 2).setDisplaySize(PLAY_AREA_WIDTH, GAME_HEIGHT);
+    this.edgeGrade?.setPosition(PLAY_AREA_WIDTH / 2, GAME_HEIGHT / 2).setDisplaySize(PLAY_AREA_WIDTH, GAME_HEIGHT);
+    this.barkText?.setPosition(PLAY_AREA_WIDTH / 2, GAME_HEIGHT - 40);
+    if (this.mmImage) {
+      const px = PLAY_AREA_WIDTH - this.mmCW - 12;
+      this.mmImage.setPosition(px, this.mmY);
+      this.mmX = px;
+      this.mmBorder?.clear();
+      this.mmBorder?.lineStyle(1, 0xcfa64e, 0.8);
+      this.mmBorder?.strokeRect(px - 1, this.mmY - 1, this.mmCW + 2, this.mmCH + 2);
+    }
+  }
+
   /** When should an AI ally trigger its class special? Necromancers always raise
    *  the dead while under their cap; the rest react to nearby foes / hurt allies. */
   private companionShouldUseAbility(comp: Companion, monsters: Monster[]): boolean {
