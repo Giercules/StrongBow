@@ -52,42 +52,47 @@ class AIService {
     }
   }
 
-  private async run(req: AIRequest, useCache: boolean): Promise<string> {
+  private async run(req: AIRequest, cache: 'never' | 'offlineOnly'): Promise<{ text: string; live: boolean }> {
+    const canLive = this.primary !== this.fallback;
     const key = `${req.context ?? ''}|${req.prompt}`;
-    if (useCache && this.cache.has(key)) return this.cache.get(key)!;
+    const useCache = cache === 'offlineOnly' && !canLive;
+    if (useCache && this.cache.has(key)) return { text: this.cache.get(key)!, live: false };
     let out = '';
-    try {
-      if (this.primary.available()) out = await this.primary.complete(req);
-    } catch {
-      out = '';
+    if (canLive) {
+      try {
+        if (this.primary.available()) out = await this.primary.complete(req);
+      } catch {
+        out = '';
+      }
     }
-    if (!out) out = await this.fallback.complete(req);
-    if (useCache) this.cache.set(key, out);
-    return out;
+    if (out) return { text: out, live: true };
+    const fb = await this.fallback.complete(req);
+    if (useCache) this.cache.set(key, fb);
+    return { text: fb, live: false };
   }
 
   async generateQuest(levelName: string): Promise<string> {
     const req: AIRequest = {
       context: 'quest',
       prompt: `Write the objective for a dungeon called "${levelName}" where the hero must destroy spawn generators and slay the Grave Warden to open the exit.`,
-      maxTokens: 48,
+      maxTokens: 64,
     };
     if (!settings.get('aiQuestEnabled')) return this.fallback.complete(req);
-    return this.run(req, true);
+    return (await this.run(req, 'offlineOnly')).text;
   }
 
-  async generateBark(event: string): Promise<string> {
-    if (!settings.get('aiBarksEnabled')) return '';
-    return this.run({ context: 'bark', prompt: `Narrate this moment in one line: ${event}.`, maxTokens: 32 }, false);
+  async generateBark(event: string): Promise<{ text: string; live: boolean }> {
+    if (!settings.get('aiBarksEnabled')) return { text: '', live: false };
+    return this.run({ context: 'bark', prompt: `Narrate this moment in one vivid line: ${event}.`, maxTokens: 40 }, 'never');
   }
 
   async generateCompanionBark(): Promise<string> {
     if (!settings.get('aiBarksEnabled') || !settings.get('companionAI').aiBarks) return '';
-    return this.run({ context: 'companion', prompt: 'An ally shouts encouragement in battle.', maxTokens: 24 }, false);
+    return (await this.run({ context: 'companion', prompt: 'An ally shouts encouragement in battle.', maxTokens: 28 }, 'never')).text;
   }
 
   async generateItemFlavor(itemName: string): Promise<string> {
-    return this.run({ context: 'item', prompt: `One line of flavor for an item called "${itemName}".`, maxTokens: 28 }, true);
+    return (await this.run({ context: 'item', prompt: `One line of flavor for an item called "${itemName}".`, maxTokens: 28 }, 'offlineOnly')).text;
   }
 }
 

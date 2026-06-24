@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import { SYSTEM_TONE } from '../src/ai/persona';
 
 // StrongBow AI proxy - keeps provider API keys server-side.
 // Runs fully without keys: requests fall back to canned narration.
@@ -22,10 +23,6 @@ const MODELS = {
   xai: process.env.XAI_MODEL || 'grok-4.3',
 };
 
-const SYSTEM_TONE =
-  'You are a short, punchy, arcade-flavored dungeon narrator for the game StrongBow. ' +
-  'Reply with a single vivid line, no quotes, under 16 words.';
-
 const FALLBACK: Record<string, string[]> = {
   quest: [
     'Shatter the generators and end the Grave Warden. The crypt remembers.',
@@ -42,7 +39,7 @@ function fallbackLine(context = 'bark'): string {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
-async function callOpenAIStyle(url: string, key: string, model: string, prompt: string, maxTokens: number): Promise<string> {
+async function callOpenAIStyle(url: string, key: string, model: string, prompt: string, maxTokens: number, extra: Record<string, unknown> = {}): Promise<string> {
   const res = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
@@ -50,6 +47,7 @@ async function callOpenAIStyle(url: string, key: string, model: string, prompt: 
       model,
       max_tokens: maxTokens,
       temperature: 0.9,
+      ...extra,
       messages: [
         { role: 'system', content: SYSTEM_TONE },
         { role: 'user', content: prompt },
@@ -84,7 +82,7 @@ async function complete(provider: string, prompt: string, maxTokens: number): Pr
   if (provider === 'anthropic' && ANTHROPIC_API_KEY)
     return callAnthropic(ANTHROPIC_API_KEY, MODELS.anthropic, prompt, maxTokens);
   if (provider === 'xai' && XAI_API_KEY)
-    return callOpenAIStyle('https://api.x.ai/v1/chat/completions', XAI_API_KEY, MODELS.xai, prompt, maxTokens);
+    return callOpenAIStyle('https://api.x.ai/v1/chat/completions', XAI_API_KEY, MODELS.xai, prompt, maxTokens, { reasoning_effort: 'none' });
   throw new Error('no-key');
 }
 
@@ -103,9 +101,13 @@ app.post('/api/ai/complete', async (req, res) => {
   const { prompt = '', context = 'bark', maxTokens = 40, provider = 'fallback' } = req.body ?? {};
   try {
     const text = await complete(provider, prompt, maxTokens);
-    res.json({ text: text || fallbackLine(context) });
+    if (text) {
+      res.json({ text, live: true });
+      return;
+    }
+    res.json({ text: fallbackLine(context), live: false });
   } catch {
-    res.json({ text: fallbackLine(context) });
+    res.json({ text: fallbackLine(context), live: false });
   }
 });
 

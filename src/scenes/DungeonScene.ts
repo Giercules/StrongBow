@@ -210,6 +210,7 @@ export class DungeonScene extends Phaser.Scene {
   private grokStatus: 'offline' | 'connected' | 'thinking' = 'offline';
   private grokProvider = 'Grok';
   private static readonly LOG_CAP = 40;
+  private static readonly BARK_COOLDOWN = 5000; // min ms between throttled DM barks
 
   private generatorsDestroyed = 0;
   private generatorsTotal = 0;
@@ -218,6 +219,7 @@ export class DungeonScene extends Phaser.Scene {
   private bossMusicOn = false;
   private quest = '';
   private startTime = 0;
+  private lastBarkAt = 0;
   private startTile = { x: 4, y: 4 };
   private paused = false;
   private won = false;
@@ -376,7 +378,8 @@ export class DungeonScene extends Phaser.Scene {
     this.grokNarrate(
       this.level.town
         ? `the party returns to the town of Hearthwatch to resupply between descents`
-        : `the heroes enter ${this.level.name}`
+        : `the heroes enter ${this.level.name}`,
+      { force: true }
     );
 
     // Bring up the side panels and seed the log + Grok status light.
@@ -1743,7 +1746,7 @@ export class DungeonScene extends Phaser.Scene {
     this.bossAlive = false;
     const bossName = this.boss?.def.name ?? 'The warden';
     this.showBark(`${bossName} falls! The exit awakens.`, 3400, 'combat');
-    this.grokNarrate(`the heroes have just slain ${bossName}, the warden of ${this.level.name}, and the exit portal flares open`);
+    this.grokNarrate(`the heroes have just slain ${bossName}, the warden of ${this.level.name}, and the exit portal flares open`, { force: true });
     audio.sfx('victory');
     // The realm's warden always yields a guaranteed, high-grade themed reward.
     if (this.boss) this.dropLoot(this.boss.x, this.boss.y, 'runed');
@@ -2152,9 +2155,9 @@ export class DungeonScene extends Phaser.Scene {
         this.setGrokStatus('thinking');
         void aiService
           .generateBark(`${who.role} named ${who.label} chatting with an adventurer in the town of Hearthwatch above the Undermaw`)
-          .then((b) => {
+          .then(({ text, live }) => {
             this.setGrokStatus('connected');
-            if (b) this.showBark(`${who.label}: ${b}`, 7200, 'grok');
+            if (text) this.showBark(`${who.label}: ${text}`, 7200, live ? 'grok' : 'event');
           })
           .catch(() => this.setGrokStatus('connected'));
         return;
@@ -2192,9 +2195,9 @@ export class DungeonScene extends Phaser.Scene {
     this.setGrokStatus('thinking');
     void aiService
       .generateBark(`a weary adventurer examines ${subject} deep in ${this.level.name}`)
-      .then((b) => {
+      .then(({ text, live }) => {
         this.setGrokStatus('connected');
-        if (b) this.showBark(b, 7200, 'grok');
+        if (text) this.showBark(text, 7200, live ? 'grok' : 'event');
       })
       .catch(() => this.setGrokStatus('connected'));
   }
@@ -2504,14 +2507,16 @@ export class DungeonScene extends Phaser.Scene {
     this.syncLogData();
   }
 
-  private grokNarrate(prompt: string): void {
+  private grokNarrate(prompt: string, opts: { force?: boolean } = {}): void {
     if (!settings.get('aiBarksEnabled')) return;
+    if (!opts.force && this.time.now - this.lastBarkAt < DungeonScene.BARK_COOLDOWN) return;
+    this.lastBarkAt = this.time.now;
     this.setGrokStatus('thinking');
     void aiService
       .generateBark(prompt)
-      .then((line) => {
+      .then(({ text, live }) => {
         this.setGrokStatus('connected');
-        if (line) this.pushLog(line, 'grok');
+        if (text) this.pushLog(text, live ? 'grok' : 'event');
       })
       .catch(() => this.setGrokStatus('connected'));
   }

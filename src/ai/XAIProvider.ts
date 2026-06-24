@@ -22,6 +22,7 @@ export class XAIProvider implements AIProvider {
         model: this.model,
         max_tokens: req.maxTokens ?? 40,
         temperature: 0.9,
+        reasoning_effort: 'none',
         messages: [
           { role: 'system', content: SYSTEM_TONE },
           { role: 'user', content: req.prompt },
