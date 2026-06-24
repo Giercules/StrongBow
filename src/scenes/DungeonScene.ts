@@ -221,6 +221,7 @@ export class DungeonScene extends Phaser.Scene {
   private startTime = 0;
   private lastBarkAt = 0;
   private lowHealthWarned = false;
+  private questBeat = '';
   private startTile = { x: 4, y: 4 };
   private paused = false;
   private won = false;
@@ -415,6 +416,7 @@ export class DungeonScene extends Phaser.Scene {
     this.bossAlive = false;
     this.bossMusicOn = false;
     this.lowHealthWarned = false;
+    this.questBeat = '';
     this.paused = false;
     this.won = false;
     this.activeIdx = 0;
@@ -859,6 +861,11 @@ export class DungeonScene extends Phaser.Scene {
       this.generatorsDestroyed++;
       this.showBark('A spawning altar is destroyed!', 3400, 'combat');
       this.grokNarrate(this.barkContext('the heroes shatter a spawning altar'), { force: true });
+      void aiService
+        .generateAltarProgress(this.level.name, Math.max(0, this.generatorsTotal - this.generatorsDestroyed))
+        .then(({ text }) => {
+          if (text) this.questBeat = text;
+        });
       // Altars reliably cough up themed gear (honed or better).
       if (Math.random() < generatorDropChance(this.bestLuck())) this.dropLoot(gen.x, gen.y, 'honed');
     };
@@ -2306,11 +2313,16 @@ export class DungeonScene extends Phaser.Scene {
       .setOrigin(0.5)
       .setScrollFactor(0)
       .setDepth(DEPTH.OVERLAY + 1);
-    this.add
-      .text(PLAY_AREA_WIDTH / 2, GAME_HEIGHT / 2 + 36, 'You have conquered the depths. Returning to menu...', { fontFamily: 'MedievalSharp, "Trebuchet MS", cursive', fontSize: '14px', color: '#dfe6ff' })
+    const vsub = this.add
+      .text(PLAY_AREA_WIDTH / 2, GAME_HEIGHT / 2 + 40, 'You have conquered the depths. Returning to menu...', { fontFamily: 'MedievalSharp, "Trebuchet MS", cursive', fontSize: '14px', color: '#dfe6ff', align: 'center', wordWrap: { width: PLAY_AREA_WIDTH - 80 } })
       .setOrigin(0.5)
       .setScrollFactor(0)
       .setDepth(DEPTH.OVERLAY + 1);
+    if (settings.get('aiBarksEnabled')) {
+      void aiService.generateVictory(this.level.name, this.players[0]?.classId).then(({ text }) => {
+        if (text) vsub.setText(text);
+      });
+    }
     this.time.delayedCall(3600, () => this.quitToMenu());
   }
 
@@ -2368,9 +2380,13 @@ export class DungeonScene extends Phaser.Scene {
     if (this.gameOverUI.isOpen() || this.won) return;
     if (!this.players.some((p) => p.alive)) {
       audio.sfx('game_over');
-      this.dmSetPiece(aiService.generateDeath(this.level.name));
       const score = this.players.reduce((s, p) => s + p.score, 0);
       this.gameOverUI.open({ score, time: this.formatTime() }, () => this.continueAfterDeath(), () => this.quitToMenu());
+      if (settings.get('aiBarksEnabled')) {
+        void aiService.generateDeath(this.level.name).then(({ text }) => {
+          if (text) this.gameOverUI.setNarration(text);
+        });
+      }
     }
   }
 
@@ -2594,7 +2610,7 @@ export class DungeonScene extends Phaser.Scene {
       generatorsLeft: Math.max(0, this.generatorsTotal - this.generatorsDestroyed),
       generatorsTotal: this.generatorsTotal,
       bossAlive: this.bossAlive,
-      quest: this.quest,
+      quest: this.questBeat ? `${this.quest}  —  ${this.questBeat}` : this.quest,
       levelName: this.level.name,
       twoPlayer: this.twoPlayer,
       elapsedMs: this.time.now - this.startTime,

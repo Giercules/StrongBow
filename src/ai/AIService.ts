@@ -182,6 +182,20 @@ class AIService {
       'never'
     );
   }
+
+  async generateAltarProgress(realm: string, altarsLeft: number): Promise<{ text: string; live: boolean }> {
+    if (!settings.get('aiBarksEnabled')) return { text: '', live: false };
+    const status = altarsLeft <= 0 ? 'The last altar is down; the exit awaits.' : `${altarsLeft} altar${altarsLeft === 1 ? '' : 's'} still stand.`;
+    return this.run(
+      {
+        context: 'progress',
+        prompt: `An altar in ${realm} is destroyed. ${status} Give one short, urgent quest-log update under 14 words.`,
+        maxTokens: 40,
+        reasoningEffort: 'none',
+      },
+      'never'
+    );
+  }
 }
 
 export const aiService = new AIService();

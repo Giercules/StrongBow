@@ -25,7 +25,7 @@ const KIND_COLOR: Record<LogEntry['kind'], string> = {
 };
 
 const KIND_PREFIX: Record<LogEntry['kind'], string> = {
-  grok: '✻ ', // ✻ sparkle for the DM
+  grok: '✻ ', // sparkle for the DM
   event: '• ',
   combat: '⚔ ', // crossed swords
   loot: '◆ ', // diamond
@@ -34,17 +34,23 @@ const KIND_PREFIX: Record<LogEntry['kind'], string> = {
 
 // ----------------------------------------------------------------------------
 // LeftPanelScene — the DnD adventure log + live Grok "Dungeon Master" feed.
-// Reads LOG_REGISTRY_KEY each frame (same registry pattern as HudScene) and
-// re-lays the most recent entries bottom-up so the newest line sits at the
-// foot of the scroll like a running journal.
+// Reads LOG_REGISTRY_KEY each frame and lays the most recent entries bottom-up.
+// The mouse wheel scrolls back through history (up to LOG_CAP entries); the
+// view sticks to the newest line unless the player has scrolled up.
 // ----------------------------------------------------------------------------
 export class LeftPanelScene extends Phaser.Scene {
   private lines: Phaser.GameObjects.Text[] = [];
   private statusDot!: Phaser.GameObjects.Graphics;
   private grokLabel!: Phaser.GameObjects.Text;
+  private moreAbove!: Phaser.GameObjects.Text;
+  private moreBelow!: Phaser.GameObjects.Text;
   private lastSig = '';
   private lastStatus = '';
   private dotPulse = 0;
+  private entries: LogEntry[] = [];
+  private scrollY = 0;
+  private maxScrollY = 0;
+  private stick = true;
 
   constructor() {
     super('LeftPanelScene');
@@ -54,9 +60,19 @@ export class LeftPanelScene extends Phaser.Scene {
     this.cameras.main.setViewport(0, 0, W, GAME_HEIGHT);
     this.cameras.main.setScroll(0, 0);
     this.lines = [];
+    this.entries = [];
     this.lastSig = '';
     this.lastStatus = '';
+    this.scrollY = 0;
+    this.maxScrollY = 0;
+    this.stick = true;
     this.buildChrome();
+    this.input.on('wheel', (pointer: Phaser.Input.Pointer, _objs: unknown, _dx: number, dy: number) => {
+      if (pointer.x > W || this.maxScrollY <= 0) return;
+      this.scrollY = Phaser.Math.Clamp(this.scrollY - dy, 0, this.maxScrollY);
+      this.stick = this.scrollY <= 2;
+      this.layoutLog(this.entries);
+    });
   }
 
   private buildChrome(): void {
@@ -111,6 +127,18 @@ export class LeftPanelScene extends Phaser.Scene {
     g.lineStyle(1, hexNum(C.hudBorderDk), 0.7);
     g.lineBetween(PAD, LOG_TOP - 6, W - PAD, LOG_TOP - 6);
 
+    // scrollback affordances
+    this.moreAbove = this.add
+      .text(W - PAD - 2, LOG_TOP - 3, '▲', { fontFamily: '"Trebuchet MS", sans-serif', fontSize: '9px', color: '#8a93bd' })
+      .setOrigin(1, 0)
+      .setDepth(9)
+      .setVisible(false);
+    this.moreBelow = this.add
+      .text(W - PAD - 2, LOG_BOTTOM - 9, '▼', { fontFamily: '"Trebuchet MS", sans-serif', fontSize: '9px', color: '#8a93bd' })
+      .setOrigin(1, 0)
+      .setDepth(9)
+      .setVisible(false);
+
     this.drawStatusDot('offline');
   }
 
@@ -150,32 +178,50 @@ export class LeftPanelScene extends Phaser.Scene {
     const sig = data.entries.map((e) => e.kind[0] + e.text).join('|');
     if (sig === this.lastSig) return;
     this.lastSig = sig;
-    this.layoutLog(data.entries);
+    this.entries = data.entries;
+    if (this.stick) this.scrollY = 0;
+    this.layoutLog(this.entries);
   }
 
-  /** Lay the most recent entries from the bottom of the scroll upward. */
+  /** Lay entries newest-at-bottom, shifted by scrollY for history scrollback. */
   private layoutLog(entries: LogEntry[]): void {
     for (const t of this.lines) t.setVisible(false);
     const wrapW = W - PAD * 2 - 4;
-    let li = 0;
-    let y = LOG_BOTTOM;
-    // newest last in array → walk backwards so newest sits at the bottom
-    for (let i = entries.length - 1; i >= 0; i--) {
+
+    // pass 1: set text + measure heights to learn the total content height
+    const heights: number[] = [];
+    let total = 0;
+    for (let i = entries.length - 1, li = 0; i >= 0; i--, li++) {
       const e = entries[i];
-      const t = this.acquireLine(li++);
+      const t = this.acquireLine(li);
       t.setWordWrapWidth(wrapW)
         .setText(KIND_PREFIX[e.kind] + e.text)
         .setColor(KIND_COLOR[e.kind])
         .setFontStyle(e.kind === 'grok' ? 'italic' : 'normal');
-      y -= t.height + LINE_GAP;
-      if (y < LOG_TOP) {
-        t.setVisible(false);
-        break;
-      }
-      // fade older lines toward the top of the scroll
-      const fade = Phaser.Math.Clamp((y - LOG_TOP) / 60, 0.35, 1);
-      t.setPosition(PAD + 2, y).setVisible(true).setAlpha(fade);
+      heights[li] = t.height;
+      total += t.height + LINE_GAP;
     }
+    const windowH = LOG_BOTTOM - LOG_TOP;
+    this.maxScrollY = Math.max(0, total - windowH);
+    this.scrollY = Phaser.Math.Clamp(this.scrollY, 0, this.maxScrollY);
+
+    // pass 2: position from the bottom upward, only drawing whole in-window lines
+    let yBottom = LOG_BOTTOM + this.scrollY;
+    for (let i = entries.length - 1, li = 0; i >= 0; i--, li++) {
+      const t = this.lines[li];
+      const h = heights[li];
+      const top = yBottom - h;
+      if (top >= LOG_TOP && top + h <= LOG_BOTTOM) {
+        const fade = Phaser.Math.Clamp((top - LOG_TOP) / 60, 0.4, 1);
+        t.setPosition(PAD + 2, top).setVisible(true).setAlpha(fade);
+      } else {
+        t.setVisible(false);
+      }
+      yBottom = top - LINE_GAP;
+    }
+
+    this.moreAbove.setVisible(this.scrollY < this.maxScrollY - 1);
+    this.moreBelow.setVisible(this.scrollY > 1);
   }
 
   private acquireLine(i: number): Phaser.GameObjects.Text {
