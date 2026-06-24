@@ -5,7 +5,7 @@ import { SKILLS } from '../data/skills';
 import { LEVEL1 } from '../data/level1';
 import { LEVEL2 } from '../data/level2';
 import { TOWN } from '../data/town';
-import { INTERIOR_TANKARD, INTERIOR_GUILD } from '../data/interiors';
+import { INTERIOR_TANKARD, INTERIOR_GUILD, INTERIOR_FORGE, INTERIOR_APOTHECARY } from '../data/interiors';
 import {
   LEVEL_FROST,
   LEVEL_TOXIC,
@@ -33,6 +33,8 @@ class Registry {
     town: TOWN,
     interior_tankard: INTERIOR_TANKARD,
     interior_guild: INTERIOR_GUILD,
+    interior_forge: INTERIOR_FORGE,
+    interior_apothecary: INTERIOR_APOTHECARY,
     sunken_crypt: LEVEL1,
     molten_deep: LEVEL2,
     frozen_cathedral: LEVEL_FROST,

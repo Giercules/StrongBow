@@ -109,11 +109,11 @@ export function buildTown(): LevelData {
 
   house(16, 11, 26, 18, 'house-roof-teak');
   decor.push({ x: 21, y: 11, key: 'banner' });
-  spawns.push({ kind: 'merchant', shop: 'blacksmith', x: 21, y: 20, label: "Brunda's Forge" });
+  spawns.push({ kind: 'door', x: 21, y: 18, interiorId: 'interior_forge', label: "Brunda's Forge" });
 
   house(33, 11, 43, 18, 'house-roof-green');
   decor.push({ x: 38, y: 11, key: 'banner' });
-  spawns.push({ kind: 'merchant', shop: 'apothecary', x: 38, y: 20, label: 'The Green Vial' });
+  spawns.push({ kind: 'door', x: 38, y: 18, interiorId: 'interior_apothecary', label: 'The Green Vial' });
 
   house(64, 11, 76, 19, 'house-roof-red');
   decor.push({ x: 70, y: 11, key: 'banner' });

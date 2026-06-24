@@ -275,6 +275,26 @@ export function drawAnvil(ctx: Ctx, ox: number, oy: number): void {
   R(ctx, ox + 12, oy + 21, 8, 1, '#2a2e36');
 }
 
+export function drawCrate(ctx: Ctx, ox: number, oy: number): void {
+  R(ctx, ox + 2, oy + 4, 28, 26, '#6e4a24');
+  R(ctx, ox + 2, oy + 4, 28, 2, '#8a6132');
+  R(ctx, ox + 2, oy + 4, 3, 26, '#5a3a1c');
+  R(ctx, ox + 27, oy + 4, 3, 26, '#42301a');
+  R(ctx, ox + 2, oy + 27, 28, 3, '#42301a');
+  ctx.strokeStyle = '#3a2410'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(ox + 4, oy + 6); ctx.lineTo(ox + 28, oy + 28); ctx.moveTo(ox + 28, oy + 6); ctx.lineTo(ox + 4, oy + 28); ctx.stroke();
+  PX(ctx, ox + 6, oy + 8, '#8a6132'); PX(ctx, ox + 24, oy + 22, '#5a3a1c');
+}
+export function drawCauldron(ctx: Ctx, ox: number, oy: number): void {
+  R(ctx, ox + 9, oy + 26, 3, 5, '#26262c'); R(ctx, ox + 20, oy + 26, 3, 5, '#26262c'); // legs
+  ctx.fillStyle = '#1c1c22'; ctx.beginPath(); ctx.ellipse(ox + 16, oy + 18, 12, 11, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#2e2e36'; ctx.beginPath(); ctx.ellipse(ox + 16, oy + 12, 12, 5, 0, 0, Math.PI * 2); ctx.fill(); // rim
+  ctx.fillStyle = '#3a7a3a'; ctx.beginPath(); ctx.ellipse(ox + 16, oy + 12, 9, 3.5, 0, 0, Math.PI * 2); ctx.fill(); // brew
+  ctx.fillStyle = '#7fd06a'; ctx.beginPath(); ctx.ellipse(ox + 14, oy + 11, 4, 1.6, 0, 0, Math.PI * 2); ctx.fill();
+  PX(ctx, ox + 12, oy + 11, '#caffb0'); PX(ctx, ox + 19, oy + 12, '#caffb0'); // bubbles
+  R(ctx, ox + 4, oy + 16, 4, 2, '#3a3a42'); R(ctx, ox + 24, oy + 16, 4, 2, '#3a3a42'); // handles
+}
+
 // ---- little living things (single-frame; animated by tweens in-scene) ------
 
 export function drawButterfly(ctx: Ctx): void {

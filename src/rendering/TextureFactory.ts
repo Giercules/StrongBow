@@ -170,6 +170,8 @@ export class TextureFactory {
     img('guild-wall', 32, 32, (c) => townArt.drawGuildWall(c, 0, 0));
     img('training-dummy', 32, 32, (c) => townArt.drawTrainingDummy(c, 0, 0), true);
     img('anvil', 32, 32, (c) => townArt.drawAnvil(c, 0, 0), true);
+    img('crate', 32, 32, (c) => townArt.drawCrate(c, 0, 0), true);
+    img('cauldron', 32, 32, (c) => townArt.drawCauldron(c, 0, 0), true);
     img('fountain', 64, 80, (c) => townArt.drawFountain(c, 0, 0), true);
     img('fountain-base', 200, 164, (c) => townArt.drawFountainBase(c, 0, 0));
     img('fx-ripple', 40, 40, (c) => townArt.drawRipple(c, 0, 0));
