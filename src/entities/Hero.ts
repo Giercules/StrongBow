@@ -21,6 +21,8 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
   xp = 0;
   score = 0;
   alive = true;
+  /** Optional monster-style skin (non-directional walk/attack anims) for summoned allies. */
+  skin?: { walk: string; attack: string };
 
   skillSet: SkillSet;
   attributes: AttributeSet;
@@ -161,6 +163,13 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
   }
 
   protected updateAnim(): void {
+    if (this.skin) {
+      // Monster-style sheet: single walk/attack clip, mirrored by facing.
+      this.setFlipX(this.facing === 'left');
+      const key = this.attacking ? this.skin.attack : this.skin.walk;
+      if (this.anims.currentAnim?.key !== key) this.play(key, true);
+      return;
+    }
     const { f, flip } = this.animFacing();
     this.setFlipX(flip);
     let state: 'idle' | 'walk' | 'attack' = 'idle';

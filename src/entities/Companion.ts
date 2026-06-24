@@ -8,6 +8,8 @@ import { settings } from '../core/GameSettings';
 // AI-driven ally. Follows the lead player, assists in combat, casts if allowed.
 export class Companion extends Hero {
   private aura?: Phaser.GameObjects.Image;
+  /** True for raised undead servants (so the party AI doesn't have them cast abilities). */
+  isSummon = false;
 
   constructor(scene: Phaser.Scene, x: number, y: number, classId: HeroClassId) {
     super(scene, x, y, classId, false, 0);
@@ -29,6 +31,17 @@ export class Companion extends Hero {
       repeat: -1,
       ease: 'Sine.easeInOut',
     });
+  }
+
+  /** Re-skin this companion as a spectral skeletal servant using the enemy skeleton sprite. */
+  makeSkeleton(tint: number): void {
+    this.isSummon = true;
+    this.setTexture('monster-bone_archer-sheet', 0);
+    this.skin = { walk: 'bone_archer-walk', attack: 'bone_archer-attack' };
+    this.play('bone_archer-walk', true);
+    this.setTint(tint);
+    // brighten the ally aura so summoned skeletons read clearly as the player's own.
+    if (this.aura) this.aura.setTint(0x9bffd0).setAlpha(0.6);
   }
 
   aiTick<M extends MonsterLike>(

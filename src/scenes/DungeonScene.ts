@@ -1177,6 +1177,15 @@ export class DungeonScene extends Phaser.Scene {
         this.nextFlowAt = time + 400;
       }
     }
+    // ---- party AI: fire class special abilities when prudent (snapshot so a
+    // necromancer summoning mid-pass doesn't disturb iteration) ----
+    for (const comp of [...this.companions]) {
+      if (!comp.alive || comp.isSummon || !comp.canAbility(time)) continue;
+      if (this.companionShouldUseAbility(comp, liveMonsters)) {
+        this.useAbility(comp, time, false);
+        comp.markAbilityUsed(time);
+      }
+    }
     for (const comp of this.companions) {
       // If a companion falls way behind the party (stuck behind a gate, left
       // across the map on level load), blink it to the leader after a grace.
@@ -1293,32 +1302,78 @@ export class DungeonScene extends Phaser.Scene {
   }
 
   /** Necromancer ability: raise a skeletal servant (alternating warrior/caster, max 3). */
-  private summonSkeleton(necro: Hero): void {
+  /** When should an AI ally trigger its class special? Necromancers always raise
+   *  the dead while under their cap; the rest react to nearby foes / hurt allies. */
+  private companionShouldUseAbility(comp: Companion, monsters: Monster[]): boolean {
+    const within = (r: number) => monsters.filter((m) => Phaser.Math.Distance.Between(comp.x, comp.y, m.x, m.y) <= r);
+    switch (comp.classId) {
+      case 'necromancer': {
+        const free = settings.get('gameplay').infiniteMana;
+        const cap = 3 + (comp.stats.summonBonus ?? 0);
+        const live = this.summons.filter((sk) => sk.active && sk.alive).length;
+        return live < cap && (free || comp.mana >= 20);
+      }
+      case 'warden':
+        return within(240).length > 0 && this.allies.some((a) => a.alive && a.healthRatio() < 0.6);
+      case 'vanguard':
+        return within(120).length >= 2;
+      case 'arcanist':
+        return within(300).length >= 2;
+      case 'strider': {
+        const n = within(200);
+        if (n.length === 0) return false;
+        let best = n[0];
+        let bd = Infinity;
+        for (const m of n) {
+          const d = Phaser.Math.Distance.Between(comp.x, comp.y, m.x, m.y);
+          if (d < bd) { bd = d; best = m; }
+        }
+        const dx = best.x - comp.x;
+        const dy = best.y - comp.y;
+        const l = Math.hypot(dx, dy) || 1;
+        comp.attackDir = { x: dx / l, y: dy / l };
+        comp.faceTo(dx, dy);
+        return true;
+      }
+      default:
+        return false;
+    }
+  }
+
+  private summonSkeleton(necro: Hero, quiet = false): void {
     this.summons = this.summons.filter((s) => s.active && s.alive);
     const cap = 3 + (necro.stats.summonBonus ?? 0);
     if (this.summons.length >= cap) {
-      this.showBark(`Your servants already crowd the dark (max ${cap}).`, 2400, 'system');
+      if (!quiet) this.showBark(`Your servants already crowd the dark (max ${cap}).`, 2400, 'system');
       return;
     }
     const cost = 20;
     const free = settings.get('gameplay').infiniteMana;
     if (!free && necro.mana < cost) {
-      this.showBark('Not enough mana to raise the dead.', 2400, 'system');
+      if (!quiet) this.showBark('Not enough mana to raise the dead.', 2400, 'system');
       return;
     }
     if (!free) necro.mana = Math.max(0, necro.mana - cost);
-    const melee = this.summonIdx++ % 2 === 0;
-    const cls: HeroClassId = melee ? 'vanguard' : 'arcanist';
-    const sk = new Companion(this, necro.x + Phaser.Math.Between(-16, 16), necro.y + Phaser.Math.Between(-8, 18), cls);
-    sk.setTint(0xcfe0e8);
+    // Rotate three skeletal servant types, all drawn with the skeleton enemy sprite
+    // but tinted a spectral hue (+ green ally aura) so they read as the player's own.
+    const roles: Array<{ cls: HeroClassId; name: string; tint: number }> = [
+      { cls: 'vanguard', name: 'skeleton warrior', tint: 0x9fd8ff },
+      { cls: 'strider', name: 'skeleton archer', tint: 0x86f0d0 },
+      { cls: 'arcanist', name: 'skeleton mage', tint: 0xc89bff },
+    ];
+    const role = roles[this.summonIdx++ % roles.length];
+    const sk = new Companion(this, necro.x + Phaser.Math.Between(-16, 16), necro.y + Phaser.Math.Between(-8, 18), role.cls);
+    sk.makeSkeleton(role.tint);
     this.companions.push(sk);
     this.allies.push(sk);
     this.summons.push(sk);
+    this.allyGroup.add(sk); // wall + generator collision like other allies
+    this.shadows.add(sk, 3);
     const fx = this.add.sprite(sk.x, sk.y, 'fx-magic').setDepth(sk.y + 16).setScale(2).setTint(0x9bff9b);
     fx.play('fx-magic');
     fx.once('animationcomplete', () => fx.destroy());
     audio.sfx('magic');
-    this.showBark(`${necro.def.name} raises a ${melee ? 'skeleton warrior' : 'bone caster'}!`, 2600, 'event');
+    if (!quiet) this.showBark(`${necro.def.name} raises a ${role.name}!`, 2600, 'event');
   }
 
   private abilityName(c: HeroClassId): string {
@@ -1327,9 +1382,9 @@ export class DungeonScene extends Phaser.Scene {
   }
 
   /** Per-class active ability (key F), gated by Hero cooldown. */
-  private useAbility(h: Hero, time: number): void {
+  private useAbility(h: Hero, time: number, announce = true): void {
     if (h.classId === 'necromancer') {
-      this.summonSkeleton(h);
+      this.summonSkeleton(h, !announce);
       return;
     }
     const cx = h.x;
@@ -1368,7 +1423,7 @@ export class DungeonScene extends Phaser.Scene {
       meteor.once('animationcomplete', () => meteor.destroy());
       this.add.image(tx, ty, 'fx-glow-warm').setScale(3.2).setAlpha(0.85).setBlendMode(Phaser.BlendModes.ADD).setDepth(ty + 10);
       this.aoeHit(h, tx, ty, radius, Math.round(h.magicDamage() * 2.1), time, 'burn', 70);
-      this.cameras.main.shake(220, 0.008);
+      if (announce) this.cameras.main.shake(220, 0.008);
       audio.sfx('magic');
     } else {
       // Vanguard — Seismic Slam: a shockwave that flings foes back and stuns, and steels the Vanguard.
@@ -1377,13 +1432,13 @@ export class DungeonScene extends Phaser.Scene {
       ring.play('fx-magic');
       ring.once('animationcomplete', () => ring.destroy());
       this.aoeHit(h, cx, cy, radius, Math.round(h.attackDamage().dmg * 1.9), time, 'shock', 320);
-      this.cameras.main.shake(240, 0.009);
+      if (announce) this.cameras.main.shake(240, 0.009);
       h.heal(Math.round(h.stats.maxHealth * 0.12));
       audio.sfx('hit');
     }
     const flash = this.add.image(cx, cy, 'fx-glow-warm').setScale(2.4).setAlpha(0.7).setBlendMode(Phaser.BlendModes.ADD).setDepth(cy + 10);
     this.tweens.add({ targets: flash, alpha: 0, scale: 3.4, duration: 420, onComplete: () => flash.destroy() });
-    this.showBark(`${h.def.name} unleashes ${this.abilityName(h.classId)}!`);
+    if (announce) this.showBark(`${h.def.name} unleashes ${this.abilityName(h.classId)}!`);
   }
 
   /** Shared radial damage for abilities: hurts monsters + generators in range. */

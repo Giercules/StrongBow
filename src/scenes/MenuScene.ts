@@ -66,9 +66,11 @@ export class MenuScene extends Phaser.Scene {
     }).setDepth(8);
 
     // ---- heroes lined up on the ledge, each in a shaft of light ----
-    const tints = [0x4fa3ff, 0x5fe06a, 0xc06bff, 0xffcf5a];
+    const tints = [0x4fa3ff, 0x5fe06a, 0xc06bff, 0xffcf5a, 0x9b7be0];
+    const heroN = ALL_CLASSES.length;
+    const heroStep = 100;
     ALL_CLASSES.forEach((cls, i) => {
-      const hx = cx - 150 + i * 100;
+      const hx = Math.round(cx + (i - (heroN - 1) / 2) * heroStep);
       this.add.image(hx, 430, 'fx-light').setScale(2).setAlpha(0.18).setBlendMode(add).setDepth(5).setTint(tints[i]);
       const s = this.add.sprite(hx, 442, `hero-${cls}-sheet`).setScale(1.5).setDepth(6);
       s.play(`${cls}-idle-down`);

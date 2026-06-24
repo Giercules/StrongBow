@@ -15,6 +15,8 @@ export class CharacterSelectScene extends Phaser.Scene {
   private cards: Phaser.GameObjects.Container[] = [];
   private highlight!: Phaser.GameObjects.Graphics;
   private prompt!: Phaser.GameObjects.Text;
+  private cardW = 200;
+  private cardH = 360;
 
   constructor() {
     super('CharacterSelectScene');
@@ -40,6 +42,8 @@ export class CharacterSelectScene extends Phaser.Scene {
 
     const gap = 18;
     const cardW = Math.min(200, Math.floor((GAME_WIDTH - 40 - (ALL_CLASSES.length - 1) * gap) / ALL_CLASSES.length));
+    this.cardW = cardW;
+    this.cardH = 360;
     const totalW = ALL_CLASSES.length * cardW + (ALL_CLASSES.length - 1) * gap;
     const startX = (GAME_WIDTH - totalW) / 2;
 
@@ -49,7 +53,7 @@ export class CharacterSelectScene extends Phaser.Scene {
     });
 
     this.add
-      .text(GAME_WIDTH / 2, GAME_HEIGHT - 24, '◀ ▶ / A D to move   ·   ENTER or click to choose   ·   1–4 quick pick', {
+      .text(GAME_WIDTH / 2, GAME_HEIGHT - 24, '◀ ▶ / A D to move   ·   ENTER or click to choose   ·   1–5 quick pick', {
         fontFamily: 'MedievalSharp, "Trebuchet MS", cursive',
         fontSize: '12px',
         color: C.inkDim,
@@ -144,7 +148,7 @@ export class CharacterSelectScene extends Phaser.Scene {
     const card = this.cards[this.cursor];
     this.highlight.clear();
     this.highlight.lineStyle(4, parseInt(C.hudBorder.slice(1), 16), 1);
-    this.highlight.strokeRoundedRect(card.x - 3, card.y - 3, 206, 366, 10);
+    this.highlight.strokeRoundedRect(card.x - 3, card.y - 3, this.cardW + 6, this.cardH + 6, 10);
   }
 
   private updatePrompt(): void {
