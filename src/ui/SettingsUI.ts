@@ -379,6 +379,10 @@ export class SettingsUI {
     this.stepper(right, y, g.playerDamageMult.toFixed(1) + 'x', () => settings.setGameplay('playerDamageMult', Math.max(1, +(g.playerDamageMult - 0.5).toFixed(1))), () => settings.setGameplay('playerDamageMult', Math.min(10, +(g.playerDamageMult + 0.5).toFixed(1))));
     y = this.rowLabel('Start level');
     this.stepper(right, y, String(g.startLevel), () => settings.setGameplay('startLevel', Math.max(1, g.startLevel - 1)), () => settings.setGameplay('startLevel', Math.min(20, g.startLevel + 1)));
+    y = this.rowLabel('Loot drop rate');
+    this.stepper(right, y, g.lootMult.toFixed(1) + 'x', () => settings.setGameplay('lootMult', Math.max(0, +(g.lootMult - 0.5).toFixed(1))), () => settings.setGameplay('lootMult', Math.min(5, +(g.lootMult + 0.5).toFixed(1))));
+    y = this.rowLabel('Gold drop rate');
+    this.stepper(right, y, g.goldMult.toFixed(1) + 'x', () => settings.setGameplay('goldMult', Math.max(0, +(g.goldMult - 0.5).toFixed(1))), () => settings.setGameplay('goldMult', Math.min(5, +(g.goldMult + 0.5).toFixed(1))));
     y = this.rowLabel('God mode');
     const toggleGod = () => settings.setGameplay('godMode', !g.godMode);
     this.btn(right - 45, y, 80, g.godMode ? 'ON' : 'OFF', toggleGod, g.godMode ? C.ivy : C.hudPanel2);

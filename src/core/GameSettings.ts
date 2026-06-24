@@ -23,6 +23,8 @@ const DEFAULT_GAMEPLAY: GameplaySettings = {
   godMode: false,
   infiniteMana: false,
   startLevel: 1,
+  lootMult: 1,
+  goldMult: 1,
 };
 
 const DEFAULTS: GameSettingsData = {

@@ -312,6 +312,10 @@ export interface GameplaySettings {
   godMode: boolean;
   infiniteMana: boolean;
   startLevel: number;
+  /** Loot drop-rate multiplier (cheat). 1 = normal, 0 = no gear drops. */
+  lootMult: number;
+  /** Gold drop multiplier (cheat). 1 = normal, 0 = no gold drops. */
+  goldMult: number;
 }
 
 export interface GameSettingsData {

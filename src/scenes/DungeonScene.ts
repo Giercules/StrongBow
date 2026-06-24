@@ -322,6 +322,16 @@ export class DungeonScene extends Phaser.Scene {
       this.applyPartyCarry(carry);
       this.registry.remove('carryParty');
     }
+    if (this.level.town && !carry && !save) {
+      // fresh campaign: each hero starts with 100 gold + a health & mana potion
+      for (const p of this.players) {
+        p.inventory.gold = 100;
+        const hp = Content.item('health_potion');
+        const mp = Content.item('mana_potion');
+        if (hp) p.inventory.add(hp);
+        if (mp) p.inventory.add(mp);
+      }
+    }
     this.setupColliders();
     this.flow = new FlowField(this.level.width, this.level.height, (x, y) => this.isWalkable(x, y));
 
@@ -949,7 +959,7 @@ export class DungeonScene extends Phaser.Scene {
           if (text) this.questBeat = text;
         });
       // Altars reliably cough up themed gear (honed or better).
-      if (Math.random() < generatorDropChance(this.bestLuck())) this.dropLoot(gen.x, gen.y, 'honed');
+      if (Math.random() < generatorDropChance(this.bestLuck()) * settings.get('gameplay').lootMult) this.dropLoot(gen.x, gen.y, 'honed');
     };
     this.generators.push(gen);
     this.shadows.add(gen, 2);
@@ -2156,12 +2166,24 @@ export class DungeonScene extends Phaser.Scene {
       }
     }
     // Champions usually drop strong themed loot; regular foes roll by luck (rarely).
+    const cheats = settings.get('gameplay');
     if (m.isElite) {
-      if (Math.random() < eliteDropChance(killer.stats.luck ?? 0)) this.dropLoot(m.x, m.y, 'runed');
-    } else if (!m.isBoss && Math.random() < monsterDropChance(killer.stats.luck ?? 0)) {
+      if (Math.random() < eliteDropChance(killer.stats.luck ?? 0) * cheats.lootMult) this.dropLoot(m.x, m.y, 'runed');
+    } else if (!m.isBoss && Math.random() < monsterDropChance(killer.stats.luck ?? 0) * cheats.lootMult) {
       const floor: Grade | undefined = m.def.xp >= 28 ? 'honed' : undefined;
       this.dropLoot(m.x, m.y, floor);
     }
+    // gold drops (cheat-scaled; 0x disables)
+    if (cheats.goldMult > 0 && !m.isBoss && Math.random() < 0.45) {
+      this.spawnCoin(m.x, m.y, Math.max(1, Math.round((2 + m.def.xp * 0.4) * cheats.goldMult)));
+    }
+  }
+
+  /** Drop a collectable coin pickup worth `amount` gold. */
+  private spawnCoin(x: number, y: number, amount: number): void {
+    const spr = this.add.sprite(x, y, 'coin-sheet').play('coin').setDepth(y);
+    this.floatBob(spr);
+    this.pickups.push({ sprite: spr, kind: 'coin', value: amount });
   }
 
   /** Highest luck among the living party — loot rolls use the party's best. */
@@ -2184,18 +2206,34 @@ export class DungeonScene extends Phaser.Scene {
     const spr = this.add.image(x, y, item.icon).setDepth(y);
     const glow = this.add
       .image(x, y, 'fx-glow-warm')
-      .setScale(1.5)
-      .setAlpha(0.5)
+      .setScale(2.0)
+      .setAlpha(0.6)
       .setBlendMode(Phaser.BlendModes.ADD)
       .setDepth(y - 1)
       .setTint(tint);
-    this.tweens.add({ targets: glow, alpha: { from: 0.5, to: 0.28 }, scale: { from: 1.5, to: 1.2 }, duration: 700, yoyo: true, repeat: -1 });
-    // rarity beam — a coloured shaft so good drops read from across the room
-    const beam = this.add.rectangle(x, y - 12, 4, 34, tint, 0.55).setOrigin(0.5, 1).setBlendMode(Phaser.BlendModes.ADD).setDepth(y - 2);
-    this.tweens.add({ targets: beam, alpha: { from: 0.55, to: 0.18 }, scaleY: { from: 1, to: 1.3 }, duration: 820, yoyo: true, repeat: -1 });
+    this.tweens.add({ targets: glow, alpha: { from: 0.6, to: 0.38 }, scale: { from: 2.0, to: 1.6 }, duration: 1100, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+    // rarity beam — a SOFT coloured light shaft (a stretched glow, no hard edges)
+    // so good drops read pleasingly from across the room.
+    const beam = this.add
+      .image(x, y - 20, 'fx-glow-white')
+      .setTint(tint)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setDepth(y - 2)
+      .setAlpha(0.5)
+      .setScale(0.85, 3.0);
+    this.tweens.add({ targets: beam, alpha: { from: 0.5, to: 0.72 }, scaleX: { from: 0.85, to: 1.05 }, duration: 1200, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+    const halo = this.add
+      .image(x, y - 26, 'fx-glow-white')
+      .setTint(tint)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setDepth(y - 2)
+      .setAlpha(0.4)
+      .setScale(1.3);
+    this.tweens.add({ targets: halo, alpha: { from: 0.4, to: 0.15 }, scale: { from: 1.0, to: 1.6 }, duration: 1600, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
     spr.once('destroy', () => {
       glow.destroy();
       beam.destroy();
+      halo.destroy();
     });
     // little pop so a fresh drop reads as "new"
     spr.setScale(0);
