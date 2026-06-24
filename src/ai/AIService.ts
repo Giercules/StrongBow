@@ -106,7 +106,7 @@ class AIService {
     const prompt = facts
       ? `Narrate this moment in one vivid line: ${event}. ${facts}`
       : `Narrate this moment in one vivid line: ${event}.`;
-    return this.run({ context: 'bark', prompt, maxTokens: 40 }, 'never');
+    return this.run({ context: 'bark', prompt, maxTokens: 32 }, 'never');
   }
 
   async generateCompanionBark(): Promise<string> {

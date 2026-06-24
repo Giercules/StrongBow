@@ -210,7 +210,7 @@ export class DungeonScene extends Phaser.Scene {
   private grokStatus: 'offline' | 'connected' | 'thinking' = 'offline';
   private grokProvider = 'Grok';
   private static readonly LOG_CAP = 40;
-  private static readonly BARK_COOLDOWN = 5000; // min ms between throttled DM barks
+  private static readonly BARK_COOLDOWN = 8000; // min ms between throttled DM barks
 
   private generatorsDestroyed = 0;
   private generatorsTotal = 0;
