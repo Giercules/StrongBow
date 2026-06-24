@@ -341,7 +341,7 @@ export function buildDungeon(opts: DungeonOptions): LevelData {
   // ---- ambient theme decor sprinkled on open floor ----
   if (theme.decorKeys.length) {
     for (let i = 1; i < path.length - 1; i++) {
-      if (rng() < 0.55) {
+      if (rng() < 0.11) {
         const room = path[i];
         const x = room.x + 1 + Math.floor(rng() * Math.max(1, room.w - 2));
         const y = room.y + 1 + Math.floor(rng() * Math.max(1, room.h - 2));
@@ -368,7 +368,7 @@ export function buildDungeon(opts: DungeonOptions): LevelData {
       else if (roll < 0.82) pickups.push({ kind: 'food', x: px, y: py });
       else pickups.push({ kind: 'potion', x: px, y: py, itemId: roll < 0.91 ? 'health_potion' : 'mana_potion' });
     }
-    if (theme.decorKeys.length && rng() < 0.6)
+    if (theme.decorKeys.length && rng() < 0.12)
       decor.push({ x: room.cx, y: Math.min(room.y + room.h - 2, room.cy + 1), key: theme.decorKeys[Math.floor(rng() * theme.decorKeys.length)] });
   });
 
