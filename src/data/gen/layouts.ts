@@ -73,8 +73,8 @@ function gridLayout(ctx: LayoutCtx): LayoutResult {
   const gShape: RoomShape[] = [];
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
-      const rw = 10 + Math.floor(rng() * 6);
-      const rh = 7 + Math.floor(rng() * 4);
+      const rw = 13 + Math.floor(rng() * 7);
+      const rh = 9 + Math.floor(rng() * 5);
       const bx = c * cellW;
       const by = r * cellH;
       const rx = Math.min(W - rw - 2, bx + 2 + Math.floor(rng() * Math.max(1, cellW - rw - 3)));
@@ -206,8 +206,8 @@ function warrenLayout(ctx: LayoutCtx): LayoutResult {
   const allowCircle = themeShapes.includes('circle');
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
-      const rw = 6 + Math.floor(rng() * 4);
-      const rh = 5 + Math.floor(rng() * 3);
+      const rw = 9 + Math.floor(rng() * 5);
+      const rh = 7 + Math.floor(rng() * 4);
       const bx = c * cellW;
       const by = r * cellH;
       const rx = Math.min(W - rw - 2, bx + 1 + Math.floor(rng() * Math.max(1, cellW - rw - 1)));
@@ -264,7 +264,7 @@ function ringsLayout(ctx: LayoutCtx): LayoutResult {
   corridorH(cx, cx + rC, cy);
 
   const path: Room[] = [];
-  const center = mkRoom(cx - 4, cy - 3, 9, 7);
+  const center = mkRoom(cx - 5, cy - 4, 11, 9);
   carveShape(center, 'circle');
   path.push(center);
   const cardinals = (r: number): [number, number][] => [
@@ -275,7 +275,7 @@ function ringsLayout(ctx: LayoutCtx): LayoutResult {
   ];
   for (const r of radii) {
     for (const [px, py] of cardinals(r)) {
-      const room = mkRoom(Math.max(2, px - 4), Math.max(2, py - 3), 9, 7);
+      const room = mkRoom(Math.max(2, px - 5), Math.max(2, py - 4), 11, 9);
       carveShape(room, 'rect');
       path.push(room);
     }
@@ -308,7 +308,7 @@ function arenaLayout(ctx: LayoutCtx): LayoutResult {
     const pit = mkRoom(Math.max(2, bx), Math.max(2, Math.min(H - bigH - 2, by)), bigW, bigH);
     carveShape(pit, 'circle');
     path.push(pit);
-    const ante = mkRoom(Math.min(W - 11, pit.x + bigW + 1), midY - 3, 9, 7);
+    const ante = mkRoom(Math.min(W - 13, pit.x + bigW + 1), midY - 4, 11, 8);
     carveShape(ante, 'rect');
     path.push(ante);
   }
@@ -329,8 +329,8 @@ function scatterLayout(ctx: LayoutCtx): LayoutResult {
   let tries = 0;
   while (rooms.length < target && tries < 500) {
     tries++;
-    const rw = 8 + Math.floor(rng() * 6);
-    const rh = 6 + Math.floor(rng() * 4);
+    const rw = 11 + Math.floor(rng() * 6);
+    const rh = 8 + Math.floor(rng() * 5);
     const rx = 2 + Math.floor(rng() * (W - rw - 4));
     const ry = 2 + Math.floor(rng() * (H - rh - 4));
     const room = mkRoom(rx, ry, rw, rh);
@@ -427,7 +427,7 @@ function hubLayout(ctx: LayoutCtx): LayoutResult {
     const ang = (Math.PI * 2 * i) / n - Math.PI / 2;
     const sx = cx + Math.round(Math.cos(ang) * R);
     const sy = cy + Math.round(Math.sin(ang) * R);
-    const room = mkRoom(Math.max(2, sx - 5), Math.max(2, sy - 4), 11, 9);
+    const room = mkRoom(Math.max(2, sx - 6), Math.max(2, sy - 5), 13, 11);
     carveShape(room, 'rect');
     corridorH(cx, room.cx, cy);
     corridorV(cy, room.cy, room.cx);
