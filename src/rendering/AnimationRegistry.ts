@@ -63,6 +63,7 @@ export class AnimationRegistry {
       ['gear_knight', 5], ['brass_sentinel', 5], ['gladiator', 7], ['mire_lurker', 8],
       ['storm_wisp', 10], ['sky_lancer', 6], ['shadow_stalker', 8], ['void_imp', 10],
       ['hollow_knight', 5],
+      ['skel_tank', 6], ['skel_archer', 6], ['skel_mage', 6], ['skel_thief', 7],
       ['rime_cantor', 5], ['rot_sovereign', 5], ['brass_magnus', 5], ['arena_champion', 5],
       ['mire_leviathan', 5], ['tempest_herald', 5], ['umbral_devourer', 5], ['hollow_king', 5],
     ];

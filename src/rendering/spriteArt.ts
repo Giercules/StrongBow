@@ -1362,6 +1362,62 @@ export function drawBoneArcher(ctx: Ctx, ox: number, frame: number, r: MonsterRa
   else R(ctx, bx + 1, 25 + bob, 8, 2, '#e6dfba');
 }
 
+export function drawSkeletonServant(ctx: Ctx, ox: number, frame: number, r: MonsterRamp, role: 'tank' | 'archer' | 'mage' | 'thief'): void {
+  const cx = ox + MON_FW / 2;
+  const bob = frame === 1 || frame === 2 ? -2 : 0;
+  const atk = frame === 3;
+  const B = r.body2, BH = '#f6f1da', BD = r.body0, SH = 'rgba(0,0,0,0.30)';
+  const ac = r.accent;
+  // legs + feet
+  R(ctx, cx - 4, 32 + bob, 3, 8, B); R(ctx, cx + 1, 32 + bob, 3, 8, B);
+  R(ctx, cx - 4, 32 + bob, 1, 8, BH);
+  R(ctx, cx - 5, 39 + bob, 4, 2, B); R(ctx, cx + 1, 39 + bob, 4, 2, B);
+  // pelvis
+  R(ctx, cx - 5, 29 + bob, 10, 3, B); R(ctx, cx - 5, 29 + bob, 10, 1, BH);
+  // spine + ribs
+  R(ctx, cx - 1, 18 + bob, 2, 12, B);
+  for (let i = 0; i < 4; i++) { R(ctx, cx - 6, 19 + bob + i * 3, 5, 1, B); R(ctx, cx + 1, 19 + bob + i * 3, 5, 1, B); }
+  R(ctx, cx - 6, 18 + bob, 12, 1, BH);
+  R(ctx, cx - 8, 18 + bob, 3, 2, B); R(ctx, cx + 5, 18 + bob, 3, 2, B); // shoulders
+  // skull
+  R(ctx, cx - 5, 7 + bob, 10, 9, B); R(ctx, cx - 5, 7 + bob, 10, 2, BH); R(ctx, cx + 3, 8 + bob, 2, 8, SH);
+  R(ctx, cx - 4, 16 + bob, 8, 2, B); // jaw
+  R(ctx, cx - 3, 11 + bob, 3, 3, '#120e0a'); R(ctx, cx + 1, 11 + bob, 3, 3, '#120e0a');
+  PX(ctx, cx - 2, 12 + bob, r.eye); PX(ctx, cx + 2, 12 + bob, r.eye);
+  R(ctx, cx - 1, 14 + bob, 2, 1, SH);
+  for (let i = 0; i < 3; i++) PX(ctx, cx - 3 + i * 3, 17 + bob, BD);
+  // ---- role gear ----
+  if (role === 'tank') {
+    ctx.fillStyle = ac; ctx.beginPath(); ctx.arc(cx - 9, 26 + bob, 8, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = BH; ctx.beginPath(); ctx.arc(cx - 9, 26 + bob, 3, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = r.detail; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(cx - 9, 26 + bob, 8, 0, Math.PI * 2); ctx.stroke();
+    R(ctx, cx - 6, 5 + bob, 12, 4, ac); R(ctx, cx - 6, 5 + bob, 12, 1, BH); R(ctx, cx, 3 + bob, 1, 4, ac);
+    R(ctx, cx + 6, 20 + bob, 2, 9, B);
+  } else if (role === 'archer') {
+    const bx = cx - 12;
+    ctx.strokeStyle = ac; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(bx + 4, 26 + bob, 12, 2.0, 4.28); ctx.stroke();
+    R(ctx, bx + 1, 16 + bob, 1, 20, BH);
+    if (atk) { R(ctx, bx + 1, 25 + bob, 16, 1, BH); R(ctx, bx + 15, 24 + bob, 3, 3, r.eye); }
+    R(ctx, cx + 6, 20 + bob, 2, 9, B);
+  } else if (role === 'mage') {
+    R(ctx, cx - 6, 5 + bob, 12, 6, ac); R(ctx, cx - 6, 5 + bob, 12, 1, BH);
+    R(ctx, cx - 6, 8 + bob, 2, 4, ac); R(ctx, cx + 4, 8 + bob, 2, 4, ac);
+    const sx = cx + 8;
+    R(ctx, sx, 8 + bob, 2, 28, '#3a3056'); R(ctx, sx, 8 + bob, 1, 28, '#5a4f7a');
+    const oc = atk ? '#eafff0' : ac;
+    ctx.fillStyle = '#16331f'; ctx.beginPath(); ctx.arc(sx + 1, 7 + bob, 5, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = oc; ctx.beginPath(); ctx.arc(sx + 1, 7 + bob, 3, 0, Math.PI * 2); ctx.fill();
+    PX(ctx, sx, 6 + bob, '#ffffff');
+  } else {
+    R(ctx, cx - 6, 5 + bob, 12, 5, '#2a3328'); R(ctx, cx - 6, 5 + bob, 12, 1, ac);
+    const dx = cx + 7 + (atk ? 2 : 0);
+    R(ctx, dx, 16 + bob, 2, 7, '#dfe6ff');
+    R(ctx, dx - 1, 22 + bob, 4, 1, ac);
+    R(ctx, dx, 23 + bob, 2, 3, '#5a3a1c');
+    R(ctx, cx - 8, 20 + bob, 2, 8, B);
+  }
+}
+
 export function drawBrute(ctx: Ctx, ox: number, frame: number, r: MonsterRamp): void {
   const cx = ox + MON_FW / 2;
   const bob = frame === 1 ? -2 : 0;
@@ -1644,6 +1700,26 @@ export function drawWeapon(
       PX(ctx, hx + 6, 5, C.magicHot);
       PX(ctx, hx + 1, 2, '#ffffff');
     }
+  } else if (cls === 'necromancer') {
+    const hx = cx + (attack ? 12 : 10);
+    // dark twisted haft topped by a clawed crescent cradling a glowing soul orb
+    R(ctx, hx, 7, 3, 35, '#2a2440');
+    R(ctx, hx, 7, 1, 35, '#4a3f6a');
+    R(ctx, hx - 3, 6, 2, 6, '#3a3358');
+    R(ctx, hx + 4, 6, 2, 6, '#3a3358');
+    PX(ctx, hx - 3, 5, '#6a5f96');
+    PX(ctx, hx + 5, 5, '#6a5f96');
+    const orb = attack ? '#b6ffd0' : '#6ee0a0';
+    ctx.fillStyle = '#14331e';
+    ctx.beginPath(); ctx.arc(hx + 1, 6, 5, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = orb;
+    ctx.beginPath(); ctx.arc(hx + 1, 6, 3.4, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#eafff0';
+    ctx.beginPath(); ctx.arc(hx, 5, 1.5, 0, Math.PI * 2); ctx.fill();
+    R(ctx, hx, 21, 3, 3, '#cfc9af');
+    PX(ctx, hx, 22, '#1a1410');
+    PX(ctx, hx + 2, 22, '#1a1410');
+    if (attack) { PX(ctx, hx - 4, 2, orb); PX(ctx, hx + 6, 3, orb); PX(ctx, hx + 1, 0, '#ffffff'); }
   } else {
     const hx = cx + (attack ? 12 : 10);
     R(ctx, hx, 16, 3, 22, C.doorWood);
@@ -1835,7 +1911,7 @@ export function drawHumanoid(
     R(ctx, hx0, hTop + 7, hw, 5, ramp.hair);
     R(ctx, hx0 + 2, hTop + 11, hw - 4, 3, ramp.hair);
     R(ctx, hx0, hTop + 7, hw, 1, '#ffffff');
-  } else {
+  } else if (cls === 'warden') {
     R(ctx, hx0 - 1, hTop - 2, hw + 2, 5, ramp.cloth2);
     R(ctx, hx0 - 1, hTop - 2, hw + 2, 1, ramp.trimHi);
     R(ctx, hx0 - 2, hTop, 2, 9, ramp.cloth1);
@@ -1843,9 +1919,22 @@ export function drawHumanoid(
     R(ctx, hx0, hTop - 4, hw, 1, '#fff4c0');
     PX(ctx, hx0 - 1, hTop - 3, '#fff4c0');
     PX(ctx, hx0 + hw, hTop - 3, '#fff4c0');
+  } else {
+    // necromancer — a deep dark cowl shadowing the face, with cold soul-fire eyes
+    R(ctx, hx0 - 2, hTop - 3, hw + 4, 6, ramp.cloth0);
+    R(ctx, hx0 - 2, hTop - 3, hw + 4, 1, ramp.cloth1);
+    R(ctx, hx0 - 2, hTop, 2, 12, ramp.cloth0);
+    R(ctx, hx0 + hw, hTop, 2, 12, ramp.cloth0);
+    R(ctx, hx0, hTop + 2, hw, 8, '#0a0a12');
+    if (facing !== 'up') {
+      R(ctx, hx0 + 2, hTop + 5, 2, 2, '#8affd0');
+      R(ctx, hx0 + hw - 4, hTop + 5, 2, 2, '#8affd0');
+      PX(ctx, hx0 + 2, hTop + 5, '#dfffe6');
+      PX(ctx, hx0 + hw - 4, hTop + 5, '#dfffe6');
+    }
   }
 
-  if (cls !== 'arcanist') {
+  if (cls !== 'arcanist' && cls !== 'necromancer') {
     const eye = cls === 'strider' ? '#c08aff' : '#2a3b6a';
     if (facing === 'down') {
       R(ctx, hx0 + 2, hTop + 5, 2, 2, '#ffffff');

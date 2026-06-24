@@ -361,6 +361,10 @@ export const MONSTER_RAMPS: Record<string, MonsterRamp> = {
     eye: '#ff5a3a',
     detail: '#4a4636',
   },
+  skel_tank: { body0: '#8a8470', body1: '#d2ccb2', body2: '#efe9cf', accent: '#8fb4d8', eye: '#bfe0ff', detail: '#5a5648' },
+  skel_archer: { body0: '#8a8470', body1: '#d2ccb2', body2: '#efe9cf', accent: '#86f0d0', eye: '#bafff0', detail: '#5a5648' },
+  skel_mage: { body0: '#8a8470', body1: '#d2ccb2', body2: '#efe9cf', accent: '#c89bff', eye: '#e6ccff', detail: '#5a5648' },
+  skel_thief: { body0: '#8a8470', body1: '#d2ccb2', body2: '#efe9cf', accent: '#8affa0', eye: '#d6ffdc', detail: '#5a5648' },
   brute: {
     body0: '#3a2418',
     body1: '#6e4326',

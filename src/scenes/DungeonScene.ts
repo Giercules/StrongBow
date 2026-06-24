@@ -56,11 +56,11 @@ import { ShopUI } from '../ui/ShopUI';
 import { GuildHireUI } from '../ui/GuildHireUI';
 
 type SkeletonType = 'tank' | 'archer' | 'mage' | 'thief';
-const SKELETON_INFO: Record<SkeletonType, { cls: HeroClassId; tint: number; name: string }> = {
-  tank: { cls: 'vanguard', tint: 0x9fd8ff, name: 'skeleton knight' },
-  archer: { cls: 'strider', tint: 0x86f0d0, name: 'skeleton archer' },
-  mage: { cls: 'arcanist', tint: 0xc89bff, name: 'skeleton mage' },
-  thief: { cls: 'vanguard', tint: 0x8affa0, name: 'skeleton thief' },
+const SKELETON_INFO: Record<SkeletonType, { cls: HeroClassId; name: string; sheet: string; walk: string; attack: string }> = {
+  tank: { cls: 'vanguard', name: 'skeleton knight', sheet: 'monster-skel_tank-sheet', walk: 'skel_tank-walk', attack: 'skel_tank-attack' },
+  archer: { cls: 'strider', name: 'skeleton archer', sheet: 'monster-skel_archer-sheet', walk: 'skel_archer-walk', attack: 'skel_archer-attack' },
+  mage: { cls: 'arcanist', name: 'skeleton mage', sheet: 'monster-skel_mage-sheet', walk: 'skel_mage-walk', attack: 'skel_mage-attack' },
+  thief: { cls: 'vanguard', name: 'skeleton thief', sheet: 'monster-skel_thief-sheet', walk: 'skel_thief-walk', attack: 'skel_thief-attack' },
 };
 const SKELETON_ORDER: SkeletonType[] = ['tank', 'archer', 'mage', 'thief'];
 import type { ShopKind } from '../core/types';
@@ -1468,7 +1468,7 @@ export class DungeonScene extends Phaser.Scene {
     const t = type ?? SKELETON_ORDER[this.summonIdx++ % SKELETON_ORDER.length];
     const info = SKELETON_INFO[t];
     const sk = new Companion(this, necro.x + Phaser.Math.Between(-16, 16), necro.y + Phaser.Math.Between(-8, 18), info.cls);
-    sk.makeSkeleton(info.tint);
+    sk.makeSkeleton(info.sheet, info.walk, info.attack);
     if (t === 'tank') {
       sk.stats.maxHealth = Math.round(sk.stats.maxHealth * 1.9);
       sk.stats.armor += 5;

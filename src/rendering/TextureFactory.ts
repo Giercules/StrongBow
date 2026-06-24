@@ -243,6 +243,10 @@ export class TextureFactory {
     mon('monster-demon-sheet', MONSTER_RAMPS.demon, art.drawDemon);
     mon('monster-boss-sheet', MONSTER_RAMPS.grave_warden, art.drawBoss, BOSS_FW, BOSS_FH);
     mon('monster-bone_archer-sheet', MONSTER_RAMPS.bone_archer, art.drawBoneArcher);
+    mon('monster-skel_tank-sheet', MONSTER_RAMPS.skel_tank, (c, ox, f, r) => art.drawSkeletonServant(c, ox, f, r, 'tank'));
+    mon('monster-skel_archer-sheet', MONSTER_RAMPS.skel_archer, (c, ox, f, r) => art.drawSkeletonServant(c, ox, f, r, 'archer'));
+    mon('monster-skel_mage-sheet', MONSTER_RAMPS.skel_mage, (c, ox, f, r) => art.drawSkeletonServant(c, ox, f, r, 'mage'));
+    mon('monster-skel_thief-sheet', MONSTER_RAMPS.skel_thief, (c, ox, f, r) => art.drawSkeletonServant(c, ox, f, r, 'thief'));
     mon('monster-brute-sheet', MONSTER_RAMPS.brute, art.drawBrute);
     mon('monster-imp-sheet', MONSTER_RAMPS.imp, art.drawImp);
     mon('monster-molten_colossus-sheet', MONSTER_RAMPS.molten_colossus, art.drawColossus, BOSS_FW, BOSS_FH);
