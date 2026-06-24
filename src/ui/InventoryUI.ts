@@ -4,6 +4,7 @@ import type { Modal } from './uiHelpers';
 import { C } from '../rendering/Palette';
 import { RARITY_COLOR } from '../data/items';
 import { describeItemStats } from '../data/pickupInfo';
+import { ItemTooltip } from './ItemTooltip';
 import { audio } from '../systems/AudioSystem';
 import type { Hero } from '../entities/Hero';
 import type { ItemDefinition, EquipSlot } from '../core/types';
@@ -23,6 +24,7 @@ export class InventoryUI {
   private sel = 0;
   private bagPage = 0;
   private keyHandler?: (e: KeyboardEvent) => void;
+  private tip!: ItemTooltip;
 
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
@@ -42,12 +44,14 @@ export class InventoryUI {
     this.modal.add(this.content);
     this.keyHandler = (e) => this.onKey(e);
     this.scene.input.keyboard?.on('keydown', this.keyHandler);
+    this.tip = new ItemTooltip(this.scene);
     this.rebuild();
   }
 
   close(): void {
     if (this.keyHandler) this.scene.input.keyboard?.off('keydown', this.keyHandler);
     this.keyHandler = undefined;
+    this.tip?.destroy();
     this.content = null;
     this.modal?.destroy();
     this.modal = null;
@@ -109,6 +113,7 @@ export class InventoryUI {
   private rebuild(): void {
     if (!this.content || !this.hero) return;
     const hero = this.hero;
+    this.tip?.hide();
     this.content.removeAll(true);
     const x0 = this.modal!.cx - PANEL_W / 2;
     const y0 = this.modal!.cy - PANEL_H / 2;
@@ -130,6 +135,10 @@ export class InventoryUI {
         addPinned(this.content!, this.scene.add.image(leftX + 50, yy + 2, item.icon).setScale(0.9).setOrigin(0, 0));
         const nm = item.name.length > 19 ? item.name.slice(0, 18) + '…' : item.name;
         this.label(leftX + 70, yy + 5, nm, numHex(RARITY_COLOR[item.rarity]), 9.5, true);
+        const ez = this.scene.add.zone(leftX, yy, 200, 19).setOrigin(0, 0).setInteractive({ useHandCursor: true });
+        ez.on('pointerover', () => this.tip.show(item, leftX + 200, yy, 'right'));
+        ez.on('pointerout', () => this.tip.hide());
+        addPinned(this.content!, ez);
       } else {
         this.label(leftX + 70, yy + 5, '—', C.inkDim, 9.5);
       }
@@ -161,6 +170,8 @@ export class InventoryUI {
       this.label(rightX + 36, gy + 1, item.name, numHex(RARITY_COLOR[item.rarity]), 10, false);
       const zone = this.scene.add.zone(rightX, gy, PANEL_W / 2 - 40, 20).setOrigin(0, 0).setInteractive({ useHandCursor: true });
       zone.on('pointerdown', () => this.useItem(item));
+      zone.on('pointerover', () => this.tip.show(item, rightX, gy, 'left'));
+      zone.on('pointerout', () => this.tip.hide());
       addPinned(this.content!, zone);
     });
 

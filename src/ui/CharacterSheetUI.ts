@@ -3,6 +3,7 @@ import { framedPanel, makeButton, addPinned } from './uiHelpers';
 import type { Modal } from './uiHelpers';
 import { C } from '../rendering/Palette';
 import { describeItemStats } from '../data/pickupInfo';
+import { ItemTooltip } from './ItemTooltip';
 import type { Hero } from '../entities/Hero';
 
 const PANEL_W = 480;
@@ -13,6 +14,7 @@ export class CharacterSheetUI {
   private modal: Modal | null = null;
   private content: Phaser.GameObjects.Container | null = null;
   private hero: Hero | null = null;
+  private tip!: ItemTooltip;
 
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
@@ -28,10 +30,12 @@ export class CharacterSheetUI {
     this.modal = framedPanel(this.scene, PANEL_W, PANEL_H, `CHARACTER · ${hero.def.name}`);
     this.content = this.scene.add.container(0, 0).setDepth(this.modal.container.depth + 1);
     this.modal.add(this.content);
+    this.tip = new ItemTooltip(this.scene);
     this.rebuild();
   }
 
   close(): void {
+    this.tip?.destroy();
     this.content = null;
     this.modal?.destroy();
     this.modal = null;
@@ -49,6 +53,7 @@ export class CharacterSheetUI {
   private rebuild(): void {
     if (!this.content || !this.hero) return;
     const h = this.hero;
+    this.tip?.hide();
     this.content.removeAll(true);
     const x0 = this.modal!.cx - PANEL_W / 2;
     const y0 = this.modal!.cy - PANEL_H / 2;
@@ -110,6 +115,10 @@ export class CharacterSheetUI {
       const yy = y0 + 256 + i * 15;
       addPinned(this.content!, this.scene.add.image(left + 8, yy + 1, it.icon).setScale(0.85).setOrigin(0, 0));
       this.label(left + 26, yy, it.name, C.ink, 9.5, true);
+      const cz = this.scene.add.zone(left, yy, PANEL_W / 2 - 30, 14).setOrigin(0, 0).setInteractive({ useHandCursor: true });
+      cz.on('pointerover', () => this.tip.show(it, left + PANEL_W / 2 - 30, yy, 'right'));
+      cz.on('pointerout', () => this.tip.hide());
+      addPinned(this.content!, cz);
     });
 
     this.content.add(

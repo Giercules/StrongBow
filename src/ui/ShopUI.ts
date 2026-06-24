@@ -4,6 +4,7 @@ import { Content } from '../content/ContentRegistry';
 import { audio } from '../systems/AudioSystem';
 import type { ShopKind, ItemDefinition, Rarity } from '../core/types';
 import type { Hero } from '../entities/Hero';
+import { ItemTooltip } from './ItemTooltip';
 
 const SERIF = 'MedievalSharp, Georgia, serif';
 const TITLE = 'Cinzel, Georgia, serif';
@@ -75,6 +76,7 @@ export class ShopUI {
   private status = '';
   private page = 0;
   private onClosed?: () => void;
+  private tip!: ItemTooltip;
 
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
@@ -98,12 +100,14 @@ export class ShopUI {
     };
     this.scene.input.keyboard?.on('keydown', this.keyHandler);
     audio.sfx('ui_select');
+    this.tip = new ItemTooltip(this.scene);
     this.render();
   }
 
   close(): void {
     if (this.keyHandler) this.scene.input.keyboard?.off('keydown', this.keyHandler);
     this.keyHandler = undefined;
+    this.tip?.destroy();
     this.container?.destroy();
     this.container = null;
     this.onClosed?.();
@@ -134,6 +138,7 @@ export class ShopUI {
   private render(): void {
     if (!this.container) return;
     this.container.removeAll(true);
+    this.tip?.hide();
     const cam = this.scene.cameras.main;
     const cx = cam.width / 2;
     const cy = cam.height / 2;
@@ -184,6 +189,10 @@ export class ShopUI {
 
       const canAfford = this.buyer.inventory.gold >= entry.price;
       this.button(x0 + PANEL_W - 86, ry + (rowH - 8) / 2, 110, 28, `${entry.price}g`, canAfford, () => this.buy(entry, def));
+      const hz = this.scene.add.zone(x0 + 18, ry, PANEL_W - 160, rowH - 8).setOrigin(0, 0).setInteractive({ useHandCursor: true });
+      hz.on('pointerover', () => this.tip.show(def, x0 + 18, ry, 'right'));
+      hz.on('pointerout', () => this.tip.hide());
+      this.pin(hz);
     });
 
     if (this.status) this.text(cx, y0 + PANEL_H - 68, this.status, HEAD, 12).setOrigin(0.5, 0);
