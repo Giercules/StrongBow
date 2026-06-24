@@ -176,10 +176,11 @@ export type SpawnKind =
   | 'portal'
   | 'merchant'
   | 'boss'
+  | 'door'
   | 'playerStart';
 
 /** Town merchant flavours — each opens a different shop / interaction. */
-export type ShopKind = 'blacksmith' | 'apothecary' | 'tavern' | 'home';
+export type ShopKind = 'blacksmith' | 'apothecary' | 'tavern' | 'home' | 'guild';
 
 export interface SpawnDef {
   kind: SpawnKind;
@@ -198,6 +199,8 @@ export interface SpawnDef {
   label?: string;
   /** npc: role word used for examine flavour + AI barks. */
   npcRole?: string;
+  /** door: level id this entrance leads to ('town' to step back outside). */
+  interiorId?: string;
 }
 
 export interface PickupDef {
@@ -252,6 +255,8 @@ export interface LevelData {
   story?: string;
   /** True for the town-square hub: no combat, portals descend into realms. */
   town?: boolean;
+  /** True for building interiors (peaceful rooms reached from town). */
+  interior?: boolean;
 }
 
 export interface HudHeroSlot {

@@ -33,7 +33,7 @@ interface StockEntry {
 }
 
 // What each keeper sells. Ids must exist in the item registry.
-const STOCK: Record<Exclude<ShopKind, 'home'>, StockEntry[]> = {
+const STOCK: Record<Exclude<ShopKind, 'home' | 'guild'>, StockEntry[]> = {
   blacksmith: [
     { id: 'iron_sword', price: 120 },
     { id: 'ember_blade', price: 230 },
@@ -64,6 +64,7 @@ const SHOP_TITLE: Record<ShopKind, string> = {
   apothecary: 'APOTHECARY',
   tavern: 'TAVERN',
   home: 'LODGE',
+  guild: 'FIGHTERS GUILD',
 };
 
 export class ShopUI {
@@ -169,7 +170,7 @@ export class ShopUI {
     this.text(cx, y0 + 16, this.title.toUpperCase(), HEAD, 22, TITLE).setOrigin(0.5, 0);
     this.text(cx, y0 + 44, `Party gold: ${this.buyer.inventory.gold}`, GOLD_DK, 13).setOrigin(0.5, 0);
 
-    const allRows = STOCK[this.shop as Exclude<ShopKind, 'home'>] ?? [];
+    const allRows = STOCK[this.shop as Exclude<ShopKind, 'home' | 'guild'>] ?? [];
     const PAGE_SIZE = 5;
     const totalPages = Math.max(1, Math.ceil(allRows.length / PAGE_SIZE));
     this.page = Math.min(Math.max(this.page, 0), totalPages - 1);

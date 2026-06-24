@@ -117,7 +117,8 @@ export function buildTown(): LevelData {
 
   house(64, 11, 76, 19, 'house-roof-red');
   decor.push({ x: 70, y: 11, key: 'banner' });
-  spawns.push({ kind: 'merchant', shop: 'tavern', x: 70, y: 21, label: 'The Gilded Tankard' });
+  // The Gilded Tankard's keeper now waits inside; the door enters the interior.
+  spawns.push({ kind: 'door', x: 70, y: 19, interiorId: 'interior_tankard', label: 'The Gilded Tankard' });
 
   house(82, 11, 92, 19, 'house-roof-blue');
   decor.push({ x: 87, y: 11, key: 'banner' });

@@ -174,6 +174,107 @@ export function drawHouseWindow(ctx: Ctx, ox: number, oy: number): void {
   PX(ctx, ox + 10, oy + 10, '#cfe0ff');
 }
 
+// ---- tavern / interior furniture (32x32 decor) -----------------------------
+export function drawWoodFloor(ctx: Ctx, ox: number, oy: number): void {
+  R(ctx, ox, oy, 32, 32, '#6e4a28');
+  for (let i = 0; i < 32; i += 8) {
+    R(ctx, ox, oy + i, 32, 1, '#4a3018'); // plank seam
+    R(ctx, ox, oy + i + 1, 32, 1, '#82592c'); // plank highlight
+  }
+  R(ctx, ox + 15, oy, 1, 32, '#3a2410'); // a vertical butt-joint
+  PX(ctx, ox + 6, oy + 4, '#5a3c20'); PX(ctx, ox + 22, oy + 12, '#5a3c20');
+}
+export function drawTavernWall(ctx: Ctx, ox: number, oy: number): void {
+  R(ctx, ox, oy, 32, 32, '#5a4632'); // dark timber wainscot
+  R(ctx, ox, oy, 32, 14, '#caa882'); // upper plaster
+  R(ctx, ox, oy + 13, 32, 2, '#3a2a18'); // chair rail
+  for (let i = 0; i < 32; i += 8) R(ctx, ox + i, oy + 15, 1, 17, '#3a2a18'); // panel seams
+  R(ctx, ox, oy, 32, 2, '#d8c0a0');
+}
+export function drawTavernBar(ctx: Ctx, ox: number, oy: number): void {
+  R(ctx, ox, oy + 5, 32, 19, '#5a3a1c'); // counter front
+  R(ctx, ox, oy + 4, 32, 4, '#8a6132'); // bartop
+  R(ctx, ox, oy + 4, 32, 1, '#b08a52');
+  R(ctx, ox, oy + 8, 32, 1, '#2e1d0e');
+  for (let x = 0; x < 32; x += 8) R(ctx, ox + x, oy + 10, 1, 14, '#3a2410'); // panel seams
+  R(ctx, ox, oy + 24, 32, 3, '#2e1d0e'); // kick shadow
+  R(ctx, ox + 5, oy + 1, 3, 4, '#caa56a'); R(ctx, ox + 21, oy + 1, 3, 4, '#caa56a'); // tankards
+}
+export function drawTavernTable(ctx: Ctx, ox: number, oy: number): void {
+  ctx.fillStyle = '#3a2410'; ctx.beginPath(); ctx.ellipse(ox + 16, oy + 18, 12, 9, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#6e4a24'; ctx.beginPath(); ctx.ellipse(ox + 16, oy + 16, 12, 9, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#8a6132'; ctx.beginPath(); ctx.ellipse(ox + 14, oy + 14, 8, 5, 0, 0, Math.PI * 2); ctx.fill();
+  R(ctx, ox + 11, oy + 13, 3, 3, '#caa56a'); // mug
+  ctx.fillStyle = '#cdbfa0'; ctx.beginPath(); ctx.ellipse(ox + 19, oy + 17, 3, 2, 0, 0, Math.PI * 2); ctx.fill(); // plate
+}
+export function drawTavernStool(ctx: Ctx, ox: number, oy: number): void {
+  ctx.fillStyle = '#3a2410'; ctx.beginPath(); ctx.ellipse(ox + 16, oy + 17, 6, 4, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#6e4a24'; ctx.beginPath(); ctx.ellipse(ox + 16, oy + 15, 6, 4, 0, 0, Math.PI * 2); ctx.fill();
+  R(ctx, ox + 12, oy + 17, 1, 6, '#3a2410'); R(ctx, ox + 19, oy + 17, 1, 6, '#3a2410');
+}
+export function drawHearth(ctx: Ctx, ox: number, oy: number): void {
+  R(ctx, ox + 1, oy + 3, 30, 27, '#7a7268'); // stone surround
+  R(ctx, ox + 1, oy + 3, 30, 2, '#9a9286');
+  R(ctx, ox, oy + 1, 32, 4, '#5f584e'); // mantel
+  R(ctx, ox + 7, oy + 12, 18, 18, '#150f0a'); // firebox
+  R(ctx, ox + 10, oy + 20, 12, 10, '#d2541c'); // fire
+  R(ctx, ox + 13, oy + 22, 6, 8, '#ffb02a');
+  PX(ctx, ox + 16, oy + 18, '#fff2b0');
+  for (let i = 4; i < 30; i += 8) R(ctx, ox + i, oy + 5, 1, 7, '#5f584e'); // stone seams
+}
+export function drawBarrel(ctx: Ctx, ox: number, oy: number): void {
+  R(ctx, ox + 9, oy + 4, 14, 24, '#6e4a24'); // body
+  R(ctx, ox + 8, oy + 8, 16, 16, '#6e4a24'); // bulge
+  R(ctx, ox + 11, oy + 4, 3, 24, '#8a6132'); // stave highlight
+  R(ctx, ox + 8, oy + 9, 16, 2, '#2e1d0e'); R(ctx, ox + 8, oy + 16, 16, 2, '#2e1d0e'); R(ctx, ox + 8, oy + 23, 16, 2, '#2e1d0e'); // hoops
+  ctx.fillStyle = '#5a3a1c'; ctx.beginPath(); ctx.ellipse(ox + 16, oy + 5, 7, 2, 0, 0, Math.PI * 2); ctx.fill(); // top
+}
+export function drawRug(ctx: Ctx, ox: number, oy: number): void {
+  R(ctx, ox + 1, oy + 6, 30, 20, '#7a2326'); // field
+  R(ctx, ox + 1, oy + 6, 30, 2, '#cfa64e'); R(ctx, ox + 1, oy + 24, 30, 2, '#cfa64e'); // gold borders
+  R(ctx, ox + 4, oy + 9, 24, 14, '#9a343a');
+  ctx.fillStyle = '#cfa64e'; ctx.beginPath(); ctx.moveTo(ox + 16, oy + 10); ctx.lineTo(ox + 24, oy + 16); ctx.lineTo(ox + 16, oy + 22); ctx.lineTo(ox + 8, oy + 16); ctx.closePath(); ctx.fill(); // medallion
+  R(ctx, ox + 14, oy + 14, 4, 4, '#7a2326');
+}
+export function drawShelf(ctx: Ctx, ox: number, oy: number): void {
+  R(ctx, ox + 1, oy + 6, 30, 3, '#5a3a1c'); R(ctx, ox + 1, oy + 18, 30, 3, '#5a3a1c'); // two boards
+  const bot = ['#3a6a3a', '#7a2326', '#34507a', '#caa882', '#5a3a7a'];
+  for (let i = 0; i < 5; i++) { R(ctx, ox + 3 + i * 6, oy + 2, 3, 4, bot[i]); R(ctx, ox + 3 + i * 6, oy + 13, 3, 5, bot[(i + 2) % 5]); }
+}
+
+// ---- Fighters Guild interior props -----------------------------------------
+export function drawGuildWall(ctx: Ctx, ox: number, oy: number): void {
+  R(ctx, ox, oy, 32, 32, '#6a6c78'); // ashlar stone
+  R(ctx, ox, oy, 32, 2, '#888a96');
+  for (const ry of [0, 8, 16, 24]) R(ctx, ox, oy + ry, 32, 1, '#4a4c58'); // courses
+  for (let ry = 0; ry < 32; ry += 8) {
+    const off = (ry / 8) % 2 ? 8 : 0;
+    for (let sx = off; sx < 32; sx += 16) R(ctx, ox + sx, oy + ry, 1, 8, '#4a4c58'); // staggered seams
+  }
+  R(ctx, ox, oy + 14, 32, 2, '#5a3a1c'); // timber rail
+  R(ctx, ox, oy + 14, 32, 1, '#6e4a24');
+  PX(ctx, ox + 7, oy + 5, '#7a7c88'); PX(ctx, ox + 22, oy + 19, '#7a7c88');
+}
+export function drawTrainingDummy(ctx: Ctx, ox: number, oy: number): void {
+  R(ctx, ox + 15, oy + 18, 3, 12, '#5a3a1c'); // post
+  R(ctx, ox + 13, oy + 28, 7, 2, '#3a2410'); // foot
+  R(ctx, ox + 8, oy + 11, 16, 2, '#5a3a1c'); // cross-arm
+  R(ctx, ox + 11, oy + 8, 10, 11, '#b8923a'); // burlap torso
+  R(ctx, ox + 11, oy + 8, 10, 1, '#d2ac52');
+  R(ctx, ox + 11, oy + 12, 10, 1, '#6e4a24'); R(ctx, ox + 11, oy + 15, 10, 1, '#6e4a24'); // straps
+  ctx.fillStyle = '#caa84a'; ctx.beginPath(); ctx.arc(ox + 16, oy + 5, 4, 0, Math.PI * 2); ctx.fill(); // head
+  PX(ctx, ox + 14, oy + 14, '#3a2410'); // a gash
+}
+export function drawAnvil(ctx: Ctx, ox: number, oy: number): void {
+  R(ctx, ox + 10, oy + 22, 12, 8, '#3a2410'); // wood stump
+  R(ctx, ox + 10, oy + 22, 12, 1, '#5a3a1c');
+  R(ctx, ox + 9, oy + 16, 14, 5, '#3a3f4a'); // body
+  R(ctx, ox + 7, oy + 13, 20, 4, '#4a515e'); // top face
+  R(ctx, ox + 7, oy + 13, 20, 1, '#6a727e');
+  R(ctx, ox + 4, oy + 13, 5, 2, '#4a515e'); // horn
+  R(ctx, ox + 12, oy + 21, 8, 1, '#2a2e36');
+}
+
 // ---- little living things (single-frame; animated by tweens in-scene) ------
 
 export function drawButterfly(ctx: Ctx): void {

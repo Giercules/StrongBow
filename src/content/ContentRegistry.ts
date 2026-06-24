@@ -5,6 +5,7 @@ import { SKILLS } from '../data/skills';
 import { LEVEL1 } from '../data/level1';
 import { LEVEL2 } from '../data/level2';
 import { TOWN } from '../data/town';
+import { INTERIOR_TANKARD, INTERIOR_GUILD } from '../data/interiors';
 import {
   LEVEL_FROST,
   LEVEL_TOXIC,
@@ -30,6 +31,8 @@ class Registry {
   readonly classes: HeroClassId[] = ALL_CLASSES;
   readonly levels: Record<string, LevelData> = {
     town: TOWN,
+    interior_tankard: INTERIOR_TANKARD,
+    interior_guild: INTERIOR_GUILD,
     sunken_crypt: LEVEL1,
     molten_deep: LEVEL2,
     frozen_cathedral: LEVEL_FROST,

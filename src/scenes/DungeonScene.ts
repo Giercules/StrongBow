@@ -253,6 +253,7 @@ export class DungeonScene extends Phaser.Scene {
     role: string;
   }[] = [];
   private portals: { sprite: Phaser.GameObjects.Sprite; realmId: string; label: string; x: number; y: number }[] = [];
+  private doors: { x: number; y: number; interiorId: string; label: string }[] = [];
   private merchants: { sprite: Phaser.GameObjects.Sprite; shop: ShopKind; label: string; x: number; y: number }[] = [];
   private townLife: Phaser.GameObjects.Sprite[] = [];
 
@@ -452,6 +453,7 @@ export class DungeonScene extends Phaser.Scene {
     this.townLife = [];
     this.portals = [];
     this.merchants = [];
+    this.doors = [];
   }
 
   private tileCenter(tx: number, ty: number): { x: number; y: number } {
@@ -825,7 +827,7 @@ export class DungeonScene extends Phaser.Scene {
           break;
         }
         case 'merchant': {
-          const tintByShop: Record<ShopKind, number> = { blacksmith: 0x9fb6d8, apothecary: 0x9fe07a, tavern: 0xffce6a, home: 0xff9a6a };
+          const tintByShop: Record<ShopKind, number> = { blacksmith: 0x9fb6d8, apothecary: 0x9fe07a, tavern: 0xffce6a, home: 0xff9a6a, guild: 0xff8a5a };
           const shop = sp.shop ?? 'home';
           const spr = this.add.sprite(c.x, c.y, 'npc-elder').setDepth(c.y).setTint(tintByShop[shop]);
           this.shadows.add(spr);
@@ -841,6 +843,16 @@ export class DungeonScene extends Phaser.Scene {
             .setOrigin(0.5)
             .setDepth(c.y + 40);
           this.merchants.push({ sprite: spr, shop, label: sp.label ?? 'Merchant', x: sp.x, y: sp.y });
+          break;
+        }
+        case 'door': {
+          const glow = this.add.image(c.x, c.y - 4, 'fx-glow-warm').setScale(1.5).setAlpha(0.3).setBlendMode(Phaser.BlendModes.ADD).setDepth(c.y - 1).setTint(0xffce6a);
+          this.tweens.add({ targets: glow, alpha: { from: 0.16, to: 0.44 }, duration: 1200, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+          this.add
+            .text(c.x, c.y - 22, sp.label ?? 'Enter', { fontFamily: 'MedievalSharp, "Trebuchet MS", cursive', fontSize: '10px', color: '#ffe9a8', align: 'center', stroke: '#000', strokeThickness: 3 })
+            .setOrigin(0.5)
+            .setDepth(c.y + 40);
+          this.doors.push({ x: sp.x, y: sp.y, interiorId: sp.interiorId ?? 'town', label: sp.label ?? 'Door' });
           break;
         }
         case 'generator':
@@ -2267,6 +2279,20 @@ export class DungeonScene extends Phaser.Scene {
       this.useMerchant(bestM, player);
       return true;
     }
+    let bestD: (typeof this.doors)[number] | null = null;
+    let bdd = 42;
+    for (const dr of this.doors) {
+      const cc = this.tileCenter(dr.x, dr.y);
+      const d = Phaser.Math.Distance.Between(player.x, player.y, cc.x, cc.y);
+      if (d < bdd) {
+        bdd = d;
+        bestD = dr;
+      }
+    }
+    if (bestD) {
+      this.enterInterior(bestD);
+      return true;
+    }
     return false;
   }
 
@@ -2292,6 +2318,25 @@ export class DungeonScene extends Phaser.Scene {
     this.registry.remove('loadSave');
     this.cameras.main.fadeOut(700, 0, 0, 0);
     this.time.delayedCall(900, () => {
+      this.scene.stop('HudScene');
+      this.scene.start('DungeonScene');
+    });
+  }
+
+  /** Step into a building interior (or back out to town). Peaceful, like town. */
+  private enterInterior(door: { interiorId: string; label: string }): void {
+    if (this.won) return;
+    this.won = true;
+    audio.sfx('portal');
+    const leaving = door.interiorId === 'town';
+    this.showBark(leaving ? 'You step back out into Hearthwatch.' : `You enter ${door.label}.`, 2600);
+    this.registry.set('carryParty', this.players.map((a) => this.allyToSave(a)));
+    this.registry.set('levelId', door.interiorId);
+    this.registry.set('twoPlayer', this.twoPlayer);
+    this.registry.set('fromTown', false);
+    this.registry.remove('loadSave');
+    this.cameras.main.fadeOut(500, 0, 0, 0);
+    this.time.delayedCall(650, () => {
       this.scene.stop('HudScene');
       this.scene.start('DungeonScene');
     });
