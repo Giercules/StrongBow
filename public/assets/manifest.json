@@ -122,6 +122,66 @@
       "kind": "spritesheet",
       "frameWidth": 16,
       "frameHeight": 16
+    },
+    {
+      "key": "icon-sword",
+      "path": "assets/sprites/icon-sword-hd.png",
+      "kind": "image"
+    },
+    {
+      "key": "icon-bow",
+      "path": "assets/sprites/icon-bow-hd.png",
+      "kind": "image"
+    },
+    {
+      "key": "icon-staff",
+      "path": "assets/sprites/icon-staff-hd.png",
+      "kind": "image"
+    },
+    {
+      "key": "icon-mace",
+      "path": "assets/sprites/icon-mace-hd.png",
+      "kind": "image"
+    },
+    {
+      "key": "icon-armor",
+      "path": "assets/sprites/icon-armor-hd.png",
+      "kind": "image"
+    },
+    {
+      "key": "icon-ring",
+      "path": "assets/sprites/icon-ring-hd.png",
+      "kind": "image"
+    },
+    {
+      "key": "icon-amulet",
+      "path": "assets/sprites/icon-amulet-hd.png",
+      "kind": "image"
+    },
+    {
+      "key": "icon-shield",
+      "path": "assets/sprites/icon-shield-hd.png",
+      "kind": "image"
+    },
+    {
+      "key": "icon-helm",
+      "path": "assets/sprites/icon-helm-hd.png",
+      "kind": "image"
+    },
+    {
+      "key": "icon-legs",
+      "path": "assets/sprites/icon-legs-hd.png",
+      "kind": "image"
+    },
+    {
+      "key": "icon-gloves",
+      "path": "assets/sprites/icon-gloves-hd.png",
+      "kind": "image"
+    },
+    {
+      "key": "icon-boots",
+      "path": "assets/sprites/icon-boots-hd.png",
+      "kind": "image"
     }
   ]
 }
