@@ -8,7 +8,7 @@ import { audio } from '../systems/AudioSystem';
 // illustrated bestiary + armory galleries.
 const hx = (s: string): number => parseInt(s.replace('#', ''), 16);
 const SERIF = 'MedievalSharp, Georgia, serif';
-const PANEL_W = 600;
+const PANEL_W = 520;
 const PANEL_H = 488;
 const PAGE = '#e9dcc0';
 const PAGE2 = '#f2e9d0';
@@ -22,6 +22,7 @@ const STAT = '#2e6b34';
 export class GameManualUI {
   private scene: Phaser.Scene;
   private container: Phaser.GameObjects.Container | null = null;
+  private backdrop: Phaser.GameObjects.Rectangle | null = null;
   private page = 0;
   private keyHandler?: (e: KeyboardEvent) => void;
   private onClosed?: () => void;
@@ -43,6 +44,13 @@ export class GameManualUI {
     if (this.container) return;
     this.onClosed = onClosed;
     this.page = 0;
+    const cam = this.scene.cameras.main;
+    this.backdrop = this.scene.add
+      .rectangle(cam.width / 2, cam.height / 2, cam.width, cam.height, 0x05060a, 0.72)
+      .setScrollFactor(0)
+      .setDepth(PLAY_AREA_UI_DEPTH + 4)
+      .setInteractive();
+    this.backdrop.on('pointerdown', () => this.close());
     this.container = this.scene.add.container(0, 0).setDepth(PLAY_AREA_UI_DEPTH + 5).setScrollFactor(0);
     this.keyHandler = (e) => {
       if (e.key === 'ArrowRight') this.go(1);
@@ -55,6 +63,8 @@ export class GameManualUI {
   close(): void {
     if (this.keyHandler) this.scene.input.keyboard?.off('keydown', this.keyHandler);
     this.keyHandler = undefined;
+    this.backdrop?.destroy();
+    this.backdrop = null;
     this.container?.destroy();
     this.container = null;
     this.onClosed?.();
@@ -87,9 +97,6 @@ export class GameManualUI {
     const cy = cam.height / 2;
     const x0 = cx - PANEL_W / 2;
     const y0 = cy - PANEL_H / 2;
-
-    const backdrop = this.scene.add.rectangle(cx, cy, cam.width, cam.height, 0x05060a, 0.72).setInteractive();
-    this.pin(backdrop);
 
     // ornate frame + parchment page
     const g = this.scene.add.graphics();
