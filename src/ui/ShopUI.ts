@@ -77,6 +77,7 @@ export class ShopUI {
   private page = 0;
   private onClosed?: () => void;
   private tip!: ItemTooltip;
+  private backdrop: Phaser.GameObjects.Rectangle | null = null;
 
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
@@ -94,6 +95,13 @@ export class ShopUI {
     this.status = '';
     this.page = 0;
     this.onClosed = onClosed;
+    const cam = this.scene.cameras.main;
+    this.backdrop = this.scene.add
+      .rectangle(cam.width / 2, cam.height / 2, cam.width, cam.height, 0x05060a, 0.72)
+      .setScrollFactor(0)
+      .setDepth(PLAY_AREA_UI_DEPTH + 5)
+      .setInteractive();
+    this.backdrop.on('pointerdown', () => this.close());
     this.container = this.scene.add.container(0, 0).setDepth(PLAY_AREA_UI_DEPTH + 6).setScrollFactor(0);
     this.keyHandler = (e) => {
       if (e.key === 'Escape') this.close();
@@ -108,6 +116,8 @@ export class ShopUI {
     if (this.keyHandler) this.scene.input.keyboard?.off('keydown', this.keyHandler);
     this.keyHandler = undefined;
     this.tip?.destroy();
+    this.backdrop?.destroy();
+    this.backdrop = null;
     this.container?.destroy();
     this.container = null;
     this.onClosed?.();
@@ -144,10 +154,6 @@ export class ShopUI {
     const cy = cam.height / 2;
     const x0 = cx - PANEL_W / 2;
     const y0 = cy - PANEL_H / 2;
-
-    const backdrop = this.scene.add.rectangle(cx, cy, cam.width, cam.height, 0x05060a, 0.72).setInteractive();
-    backdrop.on('pointerdown', () => this.close());
-    this.pin(backdrop);
 
     const g = this.scene.add.graphics();
     g.fillStyle(hx('#241a0c'), 1);
