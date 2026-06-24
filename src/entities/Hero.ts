@@ -327,7 +327,7 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
 
   // ---- active class ability ----
   abilityCooldown(): number {
-    return 7000;
+    return Math.round(7000 * (1 - (this.stats.cdr ?? 0)));
   }
   canAbility(time: number): boolean {
     return this.alive && time >= this.nextAbilityAt;

@@ -1295,8 +1295,9 @@ export class DungeonScene extends Phaser.Scene {
   /** Necromancer ability: raise a skeletal servant (alternating warrior/caster, max 3). */
   private summonSkeleton(necro: Hero): void {
     this.summons = this.summons.filter((s) => s.active && s.alive);
-    if (this.summons.length >= 3) {
-      this.showBark('Your servants already crowd the dark (max 3).', 2400, 'system');
+    const cap = 3 + (necro.stats.summonBonus ?? 0);
+    if (this.summons.length >= cap) {
+      this.showBark(`Your servants already crowd the dark (max ${cap}).`, 2400, 'system');
       return;
     }
     const cost = 20;
@@ -1406,6 +1407,30 @@ export class DungeonScene extends Phaser.Scene {
       if (!g.alive) continue;
       if (Phaser.Math.Distance.Between(x, y, g.x, g.y) <= radius) g.takeDamage(dmg, time);
     }
+  }
+
+  /** Spell-chain: arc reduced damage to nearby foes (item affix / arcanist skill). */
+  private chainBolt(owner: Hero, from: Monster, dmg: number, time: number, chains: number, hit: Set<Monster> = new Set()): void {
+    if (chains <= 0) return;
+    hit.add(from);
+    let best: Monster | null = null;
+    let bd = 96;
+    for (const m of this.monsters) {
+      if (!m.active || !m.alive || hit.has(m)) continue;
+      const d = Phaser.Math.Distance.Between(from.x, from.y, m.x, m.y);
+      if (d < bd) {
+        bd = d;
+        best = m;
+      }
+    }
+    if (!best) return;
+    const cd = Math.max(1, Math.round(dmg * 0.6));
+    const died = best.takeDamage(cd, time);
+    this.floatDamage(best.x, best.y, cd, false);
+    const line = this.add.line(0, 0, from.x, from.y, best.x, best.y, 0x9bd0ff, 0.9).setOrigin(0, 0).setLineWidth(2).setDepth(best.y + 14).setBlendMode(Phaser.BlendModes.ADD);
+    this.tweens.add({ targets: line, alpha: 0, duration: 200, onComplete: () => line.destroy() });
+    if (died) this.onMonsterKilled(owner, best);
+    else this.chainBolt(owner, best, cd, time, chains - 1, hit);
   }
 
   // ---- minimap ----
@@ -1662,6 +1687,8 @@ export class DungeonScene extends Phaser.Scene {
             else {
               const l = Math.hypot(p.vx, p.vy) || 1;
               this.applyHitEffects(p.owner, m, p.vx / l, p.vy / l, p.crit, time);
+              const chains = p.owner.stats.spellChain ?? 0;
+              if (chains > 0) this.chainBolt(p.owner, m, p.dmg, time, chains);
             }
             dead = true;
             break;

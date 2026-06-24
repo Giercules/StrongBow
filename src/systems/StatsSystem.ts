@@ -44,6 +44,9 @@ export function computeStats(
   s.fire = Math.max(0, s.fire);
   s.regen = Math.max(0, s.regen);
   s.luck = Math.max(0, Math.round(s.luck ?? 0));
+  s.summonBonus = Math.max(0, Math.round(s.summonBonus ?? 0));
+  s.cdr = Math.min(0.6, Math.max(0, s.cdr ?? 0));
+  s.spellChain = Math.max(0, Math.round(s.spellChain ?? 0));
   return s;
 }
 

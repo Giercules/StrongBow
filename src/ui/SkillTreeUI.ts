@@ -6,7 +6,7 @@ import { audio } from '../systems/AudioSystem';
 import type { Hero } from '../entities/Hero';
 
 const PANEL_W = 470;
-const PANEL_H = 492;
+const PANEL_H = 520;
 
 // "Growth" overlay - spend skill points (1-3) and attribute points (4-7).
 export class SkillTreeUI {
@@ -49,12 +49,15 @@ export class SkillTreeUI {
     const skills = this.hero.skillSet.list();
     const attrs = this.hero.attributes.list();
     let acted = false;
-    if (e.key >= '1' && e.key <= '3') {
-      const sk = skills[Number(e.key) - 1];
-      if (sk && this.hero.skillSet.upgrade(sk.id)) acted = true;
-    } else if (e.key >= '4' && e.key <= '7') {
-      const at = attrs[Number(e.key) - 4];
-      if (at && this.hero.attributes.upgrade(at.id)) acted = true;
+    const n = Number(e.key);
+    if (!Number.isNaN(n)) {
+      if (n >= 1 && n <= skills.length) {
+        const sk = skills[n - 1];
+        if (sk && this.hero.skillSet.upgrade(sk.id)) acted = true;
+      } else if (n > skills.length && n <= skills.length + attrs.length) {
+        const at = attrs[n - 1 - skills.length];
+        if (at && this.hero.attributes.upgrade(at.id)) acted = true;
+      }
     }
     if (acted) {
       this.hero.refreshStats();
@@ -118,12 +121,12 @@ export class SkillTreeUI {
       });
     });
 
-    const attrsY = y0 + 54 + 3 * 52 + 8;
+    const attrsY = y0 + 54 + skills.length * 52 + 8;
     this.label(left, attrsY, `ATTRIBUTES - ${hero.attributes.points} pts`, hero.attributes.points > 0 ? C.coinHi : C.inkDim, 12, true);
     const attrs = hero.attributes.list();
     attrs.forEach((at, i) => {
       const yy = attrsY + 20 + i * 52;
-      this.row(yy, `${i + 4}`, at.name, at.description, hero.attributes.rank(at.id), at.maxRank, hero.attributes.canUpgrade(at.id), () => {
+      this.row(yy, `${i + 1 + skills.length}`, at.name, at.description, hero.attributes.rank(at.id), at.maxRank, hero.attributes.canUpgrade(at.id), () => {
         if (hero.attributes.upgrade(at.id)) {
           hero.refreshStats();
           audio.sfx('ui_select');

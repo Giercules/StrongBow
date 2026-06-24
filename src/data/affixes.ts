@@ -20,6 +20,9 @@ export const AFFIXES: AffixDef[] = [
   { id: 'of_renewal', name: 'of Renewal', slot: 'jewelry', mods: { regen: 0.5 }, weight: 5 },
   { id: 'of_the_sage', name: 'of the Sage', slot: 'jewelry', mods: { maxMana: 25 }, weight: 6 },
   { id: 'of_the_magpie', name: 'of the Magpie', slot: 'jewelry', mods: { luck: 9 }, weight: 4 },
+  { id: 'of_the_legion', name: 'of the Legion', slot: 'jewelry', mods: { summonBonus: 1 }, weight: 5 },
+  { id: 'of_alacrity', name: 'of Alacrity', slot: 'any', mods: { cdr: 0.1 }, weight: 5 },
+  { id: 'of_arcing', name: 'of Arcing', slot: 'weapon', mods: { spellChain: 1 }, weight: 4 },
 ];
 
 function matches(a: AffixDef, slot: ItemSlot): boolean {

@@ -10,6 +10,9 @@ const LABELS: { key: keyof StatMods; fmt: (v: number) => string }[] = [
   { key: 'critChance', fmt: (v) => `${sign(v)}${Math.round(v * 100)}% crit` },
   { key: 'regen', fmt: (v) => `${sign(v)}${v} regen` },
   { key: 'luck', fmt: (v) => `${sign(v)}${v} luck` },
+  { key: 'summonBonus', fmt: (v) => `+${v} summon${Math.abs(v) === 1 ? '' : 's'}` },
+  { key: 'cdr', fmt: (v) => `-${Math.round(v * 100)}% ability cooldown` },
+  { key: 'spellChain', fmt: (v) => `+${v} chain hit${Math.abs(v) === 1 ? '' : 's'}` },
 ];
 
 function sign(v: number): string {

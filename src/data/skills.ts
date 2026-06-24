@@ -146,6 +146,24 @@ export const SKILLS: Record<string, SkillDef> = {
     icon: 'icon-staff',
     perRank: { damage: 3 },
   },
+  nec_horde: {
+    id: 'nec_horde',
+    classId: 'necromancer',
+    name: 'Horde',
+    description: '+1 maximum summoned servant per rank.',
+    maxRank: 2,
+    icon: 'icon-amulet',
+    perRank: { summonBonus: 1 },
+  },
+  arc_chain: {
+    id: 'arc_chain',
+    classId: 'arcanist',
+    name: 'Chain Magic',
+    description: 'Spells arc to +1 nearby foe per rank.',
+    maxRank: 2,
+    icon: 'icon-staff',
+    perRank: { spellChain: 1 },
+  },
 };
 
 export const ALL_SKILLS = Object.values(SKILLS);

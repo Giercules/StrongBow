@@ -26,7 +26,7 @@ export const HEROES: Record<HeroClassId, HeroClassDef> = {
     blurb: 'Frail but devastating. Bends fire and force to will.',
     signature: 'Deep mana pool and burning magic.',
     base: { maxHealth: 70, maxMana: 100, damage: 8, speed: 120, armor: 0, critChance: 0.03, fire: 6, regen: 0, luck: 4 },
-    skillIds: ['arc_pyre', 'arc_font', 'arc_focus'],
+    skillIds: ['arc_pyre', 'arc_font', 'arc_focus', 'arc_chain'],
   },
   warden: {
     id: 'warden',
@@ -44,7 +44,7 @@ export const HEROES: Record<HeroClassId, HeroClassDef> = {
     blurb: 'Master of the grave. Raises the dead to fight in their stead.',
     signature: 'Raises skeletal servants with the ability key.',
     base: { maxHealth: 82, maxMana: 110, damage: 9, speed: 122, armor: 1, critChance: 0.03, fire: 0, regen: 0.3, luck: 4 },
-    skillIds: ['nec_legion', 'nec_grimoire', 'nec_blight'],
+    skillIds: ['nec_legion', 'nec_grimoire', 'nec_blight', 'nec_horde'],
   },
 };
 

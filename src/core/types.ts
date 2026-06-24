@@ -85,6 +85,12 @@ export interface StatBlock {
   regen: number;
   /** Fortune — raises loot drop rate and the odds of higher equipment grades. */
   luck: number;
+  /** Extra maximum summoned servants (Necromancer). */
+  summonBonus?: number;
+  /** Active-ability cooldown reduction, 0..0.6. */
+  cdr?: number;
+  /** Extra foes a projectile arcs to on hit (spell chain). */
+  spellChain?: number;
 }
 
 export type StatMods = Partial<StatBlock>;
