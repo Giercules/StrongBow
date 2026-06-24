@@ -10,6 +10,16 @@
       "key": "town-bird",
       "path": "assets/sprites/town-bird-hd.png",
       "kind": "image"
+    },
+    {
+      "key": "potion-red",
+      "path": "assets/sprites/potion-red-hd.png",
+      "kind": "image"
+    },
+    {
+      "key": "potion-blue",
+      "path": "assets/sprites/potion-blue-hd.png",
+      "kind": "image"
     }
   ]
 }
