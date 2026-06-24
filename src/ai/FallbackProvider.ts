@@ -64,6 +64,24 @@ const ITEM = [
   'The metal is cold to the touch.',
 ];
 
+const VICTORY = [
+  'The warden falls. For a breath the Undermaw is silent, and the party still stands.',
+  'Steel held. The dark recoils. This realm is yours, hard-won and bloody.',
+  'The crown of the dead is shattered. Catch your breath; deeper hungers wait.',
+];
+
+const DEATH = [
+  'The torch gutters out. The Undermaw takes what it is owed.',
+  'Here the party falls, and the crypt adds new names to its long memory.',
+  'Silence closes over them. The dark was patient, and the dark won.',
+];
+
+const EXAMINE = [
+  'Old work, grim purpose. It keeps its secrets close.',
+  'You study it a while; the dark gives little back.',
+  'Worn by ages and ill use. Best not to linger.',
+];
+
 // Always-available, fully offline narration. Themed by event keywords,
 // with no immediate repeats so offline play still feels curated.
 export class FallbackProvider implements AIProvider {
@@ -79,6 +97,11 @@ export class FallbackProvider implements AIProvider {
     if (c.includes('quest')) return this.pick('quest', QUESTS);
     if (c.includes('companion')) return this.pick('companion', COMPANION);
     if (c.includes('item')) return this.pick('item', ITEM);
+    if (c.includes('intro')) return this.pick('arrive', ARRIVE);
+    if (c.includes('boss')) return this.pick('boss', BOSS);
+    if (c.includes('victory')) return this.pick('victory', VICTORY);
+    if (c.includes('death')) return this.pick('death', DEATH);
+    if (c.includes('examine')) return this.pick('examine', EXAMINE);
     const [tag, pool] = this.barkPool(req.prompt ?? '');
     return this.pick(tag, pool);
   }

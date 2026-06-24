@@ -376,12 +376,11 @@ export class DungeonScene extends Phaser.Scene {
     // Lead with the chapter's own story beat, then let the Dungeon Master (Grok) layer on top.
     const chapterTag = this.level.chapter ? `${this.level.chapter} — ` : '';
     if (this.level.story) this.showBark(`${chapterTag}${this.level.story}`, 8000);
-    this.grokNarrate(
-      this.level.town
-        ? `the party returns to the town of Hearthwatch to resupply between descents`
-        : `the heroes enter ${this.level.name}`,
-      { force: true }
-    );
+    if (this.level.town) {
+      this.grokNarrate('the party returns to the town of Hearthwatch to resupply between descents', { force: true });
+    } else {
+      this.dmSetPiece(aiService.generateRealmIntro(this.level.name, this.players[0]?.classId));
+    }
 
     // Bring up the side panels and seed the log + Grok status light.
     this.scene.launch('LeftPanelScene');
@@ -1750,7 +1749,7 @@ export class DungeonScene extends Phaser.Scene {
     this.bossAlive = false;
     const bossName = this.boss?.def.name ?? 'The warden';
     this.showBark(`${bossName} falls! The exit awakens.`, 3400, 'combat');
-    this.grokNarrate(`the heroes have just slain ${bossName}, the warden of ${this.level.name}, and the exit portal flares open`, { force: true });
+    this.dmSetPiece(aiService.generateVictory(this.level.name, this.players[0]?.classId));
     audio.sfx('victory');
     // The realm's warden always yields a guaranteed, high-grade themed reward.
     if (this.boss) this.dropLoot(this.boss.x, this.boss.y, 'runed');
@@ -2198,7 +2197,7 @@ export class DungeonScene extends Phaser.Scene {
     // AI-augmented examination, kept in the game's grim DnD voice (replaces if it returns)
     this.setGrokStatus('thinking');
     void aiService
-      .generateBark(`a weary adventurer examines ${subject} deep in ${this.level.name}`)
+      .generateExamine(subject, this.level.name)
       .then(({ text, live }) => {
         this.setGrokStatus('connected');
         if (text) this.showBark(text, 7200, live ? 'grok' : 'event');
@@ -2269,7 +2268,7 @@ export class DungeonScene extends Phaser.Scene {
     if (near) {
       this.bossMusicOn = true;
       audio.playMusic('boss');
-      this.grokNarrate(this.barkContext('the realm warden rises and the final battle begins'), { force: true });
+      this.dmSetPiece(aiService.generateBossIntro(this.level.name));
     }
   }
 
@@ -2369,6 +2368,7 @@ export class DungeonScene extends Phaser.Scene {
     if (this.gameOverUI.isOpen() || this.won) return;
     if (!this.players.some((p) => p.alive)) {
       audio.sfx('game_over');
+      this.dmSetPiece(aiService.generateDeath(this.level.name));
       const score = this.players.reduce((s, p) => s + p.score, 0);
       this.gameOverUI.open({ score, time: this.formatTime() }, () => this.continueAfterDeath(), () => this.quitToMenu());
     }
@@ -2519,6 +2519,18 @@ export class DungeonScene extends Phaser.Scene {
     this.setGrokStatus('thinking');
     void aiService
       .generateBark(ctx)
+      .then(({ text, live }) => {
+        this.setGrokStatus('connected');
+        if (text) this.pushLog(text, live ? 'grok' : 'event');
+      })
+      .catch(() => this.setGrokStatus('connected'));
+  }
+
+  /** Forced, un-throttled sink for longer set-piece narration (intro/boss/victory/death/examine). */
+  private dmSetPiece(p: Promise<{ text: string; live: boolean }>): void {
+    if (!settings.get('aiBarksEnabled')) return;
+    this.setGrokStatus('thinking');
+    void p
       .then(({ text, live }) => {
         this.setGrokStatus('connected');
         if (text) this.pushLog(text, live ? 'grok' : 'event');

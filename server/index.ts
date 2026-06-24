@@ -75,14 +75,14 @@ async function callAnthropic(key: string, model: string, prompt: string, maxToke
   return (data.content?.[0]?.text ?? '').trim();
 }
 
-async function complete(provider: string, prompt: string, maxTokens: number): Promise<string> {
+async function complete(provider: string, prompt: string, maxTokens: number, reasoningEffort: string): Promise<string> {
   const { OPENAI_API_KEY, ANTHROPIC_API_KEY, XAI_API_KEY } = process.env;
   if (provider === 'openai' && OPENAI_API_KEY)
     return callOpenAIStyle('https://api.openai.com/v1/chat/completions', OPENAI_API_KEY, MODELS.openai, prompt, maxTokens);
   if (provider === 'anthropic' && ANTHROPIC_API_KEY)
     return callAnthropic(ANTHROPIC_API_KEY, MODELS.anthropic, prompt, maxTokens);
   if (provider === 'xai' && XAI_API_KEY)
-    return callOpenAIStyle('https://api.x.ai/v1/chat/completions', XAI_API_KEY, MODELS.xai, prompt, maxTokens, { reasoning_effort: 'none' });
+    return callOpenAIStyle('https://api.x.ai/v1/chat/completions', XAI_API_KEY, MODELS.xai, prompt, maxTokens, { reasoning_effort: reasoningEffort });
   throw new Error('no-key');
 }
 
@@ -98,9 +98,9 @@ app.get('/api/health', (_req, res) => {
 });
 
 app.post('/api/ai/complete', async (req, res) => {
-  const { prompt = '', context = 'bark', maxTokens = 40, provider = 'fallback' } = req.body ?? {};
+  const { prompt = '', context = 'bark', maxTokens = 40, provider = 'fallback', reasoningEffort = 'none' } = req.body ?? {};
   try {
-    const text = await complete(provider, prompt, maxTokens);
+    const text = await complete(provider, prompt, maxTokens, reasoningEffort);
     if (text) {
       res.json({ text, live: true });
       return;

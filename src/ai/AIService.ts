@@ -117,6 +117,71 @@ class AIService {
   async generateItemFlavor(itemName: string): Promise<string> {
     return (await this.run({ context: 'item', prompt: `One line of flavor for an item called "${itemName}".`, maxTokens: 28 }, 'offlineOnly')).text;
   }
+
+  async generateRealmIntro(realm: string, heroClass?: string): Promise<{ text: string; live: boolean }> {
+    if (!settings.get('aiBarksEnabled')) return { text: '', live: false };
+    return this.run(
+      {
+        context: 'intro',
+        prompt: `The party enters ${realm}.${heroClass ? ` Led by a ${heroClass}.` : ''} In 2-3 atmospheric sentences, set the scene: the place, the Undermaw's influence here, and a hint of the danger waiting.`,
+        maxTokens: 180,
+        reasoningEffort: 'low',
+      },
+      'never'
+    );
+  }
+
+  async generateBossIntro(realm: string): Promise<{ text: string; live: boolean }> {
+    if (!settings.get('aiBarksEnabled')) return { text: '', live: false };
+    return this.run(
+      {
+        context: 'boss',
+        prompt: `The warden of ${realm} rises to face the heroes. Announce the boss battle in 1-2 dramatic, ominous lines.`,
+        maxTokens: 90,
+        reasoningEffort: 'low',
+      },
+      'never'
+    );
+  }
+
+  async generateVictory(realm: string, heroClass?: string): Promise<{ text: string; live: boolean }> {
+    if (!settings.get('aiBarksEnabled')) return { text: '', live: false };
+    return this.run(
+      {
+        context: 'victory',
+        prompt: `The warden of ${realm} is slain and the party stands victorious${heroClass ? `, led by a ${heroClass}` : ''}. Give 2-3 triumphant sentences of hard-won closure.`,
+        maxTokens: 180,
+        reasoningEffort: 'low',
+      },
+      'never'
+    );
+  }
+
+  async generateDeath(realm: string): Promise<{ text: string; live: boolean }> {
+    if (!settings.get('aiBarksEnabled')) return { text: '', live: false };
+    return this.run(
+      {
+        context: 'death',
+        prompt: `The entire party has fallen in ${realm}. Give 1-2 poetic, grim sentences marking their end.`,
+        maxTokens: 160,
+        reasoningEffort: 'low',
+      },
+      'never'
+    );
+  }
+
+  async generateExamine(subject: string, realm: string): Promise<{ text: string; live: boolean }> {
+    if (!settings.get('aiBarksEnabled')) return { text: '', live: false };
+    return this.run(
+      {
+        context: 'examine',
+        prompt: `A weary adventurer examines ${subject} deep in ${realm}. In 1-3 sentences, describe it with grim, evocative lore.`,
+        maxTokens: 120,
+        reasoningEffort: 'none',
+      },
+      'never'
+    );
+  }
 }
 
 export const aiService = new AIService();

@@ -22,6 +22,7 @@ export class ProxyAIProvider implements AIProvider {
         prompt: req.prompt,
         context: req.context,
         maxTokens: req.maxTokens ?? 40,
+        reasoningEffort: req.reasoningEffort ?? 'none',
         provider: this.target,
       }),
     });
