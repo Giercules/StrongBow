@@ -165,6 +165,7 @@ export class DungeonScene extends Phaser.Scene {
   private edgeGrade?: Phaser.GameObjects.Image;
   private monsters: Monster[] = [];
   private generators: Generator[] = [];
+  private foundGens = new Set<Generator>(); // generators revealed on the minimap once explored near
   private blockers: Phaser.GameObjects.Rectangle[] = [];
   private lockedDoors: LockedDoor[] = [];
   private chests: Chest[] = [];
@@ -423,6 +424,7 @@ export class DungeonScene extends Phaser.Scene {
     this.allies = [];
     this.monsters = [];
     this.generators = [];
+    this.foundGens = new Set();
     this.blockers = [];
     this.lockedDoors = [];
     this.chests = [];
@@ -1564,8 +1566,20 @@ export class DungeonScene extends Phaser.Scene {
     g.clear();
     const mapX = (wx: number): number => this.mmX + (wx / (this.level.width * TILE_SIZE)) * this.mmCW;
     const mapY = (wy: number): number => this.mmY + (wy / (this.level.height * TILE_SIZE)) * this.mmCH;
+    // Generators stay hidden until a hero explores near them, so each level is a
+    // hunt — only a few show at a time instead of the whole map being given away.
+    const REVEAL = 116; // px (~7 tiles) sight radius
     for (const gn of this.generators) {
       if (!gn.alive) continue;
+      if (!this.foundGens.has(gn)) {
+        for (const p of this.players) {
+          if (p.alive && Phaser.Math.Distance.Between(p.x, p.y, gn.x, gn.y) <= REVEAL) {
+            this.foundGens.add(gn);
+            break;
+          }
+        }
+      }
+      if (!this.foundGens.has(gn)) continue;
       g.fillStyle(0xc06bff, 1);
       g.fillRect(mapX(gn.x) - 1, mapY(gn.y) - 1, 2, 2);
     }
@@ -2175,16 +2189,16 @@ export class DungeonScene extends Phaser.Scene {
       };
       step();
     };
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < 6; i++) {
       const p = randPoint();
-      const b = this.add.sprite(p.x, p.y, 'town-butterfly').setDepth(5000).setScale(0.8 + Math.random() * 0.4);
+      const b = this.add.sprite(p.x, p.y, 'town-butterfly').setDepth(5000).setScale(0.4 + Math.random() * 0.2);
       this.tweens.add({ targets: b, scaleX: { from: b.scaleX, to: b.scaleX * 0.4 }, duration: 150 + Math.random() * 120, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
       wander(b, 26 + Math.random() * 18, true);
       this.townLife.push(b);
     }
-    for (let i = 0; i < 2; i++) {
+    for (let i = 0; i < 4; i++) {
       const p = randPoint();
-      const bird = this.add.sprite(p.x, p.y, 'town-bird').setDepth(5001).setScale(0.9 + Math.random() * 0.3);
+      const bird = this.add.sprite(p.x, p.y, 'town-bird').setDepth(5001).setScale(0.45 + Math.random() * 0.15);
       this.tweens.add({ targets: bird, y: bird.y - 3, duration: 220 + Math.random() * 160, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
       wander(bird, 60 + Math.random() * 30, true);
       this.townLife.push(bird);
