@@ -211,6 +211,121 @@
       "key": "food",
       "path": "assets/sprites/food-hd.png",
       "kind": "image"
+    },
+    {
+      "key": "pillar",
+      "path": "assets/sprites/pillar-hd.png",
+      "kind": "image"
+    },
+    {
+      "key": "bones",
+      "path": "assets/sprites/bones-hd.png",
+      "kind": "image"
+    },
+    {
+      "key": "rubble",
+      "path": "assets/sprites/rubble-hd.png",
+      "kind": "image"
+    },
+    {
+      "key": "banner",
+      "path": "assets/sprites/banner-hd.png",
+      "kind": "image"
+    },
+    {
+      "key": "cog",
+      "path": "assets/sprites/cog-hd.png",
+      "kind": "image"
+    },
+    {
+      "key": "vines",
+      "path": "assets/sprites/vines-hd.png",
+      "kind": "image"
+    },
+    {
+      "key": "skull-pike",
+      "path": "assets/sprites/skull-pike-hd.png",
+      "kind": "image"
+    },
+    {
+      "key": "brazier",
+      "path": "assets/sprites/brazier-hd.png",
+      "kind": "image"
+    },
+    {
+      "key": "gravestone",
+      "path": "assets/sprites/gravestone-hd.png",
+      "kind": "image"
+    },
+    {
+      "key": "candle",
+      "path": "assets/sprites/candle-hd.png",
+      "kind": "image"
+    },
+    {
+      "key": "bone-pile",
+      "path": "assets/sprites/bone-pile-hd.png",
+      "kind": "image"
+    },
+    {
+      "key": "weapon-rack",
+      "path": "assets/sprites/weapon-rack-hd.png",
+      "kind": "image"
+    },
+    {
+      "key": "idol",
+      "path": "assets/sprites/idol-hd.png",
+      "kind": "image"
+    },
+    {
+      "key": "altar",
+      "path": "assets/sprites/altar-hd.png",
+      "kind": "image"
+    },
+    {
+      "key": "rune-circle",
+      "path": "assets/sprites/rune-circle-hd.png",
+      "kind": "image"
+    },
+    {
+      "key": "obsidian",
+      "path": "assets/sprites/obsidian-hd.png",
+      "kind": "image"
+    },
+    {
+      "key": "icicle",
+      "path": "assets/sprites/icicle-hd.png",
+      "kind": "image"
+    },
+    {
+      "key": "toxic-mushroom",
+      "path": "assets/sprites/toxic-mushroom-hd.png",
+      "kind": "image"
+    },
+    {
+      "key": "frost-banner",
+      "path": "assets/sprites/frost-banner-hd.png",
+      "kind": "image"
+    },
+    {
+      "key": "dead-tree",
+      "path": "assets/sprites/dead-tree-hd.png",
+      "kind": "image"
+    },
+    {
+      "key": "storm-orb",
+      "path": "assets/sprites/storm-orb-hd.png",
+      "kind": "image"
+    },
+    {
+      "key": "sky-crystal",
+      "path": "assets/sprites/sky-crystal-hd.png",
+      "kind": "image"
+    },
+    {
+      "key": "bog-stump",
+      "path": "assets/sprites/bog-stump-hd.png",
+      "kind": "image"
     }
   ]
 }
