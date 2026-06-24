@@ -1335,7 +1335,7 @@ export class DungeonScene extends Phaser.Scene {
     const cy = h.y;
     if (h.classId === 'strider') {
       const base = Math.atan2(h.attackDir.y, h.attackDir.x);
-      for (let i = -2; i <= 2; i++) this.fireProjectile(h, { x: Math.cos(base + i * 0.2), y: Math.sin(base + i * 0.2) }, time);
+      for (let i = -3; i <= 3; i++) this.fireProjectile(h, { x: Math.cos(base + i * 0.16), y: Math.sin(base + i * 0.16) }, time);
       audio.sfx('swing');
     } else if (h.classId === 'warden') {
       for (const a of this.allies) {
@@ -1345,38 +1345,65 @@ export class DungeonScene extends Phaser.Scene {
         const fx = this.add.image(a.x, a.y - 6, 'fx-glow-green').setDepth(a.y + 8).setScale(1.3).setBlendMode(Phaser.BlendModes.ADD);
         this.tweens.add({ targets: fx, alpha: 0, scale: 2.2, duration: 520, onComplete: () => fx.destroy() });
       }
+      this.aoeHit(h, cx, cy, 120, Math.round(h.attackDamage().dmg * 1.2), time, 'shock', 140);
       audio.sfx('shrine');
-    } else {
-      const radius = h.classId === 'arcanist' ? 110 : 92;
-      const dmg = Math.round(h.classId === 'arcanist' ? h.magicDamage() * 1.6 : h.attackDamage().dmg * 1.8);
-      const ring = this.add.sprite(cx, cy, 'fx-magic').setDepth(cy + 20).setScale((radius * 2) / 32);
-      ring.play('fx-magic');
-      ring.once('animationcomplete', () => ring.destroy());
-      if (h.classId === 'vanguard') ring.setTint(0x9fd0ff);
+    } else if (h.classId === 'arcanist') {
+      // Meteor — a fiery blast called down on the nearest cluster (or straight ahead).
+      let tx = cx + h.attackDir.x * 150;
+      let ty = cy + h.attackDir.y * 150;
+      let bestD = 320;
       for (const m of this.monsters) {
         if (!m.active || !m.alive) continue;
-        const dx = m.x - cx;
-        const dy = m.y - cy;
-        const l = Math.hypot(dx, dy) || 1;
-        if (l <= radius) {
-          const died = m.takeDamage(dmg, time);
-          this.floatDamage(m.x, m.y, dmg, true);
-          if (died) this.onMonsterKilled(h, m);
-          else {
-            m.knock((dx / l) * 220, (dy / l) * 220, time);
-            m.applyStatus(h.classId === 'arcanist' ? 'chill' : 'shock', 1600, time);
-          }
+        const d = Phaser.Math.Distance.Between(cx, cy, m.x, m.y);
+        if (d < bestD) {
+          bestD = d;
+          tx = m.x;
+          ty = m.y;
         }
       }
-      for (const g of this.generators) {
-        if (!g.alive) continue;
-        if (Phaser.Math.Distance.Between(cx, cy, g.x, g.y) <= radius) g.takeDamage(dmg, time);
-      }
-      audio.sfx(h.classId === 'arcanist' ? 'magic' : 'hit');
+      const radius = 96;
+      const meteor = this.add.sprite(tx, ty, 'fx-fire').setDepth(ty + 24).setScale((radius * 2) / 16).setTint(0xff7a2a);
+      meteor.play('fx-fire');
+      meteor.once('animationcomplete', () => meteor.destroy());
+      this.add.image(tx, ty, 'fx-glow-warm').setScale(3.2).setAlpha(0.85).setBlendMode(Phaser.BlendModes.ADD).setDepth(ty + 10);
+      this.aoeHit(h, tx, ty, radius, Math.round(h.magicDamage() * 2.1), time, 'burn', 70);
+      audio.sfx('magic');
+    } else {
+      // Vanguard — Seismic Slam: a shockwave that flings foes back and stuns, and steels the Vanguard.
+      const radius = 116;
+      const ring = this.add.sprite(cx, cy, 'fx-magic').setDepth(cy + 20).setScale((radius * 2) / 32).setTint(0x9fd0ff);
+      ring.play('fx-magic');
+      ring.once('animationcomplete', () => ring.destroy());
+      this.aoeHit(h, cx, cy, radius, Math.round(h.attackDamage().dmg * 1.9), time, 'shock', 320);
+      h.heal(Math.round(h.stats.maxHealth * 0.12));
+      audio.sfx('hit');
     }
     const flash = this.add.image(cx, cy, 'fx-glow-warm').setScale(2.4).setAlpha(0.7).setBlendMode(Phaser.BlendModes.ADD).setDepth(cy + 10);
     this.tweens.add({ targets: flash, alpha: 0, scale: 3.4, duration: 420, onComplete: () => flash.destroy() });
     this.showBark(`${h.def.name} unleashes ${this.abilityName(h.classId)}!`);
+  }
+
+  /** Shared radial damage for abilities: hurts monsters + generators in range. */
+  private aoeHit(h: Hero, x: number, y: number, radius: number, dmg: number, time: number, status: 'burn' | 'chill' | 'shock', knockback: number): void {
+    for (const m of this.monsters) {
+      if (!m.active || !m.alive) continue;
+      const dx = m.x - x;
+      const dy = m.y - y;
+      const l = Math.hypot(dx, dy) || 1;
+      if (l <= radius) {
+        const died = m.takeDamage(dmg, time);
+        this.floatDamage(m.x, m.y, dmg, true);
+        if (died) this.onMonsterKilled(h, m);
+        else {
+          if (knockback > 0) m.knock((dx / l) * knockback, (dy / l) * knockback, time);
+          m.applyStatus(status, 1700, time);
+        }
+      }
+    }
+    for (const g of this.generators) {
+      if (!g.alive) continue;
+      if (Phaser.Math.Distance.Between(x, y, g.x, g.y) <= radius) g.takeDamage(dmg, time);
+    }
   }
 
   // ---- minimap ----
