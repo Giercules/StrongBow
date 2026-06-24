@@ -20,6 +20,36 @@
       "key": "potion-blue",
       "path": "assets/sprites/potion-blue-hd.png",
       "kind": "image"
+    },
+    {
+      "key": "floor-0",
+      "path": "assets/sprites/floor-0-hd.png",
+      "kind": "image"
+    },
+    {
+      "key": "floor-1",
+      "path": "assets/sprites/floor-1-hd.png",
+      "kind": "image"
+    },
+    {
+      "key": "floor-2",
+      "path": "assets/sprites/floor-2-hd.png",
+      "kind": "image"
+    },
+    {
+      "key": "floor-3",
+      "path": "assets/sprites/floor-3-hd.png",
+      "kind": "image"
+    },
+    {
+      "key": "wall",
+      "path": "assets/sprites/wall-hd.png",
+      "kind": "image"
+    },
+    {
+      "key": "wall-top",
+      "path": "assets/sprites/wall-top-hd.png",
+      "kind": "image"
     }
   ]
 }
