@@ -245,6 +245,8 @@ export class DungeonScene extends Phaser.Scene {
   private lowHealthWarned = false;
   private questBeat = '';
   private startTile = { x: 4, y: 4 };
+  private levelPxW = 0;
+  private levelPxH = 0;
   private paused = false;
   private won = false;
   private activeIdx = 0;
@@ -293,8 +295,10 @@ export class DungeonScene extends Phaser.Scene {
     const hPx = this.level.height * TILE_SIZE;
 
     // play viewport sits between the left log panel and the right HUD
+    this.levelPxW = wPx;
+    this.levelPxH = hPx;
     this.cameras.main.setViewport(PLAY_AREA_X, 0, PLAY_AREA_WIDTH, GAME_HEIGHT);
-    this.cameras.main.setBounds(0, 0, wPx, hPx);
+    if (wPx > PLAY_AREA_WIDTH || hPx > GAME_HEIGHT) this.cameras.main.setBounds(0, 0, wPx, hPx);
     this.cameras.main.setBackgroundColor(this.level.ambientColor ?? 0x05060a);
     this.physics.world.setBounds(0, 0, wPx, hPx);
 
@@ -304,6 +308,13 @@ export class DungeonScene extends Phaser.Scene {
 
     this.renderLevel();
     this.spawnWorldEntities();
+    if (this.level.id === 'town') {
+      const ret = this.registry.get('townReturn') as { x: number; y: number } | undefined;
+      if (ret) {
+        this.startTile = { x: ret.x, y: ret.y };
+        this.registry.remove('townReturn');
+      }
+    }
     this.createHeroes();
     this.createCompanions();
     const carry = this.registry.get('carryParty') as SaveAlly[] | undefined;
@@ -317,6 +328,7 @@ export class DungeonScene extends Phaser.Scene {
     this.cameraTarget = this.add.rectangle(this.players[0].x, this.players[0].y, 2, 2, 0, 0);
     this.cameras.main.startFollow(this.cameraTarget, true, 0.12, 0.12);
     this.cameras.main.setZoom(OPTIMAL_ZOOM);
+    this.centerSmallLevel();
     this.cameras.main.fadeIn(260, 0, 0, 0);
     this.game.events.on('viewportresize', this.onViewportResize, this);
     this.events.once('shutdown', () => this.game.events.off('viewportresize', this.onViewportResize, this));
@@ -990,6 +1002,10 @@ export class DungeonScene extends Phaser.Scene {
   }
 
   private createCompanions(): void {
+    if (this.level.interior) {
+      this.allies = [...this.players];
+      return;
+    }
     const used = new Set(this.players.map((p) => p.classId));
     // Allies no longer follow for free — only those hired at the Fighters Guild
     // (for this descent) march with the party.
@@ -1356,12 +1372,23 @@ export class DungeonScene extends Phaser.Scene {
   }
 
   /** Necromancer ability: raise a skeletal servant (alternating warrior/caster, max 3). */
+  /** Levels smaller than the play-area viewport (building interiors) are pinned
+   *  to the centre instead of the top-left corner. */
+  private centerSmallLevel(): void {
+    if (this.levelPxW <= PLAY_AREA_WIDTH && this.levelPxH <= GAME_HEIGHT) {
+      const cam = this.cameras.main;
+      cam.stopFollow();
+      cam.setScroll((this.levelPxW - PLAY_AREA_WIDTH) / 2, (this.levelPxH - GAME_HEIGHT) / 2);
+    }
+  }
+
   /** Re-pin the play-area camera + screen overlays when the window (and thus the
    *  middle play-area width) changes. Height is fixed so only X spans move. */
   private onViewportResize(): void {
     const cam = this.cameras?.main;
     if (!cam) return;
     cam.setViewport(PLAY_AREA_X, 0, PLAY_AREA_WIDTH, GAME_HEIGHT);
+    this.centerSmallLevel();
     this.vignette?.setPosition(PLAY_AREA_WIDTH / 2, GAME_HEIGHT / 2).setDisplaySize(PLAY_AREA_WIDTH, GAME_HEIGHT);
     this.edgeGrade?.setPosition(PLAY_AREA_WIDTH / 2, GAME_HEIGHT / 2).setDisplaySize(PLAY_AREA_WIDTH, GAME_HEIGHT);
     this.barkText?.setPosition(PLAY_AREA_WIDTH / 2, GAME_HEIGHT - 40);
@@ -2368,7 +2395,7 @@ export class DungeonScene extends Phaser.Scene {
   }
 
   private spawnTownLife(): void {
-    if (!this.level.town) return;
+    if (!this.level.town || this.level.interior) return;
     const W = this.level.width;
     const H = this.level.height;
     const randPoint = (): { x: number; y: number } => {
@@ -2525,11 +2552,13 @@ export class DungeonScene extends Phaser.Scene {
   }
 
   /** Step into a building interior (or back out to town). Peaceful, like town. */
-  private enterInterior(door: { interiorId: string; label: string }): void {
+  private enterInterior(door: { x: number; y: number; interiorId: string; label: string }): void {
     if (this.won) return;
     this.won = true;
     audio.sfx('portal');
     const leaving = door.interiorId === 'town';
+    // remember the street tile in front of the door so we step back out there
+    if (!leaving) this.registry.set('townReturn', { x: door.x, y: door.y + 1 });
     this.showBark(leaving ? 'You step back out into Hearthwatch.' : `You enter ${door.label}.`, 2600);
     this.registry.set('carryParty', this.players.map((a) => this.allyToSave(a)));
     this.registry.set('levelId', door.interiorId);
