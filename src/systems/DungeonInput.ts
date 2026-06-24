@@ -151,6 +151,25 @@ export class DungeonInput {
     return this.padEdge(player, action === 'dodge' ? 'Y' : 'R1');
   }
 
+  /** True while the class-ability pad button (R1) is held — for hold-to-open menus. */
+  padAbilityDown(player: 'p1' | 'p2'): boolean {
+    if (this.capturing) return false;
+    const pad = this.pad(player);
+    return !!pad && this.padBool(pad, 'R1');
+  }
+
+  /** Falling-edge detector for dodge/ability pad buttons (button released). */
+  padJustUp(player: 'p1' | 'p2', action: 'dodge' | 'ability'): boolean {
+    if (this.capturing) return false;
+    const name: PadName = action === 'dodge' ? 'Y' : 'R1';
+    const pad = this.pad(player);
+    const now = !!pad && this.padBool(pad, name);
+    const key = player + ':up:' + name;
+    const was = this.padPrev.get(key) ?? false;
+    this.padPrev.set(key, now);
+    return was && !now;
+  }
+
   move(player: 'p1' | 'p2'): MoveInput {
     if (this.capturing) return { x: 0, y: 0 };
     let x = (this.isDown(player, 'right') ? 1 : 0) - (this.isDown(player, 'left') ? 1 : 0);

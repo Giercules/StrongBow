@@ -54,6 +54,15 @@ import { aiService, type BarkContext } from '../ai/AIService';
 import { InventoryUI } from '../ui/InventoryUI';
 import { ShopUI } from '../ui/ShopUI';
 import { GuildHireUI } from '../ui/GuildHireUI';
+
+type SkeletonType = 'tank' | 'archer' | 'mage' | 'thief';
+const SKELETON_INFO: Record<SkeletonType, { cls: HeroClassId; tint: number; name: string }> = {
+  tank: { cls: 'vanguard', tint: 0x9fd8ff, name: 'skeleton knight' },
+  archer: { cls: 'strider', tint: 0x86f0d0, name: 'skeleton archer' },
+  mage: { cls: 'arcanist', tint: 0xc89bff, name: 'skeleton mage' },
+  thief: { cls: 'vanguard', tint: 0x8affa0, name: 'skeleton thief' },
+};
+const SKELETON_ORDER: SkeletonType[] = ['tank', 'archer', 'mage', 'thief'];
 import type { ShopKind } from '../core/types';
 import { SkillTreeUI } from '../ui/SkillTreeUI';
 import { SettingsUI } from '../ui/SettingsUI';
@@ -164,6 +173,12 @@ export class DungeonScene extends Phaser.Scene {
   private summonIdx = 0;
   private vignette?: Phaser.GameObjects.Image;
   private edgeGrade?: Phaser.GameObjects.Image;
+  private selectedSkeleton: SkeletonType = 'tank';
+  private radialOpen = false;
+  private radialPick: SkeletonType = 'tank';
+  private radial?: Phaser.GameObjects.Container;
+  private radialNodes: { t: SkeletonType; dx: number; dy: number; g: Phaser.GameObjects.Graphics; txt: Phaser.GameObjects.Text }[] = [];
+  private abilityDownAt = 0;
   private monsters: Monster[] = [];
   private generators: Generator[] = [];
   private foundGens = new Set<Generator>(); // generators revealed on the minimap once explored near
@@ -433,6 +448,10 @@ export class DungeonScene extends Phaser.Scene {
     this.monsters = [];
     this.generators = [];
     this.foundGens = new Set();
+    this.radialOpen = false;
+    this.abilityDownAt = 0;
+    this.radial = undefined;
+    this.radialNodes = [];
     this.blockers = [];
     this.lockedDoors = [];
     this.chests = [];
@@ -1165,10 +1184,7 @@ export class DungeonScene extends Phaser.Scene {
       if (this.input2.justDown('p1', 'magic')) p1.tryMagic(time);
       if (this.input2.justDown('p1', 'use')) this.interact(p1);
       if ((Phaser.Input.Keyboard.JustDown(this.dodgeKey) || this.input2.padJustDown('p1', 'dodge')) && p1.tryDodge(time)) this.spawnDodgeFx(p1);
-      if ((Phaser.Input.Keyboard.JustDown(this.abilityKey) || this.input2.padJustDown('p1', 'ability')) && p1.canAbility(time)) {
-        this.useAbility(p1, time);
-        p1.markAbilityUsed(time);
-      }
+      this.handleAbilityInput(p1, time);
       this.checkLowHealth(p1);
     }
     if (p1) p1.tick(time, delta);
@@ -1193,6 +1209,13 @@ export class DungeonScene extends Phaser.Scene {
 
   private updateCompanions(time: number, delta: number): void {
     const liveMonsters = this.monsters.filter((m) => m.active && m.alive);
+    // expire timed-out summons
+    for (const sk of this.summons) {
+      if (sk.alive && sk.expireAt && time > sk.expireAt) {
+        sk.expireAt = 0;
+        this.crumbleSummon(sk);
+      }
+    }
     // Altars are only "targets" for a companion that is right next to one, so the
     // party keeps following the leader instead of peeling off across the room to
     // chase a stationary altar. (Per-companion list built in the loop below.)
@@ -1217,6 +1240,7 @@ export class DungeonScene extends Phaser.Scene {
       }
     }
     for (const comp of this.companions) {
+      if (comp.isThief && comp.alive) this.thiefStrike(comp, liveMonsters, time);
       // If a companion falls way behind the party (stuck behind a gate, left
       // across the map on level load), blink it to the leader after a grace.
       if (comp.alive && leader && leader.alive) {
@@ -1389,7 +1413,8 @@ export class DungeonScene extends Phaser.Scene {
     }
   }
 
-  private summonSkeleton(necro: Hero, quiet = false): void {
+  private summonSkeleton(necro: Hero, quiet = false, type?: SkeletonType): void {
+    const time = this.time.now;
     this.summons = this.summons.filter((s) => s.active && s.alive);
     const cap = 3 + (necro.stats.summonBonus ?? 0);
     if (this.summons.length >= cap) {
@@ -1403,26 +1428,189 @@ export class DungeonScene extends Phaser.Scene {
       return;
     }
     if (!free) necro.mana = Math.max(0, necro.mana - cost);
-    // Rotate three skeletal servant types, all drawn with the skeleton enemy sprite
-    // but tinted a spectral hue (+ green ally aura) so they read as the player's own.
-    const roles: Array<{ cls: HeroClassId; name: string; tint: number }> = [
-      { cls: 'vanguard', name: 'skeleton warrior', tint: 0x9fd8ff },
-      { cls: 'strider', name: 'skeleton archer', tint: 0x86f0d0 },
-      { cls: 'arcanist', name: 'skeleton mage', tint: 0xc89bff },
-    ];
-    const role = roles[this.summonIdx++ % roles.length];
-    const sk = new Companion(this, necro.x + Phaser.Math.Between(-16, 16), necro.y + Phaser.Math.Between(-8, 18), role.cls);
-    sk.makeSkeleton(role.tint);
+    const t = type ?? SKELETON_ORDER[this.summonIdx++ % SKELETON_ORDER.length];
+    const info = SKELETON_INFO[t];
+    const sk = new Companion(this, necro.x + Phaser.Math.Between(-16, 16), necro.y + Phaser.Math.Between(-8, 18), info.cls);
+    sk.makeSkeleton(info.tint);
+    if (t === 'tank') {
+      sk.stats.maxHealth = Math.round(sk.stats.maxHealth * 1.9);
+      sk.stats.armor += 5;
+      sk.stats.speed *= 0.92;
+      sk.health = sk.stats.maxHealth;
+    } else if (t === 'thief') {
+      sk.isThief = true;
+      sk.stats.speed *= 1.3;
+      sk.stats.critChance += 0.2;
+    } else if (t === 'archer') {
+      sk.stats.speed *= 1.1;
+    }
+    // Servants linger longer the mightier the necromancer grows.
+    const dur = 9000 + necro.level * 1800;
+    sk.expireAt = time + dur;
     this.companions.push(sk);
     this.allies.push(sk);
     this.summons.push(sk);
-    this.allyGroup.add(sk); // wall + generator collision like other allies
+    this.allyGroup.add(sk);
     this.shadows.add(sk, 3);
     const fx = this.add.sprite(sk.x, sk.y, 'fx-magic').setDepth(sk.y + 16).setScale(2).setTint(0x9bff9b);
     fx.play('fx-magic');
     fx.once('animationcomplete', () => fx.destroy());
     audio.sfx('magic');
-    if (!quiet) this.showBark(`${necro.def.name} raises a ${role.name}!`, 2600, 'event');
+    if (!quiet) this.showBark(`${necro.def.name} raises a ${info.name}! (${Math.round(dur / 1000)}s)`, 2600, 'event');
+  }
+
+  /** Necromancer ability input: tap raises the selected servant; hold opens a
+   *  radial to pick Tank / Archer / Mage / Thief, released to raise it. */
+  private handleAbilityInput(p1: Hero, time: number): void {
+    const down = Phaser.Input.Keyboard.JustDown(this.abilityKey) || this.input2.padJustDown('p1', 'ability');
+    const held = this.abilityKey.isDown || this.input2.padAbilityDown('p1');
+    const up = Phaser.Input.Keyboard.JustUp(this.abilityKey) || this.input2.padJustUp('p1', 'ability');
+    if (p1.classId !== 'necromancer') {
+      if (down && p1.canAbility(time)) {
+        this.useAbility(p1, time);
+        p1.markAbilityUsed(time);
+      }
+      return;
+    }
+    if (down) this.abilityDownAt = time;
+    if (held && this.abilityDownAt && !this.radialOpen && time - this.abilityDownAt > 200) this.openSummonRadial();
+    if (this.radialOpen) {
+      this.updateSummonRadial();
+      p1.setMoveInput(0, 0); // freeze movement while aiming the radial
+    }
+    if (up) {
+      if (this.radialOpen) {
+        this.selectedSkeleton = this.radialPick;
+        this.closeSummonRadial();
+        this.trySummon(p1, time);
+      } else if (this.abilityDownAt) {
+        this.trySummon(p1, time);
+      }
+      this.abilityDownAt = 0;
+    }
+  }
+
+  private trySummon(necro: Hero, time: number): void {
+    if (!necro.canAbility(time)) {
+      this.showBark('Your magic must gather again before you raise more dead.', 1800, 'system');
+      return;
+    }
+    this.summonSkeleton(necro, false, this.selectedSkeleton);
+    necro.markAbilityUsed(time);
+  }
+
+  private openSummonRadial(): void {
+    if (this.radialOpen) return;
+    this.radialOpen = true;
+    this.radialPick = this.selectedSkeleton;
+    const cont = this.add.container(PLAY_AREA_WIDTH / 2, GAME_HEIGHT / 2).setScrollFactor(0).setDepth(DEPTH.OVERLAY + 6);
+    const bg = this.add.graphics();
+    bg.fillStyle(0x05060a, 0.5);
+    bg.fillCircle(0, 0, 94);
+    bg.lineStyle(2, 0x9b7be0, 0.85);
+    bg.strokeCircle(0, 0, 94);
+    cont.add(bg);
+    cont.add(this.add.text(0, 0, 'RAISE', { fontFamily: 'MedievalSharp, "Trebuchet MS", cursive', fontSize: '11px', color: '#b79bff' }).setOrigin(0.5));
+    this.radialNodes = [];
+    const layout: [SkeletonType, number, number, string][] = [
+      ['tank', 0, -60, 'TANK'],
+      ['archer', 62, 0, 'ARCHER'],
+      ['mage', 0, 60, 'MAGE'],
+      ['thief', -62, 0, 'THIEF'],
+    ];
+    for (const [t, dx, dy, name] of layout) {
+      const g = this.add.graphics();
+      cont.add(g);
+      const txt = this.add.text(dx, dy, name, { fontFamily: 'MedievalSharp, "Trebuchet MS", cursive', fontSize: '11px', color: '#cfc6e0', stroke: '#000', strokeThickness: 3 }).setOrigin(0.5);
+      cont.add(txt);
+      this.radialNodes.push({ t, dx, dy, g, txt });
+    }
+    this.radial = cont;
+    this.updateSummonRadial();
+  }
+
+  private updateSummonRadial(): void {
+    if (!this.radial) return;
+    let ang: number | null = null;
+    const st = this.input2.move('p1');
+    if (st.x || st.y) ang = Math.atan2(st.y, st.x);
+    else {
+      const ptr = this.input.activePointer;
+      const pdx = ptr.x - PLAY_AREA_X - PLAY_AREA_WIDTH / 2;
+      const pdy = ptr.y - GAME_HEIGHT / 2;
+      if (Math.hypot(pdx, pdy) > 20) ang = Math.atan2(pdy, pdx);
+    }
+    if (ang !== null) {
+      const deg = ((ang * 180) / Math.PI + 360) % 360;
+      this.radialPick = deg >= 315 || deg < 45 ? 'archer' : deg < 135 ? 'mage' : deg < 225 ? 'thief' : 'tank';
+    }
+    for (const n of this.radialNodes) {
+      const sel = n.t === this.radialPick;
+      n.g.clear();
+      n.g.fillStyle(sel ? 0x6e4a9a : 0x1a1530, sel ? 0.95 : 0.7);
+      n.g.fillCircle(n.dx, n.dy, 24);
+      n.g.lineStyle(2, sel ? 0xe8d0ff : 0x6e521f, 1);
+      n.g.strokeCircle(n.dx, n.dy, 24);
+      n.txt.setColor(sel ? '#fff4cf' : '#cfc6e0');
+    }
+  }
+
+  private closeSummonRadial(): void {
+    this.radial?.destroy();
+    this.radial = undefined;
+    this.radialNodes = [];
+    this.radialOpen = false;
+  }
+
+  /** A summon's duration elapsed: crumble it to dust. */
+  private crumbleSummon(sk: Companion): void {
+    const fx = this.add.sprite(sk.x, sk.y, 'fx-magic').setDepth(sk.y + 16).setScale(1.8).setTint(0x9b8bd0);
+    fx.play('fx-magic');
+    fx.once('animationcomplete', () => fx.destroy());
+    audio.sfx('magic');
+    sk.alive = false;
+    sk.destroy();
+    this.companions = this.companions.filter((c) => c !== sk);
+    this.allies = this.allies.filter((a) => a !== sk);
+    this.summons = this.summons.filter((s) => s !== sk);
+  }
+
+  /** Thief skeleton: blink behind the nearest foe and backstab for heavy damage. */
+  private thiefStrike(thief: Companion, monsters: Monster[], time: number): void {
+    if (time < thief.nextBlink) return;
+    let target: Monster | null = null;
+    let bd = 300;
+    for (const m of monsters) {
+      const d = Phaser.Math.Distance.Between(thief.x, thief.y, m.x, m.y);
+      if (d < bd) {
+        bd = d;
+        target = m;
+      }
+    }
+    if (!target || bd < 24) return; // already in reach — normal melee handles it
+    const ux = (target.x - thief.x) / (bd || 1);
+    const uy = (target.y - thief.y) / (bd || 1);
+    let nx = target.x + ux * 16;
+    let ny = target.y + uy * 16;
+    if (!this.isWalkable(Math.floor(nx / TILE_SIZE), Math.floor(ny / TILE_SIZE))) {
+      nx = target.x - ux * 12;
+      ny = target.y - uy * 12;
+    }
+    this.spawnBlink(thief.x, thief.y);
+    thief.setPosition(nx, ny);
+    const body = thief.body as Phaser.Physics.Arcade.Body | null;
+    if (body) body.reset(nx, ny);
+    this.spawnBlink(nx, ny);
+    thief.faceTo(target.x - nx, target.y - ny);
+    const back = Math.round(thief.attackDamage().dmg * 2.6);
+    const died = target.takeDamage(back, time);
+    this.floatDamage(target.x, target.y, back, true);
+    const sl = this.add.sprite(target.x, target.y, 'fx-slash').setDepth(target.y + 6).setScale(1.6).setTint(0x8affa0);
+    sl.play('fx-slash');
+    sl.once('animationcomplete', () => sl.destroy());
+    audio.sfx('melee');
+    if (died) this.onMonsterKilled(thief, target);
+    thief.nextBlink = time + 2400;
   }
 
   private abilityName(c: HeroClassId): string {

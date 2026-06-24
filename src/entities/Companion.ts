@@ -10,6 +10,11 @@ export class Companion extends Hero {
   private aura?: Phaser.GameObjects.Image;
   /** True for raised undead servants (so the party AI doesn't have them cast abilities). */
   isSummon = false;
+  /** ms timestamp when a summon crumbles to dust (0 = permanent). */
+  expireAt = 0;
+  /** Thief skeleton: teleport-backstab behaviour + its cooldown gate. */
+  isThief = false;
+  nextBlink = 0;
 
   constructor(scene: Phaser.Scene, x: number, y: number, classId: HeroClassId) {
     super(scene, x, y, classId, false, 0);
