@@ -182,6 +182,35 @@
       "key": "icon-boots",
       "path": "assets/sprites/icon-boots-hd.png",
       "kind": "image"
+    },
+    {
+      "key": "coin-sheet",
+      "path": "assets/sprites/coin-sheet-hd.png",
+      "kind": "spritesheet",
+      "frameWidth": 16,
+      "frameHeight": 16
+    },
+    {
+      "key": "generator-sheet",
+      "path": "assets/sprites/generator-sheet-hd.png",
+      "kind": "spritesheet",
+      "frameWidth": 24,
+      "frameHeight": 24
+    },
+    {
+      "key": "shrine",
+      "path": "assets/sprites/shrine-hd.png",
+      "kind": "image"
+    },
+    {
+      "key": "shrine-lit",
+      "path": "assets/sprites/shrine-lit-hd.png",
+      "kind": "image"
+    },
+    {
+      "key": "food",
+      "path": "assets/sprites/food-hd.png",
+      "kind": "image"
     }
   ]
 }
