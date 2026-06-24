@@ -50,6 +50,36 @@
       "key": "wall-top",
       "path": "assets/sprites/wall-top-hd.png",
       "kind": "image"
+    },
+    {
+      "key": "chest",
+      "path": "assets/sprites/chest-hd.png",
+      "kind": "image"
+    },
+    {
+      "key": "chest-open",
+      "path": "assets/sprites/chest-open-hd.png",
+      "kind": "image"
+    },
+    {
+      "key": "door",
+      "path": "assets/sprites/door-hd.png",
+      "kind": "image"
+    },
+    {
+      "key": "gem",
+      "path": "assets/sprites/gem-hd.png",
+      "kind": "image"
+    },
+    {
+      "key": "key",
+      "path": "assets/sprites/key-hd.png",
+      "kind": "image"
+    },
+    {
+      "key": "crystal",
+      "path": "assets/sprites/crystal-hd.png",
+      "kind": "image"
     }
   ]
 }
