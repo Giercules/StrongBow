@@ -315,6 +315,20 @@ export class DungeonScene extends Phaser.Scene {
     this.spawnAmbience(this.level.theme ?? 'crypt');
 
     this.input2 = new DungeonInput(this);
+    const gp = this.input.gamepad;
+    if (gp) {
+      gp.on('connected', (pad: Phaser.Input.Gamepad.Gamepad) => {
+        console.info('[StrongBow] gamepad connected:', pad.id);
+        this.showBark(`Gamepad ready: ${pad.id || 'controller'}`, 4000, 'system');
+      });
+      // catch a controller that was already awake before this scene started
+      this.time.delayedCall(600, () => {
+        const pad = gp.gamepads.find((g) => g && g.connected);
+        if (pad) this.showBark(`Gamepad ready: ${pad.id || 'controller'}`, 4000, 'system');
+      });
+    } else {
+      console.warn('[StrongBow] gamepad plugin not enabled (input.gamepad)');
+    }
     this.inventoryUI = new InventoryUI(this);
     this.skillsUI = new SkillTreeUI(this);
     this.sheetUI = new CharacterSheetUI(this);

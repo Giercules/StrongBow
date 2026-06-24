@@ -66,7 +66,10 @@ export class DungeonInput {
   private pad(player: 'p1' | 'p2'): Phaser.Input.Gamepad.Gamepad | undefined {
     const gp = this.scene.input.gamepad;
     if (!gp) return undefined;
-    return gp.getPad(player === 'p1' ? 0 : 1) as Phaser.Input.Gamepad.Gamepad | undefined;
+    // Use the Nth *connected* pad, not a raw slot index (slots can be sparse:
+    // a phantom at 0 with the real controller at 1, etc.).
+    const pads = gp.gamepads.filter((g): g is Phaser.Input.Gamepad.Gamepad => !!g && g.connected);
+    return pads[player === 'p1' ? 0 : 1];
   }
 
   private padBool(pad: Phaser.Input.Gamepad.Gamepad, name: PadName): boolean {
