@@ -14,6 +14,7 @@ export class Monster extends Phaser.Physics.Arcade.Sprite {
   maxHealth: number;
   alive = true;
   isBoss: boolean;
+  private hpBar?: Phaser.GameObjects.Graphics;
 
   private nextAttackAt = 0;
   private hurtUntil = 0;
@@ -65,6 +66,7 @@ export class Monster extends Phaser.Physics.Arcade.Sprite {
     body.setSize(bw, bh);
     body.setOffset((this.width - bw) / 2, this.height * 0.42);
     this.setDepth(y);
+    this.hpBar = scene.add.graphics();
     this.play(`${enemyId}-walk`);
     if (this.isBoss) this.setTint(0xffffff);
   }
@@ -73,8 +75,28 @@ export class Monster extends Phaser.Physics.Arcade.Sprite {
     return Phaser.Math.Clamp(this.health / this.maxHealth, 0, 1);
   }
 
+  /** Small floating HP meter pinned above the monster's head. */
+  private drawHpBar(): void {
+    if (!this.hpBar) return;
+    const ratio = this.healthRatio();
+    const w = Phaser.Math.Clamp(this.displayWidth * 0.5, 14, 56);
+    const h = 3;
+    const x = this.x - w / 2;
+    const y = this.y - this.displayHeight * 0.82 - 7;
+    const col = ratio > 0.5 ? 0x6fe06a : ratio > 0.25 ? 0xffcf5a : 0xff5a5a;
+    this.hpBar
+      .clear()
+      .setVisible(true)
+      .setDepth(this.y + 20)
+      .fillStyle(0x000000, 0.65)
+      .fillRect(x - 1, y - 1, w + 2, h + 2)
+      .fillStyle(col, 1)
+      .fillRect(x, y, w * ratio, h);
+  }
+
   tick(time: number, delta: number, heroes: Hero[]): void {
     if (!this.alive) return;
+    this.drawHpBar();
     const body = this.body as ArcadeBody;
 
     // knockback overrides movement for a brief window
@@ -337,6 +359,8 @@ export class Monster extends Phaser.Physics.Arcade.Sprite {
   private die(): void {
     if (!this.alive) return;
     this.alive = false;
+    this.hpBar?.destroy();
+    this.hpBar = undefined;
     const body = this.body as ArcadeBody;
     body.setVelocity(0, 0);
     body.enable = false;
