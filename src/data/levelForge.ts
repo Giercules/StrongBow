@@ -73,12 +73,12 @@ export function synthesize(desc: string): Blueprint {
   if (/huge|massive|sprawl|vast|giant|endless|labyrinth|colossal/.test(d)) scale = 1.3;
   else if (/small|tiny|cramped|short|quick|little/.test(d)) scale = 0.78;
 
-  let gens = 6;
-  if (/deadly|swarm|brutal|nightmare|horde|hell|relentless|overrun/.test(d)) gens = 8;
-  else if (/easy|calm|gentle|simple|peaceful|relaxed/.test(d)) gens = 4;
+  let gens = 8;
+  if (/deadly|swarm|brutal|nightmare|horde|hell|relentless|overrun/.test(d)) gens = 11;
+  else if (/easy|calm|gentle|simple|peaceful|relaxed/.test(d)) gens = 5;
 
-  const width = Math.max(96, Math.round(120 * scale));
-  const height = Math.max(72, Math.round(86 * scale));
+  const width = Math.max(132, Math.round(166 * scale));
+  const height = Math.max(94, Math.round(116 * scale));
   const seed = hash(desc && desc.trim() ? desc : String(Date.now()));
   const clean = (desc || '').trim();
   const name = clean && clean.length <= 30 ? titleCase(clean) : THEME_NAMES[theme];
@@ -108,8 +108,8 @@ export function forgeLevel(desc: string): LevelData {
     seed: bp.seed,
     width: bp.width,
     height: bp.height,
-    cols: 5,
-    rows: 4,
+    cols: 7,
+    rows: 6,
     theme: bp.theme,
     maxGenerators: bp.maxGenerators,
     chestItems: FORGE_LOOT[bp.theme],

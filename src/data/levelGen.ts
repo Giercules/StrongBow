@@ -163,6 +163,30 @@ export function buildDungeon(opts: DungeonOptions): LevelData {
     }
   }
 
+  // ---- branch rooms: side chambers off the main path (exploration + loot) ----
+  // Parents exclude the penultimate room so a branch can never tunnel around the
+  // locked gate that guards the boss. Connectivity stays guaranteed: each branch
+  // is wired straight back to its (already-connected) parent with an L corridor.
+  const mkBranch = (x: number, y: number, w: number, h: number): Room => ({ x, y, w, h, cx: x + (w >> 1), cy: y + (h >> 1) });
+  const branchRooms: Room[] = [];
+  const branchTarget = Math.min(7, Math.max(3, Math.round(path.length * 0.4)));
+  const bdirs: [number, number][] = [[0, -1], [0, 1], [-1, 0], [1, 0]];
+  for (let b = 0; b < branchTarget; b++) {
+    const parent = path[1 + Math.floor(rng() * Math.max(1, path.length - 3))];
+    const bw = 8 + Math.floor(rng() * 6);
+    const bh = 6 + Math.floor(rng() * 4);
+    const [dx, dy] = bdirs[Math.floor(rng() * bdirs.length)];
+    const off = 9 + Math.floor(rng() * 8);
+    const bcx = Math.max(4 + (bw >> 1), Math.min(W - 5 - (bw >> 1), parent.cx + dx * off));
+    const bcy = Math.max(4 + (bh >> 1), Math.min(H - 5 - (bh >> 1), parent.cy + dy * off));
+    const room = mkBranch(bcx - (bw >> 1), bcy - (bh >> 1), bw, bh);
+    const bshape = shapes[Math.floor(rng() * shapes.length)] ?? 'rect';
+    carveShape(room, bshape === 'hall' ? 'rect' : bshape);
+    corridorH(parent.cx, room.cx, parent.cy);
+    corridorV(parent.cy, room.cy, room.cx);
+    branchRooms.push(room);
+  }
+
   const at = (frac: number) => path[Math.max(1, Math.min(path.length - 2, Math.floor(path.length * frac)))];
 
   // decorative pillar rows the layout asked for (nave colonnades, spire shaft)
@@ -224,10 +248,14 @@ export function buildDungeon(opts: DungeonOptions): LevelData {
     const j = Math.floor(rng() * (i + 1));
     [candidates[i], candidates[j]] = [candidates[j], candidates[i]];
   }
-  for (let k = 0; k < setPieces.length && k < candidates.length; k++) {
-    const idx = candidates[k];
-    PREFABS[setPieces[k]](path[idx], ctx);
-    featureRooms.add(idx);
+  if (setPieces.length) {
+    const extraFeatures = Math.min(3, Math.floor(path.length / 12));
+    const featureCount = Math.min(candidates.length, setPieces.length + extraFeatures);
+    for (let k = 0; k < featureCount; k++) {
+      const idx = candidates[k];
+      PREFABS[setPieces[k % setPieces.length]](path[idx], ctx);
+      featureRooms.add(idx);
+    }
   }
 
   // ---- boss room, exit portal, locked gate ----
@@ -282,8 +310,9 @@ export function buildDungeon(opts: DungeonOptions): LevelData {
     spawns.push({ kind: 'chest', x: room.cx, y: room.cy, itemId });
   });
 
-  spawns.push({ kind: 'shrine', x: at(0.25).cx, y: at(0.25).cy });
-  spawns.push({ kind: 'shrine', x: at(0.6).cx, y: at(0.6).cy });
+  spawns.push({ kind: 'shrine', x: at(0.22).cx, y: at(0.22).cy });
+  spawns.push({ kind: 'shrine', x: at(0.5).cx, y: at(0.5).cy });
+  spawns.push({ kind: 'shrine', x: at(0.78).cx, y: at(0.78).cy });
   spawns.push({ kind: 'key', x: path[Math.max(1, path.length - 3)].cx, y: path[Math.max(1, path.length - 3)].cy });
   spawns.push({ kind: 'boss', x: bossRoom.cx, y: bossRoom.cy, enemyId: boss });
 
@@ -293,8 +322,9 @@ export function buildDungeon(opts: DungeonOptions): LevelData {
 
   // ---- pickups scattered through every room ----
   for (let i = 0; i < path.length; i++) {
+    if (i > 0 && i < path.length - 1 && rng() > 0.72) continue;
     const room = path[i];
-    const n = 2 + Math.floor(rng() * 3);
+    const n = 1 + Math.floor(rng() * 3);
     for (let k = 0; k < n; k++) {
       const px = room.x + 1 + Math.floor(rng() * Math.max(1, room.w - 2));
       const py = room.y + 1 + Math.floor(rng() * Math.max(1, room.h - 2));
@@ -319,6 +349,37 @@ export function buildDungeon(opts: DungeonOptions): LevelData {
           decor.push({ x, y, key: theme.decorKeys[Math.floor(rng() * theme.decorKeys.length)] });
         }
       }
+    }
+  }
+
+  // ---- populate branch rooms: loot, the odd guardian, a little decor ----
+  branchRooms.forEach((room, bi) => {
+    if (rng() < 0.45)
+      spawns.push({ kind: 'generator', x: room.cx, y: Math.max(room.y + 1, room.cy - 1), enemyId: enemies[(placed + bi) % enemies.length], interval: 4400, maxAlive: 3, hp: 26 });
+    if (chestItems.length && rng() < 0.5)
+      spawns.push({ kind: 'chest', x: room.cx, y: room.cy, itemId: chestItems[bi % chestItems.length] });
+    const bn = 2 + Math.floor(rng() * 3);
+    for (let k = 0; k < bn; k++) {
+      const px = room.x + 1 + Math.floor(rng() * Math.max(1, room.w - 2));
+      const py = room.y + 1 + Math.floor(rng() * Math.max(1, room.h - 2));
+      if (!inB(px, py) || tiles[py][px] !== Tile.FLOOR) continue;
+      const roll = rng();
+      if (roll < 0.6) pickups.push({ kind: 'coin', x: px, y: py, coin: 6 + Math.floor(rng() * 12) });
+      else if (roll < 0.82) pickups.push({ kind: 'food', x: px, y: py });
+      else pickups.push({ kind: 'potion', x: px, y: py, itemId: roll < 0.91 ? 'health_potion' : 'mana_potion' });
+    }
+    if (theme.decorKeys.length && rng() < 0.6)
+      decor.push({ x: room.cx, y: Math.min(room.y + room.h - 2, room.cy + 1), key: theme.decorKeys[Math.floor(rng() * theme.decorKeys.length)] });
+  });
+
+  // ---- cap total generators so dense layouts stay fun and performant ----
+  const GEN_CAP = Math.min(15, opts.maxGenerators + 4);
+  let genCount = 0;
+  for (let i = 0; i < spawns.length; i++) {
+    if (spawns[i].kind === 'generator' && ++genCount > GEN_CAP) {
+      pickups.push({ kind: 'coin', x: spawns[i].x, y: spawns[i].y, coin: 14 + Math.floor(rng() * 16) });
+      spawns.splice(i, 1);
+      i--;
     }
   }
 

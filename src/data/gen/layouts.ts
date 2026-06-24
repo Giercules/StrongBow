@@ -120,7 +120,7 @@ function gridLayout(ctx: LayoutCtx): LayoutResult {
 // ---------------------------------------------------------------------------
 function cavernsLayout(ctx: LayoutCtx): LayoutResult {
   const { W, H, rng, carveShape } = ctx;
-  const cols = 3;
+  const cols = 4;
   const rows = 3;
   const cellW = Math.floor(W / cols);
   const cellH = Math.floor(H / rows);
@@ -166,7 +166,7 @@ function cathedralLayout(ctx: LayoutCtx): LayoutResult {
   carveShape(start, 'rect');
   path.push(start);
 
-  const n = 8;
+  const n = Math.max(8, Math.round((x1 - x0) / 13));
   const span = x1 - x0 - 20;
   for (let i = 0; i < n; i++) {
     const px = x0 + 12 + Math.floor(span * (i / (n - 1)));
@@ -250,7 +250,7 @@ function ringsLayout(ctx: LayoutCtx): LayoutResult {
   const cx = W >> 1;
   const cy = H >> 1;
   const m = Math.min(W, H);
-  const radii = [Math.round(m * 0.15), Math.round(m * 0.27), Math.round(m * 0.39)];
+  const radii = [Math.round(m * 0.13), Math.round(m * 0.24), Math.round(m * 0.34), Math.round(m * 0.44)];
   for (const r of radii) {
     corridorH(cx - r, cx + r, cy - r);
     corridorH(cx - r, cx + r, cy + r);
@@ -300,7 +300,7 @@ function arenaLayout(ctx: LayoutCtx): LayoutResult {
   path.push(start);
   const bigW = 22;
   const bigH = 18;
-  const n = 3;
+  const n = 4;
   const span = W - 16 - bigW;
   for (let i = 0; i < n; i++) {
     const bx = 8 + Math.floor((span * (i + 1)) / (n + 1)) - (bigW >> 1);
@@ -324,7 +324,7 @@ function arenaLayout(ctx: LayoutCtx): LayoutResult {
 // ---------------------------------------------------------------------------
 function scatterLayout(ctx: LayoutCtx): LayoutResult {
   const { W, H, rng, carveShape } = ctx;
-  const target = 13;
+  const target = 18;
   const rooms: Room[] = [];
   let tries = 0;
   while (rooms.length < target && tries < 500) {
@@ -383,7 +383,7 @@ function spireLayout(ctx: LayoutCtx): LayoutResult {
   carveShape(start, 'rect');
   path.push(start);
 
-  const landings = 7;
+  const landings = 9;
   for (let i = 0; i < landings; i++) {
     const ly = yBot - 12 - Math.floor(((yBot - yTop - 24) * i) / (landings - 1));
     const left = i % 2 === 0;
