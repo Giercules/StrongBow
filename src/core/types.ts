@@ -2,7 +2,7 @@
 // StrongBow -- shared types
 // ----------------------------------------------------------------------------
 
-export type HeroClassId = 'vanguard' | 'strider' | 'arcanist' | 'warden';
+export type HeroClassId = 'vanguard' | 'strider' | 'arcanist' | 'warden' | 'necromancer';
 export type Direction = 'down' | 'up' | 'left' | 'right';
 export type Rarity = 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary';
 export type ItemSlot =

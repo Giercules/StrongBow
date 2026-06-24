@@ -199,7 +199,7 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
   }
 
   reach(): number {
-    const base: Record<HeroClassId, number> = { vanguard: 24, strider: 42, arcanist: 24, warden: 26 };
+    const base: Record<HeroClassId, number> = { vanguard: 24, strider: 42, arcanist: 24, warden: 26, necromancer: 40 };
     const cleave = this.classId === 'vanguard' ? this.skillSet.rank('van_cleave') * 4 : 0;
     return base[this.classId] + cleave;
   }
@@ -288,7 +288,7 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
   }
 
   weaponStyle(): 'melee' | 'ranged' {
-    return this.classId === 'strider' || this.classId === 'arcanist' ? 'ranged' : 'melee';
+    return this.classId === 'strider' || this.classId === 'arcanist' || this.classId === 'necromancer' ? 'ranged' : 'melee';
   }
 
   /** Scene consumes a queued ranged shot (direction) to spawn a projectile. */

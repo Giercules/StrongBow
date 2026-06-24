@@ -159,6 +159,8 @@ export class DungeonScene extends Phaser.Scene {
   private players: Hero[] = [];
   private companions: Companion[] = [];
   private allies: Hero[] = [];
+  private summons: Companion[] = [];
+  private summonIdx = 0;
   private monsters: Monster[] = [];
   private generators: Generator[] = [];
   private blockers: Phaser.GameObjects.Rectangle[] = [];
@@ -1290,13 +1292,45 @@ export class DungeonScene extends Phaser.Scene {
     this.tweens.add({ targets: fx, alpha: 0, scaleX: 2.4, duration: 240, onComplete: () => fx.destroy() });
   }
 
+  /** Necromancer ability: raise a skeletal servant (alternating warrior/caster, max 3). */
+  private summonSkeleton(necro: Hero): void {
+    this.summons = this.summons.filter((s) => s.active && s.alive);
+    if (this.summons.length >= 3) {
+      this.showBark('Your servants already crowd the dark (max 3).', 2400, 'system');
+      return;
+    }
+    const cost = 20;
+    const free = settings.get('gameplay').infiniteMana;
+    if (!free && necro.mana < cost) {
+      this.showBark('Not enough mana to raise the dead.', 2400, 'system');
+      return;
+    }
+    if (!free) necro.mana = Math.max(0, necro.mana - cost);
+    const melee = this.summonIdx++ % 2 === 0;
+    const cls: HeroClassId = melee ? 'vanguard' : 'arcanist';
+    const sk = new Companion(this, necro.x + Phaser.Math.Between(-16, 16), necro.y + Phaser.Math.Between(-8, 18), cls);
+    sk.setTint(0xcfe0e8);
+    this.companions.push(sk);
+    this.allies.push(sk);
+    this.summons.push(sk);
+    const fx = this.add.sprite(sk.x, sk.y, 'fx-magic').setDepth(sk.y + 16).setScale(2).setTint(0x9bff9b);
+    fx.play('fx-magic');
+    fx.once('animationcomplete', () => fx.destroy());
+    audio.sfx('magic');
+    this.showBark(`${necro.def.name} raises a ${melee ? 'skeleton warrior' : 'bone caster'}!`, 2600, 'event');
+  }
+
   private abilityName(c: HeroClassId): string {
-    const names: Record<HeroClassId, string> = { vanguard: 'Shield Slam', strider: 'Multishot', arcanist: 'Arcane Nova', warden: 'Sanctuary' };
+    const names: Record<HeroClassId, string> = { vanguard: 'Shield Slam', strider: 'Multishot', arcanist: 'Arcane Nova', warden: 'Sanctuary', necromancer: 'Raise Dead' };
     return names[c];
   }
 
   /** Per-class active ability (key F), gated by Hero cooldown. */
   private useAbility(h: Hero, time: number): void {
+    if (h.classId === 'necromancer') {
+      this.summonSkeleton(h);
+      return;
+    }
     const cx = h.x;
     const cy = h.y;
     if (h.classId === 'strider') {

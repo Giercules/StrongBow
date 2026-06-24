@@ -3,7 +3,7 @@ import Phaser from 'phaser';
 // Registers all animations. Phaser's AnimationManager is global to the game,
 // so registering once in BootScene makes these available to every scene.
 
-const HERO_CLASSES = ['vanguard', 'strider', 'arcanist', 'warden'];
+const HERO_CLASSES = ['vanguard', 'strider', 'arcanist', 'warden', 'necromancer'];
 
 function add(
   scene: Phaser.Scene,

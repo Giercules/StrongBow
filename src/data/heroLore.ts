@@ -45,4 +45,13 @@ export const HERO_LORE: Record<HeroClassId, HeroDossier> = {
       'Anchor the party, light every shrine, and let steady regeneration win long fights. Balanced Vitality and Focus keep both your health and blessings flowing.',
     quote: '"The light does not abandon us."',
   },
+  necromancer: {
+    id: 'necromancer',
+    title: 'The Necromancer',
+    origin:
+      'Exiled for trafficking with the dead, the Necromancer returned to the Undermaw to command it. Where others fear the crypt, they call it home — and call its tenants to heel.',
+    tactics:
+      'Raise skeletal warriors and bone casters to screen for you, then strike from the back. Keep your servants between you and the horde; spend mana to refresh the line.',
+    quote: '"Death is not the end. It is my beginning."',
+  },
 };

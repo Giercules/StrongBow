@@ -297,6 +297,17 @@ export const HERO_RAMPS: Record<string, HeroRamp> = {
     trimHi: '#fff4c0',
     hair: '#7a6a4a',
   },
+  // Necromancer — shrouded grave-binder: ashen skin, black-violet robes.
+  necromancer: {
+    skin: '#b9c0c8',
+    skinHi: '#dde3e8',
+    cloth0: '#140f1e',
+    cloth1: '#2a1f3e',
+    cloth2: '#4a3768',
+    trim: '#9a86c4',
+    trimHi: '#d8cdf0',
+    hair: '#0e0a16',
+  },
 };
 
 // ---- Monster ramps ----

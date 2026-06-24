@@ -38,8 +38,8 @@ export class CharacterSelectScene extends Phaser.Scene {
 
     this.highlight = this.add.graphics().setDepth(20);
 
-    const cardW = 200;
     const gap = 18;
+    const cardW = Math.min(200, Math.floor((GAME_WIDTH - 40 - (ALL_CLASSES.length - 1) * gap) / ALL_CLASSES.length));
     const totalW = ALL_CLASSES.length * cardW + (ALL_CLASSES.length - 1) * gap;
     const startX = (GAME_WIDTH - totalW) / 2;
 
@@ -66,7 +66,8 @@ export class CharacterSelectScene extends Phaser.Scene {
     kb.on('keydown-D', () => this.move(1));
     kb.on('keydown-ENTER', () => this.choose(this.cursor));
     kb.on('keydown-SPACE', () => this.choose(this.cursor));
-    for (let n = 1; n <= 4; n++) kb.on(`keydown-${['ONE', 'TWO', 'THREE', 'FOUR'][n - 1]}`, () => this.choose(n - 1));
+    const numKeys = ['ONE', 'TWO', 'THREE', 'FOUR', 'FIVE'];
+    for (let n = 1; n <= Math.min(ALL_CLASSES.length, numKeys.length); n++) kb.on(`keydown-${numKeys[n - 1]}`, () => this.choose(n - 1));
   }
 
   private buildCard(cls: HeroClassId, x: number, y: number, w: number, h: number, idx: number): Phaser.GameObjects.Container {

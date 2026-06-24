@@ -117,6 +117,35 @@ export const SKILLS: Record<string, SkillDef> = {
     icon: 'icon-ring',
     perRank: { maxMana: 20 },
   },
+
+  // ---- Necromancer ----
+  nec_legion: {
+    id: 'nec_legion',
+    classId: 'necromancer',
+    name: 'Dark Legion',
+    description: '+18 max health per rank.',
+    maxRank: 5,
+    icon: 'icon-amulet',
+    perRank: { maxHealth: 18 },
+  },
+  nec_grimoire: {
+    id: 'nec_grimoire',
+    classId: 'necromancer',
+    name: 'Grimoire',
+    description: '+25 max mana per rank — raise more dead.',
+    maxRank: 5,
+    icon: 'icon-staff',
+    perRank: { maxMana: 25 },
+  },
+  nec_blight: {
+    id: 'nec_blight',
+    classId: 'necromancer',
+    name: 'Blight',
+    description: '+3 spell damage per rank.',
+    maxRank: 3,
+    icon: 'icon-staff',
+    perRank: { damage: 3 },
+  },
 };
 
 export const ALL_SKILLS = Object.values(SKILLS);

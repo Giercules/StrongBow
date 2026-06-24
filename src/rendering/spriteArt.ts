@@ -1667,7 +1667,7 @@ export function drawHumanoid(
   const cx = ox + HERO_FW / 2;
   const bob = pose === 1 ? -2 : 0;
   const [ll, rl] = legShift(pose);
-  const robe = cls === 'arcanist' || cls === 'warden';
+  const robe = cls === 'arcanist' || cls === 'warden' || cls === 'necromancer';
   const sway = pose === 1 ? -1 : pose === 3 ? 1 : 0;
   const SH = 'rgba(0,0,0,0.18)';
   const SHd = 'rgba(0,0,0,0.32)';

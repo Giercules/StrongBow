@@ -37,13 +37,23 @@ export const HEROES: Record<HeroClassId, HeroClassDef> = {
     base: { maxHealth: 100, maxMana: 80, damage: 10, speed: 125, armor: 2, critChance: 0.02, fire: 0, regen: 0.5, luck: 3 },
     skillIds: ['war_mend', 'war_aegis', 'war_grace'],
   },
+  necromancer: {
+    id: 'necromancer',
+    name: 'Necromancer',
+    role: 'Summoner',
+    blurb: 'Master of the grave. Raises the dead to fight in their stead.',
+    signature: 'Raises skeletal servants with the ability key.',
+    base: { maxHealth: 82, maxMana: 110, damage: 9, speed: 122, armor: 1, critChance: 0.03, fire: 0, regen: 0.3, luck: 4 },
+    skillIds: ['nec_legion', 'nec_grimoire', 'nec_blight'],
+  },
 };
 
-export const ALL_CLASSES: HeroClassId[] = ['vanguard', 'strider', 'arcanist', 'warden'];
+export const ALL_CLASSES: HeroClassId[] = ['vanguard', 'strider', 'arcanist', 'warden', 'necromancer'];
 
 export const HERO_WEAPON_ICON: Record<HeroClassId, string> = {
   vanguard: 'icon-sword',
   strider: 'icon-bow',
   arcanist: 'icon-staff',
   warden: 'icon-mace',
+  necromancer: 'icon-staff',
 };
