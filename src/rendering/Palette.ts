@@ -264,8 +264,8 @@ export const HERO_RAMPS: Record<string, HeroRamp> = {
     trimHi: '#f0d79a',
     hair: '#1f160e', // black mane
   },
-  // Strider — Drizzt-style drow ranger: ashen grey skin, white hair, dark cloak.
-  strider: {
+  // Thief — Drizzt-style drow ranger: ashen grey skin, white hair, dark cloak.
+  thief: {
     skin: '#6e6e80',
     skinHi: '#a0a0b6',
     cloth0: '#171326', // black cloak

@@ -171,9 +171,9 @@ export const MANUAL_PAGES: ManualPage[] = [
     kind: 'text',
     body: [
       'Move with WASD (P1) or the Arrow keys (P2), or hold the left mouse button to walk toward the cursor. Or plug in a GAMEPAD: left stick / D-Pad moves, A attacks, X magic, B use, Y dodge, RB ability.',
-      'Hold attack to strike — each hero differs: Vanguard cleaves, Warden bludgeons, Strider looses arrows, Arcanist and Necromancer hurl bolts.',
+      'Hold attack to strike — each hero differs: Vanguard cleaves, Warden bludgeons, Thief looses arrows, Arcanist and Necromancer hurl bolts.',
       'Tap magic for an attack (costs mana). Use / interact opens chests and lights shrines.',
-      'Press SPACE to dodge-roll (brief invulnerability), and F for your class ability: Vanguard Seismic Slam, Strider Volley, Arcanist Meteor, Warden Sanctuary. The Necromancer instead HOLDS the ability to open a radial — aim with mouse or stick to pick a Tank, Archer, Mage or Thief skeleton; a quick tap raises the last-chosen servant.',
+      'Press SPACE to dodge-roll (brief invulnerability), and F for your class ability: Vanguard Seismic Slam, Thief Volley, Arcanist Meteor, Warden Sanctuary. The Necromancer instead HOLDS the ability to open a radial — aim with mouse or stick to pick a Tank, Archer, Mage or Thief skeleton; a quick tap raises the last-chosen servant.',
     ],
   },
   {
@@ -193,7 +193,7 @@ export const MANUAL_PAGES: ManualPage[] = [
     body: [
       'Allies no longer follow for free. In Hearthwatch, step into the FIGHTERS GUILD and hire sellswords for your next descent — pay gold per ally (the price rises as you level) and hire as many as you can afford.',
       'The contract lasts a single run: once you return to town it lapses, so re-hire before you descend again.',
-      'Hired allies follow whoever moved last, path around corners, spread out instead of stacking, and use their own class abilities when it helps — the Warden heals the hurt, the Vanguard slams clusters, the Arcanist drops meteors, the Strider looses volleys, and a hired Necromancer keeps raising the dead.',
+      'Hired allies follow whoever moved last, path around corners, spread out instead of stacking, and use their own class abilities when it helps — the Warden heals the hurt, the Vanguard slams clusters, the Arcanist drops meteors, the Thief looses volleys, and a hired Necromancer keeps raising the dead.',
       'Slain foes grant XP to the killer and a share to the whole party. Tune companion behaviour in Settings -> Allies.',
     ],
   },

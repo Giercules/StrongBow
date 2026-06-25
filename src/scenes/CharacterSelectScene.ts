@@ -155,7 +155,7 @@ export class CharacterSelectScene extends Phaser.Scene {
     if (this.picking === 1) {
       this.prompt.setText('PLAYER 1 — CHOOSE YOUR HERO').setColor(numHex(CLASS_HUD_COLORS.vanguard));
     } else {
-      this.prompt.setText('PLAYER 2 — CHOOSE YOUR HERO').setColor(numHex(CLASS_HUD_COLORS.strider));
+      this.prompt.setText('PLAYER 2 — CHOOSE YOUR HERO').setColor(numHex(CLASS_HUD_COLORS.thief));
     }
   }
 

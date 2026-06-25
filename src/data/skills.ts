@@ -31,10 +31,10 @@ export const SKILLS: Record<string, SkillDef> = {
     perRank: { maxHealth: 25 },
   },
 
-  // ---- Strider ----
+  // ---- Thief ----
   str_eagle: {
     id: 'str_eagle',
-    classId: 'strider',
+    classId: 'thief',
     name: 'Eagle Eye',
     description: '+4% critical chance per rank.',
     maxRank: 5,
@@ -43,8 +43,8 @@ export const SKILLS: Record<string, SkillDef> = {
   },
   str_swift: {
     id: 'str_swift',
-    classId: 'strider',
-    name: 'Swiftness',
+    classId: 'thief',
+    name: 'Fleet Foot',
     description: '+12 move speed per rank.',
     maxRank: 5,
     icon: 'icon-bow',
@@ -52,8 +52,8 @@ export const SKILLS: Record<string, SkillDef> = {
   },
   str_volley: {
     id: 'str_volley',
-    classId: 'strider',
-    name: 'Volley',
+    classId: 'thief',
+    name: 'Cutthroat',
     description: '+3 damage per rank.',
     maxRank: 3,
     icon: 'icon-bow',

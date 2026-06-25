@@ -18,11 +18,11 @@ export const HERO_LORE: Record<HeroClassId, HeroDossier> = {
       'Wade into the thickest crowd and let blows ring off your armor. Spend Vitality to become an unkillable anchor; Cleave to clear packs around generators.',
     quote: '"Behind me. All of you."',
   },
-  strider: {
-    id: 'strider',
-    title: 'The Strider',
+  thief: {
+    id: 'thief',
+    title: 'The Thief',
     origin:
-      'A poacher turned grave-runner, the Strider knows every collapsed passage and hidden cache. Fast feet, faster blade, and an eye that never misses a glint of gold.',
+      'A poacher turned grave-runner, the Thief knows every collapsed passage and hidden cache. Fast feet, faster blade, and an eye that never misses a glint of gold.',
     tactics:
       'Dart in, strike, and slip away before the swarm closes. Stack Eagle Eye and Might for brutal critical hits; outrun lava rather than tank it.',
     quote: '"Catch me if you can."',

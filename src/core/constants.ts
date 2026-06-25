@@ -116,7 +116,7 @@ export const DEPTH = {
 
 export const CLASS_HUD_COLORS: Record<string, number> = {
   vanguard: 0x4fa3ff,
-  strider: 0x5fe06a,
+  thief: 0x5fe06a,
   arcanist: 0xc06bff,
   warden: 0xffcf5a,
   necromancer: 0x9b7be0,

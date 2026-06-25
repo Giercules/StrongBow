@@ -1670,26 +1670,19 @@ export function drawWeapon(
     R(ctx, hx + 1, top + len + 2, 1, 5, ramp.cloth2);
     R(ctx, hx, top + len + 7, 5, 2, C.coinMid);
     PX(ctx, hx + 2, top + len + 8, C.coinHi);
-  } else if (cls === 'strider') {
-    const hx = cx + (attack ? 10 : 8);
-    R(ctx, hx - 1, 26, 3, 6, C.doorWood);
-    R(ctx, hx - 1, 26, 1, 6, C.doorWoodHi);
-    ctx.strokeStyle = ramp.trim;
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.arc(hx, 28, 11, -1.45, 1.45);
-    ctx.stroke();
-    ctx.strokeStyle = ramp.trimHi;
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.arc(hx, 28, 11, -1.45, 1.45);
-    ctx.stroke();
-    R(ctx, hx + 1, 16, 2, 2, ramp.trim);
-    R(ctx, hx + 1, 38, 2, 2, ramp.trim);
-    R(ctx, hx + 3, 17, 1, 22, '#e8e8f4');
+  } else if (cls === 'thief') {
+    // a short dagger held forward; it thrusts (stabs) on attack
+    const hx = cx + (attack ? 11 : 9);
+    const top = attack ? 18 : 23;
+    const len = attack ? 17 : 11;
+    R(ctx, hx, top, 2, len, '#cfd6e8');
+    R(ctx, hx, top, 1, len, '#ffffff');
+    PX(ctx, hx, top - 1, '#ffffff');
+    R(ctx, hx - 2, top + len, 6, 2, ramp.trim);
+    R(ctx, hx, top + len + 2, 2, 4, '#241a10');
     if (attack) {
-      R(ctx, hx - 10, 27, 16, 1, '#d8c090');
-      R(ctx, hx - 12, 26, 3, 3, '#cfd6ff');
+      R(ctx, hx - 1, top - 4, 4, 4, '#cfe0ff');
+      PX(ctx, hx, top - 5, '#ffffff');
     }
   } else if (cls === 'arcanist') {
     const hx = cx + (attack ? 12 : 10);
@@ -1829,7 +1822,7 @@ export function drawHumanoid(
     R(ctx, tx, tTop + 11, tw, 1, ramp.cloth2);
     R(ctx, cx - 2, tTop + 11, 4, 3, C.coinMid);
     PX(ctx, cx, tTop + 12, C.coinHi);
-  } else if (cls === 'strider') {
+  } else if (cls === 'thief') {
     R(ctx, tx, tTop, tw, 14, ramp.cloth1);
     R(ctx, tx, tTop, tw, 2, ramp.cloth2);
     R(ctx, tx, tTop, 3, 14, ramp.cloth2);
@@ -1902,7 +1895,7 @@ export function drawHumanoid(
     R(ctx, hx0 + hw - 1, hTop, 2, 9, ramp.hair);
     R(ctx, hx0, hTop + 2, hw, 2, C.hpLow);
     R(ctx, hx0, hTop + 2, hw, 1, '#ff8a7a');
-  } else if (cls === 'strider') {
+  } else if (cls === 'thief') {
     R(ctx, hx0 - 1, hTop - 3, hw + 2, 4, ramp.hair);
     R(ctx, hx0 - 2, hTop, 2, 8, ramp.hair);
     R(ctx, hx0 + hw, hTop, 2, 8, ramp.hair);
@@ -1945,7 +1938,7 @@ export function drawHumanoid(
   }
 
   if (cls !== 'arcanist' && cls !== 'necromancer') {
-    const eye = cls === 'strider' ? '#c08aff' : '#2a3b6a';
+    const eye = cls === 'thief' ? '#c08aff' : '#2a3b6a';
     if (facing === 'down') {
       R(ctx, hx0 + 2, hTop + 5, 2, 2, '#ffffff');
       R(ctx, hx0 + hw - 4, hTop + 5, 2, 2, '#ffffff');

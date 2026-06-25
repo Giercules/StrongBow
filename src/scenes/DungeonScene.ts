@@ -59,7 +59,7 @@ import { ENEMIES, ENEMY_IDS } from '../data/enemies';
 type SkeletonType = 'tank' | 'archer' | 'mage' | 'thief';
 const SKELETON_INFO: Record<SkeletonType, { cls: HeroClassId; name: string; sheet: string; walk: string; attack: string }> = {
   tank: { cls: 'vanguard', name: 'skeleton knight', sheet: 'monster-skel_tank-sheet', walk: 'skel_tank-walk', attack: 'skel_tank-attack' },
-  archer: { cls: 'strider', name: 'skeleton archer', sheet: 'monster-skel_archer-sheet', walk: 'skel_archer-walk', attack: 'skel_archer-attack' },
+  archer: { cls: 'arcanist', name: 'skeleton archer', sheet: 'monster-skel_archer-sheet', walk: 'skel_archer-walk', attack: 'skel_archer-attack' },
   mage: { cls: 'arcanist', name: 'skeleton mage', sheet: 'monster-skel_mage-sheet', walk: 'skel_mage-walk', attack: 'skel_mage-attack' },
   thief: { cls: 'vanguard', name: 'skeleton thief', sheet: 'monster-skel_thief-sheet', walk: 'skel_thief-walk', attack: 'skel_thief-attack' },
 };
@@ -1014,7 +1014,7 @@ export class DungeonScene extends Phaser.Scene {
     this.allyGroup.add(h1);
     this.shadows.add(h1, 3);
     if (this.twoPlayer) {
-      const p2 = (this.registry.get('p2Class') as HeroClassId) ?? 'strider';
+      const p2 = (this.registry.get('p2Class') as HeroClassId) ?? 'thief';
       const h2 = new Hero(this, c.x + 14, c.y, p2, true, 2);
       this.players.push(h2);
       this.allyGroup.add(h2);
@@ -1440,7 +1440,7 @@ export class DungeonScene extends Phaser.Scene {
         return within(120).length >= 2;
       case 'arcanist':
         return within(300).length >= 2;
-      case 'strider': {
+      case 'thief': {
         const n = within(200);
         if (n.length === 0) return false;
         let best = n[0];
@@ -1727,7 +1727,7 @@ export class DungeonScene extends Phaser.Scene {
   }
 
   private abilityName(c: HeroClassId): string {
-    const names: Record<HeroClassId, string> = { vanguard: 'Seismic Slam', strider: 'Volley', arcanist: 'Meteor', warden: 'Sanctuary', necromancer: 'Raise Dead' };
+    const names: Record<HeroClassId, string> = { vanguard: 'Seismic Slam', thief: 'Shadow Flurry', arcanist: 'Meteor', warden: 'Sanctuary', necromancer: 'Raise Dead' };
     return names[c];
   }
 
@@ -1739,9 +1739,12 @@ export class DungeonScene extends Phaser.Scene {
     }
     const cx = h.x;
     const cy = h.y;
-    if (h.classId === 'strider') {
-      const base = Math.atan2(h.attackDir.y, h.attackDir.x);
-      for (let i = -3; i <= 3; i++) this.fireProjectile(h, { x: Math.cos(base + i * 0.16), y: Math.sin(base + i * 0.16) }, time);
+    if (h.classId === 'thief') {
+      // Shadow Flurry — a blur of dagger strikes in an arc ahead, each a backstab-grade hit
+      const fx = this.add.sprite(cx + h.attackDir.x * 16, cy + h.attackDir.y * 16, 'fx-slash').setDepth(cy + 8).setScale(2.0).setRotation(Math.atan2(h.attackDir.y, h.attackDir.x)).setTint(0xcfe0ff);
+      fx.play('fx-slash');
+      fx.once('animationcomplete', () => fx.destroy());
+      this.aoeHit(h, cx + h.attackDir.x * 18, cy + h.attackDir.y * 18, 60, Math.round(h.attackDamage().dmg * 2.2), time, 'shock', 60);
       audio.sfx('swing');
     } else if (h.classId === 'warden') {
       for (const a of this.allies) {
@@ -1974,6 +1977,17 @@ export class DungeonScene extends Phaser.Scene {
     for (const g of this.generators) if (g.alive) g.tick(time);
   }
 
+  /** A thief backstab lands when the foe is moving away (its back is turned). */
+  private isBackstab(ally: Hero, m: Monster): boolean {
+    const body = m.body as Phaser.Physics.Arcade.Body | null;
+    const tx = ally.x - m.x;
+    const ty = ally.y - m.y;
+    if (body && Math.hypot(body.velocity.x, body.velocity.y) > 8) {
+      return body.velocity.x * tx + body.velocity.y * ty < 0;
+    }
+    return Math.random() < 0.3; // stationary foe: a fair chance to slip behind
+  }
+
   private resolveCombat(time: number): void {
     for (const ally of this.allies) {
       if (!ally.alive) continue;
@@ -1985,11 +1999,14 @@ export class DungeonScene extends Phaser.Scene {
         for (const m of this.monsters) {
           if (!m.active || !m.alive) continue;
           if (this.inArc(ally.x, ally.y, m.x, m.y, dir, reach + 8)) {
-            const died = m.takeDamage(dmg, time);
-            this.floatDamage(m.x, m.y, dmg, crit);
+            const back = ally.classId === 'thief' && this.isBackstab(ally, m);
+            const d = back ? Math.round(dmg * 2.4) : dmg;
+            const died = m.takeDamage(d, time);
+            this.floatDamage(m.x, m.y, d, crit || back);
+            if (back) this.floatPickup(m.x, m.y - 18, 'BACKSTAB!', '#8affa0');
             if (died) this.onMonsterKilled(ally, m);
             else this.applyHitEffects(ally, m, dir.x, dir.y, crit, time);
-            if (ally.isPlayer) this.meleeImpact(ally, m, crit);
+            if (ally.isPlayer) this.meleeImpact(ally, m, crit || back);
           }
         }
         for (const g of this.generators) {
@@ -2062,7 +2079,7 @@ export class DungeonScene extends Phaser.Scene {
   }
 
   private fireProjectile(owner: Hero, dir: { x: number; y: number }, time: number): void {
-    const arrow = owner.classId === 'strider';
+    const arrow = owner.classId === 'thief';
     const tex = arrow ? 'fx-arrow' : 'fx-bolt';
     const speed = arrow ? 320 : 260;
     const spr = this.add
@@ -2924,7 +2941,7 @@ export class DungeonScene extends Phaser.Scene {
   private joinPlayer2(): void {
     if (this.twoPlayer || this.players.length >= 2 || !this.barkText) return;
     const comp = this.companions.pop();
-    const cls = comp ? comp.classId : 'strider';
+    const cls = comp ? comp.classId : 'thief';
     const x = comp ? comp.x : this.players[0].x + 14;
     const y = comp ? comp.y : this.players[0].y;
     if (comp) {
@@ -2956,7 +2973,7 @@ export class DungeonScene extends Phaser.Scene {
         const dy = src.y - tgt.y;
         if (dx * dx + dy * dy > r2) continue;
         if (src.classId === 'vanguard') tgt.auraDamageReduction = Math.max(tgt.auraDamageReduction, 0.15);
-        else if (src.classId === 'strider') tgt.auraCritBonus = Math.max(tgt.auraCritBonus, 0.08);
+        else if (src.classId === 'thief') tgt.auraCritBonus = Math.max(tgt.auraCritBonus, 0.08);
         else if (src.classId === 'arcanist') tgt.auraDamageMult = Math.max(tgt.auraDamageMult, 1.18);
       }
     }

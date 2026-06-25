@@ -223,7 +223,7 @@ export class TextureFactory {
     img('fx-edge', 740, 540, (c) => art.drawEdgeTint(c, 740, 540));
 
     // ---- heroes (outlined) ----
-    for (const cls of ['vanguard', 'strider', 'arcanist', 'warden', 'necromancer']) {
+    for (const cls of ['vanguard', 'thief', 'arcanist', 'warden', 'necromancer']) {
       if (provided.has(`hero-${cls}-sheet`)) continue;
       makeHeroSheet(scene, cls);
       count++;

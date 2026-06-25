@@ -10,13 +10,13 @@ export const HEROES: Record<HeroClassId, HeroClassDef> = {
     base: { maxHealth: 120, maxMana: 40, damage: 14, speed: 130, armor: 4, critChance: 0.02, fire: 0, regen: 0, luck: 2 },
     skillIds: ['van_bulwark', 'van_cleave', 'van_rampart'],
   },
-  strider: {
-    id: 'strider',
-    name: 'Strider',
-    role: 'Ranger',
-    blurb: 'Fleet and deadly. Strikes fast and slips danger.',
-    signature: 'High crit chance and speed.',
-    base: { maxHealth: 90, maxMana: 50, damage: 11, speed: 160, armor: 1, critChance: 0.08, fire: 0, regen: 0, luck: 6 },
+  thief: {
+    id: 'thief',
+    name: 'Thief',
+    role: 'Rogue',
+    blurb: 'A shadow with a blade. Strikes from the dark and is gone.',
+    signature: 'Backstabs for huge damage; sneaks past foes; picks locks.',
+    base: { maxHealth: 90, maxMana: 30, damage: 12, speed: 150, armor: 1, critChance: 0.10, fire: 0, regen: 0, luck: 7 },
     skillIds: ['str_eagle', 'str_swift', 'str_volley'],
   },
   arcanist: {
@@ -48,11 +48,11 @@ export const HEROES: Record<HeroClassId, HeroClassDef> = {
   },
 };
 
-export const ALL_CLASSES: HeroClassId[] = ['vanguard', 'strider', 'arcanist', 'warden', 'necromancer'];
+export const ALL_CLASSES: HeroClassId[] = ['vanguard', 'thief', 'arcanist', 'warden', 'necromancer'];
 
 export const HERO_WEAPON_ICON: Record<HeroClassId, string> = {
   vanguard: 'icon-sword',
-  strider: 'icon-bow',
+  thief: 'icon-sword',
   arcanist: 'icon-staff',
   warden: 'icon-mace',
   necromancer: 'icon-staff',

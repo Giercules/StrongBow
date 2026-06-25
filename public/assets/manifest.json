@@ -342,13 +342,6 @@
       "frameHeight": 24
     },
     {
-      "key": "hero-strider-sheet",
-      "path": "assets/sprites/elf.png",
-      "kind": "spritesheet",
-      "frameWidth": 20,
-      "frameHeight": 24
-    },
-    {
       "key": "hero-warden-sheet",
       "path": "assets/sprites/valkyrie.png",
       "kind": "spritesheet",

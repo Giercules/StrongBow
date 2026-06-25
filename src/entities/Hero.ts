@@ -208,13 +208,13 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
   }
 
   reach(): number {
-    const base: Record<HeroClassId, number> = { vanguard: 24, strider: 42, arcanist: 24, warden: 26, necromancer: 40 };
+    const base: Record<HeroClassId, number> = { vanguard: 24, thief: 30, arcanist: 24, warden: 26, necromancer: 40 };
     const cleave = this.classId === 'vanguard' ? this.skillSet.rank('van_cleave') * 4 : 0;
     return base[this.classId] + cleave;
   }
 
   attackCooldown(): number {
-    return Math.max(170, 360 - this.level * 5 - (this.classId === 'strider' ? 60 : 0));
+    return Math.max(170, 360 - this.level * 5 - (this.classId === 'thief' ? 60 : 0));
   }
 
   tryMelee(time: number): boolean {
@@ -258,6 +258,9 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
         .setTint(0xffffff);
       trail.play('fx-slash');
       trail.once('animationcomplete', () => trail.destroy());
+    } else if (this.classId === 'thief') {
+      // quick dagger thrust — a thin, fast forward stab
+      fx.setScale(1.0, 1.9).setTint(0xcfe0ff);
     } else {
       // warden mace bash
       fx.setScale(1.7).setTint(0xffcf5a);
@@ -297,7 +300,7 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
   }
 
   weaponStyle(): 'melee' | 'ranged' {
-    return this.classId === 'strider' || this.classId === 'arcanist' || this.classId === 'necromancer' ? 'ranged' : 'melee';
+    return this.classId === 'arcanist' || this.classId === 'necromancer' ? 'ranged' : 'melee';
   }
 
   /** Scene consumes a queued ranged shot (direction) to spawn a projectile. */
