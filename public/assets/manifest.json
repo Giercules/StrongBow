@@ -328,27 +328,6 @@
       "kind": "image"
     },
     {
-      "key": "hero-vanguard-sheet",
-      "path": "assets/sprites/warrior.png",
-      "kind": "spritesheet",
-      "frameWidth": 20,
-      "frameHeight": 24
-    },
-    {
-      "key": "hero-arcanist-sheet",
-      "path": "assets/sprites/wizard.png",
-      "kind": "spritesheet",
-      "frameWidth": 20,
-      "frameHeight": 24
-    },
-    {
-      "key": "hero-warden-sheet",
-      "path": "assets/sprites/valkyrie.png",
-      "kind": "spritesheet",
-      "frameWidth": 20,
-      "frameHeight": 24
-    },
-    {
       "key": "monster-grunt-sheet",
       "path": "assets/sprites/monster-grunt.png",
       "kind": "spritesheet",

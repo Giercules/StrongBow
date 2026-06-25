@@ -159,7 +159,7 @@ async function build() {
   dr.fillStyle = '#ffd24a'; dr.font = FT; dr.textBaseline = 'top';
   dr.fillText('STRONGBOW', 28, 20);
   dr.fillStyle = '#9aa6c8'; dr.font = '15px DejaVuSans';
-  dr.fillText("every sprite straight from the running game: your PNG hero/monster art + the engine's procedural sprites", 30, 74);
+  dr.fillText("every sprite straight from the running game — exactly what you see in-game", 30, 74);
   let y = 104;
   y = header('HEROES', y);                 y = grid(HEROES, y, 5, 92);
   y = header('REALM WARDENS (BOSSES)', y);  y = grid(BOSSES, y, 5, 96);
