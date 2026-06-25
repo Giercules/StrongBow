@@ -8,6 +8,14 @@ import type { Hero } from '../entities/Hero';
 const PANEL_W = 470;
 const PANEL_H = 520;
 
+const ABILITY_INFO: Record<string, string> = {
+  vanguard: 'Seismic Slam (F): a shockwave that flings foes back, stuns them, and steels you.',
+  thief: 'Sneak (F): melt into shadow — a strike from stealth is a guaranteed backstab. Backstabs foes whose backs are turned, and picks any lock for free.',
+  arcanist: 'Meteor (F): call a fiery blast down on the nearest cluster, burning everything caught in it.',
+  warden: 'Sanctuary (F): heal the whole party and smite the foes pressing around you.',
+  necromancer: 'Raise Dead (hold F): a radial to raise Tank, Archer, Mage or Thief skeletons; at high level, bind Beasts instead.',
+};
+
 // "Growth" overlay - spend skill points (1-3) and attribute points (4-7).
 export class SkillTreeUI {
   private scene: Phaser.Scene;
@@ -111,7 +119,7 @@ export class SkillTreeUI {
     this.label(left, y0 + 34, `SKILLS - ${hero.skillSet.points} pts`, hero.skillSet.points > 0 ? C.coinHi : C.inkDim, 12, true);
     const skills = hero.skillSet.list();
     skills.forEach((sk, i) => {
-      const yy = y0 + 54 + i * 52;
+      const yy = y0 + 54 + i * 50;
       this.row(yy, `${i + 1}`, sk.name, sk.description, hero.skillSet.rank(sk.id), sk.maxRank, hero.skillSet.canUpgrade(sk.id), () => {
         if (hero.skillSet.upgrade(sk.id)) {
           hero.refreshStats();
@@ -121,11 +129,11 @@ export class SkillTreeUI {
       });
     });
 
-    const attrsY = y0 + 54 + skills.length * 52 + 8;
+    const attrsY = y0 + 54 + skills.length * 50 + 8;
     this.label(left, attrsY, `ATTRIBUTES - ${hero.attributes.points} pts`, hero.attributes.points > 0 ? C.coinHi : C.inkDim, 12, true);
     const attrs = hero.attributes.list();
     attrs.forEach((at, i) => {
-      const yy = attrsY + 20 + i * 52;
+      const yy = attrsY + 20 + i * 50;
       this.row(yy, `${i + 1 + skills.length}`, at.name, at.description, hero.attributes.rank(at.id), at.maxRank, hero.attributes.canUpgrade(at.id), () => {
         if (hero.attributes.upgrade(at.id)) {
           hero.refreshStats();
@@ -134,5 +142,17 @@ export class SkillTreeUI {
         }
       });
     });
+
+    const abilityY = attrsY + 20 + attrs.length * 50 + 4;
+    this.label(left, abilityY, 'SIGNATURE ABILITY', C.coinHi, 12, true);
+    const blurb = this.scene.add
+      .text(left, abilityY + 16, ABILITY_INFO[hero.classId] ?? '', {
+        fontFamily: 'MedievalSharp, "Trebuchet MS", cursive',
+        fontSize: '10px',
+        color: C.ink,
+        wordWrap: { width: PANEL_W - 44 },
+      })
+      .setOrigin(0, 0);
+    addPinned(this.content!, blurb);
   }
 }
