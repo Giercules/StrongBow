@@ -277,6 +277,7 @@ export class DungeonScene extends Phaser.Scene {
   private portals: { sprite: Phaser.GameObjects.Sprite; realmId: string; label: string; x: number; y: number }[] = [];
   private doors: { x: number; y: number; interiorId: string; label: string }[] = [];
   private returnPortal: { x: number; y: number } | null = null;
+  private sneakGfx?: Phaser.GameObjects.Graphics;
   private merchants: { sprite: Phaser.GameObjects.Sprite; shop: ShopKind; label: string; x: number; y: number }[] = [];
   private townLife: Phaser.GameObjects.Sprite[] = [];
 
@@ -1064,6 +1065,7 @@ export class DungeonScene extends Phaser.Scene {
         this.handlePickups();
       } else {
         this.updateMonsters(time, delta);
+        this.updateSneak(time);
         this.updateGenerators(time);
         this.resolveCombat(time);
         this.updateProjectiles(time, delta);
@@ -1514,6 +1516,10 @@ export class DungeonScene extends Phaser.Scene {
     const down = Phaser.Input.Keyboard.JustDown(this.abilityKey) || this.input2.padJustDown('p1', 'ability');
     const held = this.abilityKey.isDown || this.input2.padAbilityDown('p1');
     const up = Phaser.Input.Keyboard.JustUp(this.abilityKey) || this.input2.padJustUp('p1', 'ability');
+    if (p1.classId === 'thief') {
+      if (down) this.toggleSneak(p1);
+      return;
+    }
     if (p1.classId !== 'necromancer') {
       if (down && p1.canAbility(time)) {
         this.useAbility(p1, time);
@@ -1924,7 +1930,7 @@ export class DungeonScene extends Phaser.Scene {
   }
 
   private updateMonsters(time: number, delta: number): void {
-    const targets = this.allies.filter((a) => a.alive);
+    const targets = this.allies.filter((a) => a.alive && (!a.sneaking || time <= a.spottedUntil));
     const live: Monster[] = [];
     for (const m of this.monsters) {
       if (m.active && m.alive) {
@@ -1978,8 +1984,55 @@ export class DungeonScene extends Phaser.Scene {
     for (const g of this.generators) if (g.alive) g.tick(time);
   }
 
+  private toggleSneak(h: Hero): void {
+    h.sneaking = !h.sneaking;
+    if (h.sneaking) {
+      h.spottedUntil = 0;
+      audio.sfx('ui_move');
+      this.showBark('You melt into the shadows...', 2000, 'system');
+      const puff = this.add.sprite(h.x, h.y, 'fx-magic').setDepth(h.y + 8).setScale(1.7).setTint(0x4a3a66);
+      puff.play('fx-magic');
+      puff.once('animationcomplete', () => puff.destroy());
+    } else {
+      audio.sfx('ui_select');
+      this.showBark('You step from the shadows.', 1800, 'system');
+    }
+  }
+
+  /** Sneak: shadow visual, level-scaled enemy detection, and slow skill growth. */
+  private updateSneak(time: number): void {
+    if (!this.sneakGfx) this.sneakGfx = this.add.graphics().setDepth(DEPTH.OVERLAY - 20);
+    const g = this.sneakGfx;
+    g.clear();
+    const liveMon = this.monsters.filter((m) => m.active && m.alive);
+    for (const a of this.players) {
+      if (!a.alive || !a.sneaking) continue;
+      const pulse = 0.5 + 0.5 * Math.sin(time / 220);
+      g.fillStyle(0x140e26, 0.4 + 0.18 * pulse);
+      g.fillEllipse(a.x, a.y + 4, 28 + 5 * pulse, 15 + 2 * pulse);
+      g.fillStyle(0x6a4f9a, 0.16 * pulse);
+      g.fillEllipse(a.x, a.y - 2, 20, 26);
+      if (Math.random() < 0.01 && a.gainSneak(1)) this.showBark(`Your Sneak sharpens — Lv ${a.sneakLevel}.`, 1800, 'system');
+      if (time > a.spottedUntil) {
+        for (const m of liveMon) {
+          const dd = Phaser.Math.Distance.Between(a.x, a.y, m.x, m.y);
+          if (dd < 72) {
+            const ch = 0.035 * (1 - Math.min(0.85, a.sneakLevel * 0.06)) * (1 - dd / 72);
+            if (Math.random() < ch) {
+              a.spottedUntil = time + 2600;
+              this.showBark('You have been spotted!', 1600, 'combat');
+              audio.sfx('hurt');
+              break;
+            }
+          }
+        }
+      }
+    }
+  }
+
   /** A thief backstab lands when the foe is moving away (its back is turned). */
   private isBackstab(ally: Hero, m: Monster): boolean {
+    if (ally.sneaking) return true; // striking from stealth is always a backstab
     const body = m.body as Phaser.Physics.Arcade.Body | null;
     const tx = ally.x - m.x;
     const ty = ally.y - m.y;
@@ -2014,6 +2067,7 @@ export class DungeonScene extends Phaser.Scene {
           if (!g.alive) continue;
           if (this.inArc(ally.x, ally.y, g.x, g.y, dir, reach + 8)) g.takeDamage(dmg, time);
         }
+        if (ally.classId === 'thief' && ally.sneaking) ally.spottedUntil = time + 2200; // the strike reveals you
       }
       if (ally.consumeCast()) this.castMagic(ally, time);
       const shot = ally.consumeShot();

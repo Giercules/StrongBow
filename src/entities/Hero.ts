@@ -28,6 +28,7 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
   sneakLevel = 0;
   lockpickLevel = 0;
   sneaking = false;
+  spottedUntil = 0;
   private charismaXP = 0;
   private sneakXP = 0;
   private lockpickXP = 0;
@@ -196,6 +197,7 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
 
     if (time < this.hurtUntil) this.setAlpha(0.5);
     else if (!this.attacking) this.setAlpha(1);
+    if (this.sneaking && this.alive) this.setAlpha(0.4); // melt into shadow
 
     if (this.alive) {
       if (this.stats.regen > 0 && this.health < this.stats.maxHealth) {
