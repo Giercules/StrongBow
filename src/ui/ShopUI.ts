@@ -245,8 +245,8 @@ export class ShopUI {
   }
 
   private button(x: number, y: number, w: number, h: number, label: string, enabled: boolean, fn: () => void): void {
-    const cont = this.scene.add.container(x, y);
-    const g = this.scene.add.graphics();
+    const cont = this.scene.add.container(x, y).setScrollFactor(0);
+    const g = this.scene.add.graphics().setScrollFactor(0);
     g.fillStyle(hx(enabled ? PAGE : '#cbb98f'), 1);
     g.fillRoundedRect(-w / 2, -h / 2, w, h, 5);
     g.lineStyle(2, hx(GOLD_DK), 1);
@@ -256,12 +256,16 @@ export class ShopUI {
       this.scene.add
         .text(0, 0, label, { fontFamily: SERIF, fontSize: '13px', color: enabled ? INK : '#8a7a55', fontStyle: 'bold' })
         .setOrigin(0.5)
+        .setScrollFactor(0)
     );
     if (enabled) {
-      const z = this.scene.add.zone(0, 0, w, h).setInteractive({ useHandCursor: true });
+      // The interactive zone MUST be pinned individually — container children do
+      // not inherit scrollFactor(0), so an un-pinned zone's hit area drifts with
+      // the camera scroll (e.g. inside the centred shop interiors) and clicks miss.
+      const z = this.scene.add.zone(0, 0, w, h).setScrollFactor(0).setInteractive({ useHandCursor: true });
       z.on('pointerdown', fn);
       cont.add(z);
     }
-    this.pin(cont);
+    this.container!.add(cont);
   }
 }
