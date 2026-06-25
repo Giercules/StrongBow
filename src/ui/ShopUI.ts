@@ -45,6 +45,7 @@ const STOCK: Record<Exclude<ShopKind, 'home' | 'guild'>, StockEntry[]> = {
     { id: 'iron_greaves', price: 85 },
     { id: 'leather_gloves', price: 70 },
     { id: 'traveler_boots', price: 80 },
+    { id: 'dungeon_key', price: 40 },
   ],
   apothecary: [
     { id: 'health_potion', price: 30 },
@@ -142,7 +143,8 @@ export class ShopUI {
       return;
     }
     this.buyer.inventory.gold -= entry.price;
-    this.buyer.inventory.add({ ...def, name: entry.name ?? def.name });
+    if (entry.id === 'dungeon_key') this.buyer.inventory.addKey(1);
+    else this.buyer.inventory.add({ ...def, name: entry.name ?? def.name });
     this.buyer.refreshStats();
     this.status = `Bought ${entry.name ?? def.name}.`;
     audio.sfx('chest');

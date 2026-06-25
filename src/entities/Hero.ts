@@ -23,6 +23,14 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
   alive = true;
   /** Optional monster-style skin (non-directional walk/attack anims) for summoned allies. */
   skin?: { walk: string; attack: string };
+  // use-leveled rogue/social skills (Charisma via trade, Sneak + Lockpick via use)
+  charisma = 0;
+  sneakLevel = 0;
+  lockpickLevel = 0;
+  sneaking = false;
+  private charismaXP = 0;
+  private sneakXP = 0;
+  private lockpickXP = 0;
 
   skillSet: SkillSet;
   attributes: AttributeSet;
@@ -345,6 +353,23 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
   /** Necromancer servant cap: starts at 2, grows to 5 with level, + summon affixes. */
   maxSummons(): number {
     return Math.min(5, 2 + Math.floor((this.level - 1) / 3)) + (this.stats.summonBonus ?? 0);
+  }
+
+  /** Use-based progression — returns true on a level-up. */
+  gainCharisma(n: number): boolean {
+    this.charismaXP += n;
+    if (this.charismaXP >= (this.charisma + 1) * 2) { this.charismaXP = 0; this.charisma++; return true; }
+    return false;
+  }
+  gainSneak(n: number): boolean {
+    this.sneakXP += n;
+    if (this.sneakXP >= (this.sneakLevel + 1) * 6) { this.sneakXP = 0; this.sneakLevel++; return true; }
+    return false;
+  }
+  gainLockpick(n: number): boolean {
+    this.lockpickXP += n;
+    if (this.lockpickXP >= (this.lockpickLevel + 1) * 3) { this.lockpickXP = 0; this.lockpickLevel++; return true; }
+    return false;
   }
   canAbility(time: number): boolean {
     return this.alive && time >= this.nextAbilityAt;

@@ -189,6 +189,15 @@ export const ITEMS: Record<string, ItemDefinition> = {
     scroll: 'renewal',
     flavor: 'Floods the veins with cold, blue power.',
   },
+  dungeon_key: {
+    id: 'dungeon_key',
+    name: 'Iron Key',
+    slot: 'consumable',
+    rarity: 'common',
+    icon: 'key',
+    mods: {},
+    flavor: 'Opens one locked chest in the depths.',
+  },
 };
 
 export const ALL_ITEMS = Object.values(ITEMS);

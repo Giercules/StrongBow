@@ -73,7 +73,7 @@ import { GameOverUI } from '../ui/GameOverUI';
 import { CharacterSheetUI } from '../ui/CharacterSheetUI';
 import { GameManualUI } from '../ui/GameManualUI';
 
-interface Chest { sprite: Phaser.GameObjects.Image; itemId: string; opened: boolean; x: number; y: number; }
+interface Chest { sprite: Phaser.GameObjects.Image; itemId: string; opened: boolean; locked: boolean; x: number; y: number; }
 interface Shrine { sprite: Phaser.GameObjects.Image; used: boolean; x: number; y: number; }
 interface Pickup { sprite: Phaser.GameObjects.Image | Phaser.GameObjects.Sprite; kind: 'coin' | 'food' | 'potion' | 'key' | 'item'; value: number; itemId?: string; id?: number; }
 interface LockedDoor { rect: Phaser.GameObjects.Rectangle; sprite: Phaser.GameObjects.Image; x: number; y: number; open: boolean; }
@@ -920,7 +920,8 @@ export class DungeonScene extends Phaser.Scene {
         case 'chest': {
           const spr = this.add.image(c.x, c.y, 'chest').setDepth(c.y);
           this.shadows.add(spr, 4);
-          this.chests.push({ sprite: spr, itemId: sp.itemId ?? 'health_potion', opened: false, x: sp.x, y: sp.y });
+          spr.setTint(0xbcd0e8); // locked chests read cooler/steely until opened
+          this.chests.push({ sprite: spr, itemId: sp.itemId ?? 'health_potion', opened: false, locked: true, x: sp.x, y: sp.y });
           break;
         }
         case 'shrine': {
@@ -2840,8 +2841,25 @@ export class DungeonScene extends Phaser.Scene {
       if (ch.opened) continue;
       const c = this.tileCenter(ch.x, ch.y);
       if (Phaser.Math.Distance.Between(player.x, player.y, c.x, c.y) < 26) {
+        if (ch.locked) {
+          if (player.classId === 'thief') {
+            ch.locked = false;
+            if (player.gainLockpick(1)) this.showBark(`Lockpicking improved — Lv ${player.lockpickLevel}.`, 2200, 'system');
+            this.showBark('You slip a pick into the lock... *click*.', 2200, 'event');
+            audio.sfx('key');
+          } else if (player.inventory.keys > 0) {
+            player.inventory.keys -= 1;
+            ch.locked = false;
+            this.showBark('You turn an iron key in the lock.', 2200, 'event');
+            audio.sfx('key');
+          } else {
+            this.showBark('The chest is locked — you need a key (or a thief to pick it).', 2800, 'system');
+            audio.sfx('ui_move');
+            return;
+          }
+        }
         ch.opened = true;
-        ch.sprite.setTexture('chest-open');
+        ch.sprite.setTexture('chest-open').clearTint();
         // Chests reward themed, graded gear (Honed floor) tuned by the opener's luck.
         const item = rollDrop(this.level.theme ?? 'crypt', player.stats.luck ?? 0, { floor: 'honed' });
         player.inventory.add(item);
