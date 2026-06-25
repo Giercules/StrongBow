@@ -16,7 +16,7 @@ TypeScript + Vite. All original art and audio, generated in code at runtime.
 > No longer. The spawning altars are bleeding the dead back into the light, and
 > one by one the lanterns of the realms are going out. In **Hearthwatch**, the
 > last free town above the pit, five unlikely champions answer a call the rest
-> of the world is too afraid to hear — a barbarian, a drow ranger, an aging
+> of the world is too afraid to hear — a barbarian, a hooded thief, an aging
 > wizard, a warden of the failing light, and a necromancer who turns the dead
 > against their master.
 >
@@ -84,7 +84,7 @@ switches to the controller layout when a pad is connected. The **Necromancer**
 **Settings (O)** has tabs for **Audio** (mute, volumes, **music-track** picker),
 **View** (**sprite size**, **show-map**), **AI** (provider), **Allies** (companion
 behaviour), **Keys** (rebind anything; shows the gamepad mapping when connected),
-**Cheats** (incl. **Difficulty: easy / moderate / hard**), and the **Manual**.
+**Cheats** (incl. **Difficulty: easy / moderate / hard**, plus **loot** and **gold drop-rate** dials), and the **Manual**.
 
 ## Hearthwatch — the town hub
 
@@ -152,8 +152,10 @@ active ability (**F**):
 
 - **Vanguard** — a Conan-style barbarian with a great broadsword. Tanks blows;
   **Seismic Slam** flings foes back, stuns them, and steels the Vanguard.
-- **Strider** — a Drizzt-style drow ranger with a bow. High crit/speed;
-  **Volley** looses a wide seven-arrow fan.
+- **Thief** — a hooded DnD-style rogue with a dagger who strikes from the dark.
+  **Sneak (F)** melts him into shadow (foes may still spot him — less so as his
+  Sneak grows); a strike from stealth, or at any foe whose **back is turned**, is
+  a guaranteed **backstab** (2.4×). He also **picks any lock for free**.
 - **Arcanist** — a Merlin-style wizard with a gem staff. Deep mana + fire magic;
   **Meteor** drops a fiery blast on the nearest cluster and Burns it.
 - **Warden** — a hooded holy cleric with a mace and sacred light. Steady regen;
@@ -179,6 +181,8 @@ you** if they fall too far behind.
   with a punchy "!".
 - **On-hit elements:** fire weapons **Burn** (damage over time), magic **Chills**
   (slows), critical hits **Shock** (extra damage taken).
+- **Backstab** — the Thief hits for **2.4×** when he strikes a foe from behind or
+  out of stealth, with a satisfying BACKSTAB! pop.
 - **Champion enemies** — gold-glowing elites with ~2.3× HP and harder hits that
   always drop strong themed gear.
 - **Bosses** cycle telegraphed patterns — radial volleys, summons, flame novas —
@@ -191,19 +195,29 @@ you** if they fall too far behind.
   with more affixes, including **class-ability affixes**: *of the Legion* (+1
   summon), *of Alacrity* (−ability cooldown), *of Arcing* (spells chain). **Hover
   any item** to read its full stats.
+- **Chests are locked.** Opening one costs an **Iron Key** (bought at the
+  blacksmith), consumed per chest — unless you're the **Thief**, who picks any
+  lock for free and sharpens his **Lockpicking** with each.
 - The **Fortune** attribute (Luck) raises drop rate and tilts rolls toward the
   higher grades.
 - **Growth (K):** raise class skills and the attributes Might / Vitality / Focus
-  / Fortune. **Inventory (I):** equip (1-9), unequip (U), drink (C), page (←/→),
+  / Fortune; the panel also **names each class's signature ability**. **Inventory
+  (I):** equip (1-9), unequip (U), drink (C), page (←/→),
   sort (S) — the bag is unbounded and paginates. **Character sheet (P):** full
   stats and gear.
 
 ## Shops & economy
 
-Spend the gold you earn in the realms back in Hearthwatch. Use a shopkeeper to
-open their stall, browse stock with prices and stats, and **buy with gold**;
-purchases drop straight into your bag (auto-equipping empty slots). The Lodge
-restores the whole party for free between descents.
+New heroes start with **100 gold, a health and a mana potion**. Spend the coin you
+earn back in Hearthwatch: each keeper's stall has a **BUY / SELL** toggle — buy
+gear, potions, **scrolls** (including a **Town Portal** that whisks you home and
+opens a return gate back to your exact spot in the depths) and **Iron Keys**, or
+**sell** bag loot for gold.
+
+**Charisma** rises every time you buy or sell. It steadily **lowers buy prices**
+(up to −40%) and **raises sell payouts** (up to +50%), and unlocks a once-per-visit
+**Haggle** — gamble for an extra discount (the keeper might scoff and trim it). The
+Lodge still restores the whole party for free between descents.
 
 ## Examine anything
 

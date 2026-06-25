@@ -384,7 +384,7 @@ Defaults below; all rebindable in Settings → Controls.
 | ID | Name | Role | HP | MP | DMG | SPD | Signature |
 |----|------|------|----|----|-----|-----|-----------|
 | vanguard | Vanguard | Tank | 120 | 40 | 14 | 130 | armor 4 |
-| strider | Strider | Ranger | 90 | 50 | 11 | 160 | crit 8% |
+| thief | Thief | Rogue | 90 | 30 | 12 | 150 | crit 10%, backstab/sneak/lockpick |
 | arcanist | Arcanist | Mage | 70 | 100 | 8 | 120 | fire 6 |
 | warden | Warden | Support | 100 | 80 | 10 | 125 | regen 0.5 |
 
@@ -400,7 +400,7 @@ Skills: 3 per class — see `src/data/skills.ts`. Attributes: 3 per hero — see
 | crypt_knife | weapon | +7 damage, +3% crit (level 1 pickup) |
 | rusty_blade | weapon | +4 damage |
 | crypt_cleaver | weapon | +12 damage, cleave effect (vanguard) |
-| windpiercer_bow | weapon | +9 damage, attack speed (strider) |
+| shadow_fang | weapon | +9 damage, crit (thief dagger) |
 | ember_staff | weapon | +8 damage, fire, +mana (arcanist) |
 | grave_plate | chest | +12 armor, +25 HP, thorns |
 | amulet_of_vitality | amulet | +20 HP, regen |

@@ -31,7 +31,7 @@ falls back to the built-in art.
 
 | Asset | Texture key | Frame | Frames | Strip (px) | Frame layout (order) |
 |---|---|---|---|---|---|
-| Hero (4 classes) | `hero-vanguard-sheet`, `hero-strider-sheet`, `hero-arcanist-sheet`, `hero-warden-sheet` | 40×48 | 12 | 480×48 | 3 facings × 4 poses. **0–3 = facing DOWN, 4–7 = UP, 8–11 = SIDE** (side faces right; it's auto-flipped for left). Within each block: **idle, walk-A, walk-B, attack**. |
+| Hero (4 classes) | `hero-vanguard-sheet`, `hero-thief-sheet`, `hero-arcanist-sheet`, `hero-warden-sheet` | 40×48 | 12 | 480×48 | 3 facings × 4 poses. **0–3 = facing DOWN, 4–7 = UP, 8–11 = SIDE** (side faces right; it's auto-flipped for left). Within each block: **idle, walk-A, walk-B, attack**. |
 | Regular monster | `monster-grunt-sheet`, `-ghost-`, `-demon-`, `-imp-`, `-brute-`, `-bone_archer-`, plus themed: `-frost_shade-`, `-rime_archer-`, `-plague_ooze-`, `-spore_imp-`, `-gear_knight-`, `-brass_sentinel-`, `-gladiator-`, `-mire_lurker-`, `-storm_wisp-`, `-sky_lancer-`, `-shadow_stalker-`, `-void_imp-`, `-hollow_knight-` | 44×44 | 4 | 176×44 | **0,1,2 = walk cycle, 3 = attack pose** (single-facing; faces right, auto-flipped). |
 | Boss | `monster-boss-sheet` (Grave Warden), `monster-molten_colossus-sheet`, `-rime_cantor-`, `-rot_sovereign-`, `-brass_magnus-`, `-arena_champion-`, `-mire_leviathan-`, `-tempest_herald-`, `-umbral_devourer-`, `-hollow_king-` | 80×80 | 4 | 320×80 | **0,1,2 = walk, 3 = attack.** |
 | NPC elder (town) | `npc-elder` | 40×48 | 1 | 40×48 | single standing frame. |
@@ -126,7 +126,7 @@ Save as `bird.png`, override `monster-imp-sheet` (or any `monster-*-sheet`).
 > attack); 4–7 same poses facing away; 8–11 same poses in profile facing right. Feet
 > near the bottom of each frame, consistent position across frames.
 
-Save and override `hero-strider-sheet` (`frameWidth: 40, frameHeight: 48`).
+Save and override `hero-thief-sheet` (`frameWidth: 40, frameHeight: 48`).
 
 ---
 

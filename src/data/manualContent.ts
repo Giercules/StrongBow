@@ -163,6 +163,7 @@ export const MANUAL_PAGES: ManualPage[] = [
       'Every run begins — and every cleared realm returns you to — HEARTHWATCH, the last free town above the Undermaw. Lawns and cobbled roads ring a central fountain inside a moat crossed by four timber bridges, with a gatehouse at each point. Butterflies and birds flit overhead while the townsfolk wander, ready to be hailed for a tale.',
       'Its timber-framed buildings now have proper pitched roofs, glazed windows and doors — and you can step INSIDE. Walk to a building door and press Use to enter; use the inner door to step back out to the square.',
       'BRUNDA\'S FORGE (weapons & armor), THE GREEN VIAL (apothecary), THE GILDED TANKARD (tavern), and YOUR LODGE (rest to fully restore the party, free) keep their keepers within. The FIGHTERS GUILD is where you hire allies for your descent.',
+      'Each keeper has a BUY / SELL toggle: sell bag loot for coin, or buy gear, potions, SCROLLS (incl. a Town Portal home and back) and IRON KEYS. CHARISMA rises as you trade — it lowers buy prices, raises sell payouts, and unlocks a once-per-visit HAGGLE for an extra discount.',
       'Ten descent gates ring the square, one per realm. A gate glows when unlocked and stays sealed until you clear the realm before it; step on a gate and press Use to descend. Gold, gear, levels and unlocked gates persist across every town and realm.',
     ],
   },
@@ -172,8 +173,8 @@ export const MANUAL_PAGES: ManualPage[] = [
     body: [
       'Move with WASD (P1) or the Arrow keys (P2), or hold the left mouse button to walk toward the cursor. Or plug in a GAMEPAD: left stick / D-Pad moves, A attacks, X magic, B use, Y dodge, RB ability.',
       'Hold attack to strike — each hero differs: Vanguard cleaves, Warden bludgeons, Thief looses arrows, Arcanist and Necromancer hurl bolts.',
-      'Tap magic for an attack (costs mana). Use / interact opens chests and lights shrines.',
-      'Press SPACE to dodge-roll (brief invulnerability), and F for your class ability: Vanguard Seismic Slam, Thief Volley, Arcanist Meteor, Warden Sanctuary. The Necromancer instead HOLDS the ability to open a radial — aim with mouse or stick to pick a Tank, Archer, Mage or Thief skeleton; a quick tap raises the last-chosen servant.',
+      'Tap magic for an attack (costs mana). Use / interact opens chests (all LOCKED now — spend an Iron Key, or play the Thief to pick them free) and lights shrines.',
+      'Press SPACE to dodge-roll (brief invulnerability), and F for your class ability: Vanguard Seismic Slam, Arcanist Meteor, Warden Sanctuary. The Thief toggles SNEAK (melt into shadow; a strike from stealth or at a turned-away foe is a guaranteed BACKSTAB for 2.4x). The Necromancer HOLDS the ability for a radial — aim with mouse or stick to pick a Tank, Archer, Mage or Thief skeleton (a quick tap raises the last-chosen).',
     ],
   },
   {
