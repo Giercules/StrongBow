@@ -1,7 +1,7 @@
 {
   "name": "strongbow",
   "version": "0.1.0",
-  "description": "StrongBow — a browser-based, top-down arcade dungeon crawler with stunning procedural pixel art and an epic procedural soundtrack.",
+  "description": "StrongBow \u2014 a browser-based, top-down arcade dungeon crawler with stunning procedural pixel art and an epic procedural soundtrack.",
   "type": "module",
   "scripts": {
     "dev": "concurrently -n vite,api -c green,cyan \"vite\" \"tsx watch server/index.ts\"",
@@ -11,12 +11,14 @@
     "dev:kill": "npx --yes kill-port 3847 5173 5174 5175",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview --port 4173",
-    "start:server": "tsx server/index.ts"
+    "start:server": "tsx server/index.ts",
+    "atlas": "esbuild tools/_artbundle.ts --bundle --format=cjs --platform=node --outfile=tools/_artbundle.cjs && node tools/render_atlas.cjs"
   },
   "dependencies": {
     "phaser": "^4.2.0"
   },
   "devDependencies": {
+    "@napi-rs/canvas": "^1.0.1",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/node": "^26.0.0",

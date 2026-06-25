@@ -7,3 +7,6 @@ dist-ssr
 .DS_Store
 *.log
 .vite
+
+# atlas generator build artifact
+tools/_artbundle.cjs
