@@ -2306,12 +2306,12 @@ export class DungeonScene extends Phaser.Scene {
     const spr = this.add.image(x, y, item.icon).setDepth(y);
     const glow = this.add
       .image(x, y, 'fx-glow-warm')
-      .setScale(2.0)
-      .setAlpha(0.6)
+      .setScale(1.7)
+      .setAlpha(0.3)
       .setBlendMode(Phaser.BlendModes.ADD)
       .setDepth(y - 1)
       .setTint(tint);
-    this.tweens.add({ targets: glow, alpha: { from: 0.6, to: 0.38 }, scale: { from: 2.0, to: 1.6 }, duration: 1100, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+    this.tweens.add({ targets: glow, alpha: { from: 0.3, to: 0.18 }, scale: { from: 1.7, to: 1.4 }, duration: 1100, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
     // rarity beam — a SOFT coloured light shaft (a stretched glow, no hard edges)
     // so good drops read pleasingly from across the room.
     const beam = this.add
@@ -2319,17 +2319,17 @@ export class DungeonScene extends Phaser.Scene {
       .setTint(tint)
       .setBlendMode(Phaser.BlendModes.ADD)
       .setDepth(y - 2)
-      .setAlpha(0.5)
-      .setScale(0.85, 3.0);
-    this.tweens.add({ targets: beam, alpha: { from: 0.5, to: 0.72 }, scaleX: { from: 0.85, to: 1.05 }, duration: 1200, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+      .setAlpha(0.26)
+      .setScale(0.8, 2.8);
+    this.tweens.add({ targets: beam, alpha: { from: 0.26, to: 0.4 }, scaleX: { from: 0.8, to: 0.98 }, duration: 1200, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
     const halo = this.add
       .image(x, y - 26, 'fx-glow-white')
       .setTint(tint)
       .setBlendMode(Phaser.BlendModes.ADD)
       .setDepth(y - 2)
-      .setAlpha(0.4)
-      .setScale(1.3);
-    this.tweens.add({ targets: halo, alpha: { from: 0.4, to: 0.15 }, scale: { from: 1.0, to: 1.6 }, duration: 1600, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+      .setAlpha(0.18)
+      .setScale(1.2);
+    this.tweens.add({ targets: halo, alpha: { from: 0.18, to: 0.07 }, scale: { from: 1.0, to: 1.5 }, duration: 1600, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
     spr.once('destroy', () => {
       glow.destroy();
       beam.destroy();
