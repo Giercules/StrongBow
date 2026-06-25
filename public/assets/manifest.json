@@ -326,6 +326,90 @@
       "key": "bog-stump",
       "path": "assets/sprites/bog-stump-hd.png",
       "kind": "image"
+    },
+    {
+      "key": "hero-vanguard-sheet",
+      "path": "assets/sprites/warrior.png",
+      "kind": "spritesheet",
+      "frameWidth": 20,
+      "frameHeight": 24
+    },
+    {
+      "key": "hero-arcanist-sheet",
+      "path": "assets/sprites/wizard.png",
+      "kind": "spritesheet",
+      "frameWidth": 20,
+      "frameHeight": 24
+    },
+    {
+      "key": "hero-strider-sheet",
+      "path": "assets/sprites/elf.png",
+      "kind": "spritesheet",
+      "frameWidth": 20,
+      "frameHeight": 24
+    },
+    {
+      "key": "hero-warden-sheet",
+      "path": "assets/sprites/valkyrie.png",
+      "kind": "spritesheet",
+      "frameWidth": 20,
+      "frameHeight": 24
+    },
+    {
+      "key": "monster-grunt-sheet",
+      "path": "assets/sprites/monster-grunt.png",
+      "kind": "spritesheet",
+      "frameWidth": 22,
+      "frameHeight": 22
+    },
+    {
+      "key": "monster-ghost-sheet",
+      "path": "assets/sprites/monster-ghost.png",
+      "kind": "spritesheet",
+      "frameWidth": 22,
+      "frameHeight": 22
+    },
+    {
+      "key": "monster-demon-sheet",
+      "path": "assets/sprites/monster-demon.png",
+      "kind": "spritesheet",
+      "frameWidth": 22,
+      "frameHeight": 22
+    },
+    {
+      "key": "monster-brute-sheet",
+      "path": "assets/sprites/monster-brute.png",
+      "kind": "spritesheet",
+      "frameWidth": 22,
+      "frameHeight": 22
+    },
+    {
+      "key": "monster-imp-sheet",
+      "path": "assets/sprites/monster-imp.png",
+      "kind": "spritesheet",
+      "frameWidth": 22,
+      "frameHeight": 22
+    },
+    {
+      "key": "monster-bone_archer-sheet",
+      "path": "assets/sprites/monster-bone_archer.png",
+      "kind": "spritesheet",
+      "frameWidth": 22,
+      "frameHeight": 22
+    },
+    {
+      "key": "monster-boss-sheet",
+      "path": "assets/sprites/monster-grave_warden.png",
+      "kind": "spritesheet",
+      "frameWidth": 40,
+      "frameHeight": 40
+    },
+    {
+      "key": "monster-molten_colossus-sheet",
+      "path": "assets/sprites/monster-molten_colossus.png",
+      "kind": "spritesheet",
+      "frameWidth": 40,
+      "frameHeight": 40
     }
   ]
 }

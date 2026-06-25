@@ -36,28 +36,40 @@ async function png(entry) {
   return cv;
 }
 
+// override-aware sprite-sheet frame: use the manifest PNG (frame 0) if the key
+// is overridden in-game, else render the procedural drawer — so the atlas always
+// shows exactly what the engine displays.
+async function sheetSprite(key, fw, fh, procFn, shade) {
+  if (OVERRIDE[key]) return await png(OVERRIDE[key]);
+  return proc(fw, fh, procFn, shade);
+}
 const heroDraw = (cls) => (ctx) => art.drawHumanoid(ctx, 0, cls, HERO_RAMPS[cls], 'down', 0);
 const monDraw = (drawer, ramp) => (ctx) => art[drawer](ctx, 0, 0, MONSTER_RAMPS[ramp]);
 const skelDraw = (ramp, role) => (ctx) => art.drawSkeletonServant(ctx, 0, 0, MONSTER_RAMPS[ramp], role);
 
 async function build() {
-  const HEROES = [['Vanguard','vanguard'],['Strider','strider'],['Arcanist','arcanist'],['Warden','warden'],['Necromancer','necromancer']]
-    .map(([n,c]) => [n, proc(40,48, heroDraw(c), true)]);
+  const HEROES = [];
+  for (const [n,c] of [['Vanguard','vanguard'],['Strider','strider'],['Arcanist','arcanist'],['Warden','warden'],['Necromancer','necromancer']])
+    HEROES.push([n, await sheetSprite(`hero-${c}-sheet`, 40, 48, heroDraw(c), true)]);
 
-  const BOSSES = [['Grave Warden','grave_warden','drawBoss'],['Molten Colossus','molten_colossus','drawColossus'],
+  const BOSSES = [];
+  for (const [n,r,d] of [['Grave Warden','grave_warden','drawBoss'],['Molten Colossus','molten_colossus','drawColossus'],
     ['Rime Cantor','rime_cantor','drawBoss'],['Rot Sovereign','rot_sovereign','drawBoss'],['Brass Magnus','brass_magnus','drawColossus'],
     ['Undying Champion','arena_champion','drawColossus'],['Mire Leviathan','mire_leviathan','drawColossus'],['Tempest Herald','tempest_herald','drawBoss'],
-    ['Umbral Devourer','umbral_devourer','drawBoss'],['Hollow King','hollow_king','drawBoss']]
-    .map(([n,r,d]) => [n, proc(80,80, monDraw(d,r), true)]);
+    ['Umbral Devourer','umbral_devourer','drawBoss'],['Hollow King','hollow_king','drawBoss']]) {
+    const key = r === 'grave_warden' ? 'monster-boss-sheet' : `monster-${r}-sheet`;
+    BOSSES.push([n, await sheetSprite(key, 80, 80, monDraw(d,r), true)]);
+  }
 
-  const MOBS = [['Crypt Grunt','grunt','drawGrunt'],['Wailing Shade','ghost','drawGhost'],['Pit Demon','demon','drawDemon'],
+  const MOBROWS = [['Crypt Grunt','grunt','drawGrunt'],['Wailing Shade','ghost','drawGhost'],['Pit Demon','demon','drawDemon'],
     ['Bone Archer','bone_archer','drawBoneArcher'],['Crypt Brute','brute','drawBrute'],['Cinder Imp','imp','drawImp'],
     ['Frost Shade','frost_shade','drawGhost'],['Rime Archer','rime_archer','drawBoneArcher'],['Plague Ooze','plague_ooze','drawOoze'],
     ['Spore Imp','spore_imp','drawImp'],['Gear Knight','gear_knight','drawBrute'],['Brass Sentinel','brass_sentinel','drawConstruct'],
     ['Gladiator','gladiator','drawGrunt'],['Mire Lurker','mire_lurker','drawDemon'],['Storm Wisp','storm_wisp','drawWisp'],
     ['Sky Lancer','sky_lancer','drawBoneArcher'],['Shadow Stalker','shadow_stalker','drawStalker'],['Void Imp','void_imp','drawImp'],
-    ['Hollow Knight','hollow_knight','drawBrute']]
-    .map(([n,r,d]) => [n, proc(44,44, monDraw(d,r), true)]);
+    ['Hollow Knight','hollow_knight','drawBrute']];
+  const MOBS = [];
+  for (const [n,r,d] of MOBROWS) MOBS.push([n, await sheetSprite(`monster-${r}-sheet`, 44, 44, monDraw(d,r), true)]);
 
   const SKELS = [['Tank','skel_tank','tank'],['Archer','skel_archer','archer'],['Mage','skel_mage','mage'],['Thief','skel_thief','thief']]
     .map(([n,r,role]) => [n, proc(44,44, skelDraw(r,role), true)]);
