@@ -95,6 +95,11 @@ export class CharacterSheetUI {
       ['Luck', `${s.luck}`],
     ];
     if (h.classId === 'necromancer') stats.push(['Max summons', `${h.maxSummons()}`]);
+    stats.push(['Charisma', `${h.charisma}`]);
+    if (h.classId === 'thief') {
+      stats.push(['Sneak', `${h.sneakLevel}`]);
+      stats.push(['Lockpick', `${h.lockpickLevel}`]);
+    }
     stats.forEach((st, i) => {
       const yy = y0 + 56 + i * 17;
       this.label(right, yy, st[0], C.inkDim, 11);

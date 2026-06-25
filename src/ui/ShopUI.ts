@@ -83,6 +83,9 @@ export class ShopUI {
   private onClosed?: () => void;
   private tip!: ItemTooltip;
   private backdrop: Phaser.GameObjects.Rectangle | null = null;
+  private mode: 'buy' | 'sell' = 'buy';
+  private haggled = false;
+  private haggleDiscount = 0;
 
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
@@ -99,6 +102,9 @@ export class ShopUI {
     this.buyer = buyer;
     this.status = '';
     this.page = 0;
+    this.mode = 'buy';
+    this.haggled = false;
+    this.haggleDiscount = 0;
     this.onClosed = onClosed;
     const cam = this.scene.cameras.main;
     this.backdrop = this.scene.add
@@ -135,19 +141,75 @@ export class ShopUI {
     return o;
   }
 
+  private charismaDiscount(): number {
+    return Math.min(0.4, (this.buyer.charisma ?? 0) * 0.03) + this.haggleDiscount;
+  }
+  private sellBonus(): number {
+    return Math.min(0.5, (this.buyer.charisma ?? 0) * 0.04);
+  }
+  private priceFor(base: number): number {
+    return Math.max(1, Math.round(base * (1 - this.charismaDiscount())));
+  }
+  private sellValue(item: ItemDefinition): number {
+    const rb: Record<string, number> = { common: 10, uncommon: 28, rare: 60, epic: 120, legendary: 240 };
+    let v = rb[item.rarity] ?? 10;
+    const g = item.grade;
+    if (g) v = Math.round(v * (g === 'godforged' ? 3 : g === 'ascendant' ? 2.2 : g === 'runed' ? 1.6 : g === 'honed' ? 1.2 : 1));
+    return Math.max(2, Math.round(v * (1 + this.sellBonus())));
+  }
+
+  private setMode(m: 'buy' | 'sell'): void {
+    this.mode = m;
+    this.page = 0;
+    this.status = '';
+    audio.sfx('ui_move');
+    this.render();
+  }
+
+  private haggle(): void {
+    if (this.haggled) return;
+    this.haggled = true;
+    const chance = 0.5 + (this.buyer.charisma ?? 0) * 0.03;
+    if (Math.random() < chance) {
+      this.haggleDiscount = Math.min(0.25, this.haggleDiscount + 0.15);
+      this.status = 'You sweet-talk the keeper down!';
+      audio.sfx('coin');
+    } else {
+      this.haggleDiscount = Math.max(0, this.haggleDiscount - 0.05);
+      this.status = 'The keeper scoffs at your haggling.';
+      audio.sfx('ui_move');
+    }
+    this.render();
+  }
+
   private buy(entry: StockEntry, def: ItemDefinition): void {
-    if (this.buyer.inventory.gold < entry.price) {
+    const price = this.priceFor(entry.price);
+    if (this.buyer.inventory.gold < price) {
       this.status = 'Not enough gold.';
       audio.sfx('ui_move');
       this.render();
       return;
     }
-    this.buyer.inventory.gold -= entry.price;
+    this.buyer.inventory.gold -= price;
     if (entry.id === 'dungeon_key') this.buyer.inventory.addKey(1);
     else this.buyer.inventory.add({ ...def, name: entry.name ?? def.name });
     this.buyer.refreshStats();
-    this.status = `Bought ${entry.name ?? def.name}.`;
+    const lvl = this.buyer.gainCharisma(1);
+    this.status = `Bought ${entry.name ?? def.name}.` + (lvl ? `  Charisma ${this.buyer.charisma}!` : '');
     audio.sfx('chest');
+    this.render();
+  }
+
+  private sell(item: ItemDefinition): void {
+    const v = this.sellValue(item);
+    const i = this.buyer.inventory.bag.indexOf(item);
+    if (i < 0) return;
+    this.buyer.inventory.bag.splice(i, 1);
+    this.buyer.inventory.gold += v;
+    this.buyer.refreshStats();
+    const lvl = this.buyer.gainCharisma(1);
+    this.status = `Sold ${item.name} for ${v}g.` + (lvl ? `  Charisma ${this.buyer.charisma}!` : '');
+    audio.sfx('coin');
     this.render();
   }
 
@@ -172,49 +234,75 @@ export class ShopUI {
     g.fillRoundedRect(x0 + 8, y0 + 8, PANEL_W - 16, PANEL_H - 16, 6);
     this.pin(g);
 
-    this.text(cx, y0 + 16, this.title.toUpperCase(), HEAD, 22, TITLE).setOrigin(0.5, 0);
-    this.text(cx, y0 + 44, `Party gold: ${this.buyer.inventory.gold}`, GOLD_DK, 13).setOrigin(0.5, 0);
+    this.text(cx, y0 + 12, this.title.toUpperCase(), HEAD, 21, TITLE).setOrigin(0.5, 0);
+    const cha = this.buyer.charisma ?? 0;
+    const discPct = Math.round(this.charismaDiscount() * 100);
+    const sellPct = Math.round(this.sellBonus() * 100);
+    const meta = this.mode === 'buy'
+      ? `Gold: ${this.buyer.inventory.gold}    Charisma: ${cha}` + (discPct ? `   (-${discPct}% prices)` : '')
+      : `Gold: ${this.buyer.inventory.gold}    Charisma: ${cha}` + (sellPct ? `   (+${sellPct}% payout)` : '');
+    this.text(cx, y0 + 38, meta, GOLD_DK, 12).setOrigin(0.5, 0);
 
-    const allRows = STOCK[this.shop as Exclude<ShopKind, 'home' | 'guild'>] ?? [];
-    const PAGE_SIZE = 5;
-    const totalPages = Math.max(1, Math.ceil(allRows.length / PAGE_SIZE));
-    this.page = Math.min(Math.max(this.page, 0), totalPages - 1);
-    const startIdx = this.page * PAGE_SIZE;
-    const rows = allRows.slice(startIdx, startIdx + PAGE_SIZE);
-    const top = y0 + 74;
-    const rowH = 46;
-    rows.forEach((entry, i) => {
-      const def = Content.item(entry.id);
-      if (!def) return;
-      const ry = top + i * rowH;
-      const panel = this.scene.add.graphics();
-      panel.fillStyle(hx(PAGE2), 1);
-      panel.fillRoundedRect(x0 + 18, ry, PANEL_W - 36, rowH - 8, 5);
-      panel.lineStyle(1.5, hx(GOLD_DK), 0.8);
-      panel.strokeRoundedRect(x0 + 18, ry, PANEL_W - 36, rowH - 8, 5);
-      this.pin(panel);
+    this.button(x0 + 96, y0 + 60, 90, 24, 'BUY', this.mode !== 'buy', () => this.setMode('buy'));
+    this.button(x0 + 196, y0 + 60, 90, 24, 'SELL', this.mode !== 'sell', () => this.setMode('sell'));
+    if (this.mode === 'buy' && cha >= 1) this.button(x0 + PANEL_W - 96, y0 + 60, 130, 24, this.haggled ? 'HAGGLED' : 'HAGGLE', !this.haggled, () => this.haggle());
 
-      this.pin(this.scene.add.image(x0 + 40, ry + (rowH - 8) / 2, def.icon).setScale(1.6));
-      const name = entry.name ?? def.name;
-      this.text(x0 + 60, ry + 6, name, RARITY_COLOR[def.rarity] ?? INK, 14, SERIF, true);
-      this.text(x0 + 60, ry + 24, this.slotLine(def), INK, 10.5);
+    const top = y0 + 92;
+    const rowH = 44;
+    const PAGE_SIZE = 4;
 
-      const canAfford = this.buyer.inventory.gold >= entry.price;
-      this.button(x0 + PANEL_W - 86, ry + (rowH - 8) / 2, 110, 28, `${entry.price}g`, canAfford, () => this.buy(entry, def));
-      const hz = this.scene.add.zone(x0 + 18, ry, PANEL_W - 160, rowH - 8).setOrigin(0, 0).setInteractive({ useHandCursor: true });
-      hz.on('pointerover', () => this.tip.show(def, x0 + 18, ry, 'right'));
-      hz.on('pointerout', () => this.tip.hide());
-      this.pin(hz);
-    });
-
-    if (this.status) this.text(cx, y0 + PANEL_H - 68, this.status, HEAD, 12).setOrigin(0.5, 0);
-
-    if (totalPages > 1) {
-      this.text(cx, y0 + PANEL_H - 50, `Page ${this.page + 1} / ${totalPages}`, GOLD_DK, 12).setOrigin(0.5, 0);
-      this.button(x0 + 66, y0 + PANEL_H - 24, 84, 28, '◀ Prev', this.page > 0, () => this.gotoPage(this.page - 1));
-      this.button(x0 + PANEL_W - 66, y0 + PANEL_H - 24, 84, 28, 'Next ▶', this.page < totalPages - 1, () => this.gotoPage(this.page + 1));
+    let count = 0;
+    if (this.mode === 'buy') {
+      const allRows = STOCK[this.shop as Exclude<ShopKind, 'home' | 'guild'>] ?? [];
+      count = allRows.length;
+      const totalPages = Math.max(1, Math.ceil(count / PAGE_SIZE));
+      this.page = Math.min(Math.max(this.page, 0), totalPages - 1);
+      const rows = allRows.slice(this.page * PAGE_SIZE, this.page * PAGE_SIZE + PAGE_SIZE);
+      rows.forEach((entry, i) => {
+        const def = Content.item(entry.id);
+        if (!def) return;
+        this.itemRow(x0, top + i * rowH, rowH, def, entry.name ?? def.name, this.priceFor(entry.price) + 'g', this.buyer.inventory.gold >= this.priceFor(entry.price), () => this.buy(entry, def));
+      });
+      this.pages(cx, x0, y0, totalPages);
+    } else {
+      const bag = this.buyer.inventory.bag;
+      count = bag.length;
+      if (count === 0) this.text(cx, top + 30, 'Your bag is empty.', INK, 13).setOrigin(0.5, 0);
+      const totalPages = Math.max(1, Math.ceil(count / PAGE_SIZE));
+      this.page = Math.min(Math.max(this.page, 0), totalPages - 1);
+      const rows = bag.slice(this.page * PAGE_SIZE, this.page * PAGE_SIZE + PAGE_SIZE);
+      rows.forEach((item, i) => {
+        this.itemRow(x0, top + i * rowH, rowH, item, item.name, this.sellValue(item) + 'g', true, () => this.sell(item));
+      });
+      this.pages(cx, x0, y0, totalPages);
     }
+
+    if (this.status) this.text(cx, y0 + PANEL_H - 50, this.status, HEAD, 12).setOrigin(0.5, 0);
     this.button(cx, y0 + PANEL_H - 24, 132, 28, 'LEAVE', true, () => this.close());
+  }
+
+  private itemRow(x0: number, ry: number, rowH: number, def: ItemDefinition, name: string, priceLabel: string, can: boolean, fn: () => void): void {
+    const panel = this.scene.add.graphics();
+    panel.fillStyle(hx(PAGE2), 1);
+    panel.fillRoundedRect(x0 + 18, ry, PANEL_W - 36, rowH - 8, 5);
+    panel.lineStyle(1.5, hx(GOLD_DK), 0.8);
+    panel.strokeRoundedRect(x0 + 18, ry, PANEL_W - 36, rowH - 8, 5);
+    this.pin(panel);
+    this.pin(this.scene.add.image(x0 + 40, ry + (rowH - 8) / 2, def.icon).setScale(1.6));
+    this.text(x0 + 60, ry + 5, name, RARITY_COLOR[def.rarity] ?? INK, 13.5, SERIF, true);
+    this.text(x0 + 60, ry + 22, this.slotLine(def), INK, 10);
+    this.button(x0 + PANEL_W - 86, ry + (rowH - 8) / 2, 110, 26, priceLabel, can, fn);
+    const hz = this.scene.add.zone(x0 + 18, ry, PANEL_W - 160, rowH - 8).setScrollFactor(0).setOrigin(0, 0).setInteractive({ useHandCursor: true });
+    hz.on('pointerover', () => this.tip.show(def, x0 + 18, ry, 'right'));
+    hz.on('pointerout', () => this.tip.hide());
+    this.pin(hz);
+  }
+
+  private pages(cx: number, x0: number, y0: number, totalPages: number): void {
+    if (totalPages <= 1) return;
+    this.text(cx, y0 + PANEL_H - 50, `Page ${this.page + 1} / ${totalPages}`, GOLD_DK, 11).setOrigin(0.5, 1);
+    this.button(x0 + 66, y0 + PANEL_H - 24, 84, 28, '◀ Prev', this.page > 0, () => this.gotoPage(this.page - 1));
+    this.button(x0 + PANEL_W - 66, y0 + PANEL_H - 24, 84, 28, 'Next ▶', this.page < totalPages - 1, () => this.gotoPage(this.page + 1));
   }
 
   private gotoPage(p: number): void {
