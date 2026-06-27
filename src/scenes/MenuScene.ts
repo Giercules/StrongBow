@@ -186,6 +186,27 @@ export class MenuScene extends Phaser.Scene {
       }
     });
 
+    // Game-server connection status — sits just under the AI/XAI line and polls
+    // the server's health endpoint (derived from the chosen ws:// address).
+    const serverText = this.add
+      .text(cx, 506, 'Server: checking…', { fontFamily: 'MedievalSharp, "Trebuchet MS", cursive', fontSize: '13px', color: C.inkDim, fontStyle: 'bold' })
+      .setOrigin(0.5)
+      .setDepth(12);
+    const httpFromWs = (u: string) => u.replace(/^ws:\/\//, 'http://').replace(/^wss:\/\//, 'https://').replace(/\/+$/, '');
+    const checkServer = async (): Promise<void> => {
+      const ctl = new AbortController();
+      const to = setTimeout(() => ctl.abort(), 2500);
+      try {
+        const res = await fetch(httpFromWs(getServerUrl()) + '/api/health', { signal: ctl.signal });
+        clearTimeout(to);
+        if (res.ok) { serverText.setText('● Server Connected').setColor('#5fe06a'); return; }
+      } catch { clearTimeout(to); }
+      serverText.setText('● Server Disconnected').setColor('#e0564a');
+    };
+    void checkServer();
+    const serverPoll = this.time.addEvent({ delay: 3000, loop: true, callback: () => void checkServer() });
+    this.events.once('shutdown', () => serverPoll.remove());
+
     // "Server" button — click to type the host's address (saved on this machine),
     // so friends just enter your ws://ip:port and press PLAY to join from home.
     const shortUrl = (u: string) => u.replace(/^wss?:\/\//, '');
@@ -204,7 +225,7 @@ export class MenuScene extends Phaser.Scene {
     buildServerBtn();
 
     this.add
-      .text(cx, GAME_HEIGHT - 34, 'Click PLAY or press 1 to begin   ·   H manual   ·   connects to your game server   ·   sound enables on first click', {
+      .text(cx, GAME_HEIGHT - 12, 'Click PLAY or press 1 to begin   ·   H manual   ·   connects to your game server   ·   sound enables on first click', {
         fontFamily: 'MedievalSharp, "Trebuchet MS", cursive',
         fontSize: '11px',
         color: C.inkDim,

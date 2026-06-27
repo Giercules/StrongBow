@@ -1929,7 +1929,14 @@ export function drawHumanoid(
     R(ctx, hx0 - 2, hTop, 2, 12, ramp.cloth0);
     R(ctx, hx0 + hw, hTop, 2, 12, ramp.cloth0);
     R(ctx, hx0, hTop + 2, hw, 8, '#0a0a12');
-    if (facing !== 'up') {
+    if (facing === 'side') {
+      // side profile: one forward soul-fire eye + a hint of nose/chin so the
+      // necromancer reads as facing sideways (matches the other classes).
+      R(ctx, hx0 + hw - 4, hTop + 5, 2, 2, '#8affd0');
+      PX(ctx, hx0 + hw - 4, hTop + 5, '#dfffe6');
+      R(ctx, hx0 + hw - 1, hTop + 6, 2, 2, ramp.skin);
+      R(ctx, hx0 + hw - 3, hTop + 9, 3, 1, SH);
+    } else if (facing !== 'up') {
       R(ctx, hx0 + 2, hTop + 5, 2, 2, '#8affd0');
       R(ctx, hx0 + hw - 4, hTop + 5, 2, 2, '#8affd0');
       PX(ctx, hx0 + 2, hTop + 5, '#dfffe6');
@@ -1955,7 +1962,7 @@ export function drawHumanoid(
       R(ctx, hx0 + hw - 1, hTop + 6, 2, 2, ramp.skinHi);
       R(ctx, hx0 + hw - 3, hTop + 9, 3, 1, SH);
     }
-  } else if (facing !== 'up') {
+  } else if (cls === 'arcanist' && facing !== 'up') {
     PX(ctx, hx0 + 3, hTop + 5, '#cfe0ff');
     PX(ctx, hx0 + hw - 4, hTop + 5, '#cfe0ff');
     R(ctx, hx0 + 2, hTop + 4, 2, 1, '#e8e8ee');
