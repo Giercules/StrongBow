@@ -341,10 +341,17 @@ export class DungeonScene extends Phaser.Scene {
       }
     }
     if (this.level.id === 'overworld') {
-      // emerge at the edge matching the town gate we stepped through
-      const dir = this.registry.get('overworldEntry') as OverworldDir | undefined;
-      const e = dir ? OVERWORLD_ENTRIES[dir] : undefined;
-      if (e) this.startTile = { x: e.x, y: e.y };
+      // returning from a cave drops us back at that cave's mouth; otherwise we
+      // emerge at the edge matching the town gate we stepped through.
+      const ret = this.registry.get('overworldReturn') as { x: number; y: number } | undefined;
+      if (ret) {
+        this.startTile = { x: ret.x, y: ret.y };
+      } else {
+        const dir = this.registry.get('overworldEntry') as OverworldDir | undefined;
+        const e = dir ? OVERWORLD_ENTRIES[dir] : undefined;
+        if (e) this.startTile = { x: e.x, y: e.y };
+      }
+      this.registry.remove('overworldReturn');
       this.registry.remove('overworldEntry');
     }
     const dret = this.registry.get('dungeonReturnTile') as { x: number; y: number } | undefined;
@@ -480,6 +487,9 @@ export class DungeonScene extends Phaser.Scene {
       this.quest = this.level.overworld
         ? 'Roam the wilds around Hearthwatch. Step through the keep gate to head back inside.'
         : 'Hearthwatch — gear up, then step through a gate to descend. (Use near a gate or shopkeeper.)';
+    } else if (this.level.cave) {
+      this.quest = `Delve ${this.level.name}: clear the dens, gather the iron keys, and plunder the locked hoard — then take the cavern mouth back to the surface.`;
+      if (!save) void aiService.generateQuest(this.level.name).then((q) => { if (q) this.quest = q; });
     } else {
       this.quest = `Clear ${this.level.name}: destroy the altars and slay its warden.`;
       if (!save) void aiService.generateQuest(this.level.name).then((q) => { if (q) this.quest = q; });
@@ -798,7 +808,10 @@ export class DungeonScene extends Phaser.Scene {
     }
 
     // ---- hand-placed set-piece decor (larger + livelier for a richer world) ----
-    const flatDecor = new Set(['blood-stain', 'lilypad', 'sanctum-glyph', 'void-rift', 'lava-crack', 'rune-circle', 'road', 'grass-tuft', 'bridge-plank', 'chain']);
+    // Floor-level decor renders UNDER characters (DEPTH.FLOOR+1). Interior floor
+    // coverings (wood-floor, rug) must be here or they clip anyone standing on
+    // them — the "npcs/character vanish on the shop floor" bug.
+    const flatDecor = new Set(['blood-stain', 'lilypad', 'sanctum-glyph', 'void-rift', 'lava-crack', 'rune-circle', 'road', 'grass-tuft', 'bridge-plank', 'chain', 'wood-floor', 'rug']);
     const swayDecor = new Set(['banner', 'vines', 'frost-banner', 'cloth', 'cattail', 'toxic-mushroom', 'town-tree', 'town-bush']);
     const glowDecor: Record<string, string> = {
       crystal: 'fx-glow-magic',
@@ -2725,6 +2738,27 @@ export class DungeonScene extends Phaser.Scene {
     }
   }
 
+  /** Apply an admin grant (gold / item id / "gear") from the dashboard. */
+  private applyAdminGrant(gold: number, itemId?: string): void {
+    const p = this.players[0];
+    if (!p) return;
+    if (gold > 0) {
+      p.inventory.gold += gold;
+      this.floatPickup(p.x, p.y - 22, `+${gold}g`, '#ffae42');
+    }
+    if (itemId) {
+      const item = itemId === 'gear'
+        ? rollDrop(this.level.theme ?? 'crypt', p.stats.luck ?? 0, { floor: 'honed' })
+        : Content.item(itemId);
+      if (item) {
+        p.inventory.add(item);
+        this.floatPickup(p.x, p.y - 22, item.name, '#ffae42');
+      }
+    }
+    this.showBark('A gift arrives from the Server Admin.', 2600, 'event', '#ffae42');
+    this.syncHudData();
+  }
+
   private onBossDeath(): void {
     this.bossAlive = false;
     const bossName = this.boss?.def.name ?? 'The warden';
@@ -3025,7 +3059,8 @@ export class DungeonScene extends Phaser.Scene {
   private connectToServer(): void {
     if (!MULTIPLAYER_ENABLED) return;
     const p0 = this.players[0];
-    net.onAnnounce = (text) => { if (text) this.showBark(text, 4200, 'event'); };
+    net.onAnnounce = (text) => { if (text) this.showBark(`Server Admin: ${text}`, 5200, 'event', '#ffae42'); };
+    net.onGrant = (gold, itemId) => this.applyAdminGrant(gold, itemId);
     net.onConnect = (cfg) =>
       this.showBark(cfg.motd ? `Connected to server — ${cfg.motd}` : 'Connected to the game server.', 3200, 'system');
     net.onCoopState = (enemies) => this.coopApplyState(enemies);
@@ -3367,6 +3402,12 @@ export class DungeonScene extends Phaser.Scene {
     audio.sfx('portal');
     const leaving = door.interiorId === 'town';
     const toOverworld = door.interiorId === 'overworld';
+    const enteringCave = door.interiorId.startsWith('cave_');
+    const leavingCave = toOverworld && !!this.level.cave;
+    if (enteringCave) {
+      // remember this overworld mouth so the cave's exit returns us right here
+      this.registry.set('overworldReturn', { x: door.x, y: door.y });
+    }
     if (toOverworld) {
       // remember which town edge so we emerge there in the overworld and return
       // to this same gate when we come back inside.
@@ -3378,11 +3419,19 @@ export class DungeonScene extends Phaser.Scene {
         door.dir === 'west' ? { x: 3, y: door.y } :
         { x: W - 4, y: door.y };
       this.registry.set('townReturn', back);
-    } else if (!leaving) {
+      // a fresh trip out through a town gate clears any stale cave-mouth return
+      if (!leavingCave) this.registry.remove('overworldReturn');
+    } else if (!leaving && !enteringCave) {
       // remember the street tile in front of the door so we step back out there
       this.registry.set('townReturn', { x: door.x, y: door.y + 1 });
     }
-    this.showBark(toOverworld ? `You set out along the ${door.label}.` : leaving ? 'You step back through the gate.' : `You enter ${door.label}.`, 2600);
+    this.showBark(
+      leavingCave ? 'You climb back toward the surface light.' :
+      toOverworld ? `You set out along the ${door.label}.` :
+      leaving ? 'You step back through the gate.' :
+      `You enter ${door.label}.`,
+      2600,
+    );
     this.registry.set('carryParty', this.players.map((a) => this.allyToSave(a)));
     this.registry.set('levelId', door.interiorId);
     this.registry.set('twoPlayer', this.twoPlayer);
@@ -3834,11 +3883,11 @@ export class DungeonScene extends Phaser.Scene {
     this.cameraTarget.setPosition(sx / group.length, sy / group.length);
   }
 
-  private showBark(text: string, holdMs = 3400, kind: LogEntry['kind'] = 'event'): void {
+  private showBark(text: string, holdMs = 3400, kind: LogEntry['kind'] = 'event', color = '#ffe9a8'): void {
     if (!text) return;
     this.pushLog(text, kind);
     if (!this.barkText) return;
-    this.barkText.setText(text).setAlpha(1);
+    this.barkText.setText(text).setAlpha(1).setColor(color);
     this.tweens.killTweensOf(this.barkText);
     this.tweens.add({ targets: this.barkText, alpha: 0, delay: Math.min(holdMs, 2600), duration: 700 });
   }

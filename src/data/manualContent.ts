@@ -165,6 +165,7 @@ export const MANUAL_PAGES: ManualPage[] = [
       'BRUNDA\'S FORGE (weapons & armor), THE GREEN VIAL (apothecary), THE GILDED TANKARD (tavern), and YOUR LODGE (rest to fully restore the party, free) keep their keepers within. The FIGHTERS GUILD is where you hire allies for your descent.',
       'Each keeper has a BUY / SELL toggle: sell bag loot for coin, or buy gear, potions, SCROLLS (incl. a Town Portal home and back) and IRON KEYS. CHARISMA rises as you trade — it lowers buy prices, raises sell payouts, and unlocks a once-per-visit HAGGLE for an extra discount.',
       'Ten descent gates ring the square, one per realm. A gate glows when unlocked and stays sealed until you clear the realm before it; step on a gate and press Use to descend. Gold, gear, levels and unlocked gates persist across every town and realm.',
+      'Beyond the square, the four outer GATEHOUSES open onto THE WILDS OF HEARTHWATCH — a broad overworld of forest, foothill, desert and bog, threaded with roads, ruins and wandering critters. Out in the Wilds you will find CAVE MOUTHS: stand at one and press Use to delve a self-contained mini-dungeon with its own foes, scattered IRON KEYS and locked hoards of themed, graded gear. Caves never force a descent — clear them at your leisure and step back out the cavern mouth to the very spot you entered.',
     ],
   },
   {

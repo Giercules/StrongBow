@@ -155,7 +155,7 @@ export class MenuScene extends Phaser.Scene {
       this.focus!.add({ x, y, w, h, activate: fn });
     };
     // Compact menu cluster (≈half the old footprint).
-    reg(cx, 224, 150, 32, 'PLAY', () => this.startGame(false), { fill: C.ivy, size: 14 });
+    reg(cx, 224, 120, 26, 'PLAY', () => this.startGame(false), { fill: C.ivy, size: 13 });
     // Local 2-player is retired in favour of server-based multiplayer; Level
     // Select is disabled for now. Both are kept on-screen but greyed out.
     makeButton(this, cx - 56, 258, 112, 22, 'LEVEL SELECT', () => this.showDisabled('Level Select is disabled for now.'), { fill: C.hudBg, text: C.inkDim, size: 10 }).setDepth(11).setAlpha(0.5);

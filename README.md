@@ -208,6 +208,28 @@ inner door to step back out).
 Gold, gear, levels and unlocked gates **persist** across town ⇄ realm trips and
 through saves.
 
+## The Wilds of Hearthwatch (overworld)
+
+The four **outer gatehouses** don't just lead back inside — step through one to
+emerge into **The Wilds of Hearthwatch**, a large **5-biome overworld** (forest,
+foothill/mountain, plains, desert and bog) wrapped around the town. Roads thread
+between **ruins, standing stones, an obelisk and a fortified keep**, a river winds
+to a swamp, and **wandering critters** roam the surface — peaceful to explore.
+
+Out in the Wilds are **enterable cave mouths**. Stand at one and press **Use** to
+delve a **self-contained mini-dungeon**:
+
+- **The Collapsed Silver Mine** — old cart rails and cold iron; grunts, bone
+  archers and brutes in the dark.
+- **The Hollow Beneath** — a tendril of the Undermaw reaching the surface; shadow
+  stalkers, void imps and ghosts.
+
+Each cave has its own foes (fixed dens **plus** roaming wild monsters), **scattered
+iron keys**, and a locked **treasure hoard** that yields **themed, graded gear**
+(Honed floor, scaling toward Godforged with Fortune — a **Thief picks the locks
+free**). Caves never trap you in a forced descent: take the **cavern mouth** back
+and you re-emerge at the exact spot in the Wilds where you entered.
+
 ## The Descent into the Undermaw
 
 An ancient hunger — the **Undermaw** — wakes beneath the world; its seals leak

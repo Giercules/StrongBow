@@ -111,6 +111,12 @@ function broadcastConfig(): void {
   for (const p of players.values()) send(p.ws, { t: 'config', config });
 }
 
+// Structured, leveled, categorized logging → surfaced verbatim in the dashboard.
+type LogLevel = 'INFO' | 'WARN' | 'ERROR';
+function slog(level: LogLevel, cat: string, msg: string): void {
+  console.log(`${new Date().toISOString()} [${level}] [${cat.padEnd(7)}] ${msg} (online: ${players.size})`);
+}
+
 // ---- HTTP + dashboard -------------------------------------------------------
 const app = express();
 app.use(cors());
@@ -130,7 +136,7 @@ app.get('/api/state', (_req, res) => {
 
 app.post('/api/shutdown', (_req, res) => {
   res.json({ ok: true });
-  console.log('[server] shutdown requested from dashboard');
+  slog('WARN', 'ADMIN', 'shutdown requested from dashboard');
   setTimeout(() => process.exit(0), 250);
 });
 
@@ -140,18 +146,32 @@ app.post('/api/config', (req, res) => {
   if (typeof aiNpcCount === 'number') config.aiNpcCount = Math.max(0, Math.min(12, Math.round(aiNpcCount)));
   if (typeof motd === 'string') config.motd = motd.slice(0, 160);
   broadcastConfig();
+  slog('INFO', 'ADMIN', `config set: AI NPCs ${config.aiNpcsEnabled ? 'ON x' + config.aiNpcCount : 'OFF'}`);
   res.json({ ok: true, config });
 });
 
 app.post('/api/kick', (req, res) => {
   const p = players.get(req.body?.id);
-  if (p) { send(p.ws, { t: 'kicked' }); p.ws.close(); }
+  if (p) { slog('WARN', 'ADMIN', `kicked ${p.name} (${p.id})`); send(p.ws, { t: 'kicked' }); p.ws.close(); }
   res.json({ ok: !!p });
 });
 
 app.post('/api/broadcast', (req, res) => {
   const text = String(req.body?.text ?? '').slice(0, 200);
-  if (text) for (const p of players.values()) send(p.ws, { t: 'announce', text });
+  if (text) {
+    for (const p of players.values()) send(p.ws, { t: 'announce', text });
+    slog('INFO', 'ADMIN', `broadcast: "${text}"`);
+  }
+  res.json({ ok: true });
+});
+
+// Admin: grant gold or an item to a specific connected player.
+app.post('/api/grant', (req, res) => {
+  const { id, gold, itemId } = req.body ?? {};
+  const p = players.get(id);
+  if (!p) { res.json({ ok: false, error: 'no-such-player' }); return; }
+  send(p.ws, { t: 'grant', gold: typeof gold === 'number' ? gold : 0, itemId: typeof itemId === 'string' ? itemId : undefined });
+  slog('INFO', 'ADMIN', `granted ${typeof gold === 'number' ? gold + ' gold' : (itemId ?? '?')} to ${p.name}`);
   res.json({ ok: true });
 });
 
@@ -191,7 +211,7 @@ wss.on('connection', (ws: WebSocket) => {
         });
         joined = true;
         send(ws, { t: 'welcome', id, config });
-        console.log(`[server] ${id} joined (${players.size} online)`);
+        slog('INFO', 'CONN', `${players.get(id)?.name ?? id} joined as ${players.get(id)?.classId ?? '?'} on ${players.get(id)?.levelId ?? '?'}`);
         break;
       }
       case 'state': {
@@ -254,8 +274,9 @@ wss.on('connection', (ws: WebSocket) => {
 
   ws.on('close', () => {
     if (joined) {
+      const name = players.get(id)?.name ?? id;
       players.delete(id);
-      console.log(`[server] ${id} left (${players.size} online)`);
+      slog('INFO', 'CONN', `${name} disconnected`);
     }
   });
   ws.on('error', () => {});
@@ -265,7 +286,9 @@ wss.on('connection', (ws: WebSocket) => {
 setInterval(() => {
   const now = Date.now();
   for (const [pid, p] of players) {
-    if (now - p.lastSeen > 12000) { try { p.ws.close(); } catch { /* */ } players.delete(pid); }
+    // generous 30s timeout so a brief network/scene-transition hiccup doesn't
+    // drop a player from the roster (was causing the dashboard list to flicker).
+    if (now - p.lastSeen > 30000) { slog('WARN', 'CONN', `${p.name} timed out`); try { p.ws.close(); } catch { /* */ } players.delete(pid); }
   }
   simulateNpcs(now);
   const all = [...players.values()];

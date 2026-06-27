@@ -133,6 +133,7 @@ app.get('/api/server/state', (_req, res) => proxy(res, '/api/state'));
 app.post('/api/server/config', (req, res) => proxy(res, '/api/config', jsonPost(req.body)));
 app.post('/api/server/kick', (req, res) => proxy(res, '/api/kick', jsonPost(req.body)));
 app.post('/api/server/broadcast', (req, res) => proxy(res, '/api/broadcast', jsonPost(req.body)));
+app.post('/api/server/grant', (req, res) => proxy(res, '/api/grant', jsonPost(req.body)));
 
 app.get('/', (_req, res) => {
   try {

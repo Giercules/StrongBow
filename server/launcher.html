@@ -147,7 +147,9 @@
       $('aiToggle').classList.toggle('on', cfg.aiNpcsEnabled);
       if (document.activeElement !== $('aiCount')) $('aiCount').value = cfg.aiNpcCount;
       renderPlayers(gs.players || []);
-    } else {
+    } else if (!running) {
+      // only blank the panel when the server is actually stopped — a transient
+      // stats hiccup must NOT clear the live player list (was causing flicker).
       $('playerCount').textContent='—'; $('uptime').textContent='—'; $('aiStatus').textContent='—';
       renderPlayers([]);
     }
@@ -159,17 +161,25 @@
       const tr=document.createElement('tr');
       tr.innerHTML=`<td>${esc(p.name)}</td><td><span class="pill">${esc(p.classId)}</span></td><td>${p.level}</td>`
         +`<td>${esc(p.levelId)}</td><td>${p.x}, ${p.y}</td><td>${p.hp}</td>`
-        +`<td><button class="stop small" data-id="${p.id}">Kick</button></td>`;
+        +`<td><button class="small" data-give="${p.id}">Give</button> <button class="stop small" data-id="${p.id}">Kick</button></td>`;
       tb.appendChild(tr);
     }
     tb.querySelectorAll('button[data-id]').forEach(b=>b.onclick=()=>api('/api/server/kick',post({id:b.dataset.id})).then(refresh));
+    tb.querySelectorAll('button[data-give]').forEach(b=>b.onclick=()=>{
+      const v = prompt('Give to player — enter a GOLD amount (number) or an ITEM id\n(e.g. health_potion, mana_potion, town_portal_scroll, scroll_mending), or "gear" for a random drop:');
+      if (v === null) return;
+      const t = v.trim(); if (!t) return;
+      const n = Number(t);
+      const body = (t !== '' && Number.isFinite(n)) ? { id:b.dataset.give, gold:n } : { id:b.dataset.give, itemId:t };
+      api('/api/server/grant', post(body)).then(refresh);
+    });
   }
   const post = (body)=>({ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
 
   $('startBtn').onclick   = ()=>api('/api/start',{method:'POST'}).then(refresh);
   $('stopBtn').onclick    = ()=>{ if(confirm('Stop the game server? Players will be disconnected.')) api('/api/stop',{method:'POST'}).then(refresh); };
   $('restartBtn').onclick = ()=>api('/api/restart',{method:'POST'}).then(()=>setTimeout(refresh,900));
-  $('aiToggle').onclick   = ()=>{ cfg.aiNpcsEnabled=!cfg.aiNpcsEnabled; $('aiToggle').classList.toggle('on',cfg.aiNpcsEnabled); };
+  $('aiToggle').onclick   = ()=>{ cfg.aiNpcsEnabled=!cfg.aiNpcsEnabled; $('aiToggle').classList.toggle('on',cfg.aiNpcsEnabled); api('/api/server/config',post({ aiNpcsEnabled:cfg.aiNpcsEnabled, aiNpcCount:Number($('aiCount').value) })).then(refresh); };
   $('saveAi').onclick     = ()=>api('/api/server/config',post({ aiNpcsEnabled:cfg.aiNpcsEnabled, aiNpcCount:Number($('aiCount').value) })).then(refresh);
   $('sendMsg').onclick    = ()=>{ const text=$('msg').value.trim(); if(!text) return; api('/api/server/broadcast',post({text})); api('/api/server/config',post({motd:text})); $('msg').value=''; };
 

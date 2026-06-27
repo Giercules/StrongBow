@@ -264,6 +264,8 @@ export interface LevelData {
   interior?: boolean;
   /** True for the surface overworld (peaceful, biome ground, wandering critters). */
   overworld?: boolean;
+  /** True for an overworld cave mini-dungeon (combat; a mouth door returns to the overworld). */
+  cave?: boolean;
 }
 
 export interface HudHeroSlot {

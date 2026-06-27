@@ -73,11 +73,13 @@ export class NetClient {
   onCoopHit?: (netId: number, dmg: number) => void;
   onCoopReward?: (xp: number, gold: number) => void;
   onCoopLoot?: (loot: CoopLoot) => void;
+  onGrant?: (gold: number, itemId?: string) => void;
 
   private profile: NetProfile = { name: 'Adventurer', classId: 'vanguard', level: 1, x: 0, y: 0, hp: 0, levelId: 'town' };
   private lastSent = 0;
   private wantConnected = false;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private keepalive: ReturnType<typeof setInterval> | null = null;
 
   /** Open (or re-open) a connection to ws://host:port. Safe to call repeatedly;
    *  auto-reconnects in the background if the server drops or isn't up yet. */
@@ -99,11 +101,17 @@ export class NetClient {
       this.scheduleReconnect();
       return;
     }
-    this.ws.onopen = () => this.send({ t: 'join', ...this.profile });
+    this.ws.onopen = () => {
+      this.send({ t: 'join', ...this.profile });
+      // keepalive so a backgrounded tab (throttled rAF) isn't dropped by the server
+      if (this.keepalive) clearInterval(this.keepalive);
+      this.keepalive = setInterval(() => this.send({ t: 'ping' }), 5000);
+    };
     this.ws.onmessage = (e) => this.handle(e.data);
     this.ws.onclose = () => {
       this.connected = false;
       this.peers = [];
+      if (this.keepalive) { clearInterval(this.keepalive); this.keepalive = null; }
       this.onDisconnect?.();
       this.scheduleReconnect();
     };
@@ -144,6 +152,9 @@ export class NetClient {
         break;
       case 'coopLoot':
         this.onCoopLoot?.(msg.loot as CoopLoot);
+        break;
+      case 'grant':
+        this.onGrant?.(Number(msg.gold) || 0, typeof msg.itemId === 'string' ? msg.itemId : undefined);
         break;
       case 'config':
         this.config = (msg.config as NetConfig) ?? this.config;
@@ -195,6 +206,7 @@ export class NetClient {
   disconnect(): void {
     this.wantConnected = false;
     if (this.reconnectTimer) { clearTimeout(this.reconnectTimer); this.reconnectTimer = null; }
+    if (this.keepalive) { clearInterval(this.keepalive); this.keepalive = null; }
     try { this.ws?.close(); } catch { /* */ }
     this.ws = null;
     this.connected = false;

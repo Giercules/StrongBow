@@ -142,6 +142,9 @@ export function buildOverworld(): LevelData {
     decor.push({ x: sx, y: sy, key: 'ruin-pillar' }); // ruined watch on a hill
   decor.push({ x: 30, y: 12, key: 'cave-entrance' });   // mountain mine
   decor.push({ x: 168, y: 30, key: 'cave-entrance' });  // foothill cave
+  // enterable cave mini-dungeons (use the mouth to go in; a mouth door leads back)
+  spawns.push({ kind: 'door', x: 30, y: 12, interiorId: 'cave_mine', label: 'Collapsed Silver Mine' });
+  spawns.push({ kind: 'door', x: 168, y: 30, interiorId: 'cave_hollow', label: 'The Hollow Beneath' });
   decor.push({ x: 64, y: 110, key: 'ruin-pillar' });    // crossroads ruin
   for (const [x, y] of [[148, 70], [176, 96]] as number[][]) decor.push({ x, y, key: 'reeds' });
 
