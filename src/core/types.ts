@@ -323,6 +323,8 @@ export interface GameplaySettings {
   lootMult: number;
   /** Gold drop multiplier (cheat). 1 = normal, 0 = no gold drops. */
   goldMult: number;
+  /** Roaming wild monsters (not from altars) per level (cheat). 1 = normal, 0 = none. */
+  wildMonsters: number;
 }
 
 export interface GameSettingsData {

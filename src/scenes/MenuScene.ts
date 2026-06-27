@@ -96,7 +96,7 @@ export class MenuScene extends Phaser.Scene {
     });
 
     // darkened plate behind the menu buttons for readability
-    this.add.rectangle(cx, 298, 322, 198, 0x05060a, 0.5).setStrokeStyle(1, 0x6e521f, 0.6).setDepth(9.2);
+    this.add.rectangle(cx, 280, 230, 150, 0x05060a, 0.5).setStrokeStyle(1, 0x6e521f, 0.6).setDepth(9.2);
 
     const frame = this.add.graphics().setDepth(9.3);
     frame.lineStyle(4, 0x2a1c0a, 1); frame.strokeRect(10, 10, GAME_WIDTH - 20, GAME_HEIGHT - 20);
@@ -154,21 +154,22 @@ export class MenuScene extends Phaser.Scene {
       makeButton(this, x, y, w, h, label, fn, opts).setDepth(11);
       this.focus!.add({ x, y, w, h, activate: fn });
     };
-    reg(cx, 232, 200, 44, 'PLAY', () => this.startGame(false), { fill: C.ivy, size: 16 });
+    // Compact menu cluster (≈half the old footprint).
+    reg(cx, 224, 150, 32, 'PLAY', () => this.startGame(false), { fill: C.ivy, size: 14 });
     // Local 2-player is retired in favour of server-based multiplayer; Level
     // Select is disabled for now. Both are kept on-screen but greyed out.
-    makeButton(this, cx - 78, 280, 150, 32, 'LEVEL SELECT', () => this.showDisabled('Level Select is disabled for now.'), { fill: C.hudBg, text: C.inkDim, size: 12 }).setDepth(11).setAlpha(0.5);
-    reg(cx + 78, 280, 150, 32, 'FORGE A LEVEL', () => this.goScene('ForgeScene'), { fill: C.hudPanel2, size: 12 });
-    let by = 324;
+    makeButton(this, cx - 56, 258, 112, 22, 'LEVEL SELECT', () => this.showDisabled('Level Select is disabled for now.'), { fill: C.hudBg, text: C.inkDim, size: 10 }).setDepth(11).setAlpha(0.5);
+    reg(cx + 56, 258, 112, 22, 'FORGE A LEVEL', () => this.goScene('ForgeScene'), { fill: C.hudPanel2, size: 10 });
+    let by = 286;
     if (hasSave()) {
-      reg(cx, by, 220, 30, 'LOAD GAME', () => {
+      reg(cx, by, 170, 22, 'LOAD GAME', () => {
         this.enableAudio();
         audio.sfx('ui_select');
         saveUI.open({ mode: 'load', onLoad: (s) => this.startFromSave(s) });
-      }, { fill: C.hudBorderDk, size: 12 });
-      by += 36;
+      }, { fill: C.hudBorderDk, size: 11 });
+      by += 26;
     }
-    reg(cx, by, 180, 28, 'MANUAL  (H)', () => manual.toggle(), { size: 12 });
+    reg(cx, by, 140, 22, 'MANUAL  (H)', () => manual.toggle(), { size: 11 });
 
     // AI connection status - large, glowing, below the characters
     const aiText = this.add
@@ -185,16 +186,22 @@ export class MenuScene extends Phaser.Scene {
       }
     });
 
-    // server address box — point this client at your game server (saved locally)
-    this.add.text(cx, 404, 'SERVER ADDRESS', { fontFamily: 'Cinzel, Georgia, serif', fontSize: '11px', color: '#cfa64e', fontStyle: 'bold' }).setOrigin(0.5).setDepth(12);
-    const serverDom = this.add.dom(cx, 426, 'input',
-      'width:280px;padding:8px 10px;font-size:13px;border-radius:6px;border:1px solid #6e521f;background:#0e0c16;color:#e8e2d2;font-family:MedievalSharp,Georgia,serif;text-align:center;outline:none;',
-      '').setDepth(12);
-    const serverInput = serverDom.node as HTMLInputElement;
-    serverInput.value = getServerUrl();
-    serverInput.placeholder = 'ws://server-ip:8080';
-    serverInput.addEventListener('change', () => setServerUrl(serverInput.value));
-    serverInput.addEventListener('blur', () => setServerUrl(serverInput.value));
+    // "Server" button — click to type the host's address (saved on this machine),
+    // so friends just enter your ws://ip:port and press PLAY to join from home.
+    const shortUrl = (u: string) => u.replace(/^wss?:\/\//, '');
+    let serverBtn: Phaser.GameObjects.Container | undefined;
+    const buildServerBtn = (): void => {
+      serverBtn?.destroy();
+      serverBtn = makeButton(this, cx, 338, 200, 22, `SERVER:  ${shortUrl(getServerUrl())}`, () => {
+        const v = window.prompt('Game server address (ws://ip:port) — ask your host for it:', getServerUrl());
+        if (v !== null && v.trim()) {
+          setServerUrl(v.trim());
+          buildServerBtn();
+          this.showDisabled('Server set — press PLAY to connect.');
+        }
+      }, { size: 12, fill: C.hudBorderDk }).setDepth(12);
+    };
+    buildServerBtn();
 
     this.add
       .text(cx, GAME_HEIGHT - 34, 'Click PLAY or press 1 to begin   ·   H manual   ·   connects to your game server   ·   sound enables on first click', {

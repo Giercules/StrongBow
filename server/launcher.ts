@@ -25,6 +25,8 @@ const ROOT = join(__dirname, '..');
 const PORT = Number(process.env.LAUNCHER_PORT) || 8090;
 const GAME_PORT = Number(process.env.GAME_SERVER_PORT) || 8080;
 
+const GAME_API = `http://127.0.0.1:${GAME_PORT}`;
+
 let child: ChildProcess | null = null;
 let startedAt = 0;
 const logs: string[] = [];
@@ -38,64 +40,86 @@ function log(chunk: string): void {
   while (logs.length > LOG_MAX) logs.shift();
 }
 
-function isRunning(): boolean {
+/** Is the child process we spawned still alive? */
+function childAlive(): boolean {
   return !!child && child.exitCode === null && !child.killed;
 }
 
-function startServer(): boolean {
-  if (isRunning()) return false;
+/** Is a game server actually answering on :8080 (ours OR one already running)? */
+async function serverUp(): Promise<boolean> {
+  try {
+    const r = await fetch(`${GAME_API}/api/health`, { signal: AbortSignal.timeout(800) });
+    return r.ok;
+  } catch {
+    return false;
+  }
+}
+
+/** Start the server — but if one is ALREADY listening on :8080, adopt it instead
+ *  of spawning a duplicate (which would crash with EADDRINUSE). */
+async function startServer(): Promise<{ ok: boolean; note: string }> {
+  if (childAlive()) return { ok: false, note: 'already running (managed by launcher)' };
+  if (await serverUp()) {
+    log('[launcher] a game server is already running on :' + GAME_PORT + ' — adopting it.');
+    return { ok: true, note: 'adopted an already-running server' };
+  }
   log('[launcher] starting game server...');
-  // shell:true so "npm" resolves to npm.cmd on Windows
-  child = spawn('npm', ['run', 'server'], { cwd: ROOT, shell: true, env: process.env });
+  child = spawn('npm', ['run', 'server'], { cwd: ROOT, shell: true, env: process.env }); // shell:true → npm.cmd on Windows
   startedAt = Date.now();
   child.stdout?.on('data', (d) => log(String(d)));
   child.stderr?.on('data', (d) => log(String(d)));
-  child.on('exit', (code) => {
-    log(`[launcher] game server exited (code ${code ?? '?'})`);
-    child = null;
-  });
-  return true;
+  child.on('exit', (code) => { log(`[launcher] game server exited (code ${code ?? '?'})`); child = null; });
+  return { ok: true, note: 'starting' };
 }
 
-function stopServer(): boolean {
-  if (!isRunning() || !child?.pid) return false;
-  log('[launcher] stopping game server...');
-  try {
-    // kill the whole process tree (npm spawns node) — taskkill on Windows
-    if (process.platform === 'win32') execSync(`taskkill /PID ${child.pid} /T /F`);
-    else child.kill('SIGTERM');
-  } catch (e) {
-    log('[launcher] stop error: ' + (e as Error).message);
+/** Stop the server: kill our child, or ask an adopted/external one to exit. */
+async function stopServer(): Promise<boolean> {
+  if (childAlive() && child?.pid) {
+    log('[launcher] stopping game server...');
+    try {
+      if (process.platform === 'win32') execSync(`taskkill /PID ${child.pid} /T /F`); // kill the npm→node tree
+      else child.kill('SIGTERM');
+    } catch (e) {
+      log('[launcher] stop error: ' + (e as Error).message);
+    }
+    child = null;
+    return true;
   }
-  child = null;
-  return true;
+  if (await serverUp()) {
+    log('[launcher] stopping external game server via its API...');
+    try { await fetch(`${GAME_API}/api/shutdown`, { method: 'POST' }); } catch { /* */ }
+    return true;
+  }
+  return false;
 }
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-app.get('/api/status', (_req, res) => {
+app.get('/api/status', async (_req, res) => {
+  const managed = childAlive();
+  const up = managed || (await serverUp());
   res.json({
-    running: isRunning(),
+    running: up,
+    managed,
+    adopted: up && !managed,
     pid: child?.pid ?? null,
-    uptime: isRunning() ? Date.now() - startedAt : 0,
+    uptime: managed ? Date.now() - startedAt : 0,
     gamePort: GAME_PORT,
     logs,
   });
 });
 
-app.post('/api/start', (_req, res) => res.json({ ok: startServer() }));
-app.post('/api/stop', (_req, res) => res.json({ ok: stopServer() }));
-app.post('/api/restart', (_req, res) => {
-  stopServer();
-  setTimeout(startServer, 800);
+app.post('/api/start', async (_req, res) => res.json(await startServer()));
+app.post('/api/stop', async (_req, res) => res.json({ ok: await stopServer() }));
+app.post('/api/restart', async (_req, res) => {
+  await stopServer();
+  setTimeout(() => { void startServer(); }, 1200);
   res.json({ ok: true });
 });
 
-// Proxy the running game server's API so the unified panel (and dashboard) all
-// live here on the launcher port — no separate :8080 page needed.
-const GAME_API = `http://127.0.0.1:${GAME_PORT}`;
+// Proxy the running game server's API so the unified panel lives here on :8090.
 async function proxy(res: express.Response, path: string, init?: Parameters<typeof fetch>[1]): Promise<void> {
   try {
     const r = await fetch(GAME_API + path, init);
@@ -121,5 +145,5 @@ app.get('/', (_req, res) => {
 app.listen(PORT, () => {
   console.log(`StrongBow launcher (control panel) on http://localhost:${PORT}`);
   console.log(`  controls the game server on port ${GAME_PORT}`);
-  startServer(); // bring the game server up automatically on launch
+  void startServer(); // adopt an already-running server, or spawn one
 });

@@ -240,6 +240,15 @@ wss.on('connection', (ws: WebSocket) => {
         }
         break;
       }
+      case 'coopLoot': {
+        // host → rest of the party: a loot drop (each spawns their own instance)
+        const me = players.get(id);
+        if (!me) break;
+        for (const o of players.values()) {
+          if (o.id !== id && o.levelId === me.levelId) send(o.ws, { t: 'coopLoot', loot: msg.loot });
+        }
+        break;
+      }
     }
   });
 

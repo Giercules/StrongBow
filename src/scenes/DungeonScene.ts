@@ -76,7 +76,7 @@ import { GameOverUI } from '../ui/GameOverUI';
 import { CharacterSheetUI } from '../ui/CharacterSheetUI';
 import { GameManualUI } from '../ui/GameManualUI';
 import { PickpocketUI, type PickpocketLoot } from '../ui/PickpocketUI';
-import { net, type CoopEnemy } from '../net/NetClient';
+import { net, type CoopEnemy, type CoopLoot } from '../net/NetClient';
 import { getServerUrl, MULTIPLAYER_ENABLED } from '../net/serverConfig';
 
 interface Chest { sprite: Phaser.GameObjects.Image; itemId: string; opened: boolean; locked: boolean; x: number; y: number; }
@@ -180,6 +180,7 @@ export class DungeonScene extends Phaser.Scene {
   private allies: Hero[] = [];
   private summons: Companion[] = [];
   private summonIdx = 0;
+  private summonTimerGfx?: Phaser.GameObjects.Graphics;
   private vignette?: Phaser.GameObjects.Image;
   private edgeGrade?: Phaser.GameObjects.Image;
   private selectedSkeleton: SummonChoice = 'tank';
@@ -370,6 +371,7 @@ export class DungeonScene extends Phaser.Scene {
     }
     if (this.level.id === 'town' && this.registry.get('cameByPortal')) this.spawnReturnPortal();
     this.setupColliders();
+    this.spawnAmbientMonsters();
     this.flow = new FlowField(this.level.width, this.level.height, (x, y) => this.isWalkable(x, y));
 
     this.cameraTarget = this.add.rectangle(this.players[0].x, this.players[0].y, 2, 2, 0, 0);
@@ -547,6 +549,7 @@ export class DungeonScene extends Phaser.Scene {
     this.coopGuest = false;
     this.coopEnemies.clear();
     this.nextNetId = 1;
+    this.summonTimerGfx = undefined;
     this.portals = [];
     this.merchants = [];
     this.doors = [];
@@ -1115,6 +1118,7 @@ export class DungeonScene extends Phaser.Scene {
         }
         this.updateSneak(time);
         this.resolveCombat(time);
+        this.updateWardenRegen(delta);
         this.updateProjectiles(time, delta);
         this.updateEnemyProjectiles(time, delta);
         this.updateAuras(time);
@@ -1310,6 +1314,23 @@ export class DungeonScene extends Phaser.Scene {
         this.crumbleSummon(sk);
       }
     }
+    // pronounced lifetime countdown: a shrinking green→red bar over each summon,
+    // and the skeleton blinks in its final 2 seconds before it crumbles.
+    if (!this.summonTimerGfx) this.summonTimerGfx = this.add.graphics().setDepth(DEPTH.OVERLAY - 25);
+    const tg = this.summonTimerGfx;
+    tg.clear();
+    for (const sk of this.summons) {
+      if (!sk.active || !sk.alive || !sk.expireAt) continue;
+      const total = Math.max(1, sk.expireAt - sk.lifeStart);
+      const remain = sk.expireAt - time;
+      const frac = Phaser.Math.Clamp(remain / total, 0, 1);
+      const w = 20;
+      const bx = sk.x - w / 2;
+      const by = sk.y - 30;
+      tg.fillStyle(0x000000, 0.55); tg.fillRect(bx - 1, by - 1, w + 2, 5);
+      tg.fillStyle(frac > 0.3 ? 0x8bd98b : 0xff6a4a, 1); tg.fillRect(bx, by, w * frac, 3);
+      sk.setAlpha(remain < 2000 ? 0.45 + 0.55 * Math.abs(Math.sin(time / 110)) : 1);
+    }
     // Altars are only "targets" for a companion that is right next to one, so the
     // party keeps following the leader instead of peeling off across the room to
     // chase a stationary altar. (Per-companion list built in the loop below.)
@@ -1492,7 +1513,11 @@ export class DungeonScene extends Phaser.Scene {
         return live < cap && (free || comp.mana >= 20);
       }
       case 'warden':
-        return within(240).length > 0 && this.allies.some((a) => a.alive && a.healthRatio() < 0.6);
+        // Heal whenever any ally OR necro pet is hurt (no need for foes nearby),
+        // and step in to resurrect a fallen comrade within reach.
+        return this.allies.some((a) =>
+          a.active && (a.alive ? a.healthRatio() < 0.65 : Phaser.Math.Distance.Between(comp.x, comp.y, a.x, a.y) < 170)
+        );
       case 'vanguard':
         return within(120).length >= 2;
       case 'arcanist':
@@ -1549,8 +1574,15 @@ export class DungeonScene extends Phaser.Scene {
     } else if (t === 'archer') {
       sk.stats.speed *= 1.1;
     }
+    // Servants scale with the necromancer's power (HP + damage), like the thief
+    // pass scaled rogue skills — a high-level necro raises far deadlier undead.
+    const lvlMult = 1 + necro.level * 0.08;
+    sk.stats.maxHealth = Math.round(sk.stats.maxHealth * lvlMult);
+    sk.stats.damage = Math.round(sk.stats.damage * lvlMult);
+    sk.health = sk.stats.maxHealth;
     // Servants linger longer the mightier the necromancer grows.
     const dur = 9000 + necro.level * 1800;
+    sk.lifeStart = time;
     sk.expireAt = time + dur;
     this.companions.push(sk);
     this.allies.push(sk);
@@ -1633,6 +1665,7 @@ export class DungeonScene extends Phaser.Scene {
     sk.health = def.health;
     sk.stats.damage = def.damage;
     sk.stats.speed = def.speed;
+    sk.lifeStart = time;
     sk.expireAt = time + 9000 + necro.level * 1800;
     this.companions.push(sk);
     this.allies.push(sk);
@@ -1736,6 +1769,37 @@ export class DungeonScene extends Phaser.Scene {
     this.summons = this.summons.filter((s) => s !== sk);
   }
 
+  /** Bring a downed ally/player back into the fight (Warden resurrect). */
+  private reviveAlly(a: Hero, hp: number): void {
+    a.alive = true;
+    a.health = Math.max(1, hp);
+    a.setActive(true).setVisible(true);
+    const body = a.body as Phaser.Physics.Arcade.Body | null;
+    if (body) body.enable = true;
+    const fx = this.add.sprite(a.x, a.y, 'fx-magic').setDepth(a.y + 16).setScale(2.2).setTint(0x9bff9b);
+    fx.play('fx-magic');
+    fx.once('animationcomplete', () => fx.destroy());
+    this.add.image(a.x, a.y, 'fx-glow-green').setScale(3).setAlpha(0.7).setBlendMode(Phaser.BlendModes.ADD).setDepth(a.y - 1);
+    audio.sfx('shrine');
+    this.syncHudData();
+  }
+
+  /** Warden passive 'Regen' — a gentle heal-over-time aura on nearby allies and
+   *  necro pets; its reach and potency grow with the Warden's level. */
+  private updateWardenRegen(delta: number): void {
+    const dt = delta / 1000;
+    const wardens = this.allies.filter((a) => a.alive && a.classId === 'warden');
+    if (!wardens.length) return;
+    for (const w of wardens) {
+      const radius = 110 + w.level * 4;
+      const perSec = 1.5 + w.level * 0.5;
+      for (const a of this.allies) {
+        if (!a.alive || a === w || a.healthRatio() >= 1) continue;
+        if (Phaser.Math.Distance.Between(w.x, w.y, a.x, a.y) <= radius) a.heal(perSec * dt);
+      }
+    }
+  }
+
   /** True if nothing solid blocks the straight line between two world points. */
   private hasLineOfSight(x1: number, y1: number, x2: number, y2: number): boolean {
     const steps = Math.ceil(Phaser.Math.Distance.Between(x1, y1, x2, y2) / 8);
@@ -1808,13 +1872,22 @@ export class DungeonScene extends Phaser.Scene {
       this.aoeHit(h, cx + h.attackDir.x * 18, cy + h.attackDir.y * 18, 60, Math.round(h.attackDamage().dmg * 2.2), time, 'shock', 60);
       audio.sfx('swing');
     } else if (h.classId === 'warden') {
+      // Sanctuary: burst heal/mana to the party (scales with Warden level) and
+      // RESURRECT one fallen ally within reach — the Warden's signature grace.
+      const healFrac = Math.min(0.6, 0.3 + h.level * 0.015);
+      let revived = false;
       for (const a of this.allies) {
-        if (!a.alive) continue;
-        a.heal(Math.round(a.stats.maxHealth * 0.35));
-        a.restoreMana(Math.round(a.stats.maxMana * 0.3));
-        const fx = this.add.image(a.x, a.y - 6, 'fx-glow-green').setDepth(a.y + 8).setScale(1.3).setBlendMode(Phaser.BlendModes.ADD);
-        this.tweens.add({ targets: fx, alpha: 0, scale: 2.2, duration: 520, onComplete: () => fx.destroy() });
+        if (a.alive) {
+          a.heal(Math.round(a.stats.maxHealth * healFrac));
+          a.restoreMana(Math.round(a.stats.maxMana * 0.3));
+          const fx = this.add.image(a.x, a.y - 6, 'fx-glow-green').setDepth(a.y + 8).setScale(1.3).setBlendMode(Phaser.BlendModes.ADD);
+          this.tweens.add({ targets: fx, alpha: 0, scale: 2.2, duration: 520, onComplete: () => fx.destroy() });
+        } else if (a.active && !revived && Phaser.Math.Distance.Between(cx, cy, a.x, a.y) < 170) {
+          this.reviveAlly(a, Math.round(a.stats.maxHealth * Math.min(0.7, 0.4 + h.level * 0.01)));
+          revived = true;
+        }
       }
+      if (revived && announce) this.showBark(`${h.def.name} calls a fallen comrade back from the brink!`, 2800, 'event');
       this.aoeHit(h, cx, cy, 120, Math.round(h.attackDamage().dmg * 1.2), time, 'shock', 140);
       audio.sfx('shrine');
     } else if (h.classId === 'arcanist') {
@@ -2196,6 +2269,16 @@ export class DungeonScene extends Phaser.Scene {
         const reach = ally.reach();
         const { dmg, crit } = ally.attackDamage();
         const dir = ally.attackDir;
+        // A weapon-swing arc in the strike direction so melee reads dynamically
+        // (the hero sheets hold a single attack frame; this adds the motion).
+        const sl = this.add.sprite(ally.x + dir.x * 14, ally.y + dir.y * 14, 'fx-slash')
+          .setDepth(ally.y + 9)
+          .setScale(ally.isPlayer ? 1.7 : 1.3)
+          .setRotation(Math.atan2(dir.y, dir.x))
+          .setTint(crit ? 0xffd24a : 0xeaf2ff)
+          .setAlpha(0.9);
+        sl.play('fx-slash');
+        sl.once('animationcomplete', () => sl.destroy());
         for (const m of this.monsters) {
           if (!m.active || !m.alive) continue;
           if (this.inArc(ally.x, ally.y, m.x, m.y, dir, reach + 8)) {
@@ -2378,6 +2461,35 @@ export class DungeonScene extends Phaser.Scene {
     }
   }
 
+  /** Scatter roaming wild monsters across a combat level, independent of altars.
+   *  Count scales with level size and the 'Wild monsters' cheat (0 disables). */
+  private spawnAmbientMonsters(): void {
+    if (this.level.town || this.level.interior) return;
+    const mult = settings.get('gameplay').wildMonsters ?? 1;
+    if (mult <= 0) return;
+    // draw from the enemy types this realm's altars use; else a sensible default
+    const pool: EnemyId[] = [];
+    for (const sp of this.level.spawns) if (sp.kind === 'generator' && sp.enemyId) pool.push(sp.enemyId);
+    const types = pool.length ? Array.from(new Set(pool)) : (['grunt'] as EnemyId[]);
+    const W = this.level.width;
+    const H = this.level.height;
+    const count = Math.min(60, Math.round((6 + (W * H) / 700) * mult));
+    const sx = this.startTile?.x ?? Math.floor(W / 2);
+    const sy = this.startTile?.y ?? Math.floor(H / 2);
+    let placed = 0;
+    let tries = 0;
+    while (placed < count && tries < count * 14) {
+      tries++;
+      const tx = Phaser.Math.Between(2, W - 3);
+      const ty = Phaser.Math.Between(2, H - 3);
+      if (!this.isWalkable(tx, ty)) continue;
+      if (Math.abs(tx - sx) < 6 && Math.abs(ty - sy) < 6) continue; // don't spawn on the party
+      const c = this.tileCenter(tx, ty);
+      this.makeMonster(c.x, c.y, types[Phaser.Math.Between(0, types.length - 1)]);
+      placed++;
+    }
+  }
+
   /** Create a monster with all combat callbacks wired (ranged/summon/nova). */
   private makeMonster(x: number, y: number, enemyId: EnemyId): Monster {
     const m = new Monster(this, x, y, enemyId);
@@ -2530,10 +2642,16 @@ export class DungeonScene extends Phaser.Scene {
   }
 
   /** Drop a collectable coin pickup worth `amount` gold. */
-  private spawnCoin(x: number, y: number, amount: number): void {
+  /** True when this client is the co-op enemy host on a combat map. */
+  private coopHosting(): boolean {
+    return MULTIPLAYER_ENABLED && net.connected && net.partySize > 1 && !this.level.town && net.isHost;
+  }
+
+  private spawnCoin(x: number, y: number, amount: number, fromNet = false): void {
     const spr = this.add.sprite(x, y, 'coin-sheet').play('coin').setDepth(y);
     this.floatBob(spr);
     this.pickups.push({ sprite: spr, kind: 'coin', value: amount });
+    if (!fromNet && this.coopHosting()) net.sendCoopLoot({ x, y, coin: amount });
   }
 
   /** Highest luck among the living party — loot rolls use the party's best. */
@@ -2550,7 +2668,7 @@ export class DungeonScene extends Phaser.Scene {
     this.spawnLootPickup(x, y, item);
   }
 
-  private spawnLootPickup(x: number, y: number, item: ItemDefinition): void {
+  private spawnLootPickup(x: number, y: number, item: ItemDefinition, fromNet = false): void {
     const color = item.grade ? GRADES[item.grade].color : '#ffe9a8';
     const tint = Phaser.Display.Color.HexStringToColor(color).color;
     const spr = this.add.image(x, y, item.icon).setDepth(y);
@@ -2590,6 +2708,18 @@ export class DungeonScene extends Phaser.Scene {
     this.tweens.add({ targets: spr, scale: 1, duration: 240, ease: 'Back.easeOut', onComplete: () => this.floatBob(spr) });
     this.pickups.push({ sprite: spr, kind: 'item', value: 0, itemId: item.id });
     this.floatPickup(x, y - 8, item.name, color);
+    if (!fromNet && this.coopHosting()) net.sendCoopLoot({ x, y, item });
+  }
+
+  /** Guest: spawn a host-shared loot drop locally (its own instance). */
+  private coopApplyLoot(loot: CoopLoot): void {
+    if (typeof loot.coin === 'number') {
+      this.spawnCoin(loot.x, loot.y, loot.coin, true);
+    } else if (loot.item) {
+      const item = loot.item as ItemDefinition;
+      Content.registerItem(item); // resolve it by id when picked up
+      this.spawnLootPickup(loot.x, loot.y, item, true);
+    }
   }
 
   private onBossDeath(): void {
@@ -2898,6 +3028,7 @@ export class DungeonScene extends Phaser.Scene {
     net.onCoopState = (enemies) => this.coopApplyState(enemies);
     net.onCoopHit = (netId, dmg) => this.coopApplyHit(netId, dmg);
     net.onCoopReward = (xp, gold) => this.coopApplyReward(xp, gold);
+    net.onCoopLoot = (loot) => this.coopApplyLoot(loot);
     net.connect(getServerUrl(), {
       name: p0?.def?.name ?? 'Adventurer',
       classId: p0?.classId ?? 'vanguard',

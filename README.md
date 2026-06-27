@@ -155,6 +155,29 @@ solo). **Solo play is completely unchanged** — the co-op path only activates w
 > same-screen 2-player is retired in favour of this, and **Level Select is
 > disabled** for now.
 
+## Deploying the client (play from home, little/no install)
+
+The game client is a **static web app** — `npm run build` emits a `dist/` folder
+that runs from any static host, so friends just open a URL (no install):
+
+- **GitHub Pages (automatic):** the included `.github/workflows/deploy.yml` builds
+  and publishes `dist/` on every push to `main`. Enable it once under **Settings →
+  Pages → Source: GitHub Actions**, then share the Pages URL.
+- **itch.io:** zip the `dist/` folder, upload as an **HTML5 game**, and tick "play
+  in browser". Easiest zero-install option for friends.
+- **Netlify / any static host:** drag-drop `dist/` (or point it at the repo).
+
+Each friend opens the page, clicks the **SERVER** button on the title screen,
+enters your address, and presses **PLAY**.
+
+> **One networking gotcha:** the static client connects to your **game server**,
+> which must be reachable from their machines. On a LAN, `ws://your-LAN-ip:8080`
+> works. Over the internet you must either **port-forward** 8080, or run a tunnel
+> (e.g. `cloudflared` / `ngrok`) that gives a public URL. If you host the *client*
+> on HTTPS (GitHub Pages/itch are HTTPS), browsers require a **secure** socket —
+> use the tunnel's `wss://…` address in the SERVER box. For a quick LAN game,
+> serving the client over plain HTTP (e.g. `npm run preview`) lets you use `ws://`.
+
 ## Hearthwatch — the town hub
 
 Every run begins (and every cleared realm returns you to) **Hearthwatch**, the

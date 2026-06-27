@@ -7,6 +7,9 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
   const proxyPort = env.PORT || env.VITE_PROXY_PORT || '3847';
   return {
+    // relative base so the production build runs from any location: a GitHub
+    // Pages project subpath, an itch.io zip, a static host, or a local file.
+    base: './',
     server: {
       port: 5173,
       proxy: {

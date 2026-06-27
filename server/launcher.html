@@ -126,7 +126,7 @@
     const running = st.running;
     $('dot').classList.toggle('up', running);
     $('statusText').textContent = running ? 'server running' : 'server stopped';
-    $('serverMeta').textContent = running ? `PID ${st.pid} · up ${fmt(st.uptime)}` : 'Press Start Server to launch.';
+    $('serverMeta').textContent = running ? (st.managed ? `PID ${st.pid} · up ${fmt(st.uptime)}` : 'external server (adopted)') : 'Stopped — press Start Server.';
     $('hostLabel').textContent = `:${st.gamePort}`;
     $('startBtn').disabled = running;
     $('stopBtn').disabled = !running;

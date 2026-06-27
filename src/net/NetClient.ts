@@ -25,6 +25,14 @@ export interface NetConfig {
   motd: string;
 }
 
+/** A loot drop the host shares so every party member gets their own instance. */
+export interface CoopLoot {
+  x: number;
+  y: number;
+  coin?: number;
+  item?: unknown; // a serialized ItemDefinition (kept loose to decouple the net layer)
+}
+
 /** One enemy in the host's authoritative co-op snapshot (Tier 2). */
 export interface CoopEnemy {
   netId: number;
@@ -64,6 +72,7 @@ export class NetClient {
   onCoopState?: (enemies: CoopEnemy[]) => void;
   onCoopHit?: (netId: number, dmg: number) => void;
   onCoopReward?: (xp: number, gold: number) => void;
+  onCoopLoot?: (loot: CoopLoot) => void;
 
   private profile: NetProfile = { name: 'Adventurer', classId: 'vanguard', level: 1, x: 0, y: 0, hp: 0, levelId: 'town' };
   private lastSent = 0;
@@ -133,6 +142,9 @@ export class NetClient {
       case 'coopReward':
         this.onCoopReward?.(Number(msg.xp), Number(msg.gold));
         break;
+      case 'coopLoot':
+        this.onCoopLoot?.(msg.loot as CoopLoot);
+        break;
       case 'config':
         this.config = (msg.config as NetConfig) ?? this.config;
         break;
@@ -163,6 +175,11 @@ export class NetClient {
   /** Host → party: shared XP + gold reward from a co-op kill. */
   sendCoopReward(xp: number, gold: number): void {
     if (this.connected) this.send({ t: 'coopReward', xp, gold });
+  }
+
+  /** Host → party: a loot drop so each member spawns their own instance. */
+  sendCoopLoot(loot: CoopLoot): void {
+    if (this.connected) this.send({ t: 'coopLoot', loot });
   }
 
   /** Push the local hero's latest state (throttled to ~12/s). Call each frame. */
