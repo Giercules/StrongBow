@@ -14,7 +14,6 @@ export function createGameConfig(): Phaser.Types.Core.GameConfig {
   type: Phaser.AUTO,
   parent: 'app',
   input: { gamepad: true },
-  dom: { createContainer: true },
   width: GAME_WIDTH,
   height: GAME_HEIGHT,
   backgroundColor: '#05060a',

@@ -236,11 +236,10 @@ export function drawSignpost(ctx: Ctx, ox: number, oy: number): void {
 }
 
 export function drawCaveEntrance(ctx: Ctx, ox: number, oy: number): void {
-  const rock = '#4f4a43', rockHi = '#65605700', rockLo = '#383531';
+  const rock = '#4f4a43', rockLo = '#383531';
   R(ctx, ox + 3, oy + 8, 26, 22, rock);
   R(ctx, ox + 3, oy + 28, 26, 3, rockLo);
   R(ctx, ox + 6, oy + 8, 20, 2, '#6a655c');
-  void rockHi;
   // dark mouth
   ctx.fillStyle = '#0a0a0c';
   ctx.beginPath();

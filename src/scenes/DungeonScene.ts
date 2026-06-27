@@ -2271,14 +2271,17 @@ export class DungeonScene extends Phaser.Scene {
         const dir = ally.attackDir;
         // A weapon-swing arc in the strike direction so melee reads dynamically
         // (the hero sheets hold a single attack frame; this adds the motion).
-        const sl = this.add.sprite(ally.x + dir.x * 14, ally.y + dir.y * 14, 'fx-slash')
-          .setDepth(ally.y + 9)
-          .setScale(ally.isPlayer ? 1.7 : 1.3)
-          .setRotation(Math.atan2(dir.y, dir.x))
-          .setTint(crit ? 0xffd24a : 0xeaf2ff)
-          .setAlpha(0.9);
-        sl.play('fx-slash');
-        sl.once('animationcomplete', () => sl.destroy());
+        // Player-only so a necromancer's summons + companions don't flood the screen.
+        if (ally.isPlayer) {
+          const sl = this.add.sprite(ally.x + dir.x * 14, ally.y + dir.y * 14, 'fx-slash')
+            .setDepth(ally.y + 9)
+            .setScale(1.7)
+            .setRotation(Math.atan2(dir.y, dir.x))
+            .setTint(crit ? 0xffd24a : 0xeaf2ff)
+            .setAlpha(0.9);
+          sl.play('fx-slash');
+          sl.once('animationcomplete', () => sl.destroy());
+        }
         for (const m of this.monsters) {
           if (!m.active || !m.alive) continue;
           if (this.inArc(ally.x, ally.y, m.x, m.y, dir, reach + 8)) {
