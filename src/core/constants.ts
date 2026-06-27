@@ -76,6 +76,11 @@ export enum Tile {
   ICE = 8,
   POISON = 9,
   SPIKES = 10,
+  // overworld biome ground — walkable, purely cosmetic variants of floor
+  GRASS = 11,
+  SAND = 12,
+  MUD = 13,
+  ROCK = 14,
 }
 
 export const WALKABLE_TILES: ReadonlySet<number> = new Set([
@@ -87,6 +92,10 @@ export const WALKABLE_TILES: ReadonlySet<number> = new Set([
   Tile.ICE,
   Tile.POISON,
   Tile.SPIKES,
+  Tile.GRASS,
+  Tile.SAND,
+  Tile.MUD,
+  Tile.ROCK,
 ]);
 
 export const WATER_SPEED_MULT = 0.7;

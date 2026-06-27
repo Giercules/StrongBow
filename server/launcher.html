@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>StrongBow · Server Control</title>
+<style>
+  :root {
+    --bg0:#0b0a12; --bg1:#15121f; --panel:#1c1828; --panel2:#241f33;
+    --gold:#cfa64e; --gold-hi:#f0d27a; --ink:#e8e2d2; --dim:#9a93a8;
+    --green:#5fe06a; --red:#e0564a; --blue:#7fd0ff; --border:#3a3050;
+  }
+  * { box-sizing:border-box; }
+  body {
+    margin:0; font-family:'Trebuchet MS',system-ui,sans-serif; color:var(--ink);
+    background:radial-gradient(1200px 600px at 50% -10%, #241a36 0%, var(--bg1) 45%, var(--bg0) 100%);
+    min-height:100vh; padding:28px 20px 60px;
+  }
+  .wrap { max-width:1100px; margin:0 auto; }
+  header { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:14px; margin-bottom:22px; }
+  .brand { display:flex; align-items:baseline; gap:12px; }
+  h1 { font-family:'Cinzel',Georgia,serif; font-size:28px; margin:0; letter-spacing:2px; color:var(--gold-hi); text-shadow:0 2px 10px rgba(0,0,0,.6); }
+  .sub { color:var(--dim); font-size:13px; font-style:italic; }
+  .status { display:flex; align-items:center; gap:9px; font-size:15px; font-weight:bold; }
+  .dot { width:13px; height:13px; border-radius:50%; background:var(--red); box-shadow:0 0 9px var(--red); }
+  .dot.up { background:var(--green); box-shadow:0 0 11px var(--green); }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:14px; margin-bottom:18px; }
+  .card { background:linear-gradient(180deg,var(--panel2),var(--panel)); border:1px solid var(--border); border-radius:12px; padding:16px 18px; box-shadow:0 6px 20px rgba(0,0,0,.35); }
+  .card .k { color:var(--dim); font-size:12px; text-transform:uppercase; letter-spacing:1px; }
+  .card .v { font-size:28px; font-weight:bold; color:var(--gold-hi); margin-top:4px; font-family:'Cinzel',Georgia,serif; }
+  .panel { background:linear-gradient(180deg,var(--panel2),var(--panel)); border:1px solid var(--border); border-radius:12px; padding:18px 20px; margin-bottom:18px; box-shadow:0 6px 20px rgba(0,0,0,.35); }
+  .panel h2 { margin:0 0 14px; font-family:'Cinzel',Georgia,serif; font-size:15px; color:var(--gold); letter-spacing:1px; border-bottom:1px solid var(--border); padding-bottom:8px; }
+  .row { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+  label { font-size:13px; color:var(--dim); }
+  input[type=number], input[type=text] { background:#0e0c16; border:1px solid var(--border); color:var(--ink); border-radius:7px; padding:8px 10px; font-size:14px; font-family:inherit; }
+  input[type=text] { flex:1; min-width:200px; }
+  button { background:linear-gradient(180deg,#3a2f12,#2a210c); color:var(--gold-hi); border:1px solid var(--gold); border-radius:7px; padding:10px 18px; font-size:14px; font-weight:bold; cursor:pointer; font-family:inherit; transition:filter .15s; }
+  button:hover { filter:brightness(1.25); }
+  button:disabled { opacity:.4; cursor:not-allowed; filter:none; }
+  button.go { color:#d6ffd9; border-color:var(--green); background:linear-gradient(180deg,#163a18,#0f2a12); }
+  button.stop { color:#ffd2cc; border-color:var(--red); background:linear-gradient(180deg,#3a1512,#2a0f0c); }
+  button.small { padding:7px 13px; font-size:13px; }
+  .toggle { position:relative; width:52px; height:27px; border-radius:14px; background:#0e0c16; border:1px solid var(--border); cursor:pointer; transition:background .2s; }
+  .toggle.on { background:linear-gradient(90deg,#2e6b34,#43a14d); border-color:var(--green); }
+  .toggle .knob { position:absolute; top:2px; left:2px; width:21px; height:21px; border-radius:50%; background:var(--ink); transition:left .2s; }
+  .toggle.on .knob { left:27px; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th, td { text-align:left; padding:9px 10px; border-bottom:1px solid #2a2440; }
+  th { color:var(--dim); text-transform:uppercase; font-size:11px; letter-spacing:1px; }
+  tr:hover td { background:rgba(207,166,78,.06); }
+  .pill { display:inline-block; padding:2px 9px; border-radius:10px; font-size:11px; font-weight:bold; background:#2a2440; color:var(--blue); }
+  .empty { color:var(--dim); font-style:italic; padding:18px 4px; text-align:center; }
+  .hint { color:var(--dim); font-size:12px; margin-top:8px; }
+  pre#log { margin:0; background:#0a0810; border:1px solid var(--border); border-radius:8px; padding:12px 14px; height:240px; overflow:auto; font-family:'Consolas',ui-monospace,monospace; font-size:12px; color:#c8d0c0; line-height:1.5; white-space:pre-wrap; }
+  .controls { display:flex; gap:12px; flex-wrap:wrap; }
+  .controls button { flex:1; min-width:130px; }
+  fieldset:disabled { opacity:.45; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand"><h1>STRONGBOW</h1><span class="sub">Server Control &amp; Dashboard</span></div>
+    <div class="status"><span class="dot" id="dot"></span><span id="statusText">checking…</span></div>
+  </header>
+
+  <div class="panel">
+    <div class="controls">
+      <button class="go" id="startBtn">▶ Start Server</button>
+      <button class="stop" id="stopBtn">■ Stop Server</button>
+      <button id="restartBtn">⟳ Restart</button>
+    </div>
+    <div class="hint" id="serverMeta">—</div>
+  </div>
+
+  <div class="grid">
+    <div class="card"><div class="k">Players Online</div><div class="v" id="playerCount">—</div></div>
+    <div class="card"><div class="k">Uptime</div><div class="v" id="uptime">—</div></div>
+    <div class="card"><div class="k">AI NPCs</div><div class="v" id="aiStatus">—</div></div>
+    <div class="card"><div class="k">Listening on</div><div class="v" id="hostLabel" style="font-size:17px;">—</div></div>
+  </div>
+
+  <fieldset class="panel" id="gsPanel" style="border:1px solid var(--border);">
+    <h2>AI NPC Injection</h2>
+    <div class="row">
+      <label>Enabled</label>
+      <div class="toggle" id="aiToggle"><div class="knob"></div></div>
+      <label style="margin-left:16px;">Count</label>
+      <input type="number" id="aiCount" min="0" max="12" value="2" style="width:80px;" />
+      <button class="small" id="saveAi">Apply</button>
+    </div>
+    <div class="hint">When enabled, the server populates the world with wandering AI NPCs near the busiest map.</div>
+
+    <h2 style="margin-top:22px;">Broadcast Message</h2>
+    <div class="row">
+      <input type="text" id="msg" placeholder="A message to all connected players…" maxlength="200" />
+      <button class="small" id="sendMsg">Send</button>
+    </div>
+    <div class="hint">Also sets the MOTD shown to clients on connect.</div>
+
+    <h2 style="margin-top:22px;">Connected Players</h2>
+    <table>
+      <thead><tr><th>Name</th><th>Class</th><th>Lvl</th><th>Map</th><th>Position</th><th>HP</th><th></th></tr></thead>
+      <tbody id="playerRows"></tbody>
+    </table>
+    <div class="empty" id="emptyRow">No adventurers connected.</div>
+  </fieldset>
+
+  <div class="panel">
+    <h2>Server Log</h2>
+    <pre id="log">…</pre>
+  </div>
+</div>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+  let cfg = { aiNpcsEnabled:false, aiNpcCount:2, motd:'' };
+  let lastLogLen = 0;
+  async function api(path, opts){ return fetch(path, opts).then(r=>r.json()).catch(()=>null); }
+  function fmt(ms){ const s=Math.floor(ms/1000),h=Math.floor(s/3600),m=Math.floor((s%3600)/60); return h?`${h}h ${m}m`:m?`${m}m ${s%60}s`:`${s}s`; }
+  function esc(s){ return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+  async function refresh(){
+    const st = await api('/api/status');   // launcher: running, pid, uptime, logs, gamePort
+    if (!st){ $('statusText').textContent='launcher offline'; $('dot').classList.remove('up'); return; }
+    const running = st.running;
+    $('dot').classList.toggle('up', running);
+    $('statusText').textContent = running ? 'server running' : 'server stopped';
+    $('serverMeta').textContent = running ? `PID ${st.pid} · up ${fmt(st.uptime)}` : 'Press Start Server to launch.';
+    $('hostLabel').textContent = `:${st.gamePort}`;
+    $('startBtn').disabled = running;
+    $('stopBtn').disabled = !running;
+    $('gsPanel').disabled = !running;
+
+    // server log
+    const log = $('log');
+    const atBottom = log.scrollTop + log.clientHeight >= log.scrollHeight - 20;
+    if ((st.logs||[]).length !== lastLogLen){ log.textContent = (st.logs||[]).join('\n'); lastLogLen=(st.logs||[]).length; if(atBottom) log.scrollTop=log.scrollHeight; }
+
+    // game server stats (proxied) — only when running
+    const gs = running ? await api('/api/server/state') : null;
+    if (gs && !gs.offline){
+      $('playerCount').textContent = gs.playerCount;
+      $('uptime').textContent = fmt(gs.uptime);
+      cfg = gs.config;
+      $('aiStatus').textContent = cfg.aiNpcsEnabled ? `${gs.npcCount ?? 0}/${cfg.aiNpcCount}` : 'Off';
+      $('aiToggle').classList.toggle('on', cfg.aiNpcsEnabled);
+      if (document.activeElement !== $('aiCount')) $('aiCount').value = cfg.aiNpcCount;
+      renderPlayers(gs.players || []);
+    } else {
+      $('playerCount').textContent='—'; $('uptime').textContent='—'; $('aiStatus').textContent='—';
+      renderPlayers([]);
+    }
+  }
+  function renderPlayers(list){
+    const tb=$('playerRows'); tb.innerHTML='';
+    $('emptyRow').style.display = list.length ? 'none':'block';
+    for (const p of list){
+      const tr=document.createElement('tr');
+      tr.innerHTML=`<td>${esc(p.name)}</td><td><span class="pill">${esc(p.classId)}</span></td><td>${p.level}</td>`
+        +`<td>${esc(p.levelId)}</td><td>${p.x}, ${p.y}</td><td>${p.hp}</td>`
+        +`<td><button class="stop small" data-id="${p.id}">Kick</button></td>`;
+      tb.appendChild(tr);
+    }
+    tb.querySelectorAll('button[data-id]').forEach(b=>b.onclick=()=>api('/api/server/kick',post({id:b.dataset.id})).then(refresh));
+  }
+  const post = (body)=>({ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
+
+  $('startBtn').onclick   = ()=>api('/api/start',{method:'POST'}).then(refresh);
+  $('stopBtn').onclick    = ()=>{ if(confirm('Stop the game server? Players will be disconnected.')) api('/api/stop',{method:'POST'}).then(refresh); };
+  $('restartBtn').onclick = ()=>api('/api/restart',{method:'POST'}).then(()=>setTimeout(refresh,900));
+  $('aiToggle').onclick   = ()=>{ cfg.aiNpcsEnabled=!cfg.aiNpcsEnabled; $('aiToggle').classList.toggle('on',cfg.aiNpcsEnabled); };
+  $('saveAi').onclick     = ()=>api('/api/server/config',post({ aiNpcsEnabled:cfg.aiNpcsEnabled, aiNpcCount:Number($('aiCount').value) })).then(refresh);
+  $('sendMsg').onclick    = ()=>{ const text=$('msg').value.trim(); if(!text) return; api('/api/server/broadcast',post({text})); api('/api/server/config',post({motd:text})); $('msg').value=''; };
+
+  refresh();
+  setInterval(refresh, 1500);
+</script>
+</body>
+</html>

@@ -136,10 +136,18 @@ export class GameManualUI {
   }
 
   private renderText(body: string[], x0: number, y0: number): void {
-    this.label(x0 + 28, y0 + 52, body.join('\n\n'), INK, 13.5, {
+    const t = this.label(x0 + 28, y0 + 52, body.join('\n\n'), INK, 13.5, {
       lineSpacing: 6,
       wordWrap: { width: PANEL_W - 56 },
     });
+    // Shrink long pages (e.g. Hearthwatch, How to Play cont.) so the body text
+    // never spills past the bottom rule of the parchment.
+    const avail = PANEL_H - 116; // from the top of the text down to the footer rule
+    let size = 13.5;
+    while (t.height > avail && size > 9) {
+      size -= 0.5;
+      t.setFontSize(size);
+    }
   }
 
   // A character dossier: large framed portrait on the left, lore text on the right.
@@ -206,10 +214,17 @@ export class GameManualUI {
     g.lineStyle(2, hx(GOLD_DK), 1);
     g.strokeRoundedRect(-w / 2, -13, w, 26, 5);
     cont.add(g);
-    cont.add(this.scene.add.text(0, 0, label, { fontFamily: SERIF, fontSize: '13px', color: INK, fontStyle: 'bold' }).setOrigin(0.5));
+    const txt = this.scene.add.text(0, 0, label, { fontFamily: SERIF, fontSize: '13px', color: INK, fontStyle: 'bold' }).setOrigin(0.5);
+    cont.add(txt);
     const z = this.scene.add.zone(0, 0, w, 26).setInteractive({ useHandCursor: true });
     z.on('pointerdown', fn);
     cont.add(z);
+    // Container children don't inherit scrollFactor(0); the interactive zone in
+    // particular must be pinned, or its click hit-area drifts with the camera in
+    // the scrolling DungeonScene (buttons render in place but can't be clicked).
+    g.setScrollFactor(0);
+    txt.setScrollFactor(0);
+    z.setScrollFactor(0);
     this.pin(cont);
   }
 }

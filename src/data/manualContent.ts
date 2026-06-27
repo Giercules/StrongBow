@@ -171,10 +171,10 @@ export const MANUAL_PAGES: ManualPage[] = [
     title: 'How to Play',
     kind: 'text',
     body: [
-      'Move with WASD (P1) or the Arrow keys (P2), or hold the left mouse button to walk toward the cursor. Or plug in a GAMEPAD: left stick / D-Pad moves, A attacks, X magic, B use, Y dodge, RB ability.',
+      'Move with WASD (P1) or the Arrow keys (P2), or hold the left mouse button to walk toward the cursor. Or plug in a GAMEPAD: left stick / D-Pad moves, A attacks, X magic, B use, Y dodge, RB ability, RT steal (Thief pickpocket).',
       'Hold attack to strike — each hero differs: Vanguard cleaves, Warden bludgeons, Thief looses arrows, Arcanist and Necromancer hurl bolts.',
       'Tap magic for an attack (costs mana). Use / interact opens chests (all LOCKED now — spend an Iron Key, or play the Thief to pick them free) and lights shrines.',
-      'Press SPACE to dodge-roll (brief invulnerability), and F for your class ability: Vanguard Seismic Slam, Arcanist Meteor, Warden Sanctuary. The Thief toggles SNEAK (melt into shadow; a strike from stealth or at a turned-away foe is a guaranteed BACKSTAB for 2.4x). The Necromancer HOLDS the ability for a radial — aim with mouse or stick to pick a Tank, Archer, Mage or Thief skeleton (a quick tap raises the last-chosen).',
+      'Press SPACE to dodge-roll (brief invulnerability), and F for your class ability: Vanguard Seismic Slam, Arcanist Meteor, Warden Sanctuary. The Thief toggles SNEAK (melt into shadow — every foe rolls on its own to notice you, and higher Sneak keeps you unseen; a strike from stealth or at a turned-away foe is a BACKSTAB for 2.4x, now on a short cooldown that shrinks as Sneak grows). From stealth, press T to PICKPOCKET the nearest foe or townsfolk — Sneak and Pickpocket level set both your odds and the haul (up to a Godforged item at mastery); a failed lift simply comes up empty. The Necromancer HOLDS the ability for a radial — aim with mouse or stick to pick a Tank, Archer, Mage or Thief skeleton (a quick tap raises the last-chosen).',
     ],
   },
   {
@@ -211,6 +211,16 @@ export const MANUAL_PAGES: ManualPage[] = [
   ...ALL_CLASSES.map(heroPage),
   ...bestiaryPages(),
   ...armoryPages(),
+  {
+    title: 'Servers & Multiplayer',
+    kind: 'text',
+    body: [
+      'StrongBow now runs against a STANDALONE GAME SERVER. Every client — solo or grouped — connects to it on entering the world, so single-player and multiplayer share one path. Play alone and you simply have the world to yourself; others who join appear beside you on the same map.',
+      'Host the server with "npm run server" (or double-click server/start-server.bat). It runs independently and opens a control DASHBOARD at http://localhost:8080 — watch connected players, broadcast messages, kick, and toggle AI-NPC injection: enable it and the server fills the world with wandering NPCs (green figures) that roam near the action. Stop it from the dashboard\'s Stop button or server/stop-server.bat. For browser control, run server/start-launcher.bat once: a LAUNCHER at http://localhost:8090 gives Start / Stop / Restart buttons and a live log.',
+      'Point the game at a host with the SERVER ADDRESS box on the title screen (ws://<ip>:<port>, saved on your machine) — or VITE_GAME_SERVER_URL in .env. Share that address so friends join the same world. In a party you fight the SAME enemies (one player hosts them) and kills grant SHARED XP and gold with a party-size bonus, so co-op out-earns solo. Set VITE_MULTIPLAYER=0 to play fully offline; the game also stays playable if the server is unreachable.',
+      'Note: local same-screen 2-player has given way to server multiplayer, and Level Select is disabled for now while the new flow settles.',
+    ],
+  },
   {
     title: 'AI Narration',
     kind: 'text',

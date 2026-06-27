@@ -27,11 +27,15 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
   charisma = 0;
   sneakLevel = 0;
   lockpickLevel = 0;
+  pickpocketLevel = 0;
   sneaking = false;
   spottedUntil = 0;
+  /** Earliest time (ms) the next strike may count as a backstab; falls with Sneak. */
+  backstabReadyAt = 0;
   private charismaXP = 0;
   private sneakXP = 0;
   private lockpickXP = 0;
+  private pickpocketXP = 0;
 
   skillSet: SkillSet;
   attributes: AttributeSet;
@@ -372,6 +376,15 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
     this.lockpickXP += n;
     if (this.lockpickXP >= (this.lockpickLevel + 1) * 3) { this.lockpickXP = 0; this.lockpickLevel++; return true; }
     return false;
+  }
+  gainPickpocket(n: number): boolean {
+    this.pickpocketXP += n;
+    if (this.pickpocketXP >= (this.pickpocketLevel + 1) * 3) { this.pickpocketXP = 0; this.pickpocketLevel++; return true; }
+    return false;
+  }
+  /** Backstab recharge in ms — shrinks as Sneak grows (3.5s → 0.8s floor). */
+  backstabCooldown(): number {
+    return Math.max(800, 3500 - this.sneakLevel * 200);
   }
   canAbility(time: number): boolean {
     return this.alive && time >= this.nextAbilityAt;

@@ -42,10 +42,15 @@ export class CharacterSheetUI {
     this.hero = null;
   }
 
-  private label(x: number, y: number, str: string, color: string, size = 12, bold = false): Phaser.GameObjects.Text {
-    const t = this.scene.add
-      .text(x, y, str, { fontFamily: 'MedievalSharp, "Trebuchet MS", cursive', fontSize: `${size}px`, color, fontStyle: bold ? 'bold' : 'normal' })
-      .setOrigin(0, 0);
+  private label(x: number, y: number, str: string, color: string, size = 12, bold = false, wrapW = 0): Phaser.GameObjects.Text {
+    const style: Phaser.Types.GameObjects.Text.TextStyle = {
+      fontFamily: 'MedievalSharp, "Trebuchet MS", cursive',
+      fontSize: `${size}px`,
+      color,
+      fontStyle: bold ? 'bold' : 'normal',
+    };
+    if (wrapW > 0) style.wordWrap = { width: wrapW, useAdvancedWrap: true };
+    const t = this.scene.add.text(x, y, str, style).setOrigin(0, 0);
     addPinned(this.content!, t);
     return t;
   }
@@ -68,17 +73,22 @@ export class CharacterSheetUI {
 
     this.label(left, y0 + 150, `${h.def.name}`, C.hudBorder, 16, true);
     this.label(left, y0 + 170, `${h.def.role}  ·  Level ${h.level}`, C.inkDim, 11);
-    this.label(left, y0 + 186, h.def.signature, C.ink, 10);
+    // Signature can be long (thief, necromancer); wrap it inside the left
+    // column so it can't bleed into the STATS column on the right.
+    const leftColW = right - left - 12;
+    const sig = this.label(left, y0 + 186, h.def.signature, C.ink, 10, false, leftColW);
+    let ly = y0 + 186 + sig.height + 6;
 
-    // XP bar
+    // XP bar — flows below the (possibly multi-line) signature
     const xpToNext = Math.max(1, Math.floor(40 * Math.pow(h.level, 1.45)));
     const g = this.scene.add.graphics();
     g.fillStyle(0x000000, 0.5);
-    g.fillRect(left, y0 + 206, 150, 8);
+    g.fillRect(left, ly, 150, 8);
     g.fillStyle(parseInt(C.xpFill.slice(1), 16), 1);
-    g.fillRect(left, y0 + 206, 150 * Phaser.Math.Clamp(h.xp / xpToNext, 0, 1), 8);
+    g.fillRect(left, ly, 150 * Phaser.Math.Clamp(h.xp / xpToNext, 0, 1), 8);
     addPinned(this.content, g);
-    this.label(left, y0 + 218, `XP ${h.xp}/${xpToNext}`, C.inkDim, 9);
+    this.label(left, ly + 11, `XP ${h.xp}/${xpToNext}`, C.inkDim, 9);
+    ly += 11 + 16;
 
     // stats
     const s = h.stats;
@@ -99,26 +109,34 @@ export class CharacterSheetUI {
     if (h.classId === 'thief') {
       stats.push(['Sneak', `${h.sneakLevel}`]);
       stats.push(['Lockpick', `${h.lockpickLevel}`]);
+      stats.push(['Pickpocket', `${h.pickpocketLevel}`]);
     }
+    const STATS_TOP = y0 + 56;
+    const STAT_ROW_H = 17;
     stats.forEach((st, i) => {
-      const yy = y0 + 56 + i * 17;
+      const yy = STATS_TOP + i * STAT_ROW_H;
       this.label(right, yy, st[0], C.inkDim, 11);
       this.label(right + 110, yy, st[1], C.ink, 11, true);
     });
 
-    // growth
-    this.label(right, y0 + 204, 'GROWTH', C.hudBorder, 12, true);
-    this.label(right, y0 + 222, `Skill points: ${h.skillSet.points}`, h.skillSet.points > 0 ? C.coinHi : C.inkDim, 10);
-    this.label(right, y0 + 236, `Attribute points: ${h.attributes.points}`, h.attributes.points > 0 ? C.coinHi : C.inkDim, 10);
+    // growth — placed below the stats list, whose length varies by class
+    // (thief adds Sneak/Lockpick, necromancer adds Max summons), so anchor it
+    // dynamically to avoid overlapping the last stat row.
+    const growthY = STATS_TOP + stats.length * STAT_ROW_H + 14;
+    this.label(right, growthY, 'GROWTH', C.hudBorder, 12, true);
+    this.label(right, growthY + 18, `Skill points: ${h.skillSet.points}`, h.skillSet.points > 0 ? C.coinHi : C.inkDim, 10);
+    this.label(right, growthY + 32, `Attribute points: ${h.attributes.points}`, h.attributes.points > 0 ? C.coinHi : C.inkDim, 10);
     const attrs = h.attributes.list().map((a) => `${a.name[0]}${h.attributes.rank(a.id)}`).join('  ');
-    this.label(right, y0 + 250, `Attributes: ${attrs}`, C.ink, 10);
+    this.label(right, growthY + 46, `Attributes: ${attrs}`, C.ink, 10);
 
-    // equipped gear
-    this.label(left, y0 + 240, 'EQUIPPED', C.hudBorder, 12, true);
+    // equipped gear — flows below the XP block; the left column's height
+    // depends on how many lines the signature wrapped to.
+    this.label(left, ly, 'EQUIPPED', C.hudBorder, 12, true);
     const eq = h.inventory.equippedList();
-    if (eq.length === 0) this.label(left, y0 + 258, 'Nothing equipped yet.', C.inkDim, 10);
+    const eqTop = ly + 18;
+    if (eq.length === 0) this.label(left, eqTop, 'Nothing equipped yet.', C.inkDim, 10);
     eq.forEach((it, i) => {
-      const yy = y0 + 256 + i * 15;
+      const yy = eqTop + i * 15;
       addPinned(this.content!, this.scene.add.image(left + 8, yy + 1, it.icon).setScale(0.85).setOrigin(0, 0));
       this.label(left + 26, yy, it.name, C.ink, 9.5, true);
       const cz = this.scene.add.zone(left, yy, PANEL_W / 2 - 30, 14).setOrigin(0, 0).setInteractive({ useHandCursor: true });

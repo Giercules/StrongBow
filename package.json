@@ -4,24 +4,30 @@
   "description": "StrongBow \u2014 a browser-based, top-down arcade dungeon crawler with stunning procedural pixel art and an epic procedural soundtrack.",
   "type": "module",
   "scripts": {
-    "dev": "concurrently -n vite,api -c green,cyan \"vite\" \"tsx watch server/index.ts\"",
+    "dev": "concurrently -n vite,ai -c green,cyan \"vite\" \"tsx watch server/index.ts\"",
     "dev:client": "vite",
     "dev:server": "tsx watch server/index.ts",
     "dev:all": "npm run dev",
-    "dev:kill": "npx --yes kill-port 3847 5173 5174 5175",
+    "dev:kill": "npx --yes kill-port 3847 5173 5174 5175 8080 8090",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview --port 4173",
     "start:server": "tsx server/index.ts",
+    "server": "tsx server/gameServer.ts",
+    "server:watch": "tsx watch server/gameServer.ts",
+    "launcher": "tsx server/launcher.ts",
+    "launcher:watch": "tsx watch server/launcher.ts",
     "atlas": "esbuild tools/_artbundle.ts --bundle --format=cjs --platform=node --outfile=tools/_artbundle.cjs && node tools/render_atlas.cjs"
   },
   "dependencies": {
-    "phaser": "^4.2.0"
+    "phaser": "^4.2.0",
+    "ws": "^8.18.0"
   },
   "devDependencies": {
     "@napi-rs/canvas": "^1.0.1",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/node": "^26.0.0",
+    "@types/ws": "^8.5.12",
     "concurrently": "^10.0.3",
     "cors": "^2.8.5",
     "express": "^5.2.1",

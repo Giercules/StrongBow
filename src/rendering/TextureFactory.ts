@@ -3,6 +3,7 @@ import { C, HERO_RAMPS, MONSTER_RAMPS } from './Palette';
 import type { HeroRamp, MonsterRamp } from './Palette';
 import * as art from './spriteArt';
 import * as townArt from './townArt';
+import * as overworldArt from './overworldArt';
 import { HERO_FW, HERO_FH, MON_FW, MON_FH, BOSS_FW, BOSS_FH } from './spriteArt';
 import type { Ctx, Facing } from './spriteArt';
 
@@ -179,6 +180,26 @@ export class TextureFactory {
     img('town-bird', 16, 16, (c) => townArt.drawBird(c), true);
     img('town-dog', 16, 16, (c) => townArt.drawDog(c), true);
     for (let v = 0; v < 7; v++) img(`townsfolk-${v}`, 28, 36, (c) => townArt.drawTownsfolk(c, 0, 0, v), true);
+
+    // ---- overworld decor + critters (outlined) ----
+    img('pine', 32, 32, (c) => overworldArt.drawPine(c, 0, 0), true);
+    img('gnarled-oak', 32, 32, (c) => overworldArt.drawGnarledOak(c, 0, 0), true);
+    img('swamp-cypress', 32, 32, (c) => overworldArt.drawSwampCypress(c, 0, 0), true);
+    img('desert-tree', 32, 32, (c) => overworldArt.drawDesertTree(c, 0, 0), true);
+    img('boulder', 32, 32, (c) => overworldArt.drawBoulder(c, 0, 0), true);
+    img('reeds', 32, 32, (c) => overworldArt.drawReeds(c, 0, 0), true);
+    img('wildflowers', 32, 32, (c) => overworldArt.drawWildflowers(c, 0, 0));
+    img('obelisk', 32, 48, (c) => overworldArt.drawObelisk(c, 0, 0), true);
+    img('ruin-pillar', 32, 32, (c) => overworldArt.drawRuinPillar(c, 0, 0), true);
+    img('standing-stone', 32, 32, (c) => overworldArt.drawStandingStone(c, 0, 0), true);
+    img('signpost', 32, 32, (c) => overworldArt.drawSignpost(c, 0, 0), true);
+    img('cave-entrance', 32, 32, (c) => overworldArt.drawCaveEntrance(c, 0, 0), true);
+    img('critter-deer', 20, 18, (c) => overworldArt.drawDeer(c, 0, 0), true);
+    img('critter-rabbit', 16, 16, (c) => overworldArt.drawRabbit(c, 0, 0), true);
+    img('critter-fox', 16, 16, (c) => overworldArt.drawFox(c, 0, 0), true);
+    img('critter-frog', 16, 16, (c) => overworldArt.drawFrog(c, 0, 0), true);
+    img('critter-boar', 20, 18, (c) => overworldArt.drawBoar(c, 0, 0), true);
+    img('critter-crow', 16, 16, (c) => overworldArt.drawCrow(c, 0, 0), true);
 
     // ---- pickups (outlined) ----
     sheet('coin-sheet', 16, 16, 4, (c, ox, f) => art.drawCoin(c, ox, f), true);

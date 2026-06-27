@@ -16,6 +16,16 @@ export class Monster extends Phaser.Physics.Arcade.Sprite {
   isBoss: boolean;
   private hpBar?: Phaser.GameObjects.Graphics;
 
+  /** Stable network id for co-op enemy sync (assigned by the scene on spawn). */
+  netId = 0;
+
+  // per-enemy stealth detection: this monster sees a sneaking thief only after
+  // it has personally spotted them (spotting one foe never alerts the rest).
+  spottedUntil = 0;
+  spottedAlly: Hero | null = null;
+  /** True once this foe has been successfully pickpocketed (can't be re-robbed). */
+  pickpocketed = false;
+
   private nextAttackAt = 0;
   private hurtUntil = 0;
   private attacking = false;

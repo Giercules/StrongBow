@@ -5,6 +5,7 @@ import { SKILLS } from '../data/skills';
 import { LEVEL1 } from '../data/level1';
 import { LEVEL2 } from '../data/level2';
 import { TOWN } from '../data/town';
+import { OVERWORLD } from '../data/overworld';
 import { INTERIOR_TANKARD, INTERIOR_GUILD, INTERIOR_FORGE, INTERIOR_APOTHECARY } from '../data/interiors';
 import {
   LEVEL_FROST,
@@ -31,6 +32,7 @@ class Registry {
   readonly classes: HeroClassId[] = ALL_CLASSES;
   readonly levels: Record<string, LevelData> = {
     town: TOWN,
+    overworld: OVERWORLD,
     interior_tankard: INTERIOR_TANKARD,
     interior_guild: INTERIOR_GUILD,
     interior_forge: INTERIOR_FORGE,

@@ -2,6 +2,8 @@ import Phaser from 'phaser';
 import { GAME_WIDTH, GAME_HEIGHT } from '../core/constants';
 import { C } from '../rendering/Palette';
 import { makeButton } from '../ui/uiHelpers';
+import { MenuPad, FocusList } from '../ui/MenuPad';
+import { getServerUrl, setServerUrl } from '../net/serverConfig';
 import { audio } from '../systems/AudioSystem';
 import { aiService } from '../ai/AIService';
 import { GameManualUI } from '../ui/GameManualUI';
@@ -11,6 +13,9 @@ import { SaveLoadUI } from '../ui/SaveLoadUI';
 import { ALL_CLASSES } from '../data/heroes';
 
 export class MenuScene extends Phaser.Scene {
+  private pad?: MenuPad;
+  private focus?: FocusList;
+
   constructor() {
     super('MenuScene');
   }
@@ -18,6 +23,8 @@ export class MenuScene extends Phaser.Scene {
   create(): void {
     const cx = GAME_WIDTH / 2;
     const add = Phaser.BlendModes.ADD;
+    this.pad = new MenuPad(this);
+    this.focus = new FocusList(this, 11.4);
 
     // ---- deep dungeon backdrop ----
     const g = this.add.graphics().setDepth(0);
@@ -139,22 +146,29 @@ export class MenuScene extends Phaser.Scene {
     rg.lineBetween(cx + 24, 186, cx + 180, 186);
     this.add.text(cx, 192, 'ten realms · one hunger · slay it ere it wakes', { fontFamily: 'Cinzel, Georgia, serif', fontSize: '11px', color: '#8a93bd' }).setOrigin(0.5).setDepth(10);
 
-    makeButton(this, cx - 78, 232, 150, 44, '1  PLAYER', () => this.startGame(false), { fill: C.ivy, size: 15 }).setDepth(11);
-    makeButton(this, cx + 78, 232, 150, 44, '2  PLAYERS', () => this.startGame(true), { size: 15 }).setDepth(11);
-    makeButton(this, cx - 78, 280, 150, 32, 'LEVEL SELECT', () => this.goScene('LevelSelectScene'), { size: 12 }).setDepth(11);
-    makeButton(this, cx + 78, 280, 150, 32, 'FORGE A LEVEL', () => this.goScene('ForgeScene'), { fill: C.hudPanel2, size: 12 }).setDepth(11);
     const manual = new GameManualUI(this);
     const saveUI = new SaveLoadUI(this);
+    // Register each button with the focus list so a controller (or arrow keys)
+    // can move a highlight between them and confirm with A / Enter.
+    const reg = (x: number, y: number, w: number, h: number, label: string, fn: () => void, opts?: { fill?: string; size?: number }): void => {
+      makeButton(this, x, y, w, h, label, fn, opts).setDepth(11);
+      this.focus!.add({ x, y, w, h, activate: fn });
+    };
+    reg(cx, 232, 200, 44, 'PLAY', () => this.startGame(false), { fill: C.ivy, size: 16 });
+    // Local 2-player is retired in favour of server-based multiplayer; Level
+    // Select is disabled for now. Both are kept on-screen but greyed out.
+    makeButton(this, cx - 78, 280, 150, 32, 'LEVEL SELECT', () => this.showDisabled('Level Select is disabled for now.'), { fill: C.hudBg, text: C.inkDim, size: 12 }).setDepth(11).setAlpha(0.5);
+    reg(cx + 78, 280, 150, 32, 'FORGE A LEVEL', () => this.goScene('ForgeScene'), { fill: C.hudPanel2, size: 12 });
     let by = 324;
     if (hasSave()) {
-      makeButton(this, cx, by, 220, 30, 'LOAD GAME', () => {
+      reg(cx, by, 220, 30, 'LOAD GAME', () => {
         this.enableAudio();
         audio.sfx('ui_select');
         saveUI.open({ mode: 'load', onLoad: (s) => this.startFromSave(s) });
-      }, { fill: C.hudBorderDk, size: 12 }).setDepth(11);
+      }, { fill: C.hudBorderDk, size: 12 });
       by += 36;
     }
-    makeButton(this, cx, by, 180, 28, 'MANUAL  (H)', () => manual.toggle(), { size: 12 }).setDepth(11);
+    reg(cx, by, 180, 28, 'MANUAL  (H)', () => manual.toggle(), { size: 12 });
 
     // AI connection status - large, glowing, below the characters
     const aiText = this.add
@@ -171,8 +185,19 @@ export class MenuScene extends Phaser.Scene {
       }
     });
 
+    // server address box — point this client at your game server (saved locally)
+    this.add.text(cx, 404, 'SERVER ADDRESS', { fontFamily: 'Cinzel, Georgia, serif', fontSize: '11px', color: '#cfa64e', fontStyle: 'bold' }).setOrigin(0.5).setDepth(12);
+    const serverDom = this.add.dom(cx, 426, 'input',
+      'width:280px;padding:8px 10px;font-size:13px;border-radius:6px;border:1px solid #6e521f;background:#0e0c16;color:#e8e2d2;font-family:MedievalSharp,Georgia,serif;text-align:center;outline:none;',
+      '').setDepth(12);
+    const serverInput = serverDom.node as HTMLInputElement;
+    serverInput.value = getServerUrl();
+    serverInput.placeholder = 'ws://server-ip:8080';
+    serverInput.addEventListener('change', () => setServerUrl(serverInput.value));
+    serverInput.addEventListener('blur', () => setServerUrl(serverInput.value));
+
     this.add
-      .text(cx, GAME_HEIGHT - 34, 'Click or press 1 / 2 to begin   ·   H manual   ·   sound enables on first click', {
+      .text(cx, GAME_HEIGHT - 34, 'Click PLAY or press 1 to begin   ·   H manual   ·   connects to your game server   ·   sound enables on first click', {
         fontFamily: 'MedievalSharp, "Trebuchet MS", cursive',
         fontSize: '11px',
         color: C.inkDim,
@@ -181,12 +206,36 @@ export class MenuScene extends Phaser.Scene {
       .setDepth(10);
 
     this.input.keyboard?.on('keydown-ONE', () => this.startGame(false));
-    this.input.keyboard?.on('keydown-TWO', () => this.startGame(true));
     this.input.keyboard?.on('keydown-H', () => manual.toggle());
-    this.input.keyboard?.on('keydown-L', () => this.goScene('LevelSelectScene'));
+    this.input.keyboard?.on('keydown-L', () => this.showDisabled('Level Select is disabled for now.'));
     this.input.keyboard?.on('keydown-F', () => this.goScene('ForgeScene'));
+    // arrow keys + Enter drive the same focus highlight as the controller
+    this.input.keyboard?.on('keydown-UP', () => this.focus?.move(0, -1));
+    this.input.keyboard?.on('keydown-DOWN', () => this.focus?.move(0, 1));
+    this.input.keyboard?.on('keydown-LEFT', () => this.focus?.move(-1, 0));
+    this.input.keyboard?.on('keydown-RIGHT', () => this.focus?.move(1, 0));
+    this.input.keyboard?.on('keydown-ENTER', () => this.focus?.activate());
     this.input.once('pointerdown', () => this.enableAudio());
     this.input.keyboard?.once('keydown', () => this.enableAudio());
+  }
+
+  update(): void {
+    if (!this.pad || !this.focus) return;
+    this.pad.poll();
+    if (this.pad.up()) this.focus.move(0, -1);
+    if (this.pad.down()) this.focus.move(0, 1);
+    if (this.pad.left()) this.focus.move(-1, 0);
+    if (this.pad.right()) this.focus.move(1, 0);
+    if (this.pad.confirm()) this.focus.activate();
+  }
+
+  private showDisabled(msg: string): void {
+    audio.sfx('ui_move');
+    const t = this.add
+      .text(GAME_WIDTH / 2, 360, msg, { fontFamily: 'MedievalSharp, "Trebuchet MS", cursive', fontSize: '13px', color: '#e0b96a', stroke: '#000', strokeThickness: 3 })
+      .setOrigin(0.5)
+      .setDepth(20);
+    this.tweens.add({ targets: t, alpha: 0, y: 348, duration: 1700, ease: 'Sine.easeIn', onComplete: () => t.destroy() });
   }
 
   private goScene(key: string): void {

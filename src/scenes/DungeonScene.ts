@@ -26,6 +26,8 @@ import {
   COMPANION_TELEPORT_MS,
 } from '../core/constants';
 import * as art from '../rendering/spriteArt';
+import * as overworldArt from '../rendering/overworldArt';
+import { OVERWORLD_ENTRIES, type OverworldDir } from '../data/overworld';
 import { getThemeArt, C } from '../rendering/Palette';
 import { framedPanel, makeButton } from '../ui/uiHelpers';
 import type { Modal } from '../ui/uiHelpers';
@@ -38,7 +40,8 @@ import { Content } from '../content/ContentRegistry';
 import { ALL_CLASSES } from '../data/heroes';
 import { ITEMS } from '../data/items';
 import { GRADES } from '../data/grades';
-import { rollDrop, monsterDropChance, generatorDropChance, eliteDropChance } from '../systems/LootSystem';
+import { rollDrop, mintItem, monsterDropChance, generatorDropChance, eliteDropChance } from '../systems/LootSystem';
+import { THEME_BASES } from '../data/themedItems';
 import { describeItem } from '../data/pickupInfo';
 import { Hero } from '../entities/Hero';
 import { Companion } from '../entities/Companion';
@@ -72,6 +75,9 @@ import { SettingsUI } from '../ui/SettingsUI';
 import { GameOverUI } from '../ui/GameOverUI';
 import { CharacterSheetUI } from '../ui/CharacterSheetUI';
 import { GameManualUI } from '../ui/GameManualUI';
+import { PickpocketUI, type PickpocketLoot } from '../ui/PickpocketUI';
+import { net, type CoopEnemy } from '../net/NetClient';
+import { getServerUrl, MULTIPLAYER_ENABLED } from '../net/serverConfig';
 
 interface Chest { sprite: Phaser.GameObjects.Image; itemId: string; opened: boolean; locked: boolean; x: number; y: number; }
 interface Shrine { sprite: Phaser.GameObjects.Image; used: boolean; x: number; y: number; }
@@ -209,6 +215,7 @@ export class DungeonScene extends Phaser.Scene {
   private sheetUI!: CharacterSheetUI;
   private manualUI!: GameManualUI;
   private saveLoadUI!: SaveLoadUI;
+  private pickpocketUI!: PickpocketUI;
   private pendingThumb?: string;
   private quitConfirm: Modal | null = null;
 
@@ -217,6 +224,7 @@ export class DungeonScene extends Phaser.Scene {
   private menuKey!: Phaser.Input.Keyboard.Key;
   private dodgeKey!: Phaser.Input.Keyboard.Key;
   private abilityKey!: Phaser.Input.Keyboard.Key;
+  private stealKey!: Phaser.Input.Keyboard.Key;
 
   private mmDots?: Phaser.GameObjects.Graphics;
   private mmImage?: Phaser.GameObjects.Image;
@@ -273,13 +281,24 @@ export class DungeonScene extends Phaser.Scene {
     nextTurn: number;
     label: string;
     role: string;
+    pickpocketed?: boolean;
   }[] = [];
   private portals: { sprite: Phaser.GameObjects.Sprite; realmId: string; label: string; x: number; y: number }[] = [];
-  private doors: { x: number; y: number; interiorId: string; label: string }[] = [];
+  private doors: { x: number; y: number; interiorId: string; label: string; dir?: 'north' | 'south' | 'east' | 'west' }[] = [];
   private returnPortal: { x: number; y: number } | null = null;
   private sneakGfx?: Phaser.GameObjects.Graphics;
   private merchants: { sprite: Phaser.GameObjects.Sprite; shop: ShopKind; label: string; x: number; y: number }[] = [];
   private townLife: Phaser.GameObjects.Sprite[] = [];
+  /** Ghost sprites for other players + AI NPCs received from the server, by id. */
+  private netGhosts = new Map<string, Phaser.GameObjects.Container>();
+  /** Suppress join/leave barks until the first peer snapshot has populated. */
+  private netSettled = false;
+  // Tier 2 co-op: when a guest, local enemies are suppressed and the host's
+  // authoritative enemies are rendered instead (keyed by their netId).
+  private coopGuest = false;
+  private coopEnemies = new Map<number, { spr: Phaser.GameObjects.Sprite; bar: Phaser.GameObjects.Graphics }>();
+  private nextNetId = 1;
+  private coopLastSent = 0;
 
   constructor() {
     super('DungeonScene');
@@ -319,6 +338,13 @@ export class DungeonScene extends Phaser.Scene {
         this.startTile = { x: ret.x, y: ret.y };
         this.registry.remove('townReturn');
       }
+    }
+    if (this.level.id === 'overworld') {
+      // emerge at the edge matching the town gate we stepped through
+      const dir = this.registry.get('overworldEntry') as OverworldDir | undefined;
+      const e = dir ? OVERWORLD_ENTRIES[dir] : undefined;
+      if (e) this.startTile = { x: e.x, y: e.y };
+      this.registry.remove('overworldEntry');
     }
     const dret = this.registry.get('dungeonReturnTile') as { x: number; y: number } | undefined;
     if (dret && !this.level.town) {
@@ -398,6 +424,7 @@ export class DungeonScene extends Phaser.Scene {
     this.manualUI = new GameManualUI(this);
     this.gameOverUI = new GameOverUI(this);
     this.saveLoadUI = new SaveLoadUI(this);
+    this.pickpocketUI = new PickpocketUI(this);
     this.settingsUI = new SettingsUI(this, { input: this.input2, onOpenManual: () => this.manualUI.open() });
     this.shopUI = new ShopUI(this);
     this.guildUI = new GuildHireUI(this);
@@ -407,6 +434,7 @@ export class DungeonScene extends Phaser.Scene {
     this.menuKey = kb.addKey(Phaser.Input.Keyboard.KeyCodes.M);
     this.dodgeKey = kb.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
     this.abilityKey = kb.addKey(Phaser.Input.Keyboard.KeyCodes.F);
+    this.stealKey = kb.addKey(Phaser.Input.Keyboard.KeyCodes.T);
     kb.on('keydown-F2', () => this.toggleSaveLoad());
     // mouse combat: right = attack, double right-click = magic
     this.input.mouse?.disableContextMenu();
@@ -447,7 +475,9 @@ export class DungeonScene extends Phaser.Scene {
     if (this.level.town) {
       // first arrival unlocks the first realm; clearing realms unlocks the rest.
       if (this.registry.get('unlockedRealms') === undefined) this.registry.set('unlockedRealms', 1);
-      this.quest = 'Hearthwatch — gear up, then step through a gate to descend. (Use near a gate or shopkeeper.)';
+      this.quest = this.level.overworld
+        ? 'Roam the wilds around Hearthwatch. Step through the keep gate to head back inside.'
+        : 'Hearthwatch — gear up, then step through a gate to descend. (Use near a gate or shopkeeper.)';
     } else {
       this.quest = `Clear ${this.level.name}: destroy the altars and slay its warden.`;
       if (!save) void aiService.generateQuest(this.level.name).then((q) => { if (q) this.quest = q; });
@@ -456,7 +486,7 @@ export class DungeonScene extends Phaser.Scene {
     const chapterTag = this.level.chapter ? `${this.level.chapter} — ` : '';
     if (this.level.story) this.showBark(`${chapterTag}${this.level.story}`, 8000);
     if (this.level.town) {
-      this.grokNarrate('the party returns to the town of Hearthwatch to resupply between descents', { force: true });
+      this.grokNarrate(this.level.overworld ? 'the party ventures out into the wild overworld surrounding Hearthwatch' : 'the party returns to the town of Hearthwatch to resupply between descents', { force: true });
     } else {
       this.dmSetPiece(aiService.generateRealmIntro(this.level.name, this.players[0]?.classId));
     }
@@ -467,6 +497,8 @@ export class DungeonScene extends Phaser.Scene {
     this.syncHudData();
     this.syncLogData();
     this.spawnTownLife();
+    this.spawnOverworldLife();
+    this.connectToServer();
     void aiService.checkConnection().then(({ connected, provider }) => {
       this.grokProvider = provider === 'xai' ? 'Grok' : provider === 'fallback' ? 'Local DM' : provider.charAt(0).toUpperCase() + provider.slice(1);
       this.setGrokStatus(connected ? 'connected' : 'offline');
@@ -510,6 +542,11 @@ export class DungeonScene extends Phaser.Scene {
     this.magicQueued = false;
     this.townNpcs = [];
     this.townLife = [];
+    this.netGhosts.clear();
+    this.netSettled = false;
+    this.coopGuest = false;
+    this.coopEnemies.clear();
+    this.nextNetId = 1;
     this.portals = [];
     this.merchants = [];
     this.doors = [];
@@ -574,8 +611,13 @@ export class DungeonScene extends Phaser.Scene {
           }
           continue;
         }
+        const fseed = x * 131 + y * 17;
         if (extFloor) bgCtx.drawImage(extFloor, px, py, TILE_SIZE, TILE_SIZE);
-        else art.drawFloor(bgCtx, px, py, x * 131 + y * 17 + 1000, ta.floor);
+        else if (tile === Tile.GRASS) overworldArt.drawGrassGround(bgCtx, px, py, fseed);
+        else if (tile === Tile.SAND) overworldArt.drawSandGround(bgCtx, px, py, fseed);
+        else if (tile === Tile.MUD) overworldArt.drawMudGround(bgCtx, px, py, fseed);
+        else if (tile === Tile.ROCK) overworldArt.drawRockGround(bgCtx, px, py, fseed);
+        else art.drawFloor(bgCtx, px, py, fseed + 1000, ta.floor);
         if (tile === Tile.DOOR) art.drawDoor(bgCtx, px, py, false);
         else if (tile === Tile.ICE) art.drawIce(bgCtx, px, py, x * 131 + y * 17 + 7);
       }
@@ -912,7 +954,7 @@ export class DungeonScene extends Phaser.Scene {
             .text(c.x, c.y - 22, sp.label ?? 'Enter', { fontFamily: 'MedievalSharp, "Trebuchet MS", cursive', fontSize: '10px', color: '#ffe9a8', align: 'center', stroke: '#000', strokeThickness: 3 })
             .setOrigin(0.5)
             .setDepth(c.y + 40);
-          this.doors.push({ x: sp.x, y: sp.y, interiorId: sp.interiorId ?? 'town', label: sp.label ?? 'Door' });
+          this.doors.push({ x: sp.x, y: sp.y, interiorId: sp.interiorId ?? 'town', label: sp.label ?? 'Door', dir: sp.dir });
           break;
         }
         case 'generator':
@@ -1055,6 +1097,7 @@ export class DungeonScene extends Phaser.Scene {
   update(time: number, delta: number): void {
     this.refreshPauseState();
     this.pollMenus();
+    this.updateCoop(time);
 
     if (!this.paused && !this.won) {
       this.handlePlayerInput(time, delta);
@@ -1064,9 +1107,13 @@ export class DungeonScene extends Phaser.Scene {
         this.updateTown(time, delta);
         this.handlePickups();
       } else {
-        this.updateMonsters(time, delta);
+        // In co-op, a guest's enemies are owned by the host (see updateCoop);
+        // solo and host both simulate locally as normal.
+        if (!this.coopGuest) {
+          this.updateMonsters(time, delta);
+          this.updateGenerators(time);
+        }
         this.updateSneak(time);
-        this.updateGenerators(time);
         this.resolveCombat(time);
         this.updateProjectiles(time, delta);
         this.updateEnemyProjectiles(time, delta);
@@ -1088,6 +1135,7 @@ export class DungeonScene extends Phaser.Scene {
     this.updateCamera();
     this.updateMinimap();
     this.syncHudData();
+    this.syncNet();
   }
 
   private anyOverlayOpen(): boolean {
@@ -1098,6 +1146,7 @@ export class DungeonScene extends Phaser.Scene {
       this.gameOverUI.isOpen() ||
       this.sheetUI.isOpen() ||
       this.manualUI.isOpen() ||
+      this.pickpocketUI.isOpen() ||
       this.saveLoadUI.isOpen() ||
       this.shopUI.isOpen() ||
       this.guildUI.isOpen() ||
@@ -1111,6 +1160,7 @@ export class DungeonScene extends Phaser.Scene {
     if (this.settingsUI.isOpen()) this.settingsUI.close();
     if (this.sheetUI.isOpen()) this.sheetUI.close();
     if (this.manualUI.isOpen()) this.manualUI.close();
+    if (this.pickpocketUI.isOpen()) this.pickpocketUI.close();
     if (this.saveLoadUI.isOpen()) this.saveLoadUI.close();
     if (this.shopUI.isOpen()) this.shopUI.close();
     if (this.guildUI.isOpen()) this.guildUI.close();
@@ -1141,6 +1191,10 @@ export class DungeonScene extends Phaser.Scene {
     if (this.input2.globalJustDown('settings')) this.toggleSettings();
     if (this.input2.globalJustDown('manual')) this.toggleManual();
     if (this.input2.globalJustDown('joinP2')) this.joinPlayer2();
+    if (!this.anyOverlayOpen()) {
+      if (Phaser.Input.Keyboard.JustDown(this.stealKey) || this.input2.padJustDown('p1', 'steal')) this.attemptPickpocket(0);
+      if (this.players[1] && this.input2.padJustDown('p2', 'steal')) this.attemptPickpocket(1);
+    }
   }
 
   private toggleInventory(idx: number): void {
@@ -1930,11 +1984,19 @@ export class DungeonScene extends Phaser.Scene {
   }
 
   private updateMonsters(time: number, delta: number): void {
-    const targets = this.allies.filter((a) => a.alive && (!a.sneaking || time <= a.spottedUntil));
+    // Allies in plain sight are visible to every foe. A sneaking ally is hidden
+    // EXCEPT to a monster that has personally spotted them (per-enemy detection).
+    const visible = this.allies.filter((a) => a.alive && !a.sneaking);
     const live: Monster[] = [];
     for (const m of this.monsters) {
       if (m.active && m.alive) {
-        m.tick(time, delta, targets);
+        let tgts = visible;
+        if (m.spottedAlly && m.spottedAlly.alive && m.spottedAlly.sneaking && time <= m.spottedUntil) {
+          tgts = visible.includes(m.spottedAlly) ? visible : visible.concat(m.spottedAlly);
+        } else if (m.spottedAlly && (!m.spottedAlly.sneaking || time > m.spottedUntil)) {
+          m.spottedAlly = null; // lost track of the sneaker
+        }
+        m.tick(time, delta, tgts);
         live.push(m);
       }
     }
@@ -2013,17 +2075,18 @@ export class DungeonScene extends Phaser.Scene {
       g.fillStyle(0x6a4f9a, 0.16 * pulse);
       g.fillEllipse(a.x, a.y - 2, 20, 26);
       if (Math.random() < 0.01 && a.gainSneak(1)) this.showBark(`Your Sneak sharpens — Lv ${a.sneakLevel}.`, 1800, 'system');
-      if (time > a.spottedUntil) {
-        for (const m of liveMon) {
-          const dd = Phaser.Math.Distance.Between(a.x, a.y, m.x, m.y);
-          if (dd < 72) {
-            const ch = 0.035 * (1 - Math.min(0.85, a.sneakLevel * 0.06)) * (1 - dd / 72);
-            if (Math.random() < ch) {
-              a.spottedUntil = time + 2600;
-              this.showBark('You have been spotted!', 1600, 'combat');
-              audio.sfx('hurt');
-              break;
-            }
+      // Each nearby foe rolls INDEPENDENTLY to notice the thief; being seen by
+      // one does not cancel sneak or alert the others. Higher Sneak = harder to spot.
+      for (const m of liveMon) {
+        if (time <= m.spottedUntil) continue; // this foe already sees the thief
+        const dd = Phaser.Math.Distance.Between(a.x, a.y, m.x, m.y);
+        if (dd < 72) {
+          const ch = 0.03 * (1 - Math.min(0.85, a.sneakLevel * 0.06)) * (1 - dd / 72);
+          if (Math.random() < ch) {
+            m.spottedUntil = time + 3000;
+            m.spottedAlly = a;
+            this.floatPickup(m.x, m.y - 18, '!', '#ff6a4a');
+            audio.sfx('hurt');
           }
         }
       }
@@ -2042,6 +2105,89 @@ export class DungeonScene extends Phaser.Scene {
     return Math.random() < 0.3; // stationary foe: a fair chance to slip behind
   }
 
+  /** Thief steal: from stealth, lift coin/goods from the nearest foe or
+   *  townsfolk. Success scales with Sneak + Pickpocket; a botched lift simply
+   *  fails (and tips off the mark). Success pauses the game and shows the haul. */
+  private attemptPickpocket(idx: number): void {
+    const p = this.players[idx];
+    if (!p || !p.alive) return;
+    if (p.classId !== 'thief') {
+      this.showBark('Only the Thief has the fingers for pickpocketing.', 2000, 'system');
+      return;
+    }
+    if (!p.sneaking) {
+      this.showBark('Slip into the shadows first (F) before trying a pocket.', 2200, 'system');
+      return;
+    }
+    const reach = 42;
+    let bestD = reach;
+    let mon: Monster | null = null;
+    let npc: (typeof this.townNpcs)[number] | null = null;
+    for (const m of this.monsters) {
+      if (!m.active || !m.alive || m.pickpocketed) continue;
+      const d = Phaser.Math.Distance.Between(p.x, p.y, m.x, m.y);
+      if (d < bestD) { bestD = d; mon = m; npc = null; }
+    }
+    for (const n of this.townNpcs) {
+      if (n.pickpocketed) continue;
+      const d = Phaser.Math.Distance.Between(p.x, p.y, n.sprite.x, n.sprite.y);
+      if (d < bestD) { bestD = d; npc = n; mon = null; }
+    }
+    if (!mon && !npc) {
+      this.showBark('No pockets within reach.', 1600, 'system');
+      return;
+    }
+    const vx = mon ? mon.x : npc!.sprite.x;
+    const vy = mon ? mon.y : npc!.sprite.y;
+    const victim = mon ? mon.def.name : npc!.label;
+    const chance = Phaser.Math.Clamp(0.3 + p.sneakLevel * 0.03 + p.pickpocketLevel * 0.06, 0.05, 0.95);
+    if (Math.random() > chance) {
+      audio.sfx('ui_move');
+      this.floatPickup(vx, vy - 18, 'caught!', '#ff6a4a');
+      this.showBark('Your fingers come up empty.', 1600, 'combat');
+      if (mon) { mon.spottedUntil = this.time.now + 3000; mon.spottedAlly = p; } // the mark notices
+      return;
+    }
+    if (mon) mon.pickpocketed = true;
+    else if (npc) npc.pickpocketed = true;
+    const loot = this.rollPickpocketLoot(p, victim);
+    p.inventory.gold += loot.gold;
+    for (const it of loot.items) p.inventory.add(it);
+    if (p.gainPickpocket(1)) this.showBark(`Your Pickpocket sharpens — Lv ${p.pickpocketLevel}.`, 2200, 'system');
+    audio.sfx('coin');
+    this.floatPickup(vx, vy - 18, 'lifted!', '#8affa0');
+    this.closeAllOverlays();
+    this.pickpocketUI.open(loot);
+    this.syncHudData();
+  }
+
+  /** Roll a pickpocket reward; gear odds + quality scale with Pickpocket level,
+   *  topping out at Godforged for a master thief. */
+  private rollPickpocketLoot(p: Hero, victim: string): PickpocketLoot {
+    const lvl = p.pickpocketLevel;
+    const gold = Phaser.Math.Between(5, 14) + lvl * Phaser.Math.Between(3, 8);
+    const items: ItemDefinition[] = [];
+    const roll = Math.random();
+    const gearChance = Math.min(0.7, 0.16 + lvl * 0.06);
+    if (roll < gearChance) {
+      const grades: Grade[] = ['cracked', 'honed', 'runed', 'ascendant', 'godforged'];
+      const cap = Math.min(grades.length - 1, Math.floor(lvl / 2)); // Lv8+ can reach Godforged
+      const grade = grades[Phaser.Math.Between(0, cap)];
+      const theme = this.level.theme ?? 'crypt';
+      const bases = THEME_BASES[theme] ?? THEME_BASES.crypt;
+      const base = bases[Phaser.Math.Between(0, bases.length - 1)];
+      items.push(mintItem(base, grade));
+    } else if (roll < gearChance + 0.28) {
+      const potion = Content.item(Math.random() < 0.5 ? 'health_potion' : 'mana_potion');
+      if (potion) items.push(potion);
+    } else if (roll < gearChance + 0.4) {
+      const scrolls = ['town_portal_scroll', 'scroll_mending', 'scroll_renewal'];
+      const s = Content.item(scrolls[Phaser.Math.Between(0, scrolls.length - 1)]);
+      if (s) items.push(s);
+    }
+    return { gold, items, victim };
+  }
+
   private resolveCombat(time: number): void {
     for (const ally of this.allies) {
       if (!ally.alive) continue;
@@ -2053,11 +2199,21 @@ export class DungeonScene extends Phaser.Scene {
         for (const m of this.monsters) {
           if (!m.active || !m.alive) continue;
           if (this.inArc(ally.x, ally.y, m.x, m.y, dir, reach + 8)) {
-            const back = ally.classId === 'thief' && this.isBackstab(ally, m);
+            // Backstab now respects a cooldown that shrinks as Sneak grows; a
+            // strike on cooldown still hits, just without the 2.4x bonus.
+            const back = ally.classId === 'thief' && time >= ally.backstabReadyAt && this.isBackstab(ally, m);
             const d = back ? Math.round(dmg * 2.4) : dmg;
             const died = m.takeDamage(d, time);
             this.floatDamage(m.x, m.y, d, crit || back);
-            if (back) this.floatPickup(m.x, m.y - 18, 'BACKSTAB!', '#8affa0');
+            if (back) {
+              this.floatPickup(m.x, m.y - 18, 'BACKSTAB!', '#8affa0');
+              ally.backstabReadyAt = time + ally.backstabCooldown();
+            }
+            // striking from stealth reveals you only to the foe you struck
+            if (ally.classId === 'thief' && ally.sneaking && !died) {
+              m.spottedUntil = time + 2500;
+              m.spottedAlly = ally;
+            }
             if (died) this.onMonsterKilled(ally, m);
             else this.applyHitEffects(ally, m, dir.x, dir.y, crit, time);
             if (ally.isPlayer) this.meleeImpact(ally, m, crit || back);
@@ -2067,7 +2223,15 @@ export class DungeonScene extends Phaser.Scene {
           if (!g.alive) continue;
           if (this.inArc(ally.x, ally.y, g.x, g.y, dir, reach + 8)) g.takeDamage(dmg, time);
         }
-        if (ally.classId === 'thief' && ally.sneaking) ally.spottedUntil = time + 2200; // the strike reveals you
+        // co-op guest: report melee hits on the host's enemies for the host to apply
+        if (this.coopGuest) {
+          for (const [netId, ce] of this.coopEnemies) {
+            if (this.inArc(ally.x, ally.y, ce.spr.x, ce.spr.y, dir, reach + 8)) {
+              net.sendCoopHit(netId, dmg);
+              this.floatDamage(ce.spr.x, ce.spr.y, dmg, crit);
+            }
+          }
+        }
       }
       if (ally.consumeCast()) this.castMagic(ally, time);
       const shot = ally.consumeShot();
@@ -2184,6 +2348,17 @@ export class DungeonScene extends Phaser.Scene {
           }
         }
       }
+      if (!dead && this.coopGuest) {
+        // co-op guest: ranged hits on the host's enemies route to the host
+        for (const [netId, ce] of this.coopEnemies) {
+          if (Phaser.Math.Distance.Between(p.spr.x, p.spr.y, ce.spr.x, ce.spr.y) <= 14) {
+            net.sendCoopHit(netId, p.dmg);
+            this.floatDamage(ce.spr.x, ce.spr.y, p.dmg, p.crit);
+            dead = true;
+            break;
+          }
+        }
+      }
       if (!dead) {
         // arrows/bolts can also break the spawning altars
         for (const g of this.generators) {
@@ -2206,6 +2381,7 @@ export class DungeonScene extends Phaser.Scene {
   /** Create a monster with all combat callbacks wired (ranged/summon/nova). */
   private makeMonster(x: number, y: number, enemyId: EnemyId): Monster {
     const m = new Monster(this, x, y, enemyId);
+    m.netId = this.nextNetId++;
     m.onRanged = (mm, ux, uy) => this.spawnEnemyShot(mm, ux, uy);
     m.onSummon = (mm) => this.summonAdds(mm);
     m.onNova = (mm, radius) => this.enemyNova(mm, radius);
@@ -2304,32 +2480,52 @@ export class DungeonScene extends Phaser.Scene {
   }
 
   private onMonsterKilled(killer: Hero, m: Monster): void {
-    const mult = settings.get('gameplay').xpMultiplier;
-    killer.gainXP(Math.round(m.def.xp * mult));
-    killer.addScore(m.def.xp);
-    const share = Math.round(m.def.xp * GROUP_XP_SHARE * mult);
-    if (share > 0) {
-      for (const a of this.allies) {
-        if (a !== killer && a.alive) a.gainXP(share);
+    const cheats = settings.get('gameplay');
+    const mult = cheats.xpMultiplier;
+    const coop = MULTIPLAYER_ENABLED && net.connected && net.partySize > 1 && !this.level.town && net.isHost;
+    if (coop) {
+      // Shared, party-bonused XP + gold — everyone earns MORE than playing solo.
+      const bonus = 1 + 0.2 * (net.partySize - 1);
+      const xp = Math.round(m.def.xp * mult * bonus);
+      const gold = cheats.goldMult > 0 ? Math.max(1, Math.round((2 + m.def.xp * 0.4) * cheats.goldMult * bonus)) : 0;
+      this.coopApplyReward(xp, gold);   // host's own party
+      net.sendCoopReward(xp, gold);     // guests apply the same
+      killer.addScore(m.def.xp);
+    } else {
+      killer.gainXP(Math.round(m.def.xp * mult));
+      killer.addScore(m.def.xp);
+      const share = Math.round(m.def.xp * GROUP_XP_SHARE * mult);
+      if (share > 0) {
+        for (const a of this.allies) {
+          if (a !== killer && a.alive) a.gainXP(share);
+        }
+      }
+      // gold coin drop (solo path; co-op gold is shared directly above)
+      if (cheats.goldMult > 0 && !m.isBoss && Math.random() < 0.45) {
+        this.spawnCoin(m.x, m.y, Math.max(1, Math.round((2 + m.def.xp * 0.4) * cheats.goldMult)));
       }
     }
-    // Champions usually drop strong themed loot; regular foes roll by luck (rarely).
-    const cheats = settings.get('gameplay');
+    // Item + scroll drops roll host-side / solo (cross-client item instancing is a follow-up).
     if (m.isElite) {
       if (Math.random() < eliteDropChance(killer.stats.luck ?? 0) * cheats.lootMult) this.dropLoot(m.x, m.y, 'runed');
     } else if (!m.isBoss && Math.random() < monsterDropChance(killer.stats.luck ?? 0) * cheats.lootMult) {
       const floor: Grade | undefined = m.def.xp >= 28 ? 'honed' : undefined;
       this.dropLoot(m.x, m.y, floor);
     }
-    // gold drops (cheat-scaled; 0x disables)
-    if (cheats.goldMult > 0 && !m.isBoss && Math.random() < 0.45) {
-      this.spawnCoin(m.x, m.y, Math.max(1, Math.round((2 + m.def.xp * 0.4) * cheats.goldMult)));
-    }
-    // rare scroll drop
     if (!m.isBoss && Math.random() < 0.022 * cheats.lootMult) {
       const sid = ['town_portal_scroll', 'scroll_mending', 'scroll_renewal'][Math.floor(Math.random() * 3)];
       const sc = Content.item(sid);
       if (sc) this.spawnLootPickup(m.x, m.y, sc);
+    }
+  }
+
+  /** Apply a shared co-op reward to the local human player(s), with a popup. */
+  private coopApplyReward(xp: number, gold: number): void {
+    for (const a of this.players) if (a?.alive) a.gainXP(xp);
+    const p0 = this.players[0];
+    if (p0) {
+      if (gold > 0) p0.inventory.gold += gold;
+      this.floatPickup(p0.x, p0.y - 22, gold > 0 ? `+${xp} XP  +${gold}g` : `+${xp} XP`, '#9affc0');
     }
   }
 
@@ -2640,6 +2836,197 @@ export class DungeonScene extends Phaser.Scene {
     this.townLife.push(dog);
   }
 
+  /** Wandering wildlife for the surface overworld (peaceful; no monster AI). */
+  private spawnOverworldLife(): void {
+    if (!this.level.overworld) return;
+    const W = this.level.width;
+    const H = this.level.height;
+    const randPoint = (): { x: number; y: number } => {
+      for (let i = 0; i < 16; i++) {
+        const tx = Phaser.Math.Between(4, W - 5);
+        const ty = Phaser.Math.Between(4, H - 5);
+        if (this.isWalkable(tx, ty)) return this.tileCenter(tx, ty);
+      }
+      return this.tileCenter(Math.floor(W / 2), Math.floor(H / 2));
+    };
+    const wander = (s: Phaser.GameObjects.Sprite, speed: number, fly: boolean): void => {
+      const step = (): void => {
+        if (!s.active) return;
+        const dest = randPoint();
+        const dist = Phaser.Math.Distance.Between(s.x, s.y, dest.x, dest.y) || 1;
+        s.setFlipX(dest.x < s.x);
+        this.tweens.add({
+          targets: s,
+          x: dest.x,
+          y: dest.y,
+          duration: Math.max(900, (dist / speed) * 1000),
+          ease: 'Sine.easeInOut',
+          onUpdate: () => { if (!fly) s.setDepth(s.y); },
+          onComplete: () => {
+            if (s.active) this.time.delayedCall(fly ? 300 + Math.random() * 900 : 800 + Math.random() * 2400, step);
+          },
+        });
+      };
+      step();
+    };
+    const herd: [string, number, number, number, boolean][] = [
+      ['critter-deer', 5, 1.2, 42, false],
+      ['critter-rabbit', 8, 1.0, 34, false],
+      ['critter-fox', 3, 1.0, 46, false],
+      ['critter-frog', 6, 0.9, 22, false],
+      ['critter-boar', 3, 1.2, 30, false],
+      ['critter-crow', 6, 0.9, 64, true],
+    ];
+    for (const [k, count, scale, speed, fly] of herd) {
+      for (let i = 0; i < count; i++) {
+        const p = randPoint();
+        const s = this.add.sprite(p.x, p.y, k).setScale(scale).setDepth(fly ? 5002 : p.y);
+        if (fly) this.tweens.add({ targets: s, y: s.y - 3, duration: 240 + Math.random() * 180, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+        wander(s, speed + Math.random() * 16, fly);
+        this.townLife.push(s);
+      }
+    }
+  }
+
+  /** Link to the standalone game server (single + multiplayer both connect). */
+  private connectToServer(): void {
+    if (!MULTIPLAYER_ENABLED) return;
+    const p0 = this.players[0];
+    net.onAnnounce = (text) => { if (text) this.showBark(text, 4200, 'event'); };
+    net.onConnect = (cfg) =>
+      this.showBark(cfg.motd ? `Connected to server — ${cfg.motd}` : 'Connected to the game server.', 3200, 'system');
+    net.onCoopState = (enemies) => this.coopApplyState(enemies);
+    net.onCoopHit = (netId, dmg) => this.coopApplyHit(netId, dmg);
+    net.onCoopReward = (xp, gold) => this.coopApplyReward(xp, gold);
+    net.connect(getServerUrl(), {
+      name: p0?.def?.name ?? 'Adventurer',
+      classId: p0?.classId ?? 'vanguard',
+      level: p0?.level ?? 1,
+      x: p0?.x ?? 0,
+      y: p0?.y ?? 0,
+      hp: p0 ? Math.round(p0.health) : 0,
+      levelId: this.level.id,
+    });
+  }
+
+  /** Push the local hero's state to the server and mirror other players. */
+  private syncNet(): void {
+    if (!MULTIPLAYER_ENABLED) return;
+    const p0 = this.players[0];
+    if (p0?.alive) {
+      net.update({ x: p0.x, y: p0.y, classId: p0.classId, level: p0.level, hp: Math.round(p0.health), levelId: this.level.id });
+    }
+    this.syncNetPeers();
+  }
+
+  /** Render/refresh figures for the other players AND server AI NPCs on this map. */
+  private syncNetPeers(): void {
+    const seen = new Set<string>();
+    for (const peer of net.peers) {
+      seen.add(peer.id);
+      let g = this.netGhosts.get(peer.id);
+      if (!g) {
+        const spr = this.add.sprite(0, 0, `hero-${peer.classId}-sheet`).setAlpha(peer.npc ? 0.78 : 0.55).setScale(settings.spriteScale());
+        if (peer.npc) spr.setTint(0x9affc0); // AI NPCs read green; real players stay natural
+        try { spr.play(`${peer.classId}-idle-down`); } catch { /* texture may be absent */ }
+        const tag = this.add
+          .text(0, -22, peer.npc ? `${peer.name} ~` : peer.name, {
+            fontFamily: 'MedievalSharp, "Trebuchet MS", cursive', fontSize: '10px',
+            color: peer.npc ? '#9affc0' : '#bfe6ff', stroke: '#000', strokeThickness: 3,
+          })
+          .setOrigin(0.5);
+        g = this.add.container(peer.x, peer.y, [spr, tag]);
+        g.setData('npc', !!peer.npc);
+        g.setData('name', peer.name);
+        this.netGhosts.set(peer.id, g);
+        if (this.netSettled && !peer.npc) this.showBark(`${peer.name} joined the world.`, 2200, 'event');
+      }
+      g.setPosition(peer.x, peer.y).setDepth(peer.y);
+    }
+    for (const [id, g] of this.netGhosts) {
+      if (!seen.has(id)) {
+        if (this.netSettled && !g.getData('npc')) this.showBark(`${g.getData('name')} left the world.`, 2200, 'event');
+        g.destroy();
+        this.netGhosts.delete(id);
+      }
+    }
+    this.netSettled = true;
+  }
+
+  /** Tier 2 co-op role management + host enemy broadcast. Strictly gated: solo
+   *  play and the host both behave exactly as before; only a guest is altered. */
+  private updateCoop(time: number): void {
+    if (!MULTIPLAYER_ENABLED || this.level.town) {
+      if (this.coopGuest) { this.coopGuest = false; this.clearCoopEnemies(); }
+      return;
+    }
+    const coop = net.connected && net.partySize > 1;
+    const guest = coop && !net.isHost;
+    if (guest && !this.coopGuest) {
+      // become a guest: the host now owns the enemies + altars
+      this.coopGuest = true;
+      for (const m of this.monsters) m.destroy();
+      this.monsters = [];
+      for (const g of this.generators) g.destroy();
+      this.generators = [];
+      this.showBark('Joined the party — enemies are synced from the host.', 2600, 'system');
+    } else if (!guest && this.coopGuest) {
+      this.coopGuest = false;
+      this.clearCoopEnemies();
+    }
+    if (coop && net.isHost && time - this.coopLastSent > 100) {
+      this.coopLastSent = time;
+      net.sendCoopState(
+        this.monsters
+          .filter((m) => m.active && m.alive)
+          .map((m) => ({ netId: m.netId, enemyId: m.enemyId, x: Math.round(m.x), y: Math.round(m.y), hp: Math.round(m.health), maxHp: m.maxHealth, alive: m.alive }))
+      );
+    }
+  }
+
+  private clearCoopEnemies(): void {
+    for (const ce of this.coopEnemies.values()) { ce.spr.destroy(); ce.bar.destroy(); }
+    this.coopEnemies.clear();
+  }
+
+  /** Guest: render the host's authoritative enemy snapshot (with HP bars). */
+  private coopApplyState(enemies: CoopEnemy[]): void {
+    if (!this.coopGuest) return;
+    const seen = new Set<number>();
+    for (const e of enemies) {
+      if (!e.alive) continue;
+      seen.add(e.netId);
+      let ce = this.coopEnemies.get(e.netId);
+      if (!ce) {
+        const scale = (ENEMIES[e.enemyId as EnemyId]?.scale ?? 1) * 0.56 * settings.spriteScale();
+        const spr = this.add.sprite(e.x, e.y, `monster-${e.enemyId}-sheet`).setScale(scale);
+        try { spr.play(`${e.enemyId}-walk`); } catch { /* no walk anim for this sheet */ }
+        ce = { spr, bar: this.add.graphics() };
+        this.coopEnemies.set(e.netId, ce);
+      }
+      ce.spr.setPosition(e.x, e.y).setDepth(e.y);
+      const w = 22;
+      const frac = Math.max(0, Math.min(1, e.hp / Math.max(1, e.maxHp)));
+      ce.bar.clear();
+      ce.bar.fillStyle(0x000000, 0.6); ce.bar.fillRect(e.x - w / 2, e.y - 24, w, 3);
+      ce.bar.fillStyle(0xff5a4a, 1); ce.bar.fillRect(e.x - w / 2, e.y - 24, w * frac, 3);
+      ce.bar.setDepth(e.y + 1);
+    }
+    for (const [netId, ce] of this.coopEnemies) {
+      if (!seen.has(netId)) { ce.spr.destroy(); ce.bar.destroy(); this.coopEnemies.delete(netId); }
+    }
+  }
+
+  /** Host: apply a guest's reported hit to the authoritative enemy. */
+  private coopApplyHit(netId: number, dmg: number): void {
+    if (!net.isHost) return;
+    const m = this.monsters.find((mm) => mm.netId === netId && mm.alive);
+    if (!m) return;
+    const died = m.takeDamage(dmg, this.time.now);
+    this.floatDamage(m.x, m.y, dmg, false);
+    if (died) this.onMonsterKilled(this.players[0], m);
+  }
+
   private updateTown(time: number, delta: number): void {
     const dt = delta / 1000;
     for (const n of this.townNpcs) {
@@ -2840,14 +3227,28 @@ export class DungeonScene extends Phaser.Scene {
   }
 
   /** Step into a building interior (or back out to town). Peaceful, like town. */
-  private enterInterior(door: { x: number; y: number; interiorId: string; label: string }): void {
+  private enterInterior(door: { x: number; y: number; interiorId: string; label: string; dir?: 'north' | 'south' | 'east' | 'west' }): void {
     if (this.won) return;
     this.won = true;
     audio.sfx('portal');
     const leaving = door.interiorId === 'town';
-    // remember the street tile in front of the door so we step back out there
-    if (!leaving) this.registry.set('townReturn', { x: door.x, y: door.y + 1 });
-    this.showBark(leaving ? 'You step back out into Hearthwatch.' : `You enter ${door.label}.`, 2600);
+    const toOverworld = door.interiorId === 'overworld';
+    if (toOverworld) {
+      // remember which town edge so we emerge there in the overworld and return
+      // to this same gate when we come back inside.
+      this.registry.set('overworldEntry', door.dir ?? 'south');
+      const W = this.level.width, H = this.level.height;
+      const back =
+        door.dir === 'north' ? { x: door.x, y: 3 } :
+        door.dir === 'south' ? { x: door.x, y: H - 4 } :
+        door.dir === 'west' ? { x: 3, y: door.y } :
+        { x: W - 4, y: door.y };
+      this.registry.set('townReturn', back);
+    } else if (!leaving) {
+      // remember the street tile in front of the door so we step back out there
+      this.registry.set('townReturn', { x: door.x, y: door.y + 1 });
+    }
+    this.showBark(toOverworld ? `You set out along the ${door.label}.` : leaving ? 'You step back through the gate.' : `You enter ${door.label}.`, 2600);
     this.registry.set('carryParty', this.players.map((a) => this.allyToSave(a)));
     this.registry.set('levelId', door.interiorId);
     this.registry.set('twoPlayer', this.twoPlayer);

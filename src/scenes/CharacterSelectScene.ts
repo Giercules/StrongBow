@@ -3,6 +3,7 @@ import { GAME_WIDTH, GAME_HEIGHT, CLASS_HUD_COLORS } from '../core/constants';
 import { C } from '../rendering/Palette';
 import { HEROES, ALL_CLASSES } from '../data/heroes';
 import { audio } from '../systems/AudioSystem';
+import { MenuPad } from '../ui/MenuPad';
 import type { HeroClassId } from '../core/types';
 
 const numHex = (n: number): string => '#' + n.toString(16).padStart(6, '0');
@@ -17,6 +18,7 @@ export class CharacterSelectScene extends Phaser.Scene {
   private prompt!: Phaser.GameObjects.Text;
   private cardW = 200;
   private cardH = 360;
+  private pad?: MenuPad;
 
   constructor() {
     super('CharacterSelectScene');
@@ -28,6 +30,7 @@ export class CharacterSelectScene extends Phaser.Scene {
     this.cursor = 0;
     this.p1 = undefined;
     this.cards = [];
+    this.pad = new MenuPad(this);
 
     this.cameras.main.fadeIn(220, 0, 0, 0);
     const g = this.add.graphics();
@@ -72,6 +75,14 @@ export class CharacterSelectScene extends Phaser.Scene {
     kb.on('keydown-SPACE', () => this.choose(this.cursor));
     const numKeys = ['ONE', 'TWO', 'THREE', 'FOUR', 'FIVE'];
     for (let n = 1; n <= Math.min(ALL_CLASSES.length, numKeys.length); n++) kb.on(`keydown-${numKeys[n - 1]}`, () => this.choose(n - 1));
+  }
+
+  update(): void {
+    if (!this.pad) return;
+    this.pad.poll();
+    if (this.pad.left() || this.pad.up()) this.move(-1);
+    if (this.pad.right() || this.pad.down()) this.move(1);
+    if (this.pad.confirm()) this.choose(this.cursor);
   }
 
   private buildCard(cls: HeroClassId, x: number, y: number, w: number, h: number, idx: number): Phaser.GameObjects.Container {

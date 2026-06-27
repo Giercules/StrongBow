@@ -31,21 +31,40 @@ TypeScript + Vite. All original art and audio, generated in code at runtime.
 
 ```bash
 npm install
-npm run dev        # game on http://localhost:5173 + AI proxy on :3847
+npm run dev        # the GAME on :5173 + AI proxy on :3847
 ```
 
-Open the URL, click **1 Player** or **2 Players**, pick your hero(es), and you
-arrive in **Hearthwatch** — the town square. Gear up, then step through a gate to
-descend. Click once on the page to enable audio (browser autoplay policy). For
-the DnD-flavored fonts (Cinzel + MedievalSharp) to show, allow the page to reach
-Google Fonts on first load; it falls back gracefully offline.
+The **game server** is separate and runs on its own (that's intentional —
+nothing about the game depends on it being up). Start it **one** way only:
+
+```bash
+npm run server     # game server + dashboard on :8080
+# ── OR ──
+server\start-server.bat      # same thing, double-clickable
+# ── OR ──
+server\start-launcher.bat    # a control panel on :8090 that starts the server FOR you
+```
+
+**Order doesn't matter** — the game auto-reconnects when the server appears, and
+plays fine offline if it never does. Just don't start the game server twice
+(e.g. the launcher *and* `npm run server`) or you'll get an `EADDRINUSE` on 8080.
+
+Open the URL, click **PLAY**, pick your hero, and you arrive in **Hearthwatch** —
+the town square. The client connects to the **game server** on entering the world
+(single-player and multiplayer use the same path; see *Online & game server*).
+Gear up, then step through a gate to descend. Click once on the page to enable
+audio (browser autoplay policy). For the DnD-flavored fonts (Cinzel +
+MedievalSharp) to show, allow the page to reach Google Fonts on first load; it
+falls back gracefully offline.
 
 ### Commands
 ```bash
-npm run dev          # game + AI proxy together
+npm run dev          # game (Vite) + AI proxy — does NOT start the game server
 npm run dev:client   # game only (Vite)
 npm run dev:server   # AI proxy only
-npm run dev:kill     # free ports 3847 / 5173-5175
+npm run server       # game server + dashboard only (independent process)
+npm run server:watch # game server with auto-reload
+npm run dev:kill     # free ports 3847 / 5173-5175 / 8080
 npm run build        # type-check (tsc) + production build to dist/
 npm run preview      # serve the production build
 ```
@@ -71,20 +90,70 @@ the cursor · **double Right-click** to cast magic.
 | Inventory | I / Tab | M |
 | Growth | K | \ |
 
-Global: **O** settings · **H** manual · **F2** save/load window · **2** add
-Player 2 · **Esc** close menu / quit. In town, stand next to a **gate** or
-**shopkeeper** and press **Use** to descend or trade.
+Global: **O** settings · **H** manual · **F2** save/load window · **T**
+pickpocket (Thief, from stealth) · **Esc** close menu / quit. In town, stand next
+to a **gate** or **shopkeeper** and press **Use** to descend or trade.
 
 **Gamepad:** left stick / D-Pad move · **A** attack · **X** magic · **B** use ·
-**Y** dodge · **RB** ability · **LB** inventory · **Start** settings · **Select**
-manual. Menus are fully navigable with the D-Pad + A/B, and the HUD controls box
-switches to the controller layout when a pad is connected. The **Necromancer**
-**holds** the ability button to open a summon radial (aim with mouse or stick).
+**Y** dodge · **RB** ability (Thief: toggle sneak) · **RT** steal (Thief
+pickpocket) · **LB** inventory · **Start** settings · **Select** manual. Menus —
+**including the title, character-select, level-select and Settings screens** —
+are fully navigable with the D-Pad **or left stick** + A/B, and the HUD controls
+box switches to the controller layout when a pad is connected. The
+**Necromancer** **holds** the ability button to open a summon radial (aim with
+mouse or stick).
 
 **Settings (O)** has tabs for **Audio** (mute, volumes, **music-track** picker),
 **View** (**sprite size**, **show-map**), **AI** (provider), **Allies** (companion
 behaviour), **Keys** (rebind anything; shows the gamepad mapping when connected),
 **Cheats** (incl. **Difficulty: easy / moderate / hard**, plus **loot** and **gold drop-rate** dials), and the **Manual**.
+
+## Online & game server
+
+StrongBow ships with a **standalone game server** (in `server/`). Every client —
+solo or grouped — connects to it; playing solo just means you have the world to
+yourself, while friends who join appear beside you and (in a party) fight the same
+enemies. The server runs independently of the game.
+
+**Run it — the easy way is the launcher:** double-click **`server/start-launcher.bat`**
+(or `npm run launcher`). It opens a single **control panel + dashboard** at
+**http://localhost:8090** that can **Start / Stop / Restart** the server and shows
+connected players, uptime, live **AI-NPC** count, a **broadcast / MOTD** box,
+per-player **kick**, and a server **log tail** — and it brings the server up for
+you. You can also run the bare server headless with `npm run server` /
+`server/start-server.bat` (it listens on `:8080` for the game but has no UI of its
+own — the UI is the launcher).
+
+> **Why a launcher?** A web page can't spawn a process, and a not-yet-running
+> server can't serve its own "Start" button — so a tiny always-on supervisor
+> (the launcher) is what makes browser start/stop possible.
+
+- **Ports:** game server `:8080` (`GAME_SERVER_PORT`), launcher + dashboard `:8090`
+  (`LAUNCHER_PORT`); the game itself runs separately on `:5173`.
+- **Point your client at the host:** type the address into the **Server Address**
+  box on the **title screen** (saved locally), or set
+  `VITE_GAME_SERVER_URL=ws://<ip>:<port>` in `.env`. Ship one client build and each
+  friend just enters your IP. `VITE_MULTIPLAYER=0` forces offline; the client also
+  **auto-reconnects** and plays fine if the server is down.
+- **AI NPCs:** toggle them (with a count) from the dashboard; the server spawns
+  wandering NPCs (green figures) near the busiest map's players.
+
+**Co-op dungeons (Tier 2):** in a party — 2+ players on the same map — you fight
+the **same enemies**. One player is the **enemy host**: their machine simulates
+the monsters and spawning altars and streams them to the party; guests render
+those enemies (with HP bars) and report their hits back — **both melee and ranged**
+— for the host to apply. Dungeon layouts already match across clients (fixed
+per-realm seeds), so everyone is in the identical map. Kills grant **shared XP and
+gold to the whole party, with a bonus that scales with party size** (co-op out-earns
+solo). **Solo play is completely unchanged** — the co-op path only activates with
+2+ players connected on the same level.
+
+> **Known follow-ups:** cross-client **item-drop** instancing (XP + gold are
+> already shared; dropped gear/scrolls are still host-local for now) and host
+> hand-off if the enemy host leaves mid-run. Presence/position, join/leave,
+> chat/MOTD, server-driven **AI NPCs**, and dashboard control are all in. Local
+> same-screen 2-player is retired in favour of this, and **Level Select is
+> disabled** for now.
 
 ## Hearthwatch — the town hub
 

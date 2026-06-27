@@ -83,6 +83,11 @@ export function buildTown(): LevelData {
   decor.push({ x: cx, y: H - 2, key: 'town-gate' });
   decor.push({ x: 1, y: cy, key: 'town-gate' });
   decor.push({ x: W - 2, y: cy, key: 'town-gate' });
+  // each gate leads out to the surrounding overworld (use near it to step out)
+  spawns.push({ kind: 'door', x: cx, y: 1, interiorId: 'overworld', dir: 'north', label: 'North Road' });
+  spawns.push({ kind: 'door', x: cx, y: H - 2, interiorId: 'overworld', dir: 'south', label: 'South Road' });
+  spawns.push({ kind: 'door', x: 1, y: cy, interiorId: 'overworld', dir: 'west', label: 'West Road' });
+  spawns.push({ kind: 'door', x: W - 2, y: cy, interiorId: 'overworld', dir: 'east', label: 'East Road' });
   gates.push({ gx: cx, gy: 1, bridge: [], label: 'North Road' });
 
   const house = (x0: number, y0: number, x1: number, y1: number, roofKey: string) => {

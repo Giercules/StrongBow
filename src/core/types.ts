@@ -203,6 +203,9 @@ export interface SpawnDef {
   npcRole?: string;
   /** door: level id this entrance leads to ('town' to step back outside). */
   interiorId?: string;
+  /** door to the overworld: which edge of town this gate is, used to pick the
+   *  overworld entry point and the town tile to return to. */
+  dir?: 'north' | 'south' | 'east' | 'west';
 }
 
 export interface PickupDef {
@@ -259,6 +262,8 @@ export interface LevelData {
   town?: boolean;
   /** True for building interiors (peaceful rooms reached from town). */
   interior?: boolean;
+  /** True for the surface overworld (peaceful, biome ground, wandering critters). */
+  overworld?: boolean;
 }
 
 export interface HudHeroSlot {

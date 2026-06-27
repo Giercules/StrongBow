@@ -52,6 +52,11 @@ export class SettingsUI {
   private rows: FocusRow[] = [];
   private focus = 0;
   private padHandler?: (pad: Phaser.Input.Gamepad.Gamepad, button: Phaser.Input.Gamepad.Button, index: number) => void;
+  // Left-stick navigation needs per-frame polling (stick motion fires no 'down'
+  // events); these track the last quantised stick direction for edge detection.
+  private stickHandler?: () => void;
+  private stickPrevX = 0;
+  private stickPrevY = 0;
 
   constructor(scene: Phaser.Scene, deps: SettingsDeps = {}) {
     this.scene = scene;
@@ -80,6 +85,10 @@ export class SettingsUI {
       this.padHandler = (_p, _b, index) => this.onPad(index);
       gp.on('down', this.padHandler);
     }
+    this.stickPrevX = 0;
+    this.stickPrevY = 0;
+    this.stickHandler = () => this.pollStick();
+    this.scene.events.on(Phaser.Scenes.Events.UPDATE, this.stickHandler);
     this.rebuild();
   }
 
@@ -88,6 +97,8 @@ export class SettingsUI {
     this.keyHandler = undefined;
     if (this.padHandler) this.scene.input.gamepad?.off('down', this.padHandler);
     this.padHandler = undefined;
+    if (this.stickHandler) this.scene.events.off(Phaser.Scenes.Events.UPDATE, this.stickHandler);
+    this.stickHandler = undefined;
     this.capturing = false;
     this.content = null;
     this.modal?.destroy();
@@ -160,6 +171,23 @@ export class SettingsUI {
       case 0: this.activate(); break; // A
       case 1: this.close(); break; // B
     }
+  }
+
+  /** Per-frame left-stick navigation (edge-detected so one push = one step). */
+  private pollStick(): void {
+    if (this.capturing || !this.modal) return;
+    const gp = this.scene.input.gamepad;
+    const pad = gp?.gamepads.find((g): g is Phaser.Input.Gamepad.Gamepad => !!g && g.connected);
+    if (!pad) return;
+    const dz = 0.5;
+    const sx = pad.leftStick?.x ?? 0;
+    const sy = pad.leftStick?.y ?? 0;
+    const zx = sx > dz ? 1 : sx < -dz ? -1 : 0;
+    const zy = sy > dz ? 1 : sy < -dz ? -1 : 0;
+    if (zy !== 0 && zy !== this.stickPrevY) this.navY(zy);
+    else if (zx !== 0 && zx !== this.stickPrevX) this.navX(zx);
+    this.stickPrevX = zx;
+    this.stickPrevY = zy;
   }
 
   private onKey(e: KeyboardEvent): void {
@@ -424,7 +452,7 @@ export class SettingsUI {
       this.text(x0 + PANEL_W - 40, yy + 10, pl, pl === '—' ? C.inkDim : '#7fd0ff', 11, 1).setX(x0 + PANEL_W - 40);
     });
     const fy = this.rowY + REBINDABLE_ACTIONS.length * 22 + 8;
-    this.text(x0 + 24, fy, 'Controller also: Y dodge - RB ability - Start settings - Select help', padOn ? '#7fd0ff' : C.inkDim, 9.5);
+    this.text(x0 + 24, fy, 'Controller also: Y dodge - RB ability - RT steal - Start settings - Select help', padOn ? '#7fd0ff' : C.inkDim, 9.5);
   }
 
   private tabManual(): void {

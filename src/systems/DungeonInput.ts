@@ -16,7 +16,7 @@ const CODE_TO_NAME: Record<number, string> = (() => {
 })();
 
 // Gamepad face/shoulder buttons mapped to the rebindable actions that have one.
-type PadName = 'A' | 'B' | 'X' | 'Y' | 'L1' | 'R1';
+type PadName = 'A' | 'B' | 'X' | 'Y' | 'L1' | 'R1' | 'R2';
 const PAD_FOR_ACTION: Partial<Record<PlayerAction, PadName>> = {
   attack: 'A',
   use: 'B',
@@ -94,6 +94,7 @@ export class DungeonInput {
       case 'Y': return pad.Y;
       case 'L1': return pad.L1 > 0;
       case 'R1': return pad.R1 > 0;
+      case 'R2': return pad.R2 > 0;
     }
   }
 
@@ -145,10 +146,11 @@ export class DungeonInput {
     return !!pn && this.padEdge(player, pn);
   }
 
-  /** Edge-triggered non-rebindable combat actions (dodge / class ability). */
-  padJustDown(player: 'p1' | 'p2', action: 'dodge' | 'ability'): boolean {
+  /** Edge-triggered non-rebindable combat actions (dodge / class ability / steal). */
+  padJustDown(player: 'p1' | 'p2', action: 'dodge' | 'ability' | 'steal'): boolean {
     if (this.capturing) return false;
-    return this.padEdge(player, action === 'dodge' ? 'Y' : 'R1');
+    const name: PadName = action === 'dodge' ? 'Y' : action === 'ability' ? 'R1' : 'R2';
+    return this.padEdge(player, name);
   }
 
   /** True while the class-ability pad button (R1) is held — for hold-to-open menus. */
