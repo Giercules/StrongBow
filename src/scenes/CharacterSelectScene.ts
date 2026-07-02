@@ -17,8 +17,11 @@ export class CharacterSelectScene extends Phaser.Scene {
   private highlight!: Phaser.GameObjects.Graphics;
   private prompt!: Phaser.GameObjects.Text;
   private cardW = 200;
-  private cardH = 360;
+  private cardH = 290;
   private pad?: MenuPad;
+  private detailName!: Phaser.GameObjects.Text;
+  private detailSig!: Phaser.GameObjects.Text;
+  private detailBlurb!: Phaser.GameObjects.Text;
 
   constructor() {
     super('CharacterSelectScene');
@@ -43,17 +46,34 @@ export class CharacterSelectScene extends Phaser.Scene {
 
     this.highlight = this.add.graphics().setDepth(20);
 
-    const gap = 18;
-    const cardW = Math.min(200, Math.floor((GAME_WIDTH - 40 - (ALL_CLASSES.length - 1) * gap) / ALL_CLASSES.length));
+    const gap = 14;
+    const cardW = Math.min(180, Math.floor((GAME_WIDTH - 40 - (ALL_CLASSES.length - 1) * gap) / ALL_CLASSES.length));
     this.cardW = cardW;
-    this.cardH = 360;
+    this.cardH = 290;
     const totalW = ALL_CLASSES.length * cardW + (ALL_CLASSES.length - 1) * gap;
     const startX = (GAME_WIDTH - totalW) / 2;
 
     ALL_CLASSES.forEach((cls, i) => {
       const x = startX + i * (cardW + gap);
-      this.cards.push(this.buildCard(cls, x, 90, cardW, 360, i));
+      this.cards.push(this.buildCard(cls, x, 78, cardW, this.cardH, i));
     });
+
+    // one wide detail strip below the row shows the HIGHLIGHTED hero's story —
+    // seven cards leave no room for per-card prose without overflowing.
+    const dg = this.add.graphics();
+    dg.fillStyle(0x0d1322, 0.96);
+    dg.fillRoundedRect(GAME_WIDTH / 2 - 360, 384, 720, 108, 8);
+    dg.lineStyle(1.5, 0x6e521f, 1);
+    dg.strokeRoundedRect(GAME_WIDTH / 2 - 360, 384, 720, 108, 8);
+    this.detailName = this.add
+      .text(GAME_WIDTH / 2, 396, '', { fontFamily: 'MedievalSharp, "Trebuchet MS", cursive', fontSize: '15px', color: '#ffe9a8', fontStyle: 'bold' })
+      .setOrigin(0.5, 0);
+    this.detailSig = this.add
+      .text(GAME_WIDTH / 2, 418, '', { fontFamily: 'MedievalSharp, "Trebuchet MS", cursive', fontSize: '12px', color: C.ink, align: 'center', wordWrap: { width: 680 } })
+      .setOrigin(0.5, 0);
+    this.detailBlurb = this.add
+      .text(GAME_WIDTH / 2, 458, '', { fontFamily: 'MedievalSharp, "Trebuchet MS", cursive', fontSize: '11px', color: C.inkDim, align: 'center', wordWrap: { width: 680 } })
+      .setOrigin(0.5, 0);
 
     this.add
       .text(GAME_WIDTH / 2, GAME_HEIGHT - 24, '◀ ▶ / A D to move   ·   ENTER or click to choose   ·   1–7 quick pick', {
@@ -96,17 +116,19 @@ export class CharacterSelectScene extends Phaser.Scene {
     bg.lineStyle(2, color, 0.9);
     bg.strokeRoundedRect(0, 0, w, h, 8);
     bg.fillStyle(color, 0.16);
-    bg.fillRoundedRect(0, 0, w, 64, 8);
+    bg.fillRoundedRect(0, 0, w, 56, 8);
     cont.add(bg);
 
-    cont.add(this.add.text(w / 2, 14, def.name, { fontFamily: 'MedievalSharp, "Trebuchet MS", cursive', fontSize: '20px', color: numHex(color), fontStyle: 'bold' }).setOrigin(0.5, 0));
-    cont.add(this.add.text(w / 2, 40, def.role.toUpperCase(), { fontFamily: 'MedievalSharp, "Trebuchet MS", cursive', fontSize: '12px', color: C.inkDim }).setOrigin(0.5, 0));
+    // the name shrinks to fit the card so seven-across never overflows
+    const nameSize = Math.max(11, Math.min(18, Math.floor((w - 16) / (def.name.length * 0.62))));
+    cont.add(this.add.text(w / 2, 12, def.name, { fontFamily: 'MedievalSharp, "Trebuchet MS", cursive', fontSize: `${nameSize}px`, color: numHex(color), fontStyle: 'bold' }).setOrigin(0.5, 0));
+    cont.add(this.add.text(w / 2, 36, def.role.toUpperCase(), { fontFamily: 'MedievalSharp, "Trebuchet MS", cursive', fontSize: '10px', color: C.inkDim }).setOrigin(0.5, 0));
 
-    const spr = this.add.sprite(w / 2, 130, `hero-${cls}-sheet`).setScale(2.1);
+    const spr = this.add.sprite(w / 2, 118, `hero-${cls}-sheet`).setScale(1.9);
     spr.play(`${cls}-idle-down`);
-    cont.add(this.add.image(w / 2, 158, 'fx-shadow').setScale(2).setAlpha(0.5));
+    cont.add(this.add.image(w / 2, 144, 'fx-shadow').setScale(1.8).setAlpha(0.5));
     cont.add(spr);
-    this.tweens.add({ targets: spr, y: 124, duration: 1100 + idx * 90, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+    this.tweens.add({ targets: spr, y: 112, duration: 1100 + idx * 90, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
 
     // stats
     const stats: [string, number, number][] = [
@@ -116,26 +138,15 @@ export class CharacterSelectScene extends Phaser.Scene {
       ['SPD', def.base.speed, 170],
     ];
     stats.forEach((st, i) => {
-      const sy = 196 + i * 22;
-      cont.add(this.add.text(14, sy, st[0], { fontFamily: 'MedievalSharp, "Trebuchet MS", cursive', fontSize: '11px', color: C.inkDim }).setOrigin(0, 0.5));
+      const sy = 186 + i * 22;
+      cont.add(this.add.text(10, sy, st[0], { fontFamily: 'MedievalSharp, "Trebuchet MS", cursive', fontSize: '10px', color: C.inkDim }).setOrigin(0, 0.5));
       const bar = this.add.graphics();
       bar.fillStyle(0x000000, 0.5);
-      bar.fillRect(46, sy - 5, w - 60, 9);
+      bar.fillRect(40, sy - 5, w - 50, 9);
       bar.fillStyle(color, 1);
-      bar.fillRect(46, sy - 5, (w - 60) * Phaser.Math.Clamp(st[1] / st[2], 0, 1), 9);
+      bar.fillRect(40, sy - 5, (w - 50) * Phaser.Math.Clamp(st[1] / st[2], 0, 1), 9);
       cont.add(bar);
     });
-
-    cont.add(
-      this.add
-        .text(w / 2, 292, def.signature, { fontFamily: 'MedievalSharp, "Trebuchet MS", cursive', fontSize: '10.5px', color: C.ink, align: 'center', wordWrap: { width: w - 24 } })
-        .setOrigin(0.5, 0)
-    );
-    cont.add(
-      this.add
-        .text(w / 2, 326, def.blurb, { fontFamily: 'MedievalSharp, "Trebuchet MS", cursive', fontSize: '10px', color: C.inkDim, align: 'center', wordWrap: { width: w - 24 } })
-        .setOrigin(0.5, 0)
-    );
 
     const zone = this.add.zone(0, 0, w, h).setOrigin(0, 0).setInteractive({ useHandCursor: true });
     zone.on('pointerover', () => {
@@ -160,6 +171,13 @@ export class CharacterSelectScene extends Phaser.Scene {
     this.highlight.clear();
     this.highlight.lineStyle(4, parseInt(C.hudBorder.slice(1), 16), 1);
     this.highlight.strokeRoundedRect(card.x - 3, card.y - 3, this.cardW + 6, this.cardH + 6, 10);
+    // the detail strip tells the highlighted hero's story
+    const def = HEROES[ALL_CLASSES[this.cursor]];
+    if (this.detailName) {
+      this.detailName.setText(`${def.name} — ${def.role}`).setColor(numHex(CLASS_HUD_COLORS[ALL_CLASSES[this.cursor]]));
+      this.detailSig.setText(def.signature);
+      this.detailBlurb.setText(def.blurb);
+    }
   }
 
   private updatePrompt(): void {
