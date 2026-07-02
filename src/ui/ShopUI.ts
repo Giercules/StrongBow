@@ -243,8 +243,8 @@ export class ShopUI {
       : `Gold: ${this.buyer.inventory.gold}    Charisma: ${cha}` + (sellPct ? `   (+${sellPct}% payout)` : '');
     this.text(cx, y0 + 38, meta, GOLD_DK, 12).setOrigin(0.5, 0);
 
-    this.button(x0 + 96, y0 + 60, 90, 24, 'BUY', this.mode !== 'buy', () => this.setMode('buy'));
-    this.button(x0 + 196, y0 + 60, 90, 24, 'SELL', this.mode !== 'sell', () => this.setMode('sell'));
+    this.button(x0 + 92, y0 + 60, 64, 22, 'BUY', this.mode !== 'buy', () => this.setMode('buy'));
+    this.button(x0 + 166, y0 + 60, 64, 22, 'SELL', this.mode !== 'sell', () => this.setMode('sell'));
     if (this.mode === 'buy' && cha >= 1) this.button(x0 + PANEL_W - 96, y0 + 60, 130, 24, this.haggled ? 'HAGGLED' : 'HAGGLE', !this.haggled, () => this.haggle());
 
     const top = y0 + 92;

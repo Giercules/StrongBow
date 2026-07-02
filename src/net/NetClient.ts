@@ -148,11 +148,16 @@ export class NetClient {
         if (msg.config) this.config = msg.config as NetConfig;
         this.onConnect?.(this.config);
         break;
-      case 'peers':
-        this.peers = (msg.players as NetPeer[]) ?? [];
+      case 'peers': {
+        // The server now sends the whole level roster (one shared, pre-serialized
+        // list) including us; drop our own id so we don't render a ghost of self.
+        const list = (msg.players as NetPeer[]) ?? [];
+        const me = typeof msg.you === 'string' ? msg.you : this.id;
+        this.peers = me ? list.filter((p) => p.id !== me) : list;
         this.isHost = !!msg.host;
         this.partySize = Number(msg.party) || 1;
         break;
+      }
       case 'coopState':
         this.onCoopState?.((msg.enemies as CoopEnemy[]) ?? []);
         break;

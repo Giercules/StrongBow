@@ -17,6 +17,8 @@ export class Companion extends Hero {
   /** Thief skeleton: teleport-backstab behaviour + its cooldown gate. */
   isThief = false;
   nextBlink = 0;
+  /** Arcanist familiar kind ('ember' | 'void' | 'homunculus' | 'rootling'), if any. */
+  arcaneType?: string;
 
   constructor(scene: Phaser.Scene, x: number, y: number, classId: HeroClassId) {
     super(scene, x, y, classId, false, 0);
@@ -40,14 +42,15 @@ export class Companion extends Hero {
     });
   }
 
-  /** Re-skin this companion as a distinct skeletal servant (tank/archer/mage/thief). */
-  makeSkeleton(sheet: string, walk: string, attack: string): void {
+  /** Re-skin this companion as a distinct summoned servant (skeleton or arcane
+   *  familiar). `auraTint` colours the loyalty aura so each conjuration reads
+   *  clearly as the player's own. */
+  makeSkeleton(sheet: string, walk: string, attack: string, auraTint = 0x9bffd0): void {
     this.isSummon = true;
     this.setTexture(sheet, 0);
     this.skin = { walk, attack };
     this.play(walk, true);
-    // brighten the ally aura so summoned skeletons read clearly as the player's own.
-    if (this.aura) this.aura.setTint(0x9bffd0).setAlpha(0.6);
+    if (this.aura) this.aura.setTint(auraTint).setAlpha(0.6);
   }
 
   aiTick<M extends MonsterLike>(

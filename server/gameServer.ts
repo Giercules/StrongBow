@@ -216,10 +216,19 @@ wss.on('connection', (ws: WebSocket) => {
   // a socket that never joins is dead weight — drop it after a grace period
   const joinTimeout = setTimeout(() => { if (!joined) try { ws.close(); } catch { /* */ } }, 15000);
 
+  // per-connection flood guard: a client sends ~12 state + a few coop msgs a
+  // second in normal play; 120/s is a generous ceiling that stops a noisy or
+  // malicious socket from monopolising the tick loop.
+  let msgWindowStart = Date.now();
+  let msgCount = 0;
+
   ws.on('message', (raw) => {
+    const nowTs = Date.now();
+    if (nowTs - msgWindowStart >= 1000) { msgWindowStart = nowTs; msgCount = 0; }
+    if (++msgCount > 120) return; // drop excess this second
     let msg: Record<string, unknown>;
     try { msg = JSON.parse(String(raw)); } catch { return; }
-    const now = Date.now();
+    const now = nowTs;
     switch (msg.t) {
       case 'join': {
         players.set(id, {
@@ -312,8 +321,16 @@ wss.on('connection', (ws: WebSocket) => {
   ws.on('error', () => {});
 });
 
-// relay snapshots: each client gets every OTHER player on the same map
+// relay snapshots: each client gets the roster for its own map. Players are
+// bucketed by level ONCE per tick and each level's public list is serialized
+// ONCE, so the broadcast is O(players) rather than the old O(players^2) filter-
+// per-player. Clients drop their own id (sent as `you`) from the list.
+const PROFILE = process.env.SB_PROFILE === '1';
+let profMax = 0;
+let profAcc = 0;
+let profN = 0;
 setInterval(() => {
+  const t0 = PROFILE ? performance.now() : 0;
   const now = Date.now();
   for (const [pid, p] of players) {
     // generous 30s timeout so a brief network/scene-transition hiccup doesn't
@@ -321,23 +338,43 @@ setInterval(() => {
     if (now - p.lastSeen > 30000) { slog('WARN', 'CONN', `${p.name} timed out`); try { p.ws.close(); } catch { /* */ } players.delete(pid); }
   }
   simulateNpcs(now);
-  const all = [...players.values()];
-  const npcPub = [...npcs.values()].map((n) => ({
-    id: n.id, name: n.name, classId: n.classId, level: 1,
-    x: Math.round(n.x), y: Math.round(n.y), hp: 100, levelId: n.levelId, npc: true,
-  }));
-  // Tier 2: per-level co-op party + enemy host (smallest id on that level).
-  const hostByLevel = new Map<string, string>();
-  for (const p of all) {
-    const cur = hostByLevel.get(p.levelId);
-    if (!cur || p.id < cur) hostByLevel.set(p.levelId, p.id);
+
+  // bucket players + NPC public views by level (single pass each)
+  const byLevel = new Map<string, PlayerState[]>();
+  for (const p of players.values()) {
+    const g = byLevel.get(p.levelId);
+    if (g) g.push(p); else byLevel.set(p.levelId, [p]);
   }
-  for (const p of all) {
-    const peers = all.filter((o) => o.id !== p.id && o.levelId === p.levelId).map(pub);
-    const localNpcs = npcPub.filter((n) => n.levelId === p.levelId);
-    const party = all.filter((o) => o.levelId === p.levelId).length;
-    const host = hostByLevel.get(p.levelId) === p.id;
-    send(p.ws, { t: 'peers', players: [...peers, ...localNpcs], host, party });
+  const npcByLevel = new Map<string, unknown[]>();
+  for (const n of npcs.values()) {
+    const view = { id: n.id, name: n.name, classId: n.classId, level: 1, x: Math.round(n.x), y: Math.round(n.y), hp: 100, levelId: n.levelId, npc: true };
+    const g = npcByLevel.get(n.levelId);
+    if (g) g.push(view); else npcByLevel.set(n.levelId, [view]);
+  }
+
+  for (const [levelId, group] of byLevel) {
+    // enemy host for this level = the smallest player id present
+    let hostId = group[0].id;
+    for (const p of group) if (p.id < hostId) hostId = p.id;
+    // serialize the shared roster ONCE, then stamp each player's host/you flags
+    const roster = [...group.map(pub), ...(npcByLevel.get(levelId) ?? [])];
+    const rosterJson = JSON.stringify(roster);
+    const party = group.length;
+    for (const p of group) {
+      if (p.ws.readyState !== WebSocket.OPEN) continue;
+      p.ws.send(`{"t":"peers","players":${rosterJson},"host":${p.id === hostId},"party":${party},"you":"${p.id}"}`);
+    }
+  }
+
+  if (PROFILE) {
+    const dt = performance.now() - t0;
+    profMax = Math.max(profMax, dt);
+    profAcc += dt; profN++;
+    if (profN >= 16) {
+      const mem = Math.round(process.memoryUsage().rss / 1048576);
+      slog('INFO', 'PERF', `tick avg ${(profAcc / profN).toFixed(2)}ms max ${profMax.toFixed(2)}ms · players ${players.size} · rss ${mem}MB`);
+      profMax = 0; profAcc = 0; profN = 0;
+    }
   }
 }, 120);
 

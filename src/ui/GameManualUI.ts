@@ -144,7 +144,7 @@ export class GameManualUI {
     // never spills past the bottom rule of the parchment.
     const avail = PANEL_H - 116; // from the top of the text down to the footer rule
     let size = 13.5;
-    while (t.height > avail && size > 9) {
+    while (t.height > avail && size > 8) {
       size -= 0.5;
       t.setFontSize(size);
     }

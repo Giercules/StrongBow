@@ -71,6 +71,19 @@ const SKELETON_INFO: Record<SkeletonType, { cls: HeroClassId; name: string; shee
 const SKELETON_ORDER: SkeletonType[] = ['tank', 'archer', 'mage', 'thief'];
 type SummonChoice = SkeletonType | 'beast';
 const BEAST_LEVEL = 8; // necromancer can bind monsters from this level up
+
+// --- Arcanist familiars (the "hold ability" radial; tap stays Meteor) --------
+type ArcaneType = 'ember' | 'void' | 'homunculus' | 'rootling';
+const ARCANE_INFO: Record<ArcaneType, { cls: HeroClassId; name: string; sheet: string; walk: string; attack: string; tint: number }> = {
+  // reuse thematically-close monster sheets, re-tinted to read as arcane conjurations
+  ember: { cls: 'arcanist', name: 'ember sprite', sheet: 'monster-imp-sheet', walk: 'imp-walk', attack: 'imp-attack', tint: 0xff8a3a },
+  void: { cls: 'arcanist', name: 'void imp', sheet: 'monster-void_imp-sheet', walk: 'void_imp-walk', attack: 'void_imp-attack', tint: 0xc07bff },
+  homunculus: { cls: 'arcanist', name: 'arcane homunculus', sheet: 'monster-brass_sentinel-sheet', walk: 'brass_sentinel-walk', attack: 'brass_sentinel-attack', tint: 0x8fd0ff },
+  rootling: { cls: 'vanguard', name: 'starved rootling', sheet: 'monster-spore_imp-sheet', walk: 'spore_imp-walk', attack: 'spore_imp-attack', tint: 0x8fe06a },
+};
+// radial wedge order: top, right, bottom, left
+const ARCANE_ORDER: ArcaneType[] = ['ember', 'void', 'homunculus', 'rootling'];
+const ARCANE_COST = 25;
 import type { ShopKind } from '../core/types';
 import { SkillTreeUI } from '../ui/SkillTreeUI';
 import { SettingsUI } from '../ui/SettingsUI';
@@ -187,9 +200,11 @@ export class DungeonScene extends Phaser.Scene {
   private edgeGrade?: Phaser.GameObjects.Image;
   private selectedSkeleton: SummonChoice = 'tank';
   private radialOpen = false;
-  private radialPick: SummonChoice = 'tank';
+  private radialMode: 'necro' | 'arcane' = 'necro';
+  private radialPick = 'tank';
   private radial?: Phaser.GameObjects.Container;
-  private radialNodes: { t: SummonChoice; dx: number; dy: number; g: Phaser.GameObjects.Graphics; txt: Phaser.GameObjects.Text }[] = [];
+  private radialNodes: { t: string; dx: number; dy: number; a0: number; a1: number; g: Phaser.GameObjects.Graphics; icon?: Phaser.GameObjects.Image; txt: Phaser.GameObjects.Text }[] = [];
+  private radialCenterId: string | null = null;
   private abilityDownAt = 0;
   private monsters: Monster[] = [];
   private generators: Generator[] = [];
@@ -353,10 +368,14 @@ export class DungeonScene extends Phaser.Scene {
     this.lightingOn = settings.get('enhancedGraphics') && this.game.renderer.type === Phaser.WEBGL;
     if (this.lightingOn) {
       const atmoL = ATMOSPHERE[this.level.theme ?? 'crypt'] ?? ATMOSPHERE.crypt;
-      const outdoors = !!this.level.town || !!this.level.overworld || !!this.level.interior;
-      // Bright, readable base — the lights add warmth and depth, never murk.
-      this.lights.enable().setAmbientColor(outdoors ? 0xe2e5ee : 0xaab0c4);
-      this.partyLightSrc = this.lights.addLight(0, 0, 400, atmoL.lightTint, outdoors ? 0.45 : 0.9);
+      // Three light tiers so nothing washes out: open-air town/overworld reads as
+      // daylight; cozy shop interiors sit at a warm mid-level (not near-white);
+      // combat realms stay moody but readable.
+      const openAir = !!this.level.town || !!this.level.overworld;
+      const interior = !!this.level.interior;
+      const ambient = openAir ? 0xe2e5ee : interior ? 0xa9a39a : 0xaab0c4;
+      this.lights.enable().setAmbientColor(ambient);
+      this.partyLightSrc = this.lights.addLight(0, 0, 400, atmoL.lightTint, openAir ? 0.45 : interior ? 0.6 : 0.9);
     }
 
     this.shadows = new ShadowSystem(this);
@@ -575,6 +594,8 @@ export class DungeonScene extends Phaser.Scene {
     this.abilityDownAt = 0;
     this.radial = undefined;
     this.radialNodes = [];
+    this.radialCenterId = null;
+    this.radialMode = 'necro';
     this.blockers = [];
     this.lockedDoors = [];
     this.chests = [];
@@ -1747,8 +1768,11 @@ export class DungeonScene extends Phaser.Scene {
     if (!quiet) this.showBark(`${necro.def.name} raises a ${info.name}!`, 2600, 'event');
   }
 
-  /** Necromancer ability input: tap raises the selected servant; hold opens a
-   *  radial to pick Tank / Archer / Mage / Thief, released to raise it. */
+  /** Class ability input for P1. Thief toggles Sneak. The Necromancer and the
+   *  Arcanist both HOLD for a summon radial (necro raises undead; arcanist
+   *  conjures a familiar) — a quick TAP raises the last-picked servant for the
+   *  necromancer, or casts Meteor for the arcanist. Everyone else taps their
+   *  ability outright. */
   private handleAbilityInput(p1: Hero, time: number): void {
     const down = this.input2.justDown('p1', 'ability') || this.input2.padJustDown('p1', 'ability');
     const held = this.input2.isDown('p1', 'ability') || this.input2.padAbilityDown('p1');
@@ -1757,26 +1781,33 @@ export class DungeonScene extends Phaser.Scene {
       if (down) this.toggleSneak(p1);
       return;
     }
-    if (p1.classId !== 'necromancer') {
+    const radialClass = p1.classId === 'necromancer' || p1.classId === 'arcanist';
+    if (!radialClass) {
       if (down && p1.canAbility(time)) {
         this.useAbility(p1, time);
         p1.markAbilityUsed(time);
       }
       return;
     }
+    const mode: 'necro' | 'arcane' = p1.classId === 'arcanist' ? 'arcane' : 'necro';
     if (down) this.abilityDownAt = time;
-    if (held && this.abilityDownAt && !this.radialOpen && time - this.abilityDownAt > 200) this.openSummonRadial();
+    if (held && this.abilityDownAt && !this.radialOpen && time - this.abilityDownAt > 200) this.openSummonRadial(mode);
     if (this.radialOpen) {
       this.updateSummonRadial();
       p1.setMoveInput(0, 0); // freeze movement while aiming the radial
     }
     if (up) {
       if (this.radialOpen) {
-        this.selectedSkeleton = this.radialPick;
         this.closeSummonRadial();
-        this.trySummon(p1, time);
+        if (mode === 'arcane') this.summonArcane(p1, this.radialPick as ArcaneType);
+        else { this.selectedSkeleton = this.radialPick as SummonChoice; this.trySummon(p1, time); }
       } else if (this.abilityDownAt) {
-        this.trySummon(p1, time);
+        // quick tap: necromancer raises the last servant; arcanist nukes with Meteor
+        if (mode === 'arcane') {
+          if (p1.canAbility(time)) { this.useAbility(p1, time); p1.markAbilityUsed(time); }
+        } else {
+          this.trySummon(p1, time);
+        }
       }
       this.abilityDownAt = 0;
     }
@@ -1839,48 +1870,133 @@ export class DungeonScene extends Phaser.Scene {
     this.showBark(`${necro.def.name} binds a ${def.name} to their will!`, 2600, 'event');
   }
 
-  private openSummonRadial(): void {
+  /** Arcanist familiar: conjure an Ember Sprite / Void Imp / Arcane Homunculus /
+   *  Starved Rootling. Mana-gated and permanent (fights until slain or the party
+   *  leaves the level), mirroring the necromancer's servants. */
+  private summonArcane(mage: Hero, type: ArcaneType): void {
+    const time = this.time.now;
+    this.summons = this.summons.filter((s) => s.active && s.alive);
+    const cap = Math.min(3, 1 + Math.floor(mage.level / 4)) + (mage.stats.summonBonus ?? 0);
+    if (this.summons.length >= cap) {
+      this.showBark(`Your familiars already crowd the air (max ${cap}).`, 2400, 'system');
+      return;
+    }
+    const free = settings.get('gameplay').infiniteMana;
+    if (!free && mage.mana < ARCANE_COST) {
+      this.showBark('Not enough mana to conjure a familiar.', 2400, 'system');
+      return;
+    }
+    if (!free) mage.mana = Math.max(0, mage.mana - ARCANE_COST);
+    const info = ARCANE_INFO[type];
+    const sk = new Companion(this, mage.x + Phaser.Math.Between(-16, 16), mage.y + Phaser.Math.Between(-8, 18), info.cls);
+    sk.makeSkeleton(info.sheet, info.walk, info.attack, info.tint);
+    sk.arcaneType = type;
+    sk.setTint(info.tint);
+    const s = sk.stats;
+    if (type === 'ember') {
+      s.maxHealth = Math.round(s.maxHealth * 0.7); s.speed = Math.round(s.speed * 1.15); s.fire = 6;
+    } else if (type === 'void') {
+      s.maxHealth = Math.round(s.maxHealth * 0.65); s.speed = Math.round(s.speed * 1.35); s.critChance = Math.min(0.75, s.critChance + 0.35); s.damage = Math.round(s.damage * 0.9);
+    } else if (type === 'homunculus') {
+      s.maxHealth = Math.round(s.maxHealth * 1.9); s.armor += 3; s.speed = Math.round(s.speed * 0.95);
+    } else {
+      s.maxHealth = Math.round(s.maxHealth * 1.3); s.damage = Math.round(s.damage * 1.1);
+    }
+    const lvlMult = 1 + mage.level * 0.08;
+    s.maxHealth = Math.round(s.maxHealth * lvlMult);
+    s.damage = Math.round(s.damage * lvlMult);
+    sk.health = s.maxHealth;
+    sk.lifeStart = time;
+    sk.expireAt = 0;
+    this.companions.push(sk);
+    this.allies.push(sk);
+    this.summons.push(sk);
+    this.allyGroup.add(sk);
+    this.shadows.add(sk, 3);
+    const fx = this.add.sprite(sk.x, sk.y, 'fx-magic').setDepth(sk.y + 16).setScale(2).setTint(info.tint);
+    fx.play('fx-magic');
+    fx.once('animationcomplete', () => fx.destroy());
+    this.flashLight(sk.x, sk.y, info.tint, 120, 300, 1.0);
+    audio.sfx('magic');
+    const art = /^[aeiou]/i.test(info.name) ? 'an' : 'a';
+    this.showBark(`${mage.def.name} conjures ${art} ${info.name}!`, 2600, 'event', '#bfe0ff');
+  }
+
+  private openSummonRadial(mode: 'necro' | 'arcane' = 'necro'): void {
     if (this.radialOpen) return;
     this.radialOpen = true;
-    this.radialPick = this.selectedSkeleton;
+    this.radialMode = mode;
+    const R = 92; // outer radius
+    const RING = 40; // inner hub radius
+    const ringCol = mode === 'arcane' ? 0x6fb0ff : 0x9b7be0;
+
     const cont = this.add.container(PLAY_AREA_WIDTH / 2, GAME_HEIGHT / 2).setScrollFactor(0).setDepth(DEPTH.OVERLAY + 6);
-    const bg = this.add.graphics();
-    bg.fillStyle(0x05060a, 0.5);
-    bg.fillCircle(0, 0, 94);
-    bg.lineStyle(2, 0x9b7be0, 0.85);
-    bg.strokeCircle(0, 0, 94);
-    cont.add(bg);
+    const scrim = this.add.graphics();
+    scrim.fillStyle(0x05060a, 0.32);
+    scrim.fillCircle(0, 0, R + 26);
+    cont.add(scrim);
+
+    const ids: string[] = mode === 'arcane' ? [...ARCANE_ORDER] : ['tank', 'archer', 'mage', 'thief'];
+    const dirDeg = [-90, 0, 90, 180]; // top, right, bottom, left
+    const labelFor = (id: string): string =>
+      mode === 'arcane' ? ARCANE_INFO[id as ArcaneType].name.toUpperCase() : id.toUpperCase();
+    const iconFor = (id: string): { key: string; frame: number; tint: number } =>
+      mode === 'arcane'
+        ? { key: ARCANE_INFO[id as ArcaneType].sheet, frame: 0, tint: ARCANE_INFO[id as ArcaneType].tint }
+        : { key: SKELETON_INFO[id as SkeletonType].sheet, frame: 0, tint: 0xdfe8ff };
+
     this.radialNodes = [];
-    const beastOk = (this.players[0]?.level ?? 1) >= BEAST_LEVEL;
-    if (beastOk) {
-      const cg = this.add.graphics();
-      cont.add(cg);
-      const ctxt = this.add.text(0, 0, 'BEAST', { fontFamily: 'MedievalSharp, "Trebuchet MS", cursive', fontSize: '10px', color: '#b6ffd0', stroke: '#000', strokeThickness: 3 }).setOrigin(0.5);
-      cont.add(ctxt);
-      this.radialNodes.push({ t: 'beast', dx: 0, dy: 0, g: cg, txt: ctxt });
-    } else {
-      cont.add(this.add.text(0, 0, 'RAISE', { fontFamily: 'MedievalSharp, "Trebuchet MS", cursive', fontSize: '11px', color: '#b79bff' }).setOrigin(0.5));
-    }
-    const layout: [SkeletonType, number, number, string][] = [
-      ['tank', 0, -60, 'TANK'],
-      ['archer', 62, 0, 'ARCHER'],
-      ['mage', 0, 60, 'MAGE'],
-      ['thief', -62, 0, 'THIEF'],
-    ];
-    for (const [t, dx, dy, name] of layout) {
+    for (let i = 0; i < 4; i++) {
+      const id = ids[i];
+      const midRad = (dirDeg[i] * Math.PI) / 180;
+      const a0 = midRad - Math.PI / 4;
+      const a1 = midRad + Math.PI / 4;
       const g = this.add.graphics();
       cont.add(g);
-      const txt = this.add.text(dx, dy, name, { fontFamily: 'MedievalSharp, "Trebuchet MS", cursive', fontSize: '11px', color: '#cfc6e0', stroke: '#000', strokeThickness: 3 }).setOrigin(0.5);
+      const ix = Math.cos(midRad) * (RING + (R - RING) * 0.52);
+      const iy = Math.sin(midRad) * (RING + (R - RING) * 0.52);
+      const ic = iconFor(id);
+      let icon: Phaser.GameObjects.Image | undefined;
+      if (this.textures.exists(ic.key)) {
+        icon = this.add.image(ix, iy - 6, ic.key, ic.frame).setScale(1.05).setTint(ic.tint);
+        cont.add(icon);
+      }
+      const txt = this.add
+        .text(ix, iy + 15, labelFor(id), { fontFamily: 'MedievalSharp, "Trebuchet MS", cursive', fontSize: '9.5px', color: '#e6ddf5', stroke: '#000', strokeThickness: 3 })
+        .setOrigin(0.5);
       cont.add(txt);
-      this.radialNodes.push({ t, dx, dy, g, txt });
+      this.radialNodes.push({ t: id, dx: ix, dy: iy, a0, a1, g, icon, txt });
     }
+
+    const beastOk = mode === 'necro' && (this.players[0]?.level ?? 1) >= BEAST_LEVEL;
+    this.radialCenterId = beastOk ? 'beast' : null;
+    const hub = this.add.graphics();
+    cont.add(hub);
+    const hubLabel = this.add
+      .text(0, 0, beastOk ? 'BEAST' : mode === 'arcane' ? 'CONJURE' : 'RAISE', { fontFamily: 'MedievalSharp, "Trebuchet MS", cursive', fontSize: beastOk ? '10px' : '9px', color: beastOk ? '#b6ffd0' : '#cbb8ee', stroke: '#000', strokeThickness: 3 })
+      .setOrigin(0.5);
+    cont.add(hubLabel);
+    this.radialNodes.push({ t: '__hub', dx: 0, dy: 0, a0: 0, a1: 0, g: hub, txt: hubLabel });
+
+    const ring = this.add.graphics();
+    ring.lineStyle(2, ringCol, 0.9);
+    ring.strokeCircle(0, 0, R);
+    ring.lineStyle(1, ringCol, 0.4);
+    ring.strokeCircle(0, 0, RING);
+    cont.add(ring);
+
     this.radial = cont;
+    this.radialPick = mode === 'arcane' ? 'ember' : (this.selectedSkeleton === 'beast' ? 'tank' : this.selectedSkeleton);
     this.updateSummonRadial();
   }
 
   private updateSummonRadial(): void {
     if (!this.radial) return;
-    const beastOk = (this.players[0]?.level ?? 1) >= BEAST_LEVEL;
+    const R = 92;
+    const RING = 40;
+    const selCol = this.radialMode === 'arcane' ? 0x2c4a86 : 0x4a2e6e;
+    const selEdge = this.radialMode === 'arcane' ? 0xbfe0ff : 0xe8d0ff;
+
     let ang: number | null = null;
     let center = false;
     const st = this.input2.move('p1');
@@ -1890,22 +2006,40 @@ export class DungeonScene extends Phaser.Scene {
       const pdx = ptr.x - PLAY_AREA_X - PLAY_AREA_WIDTH / 2;
       const pdy = ptr.y - GAME_HEIGHT / 2;
       const mag = Math.hypot(pdx, pdy);
-      if (mag < 26 && beastOk) center = true;
-      else if (mag > 20) ang = Math.atan2(pdy, pdx);
+      if (mag < RING && this.radialCenterId) center = true;
+      else if (mag > 18) ang = Math.atan2(pdy, pdx);
     }
-    if (center) this.radialPick = 'beast';
+    if (center) this.radialPick = this.radialCenterId!;
     else if (ang !== null) {
       const deg = ((ang * 180) / Math.PI + 360) % 360;
-      this.radialPick = deg >= 315 || deg < 45 ? 'archer' : deg < 135 ? 'mage' : deg < 225 ? 'thief' : 'tank';
+      const ids = this.radialMode === 'arcane' ? ARCANE_ORDER : (['tank', 'archer', 'mage', 'thief'] as string[]);
+      const idx = deg >= 315 || deg < 45 ? 1 : deg < 135 ? 2 : deg < 225 ? 3 : 0;
+      this.radialPick = ids[idx] as string;
     }
+
     for (const n of this.radialNodes) {
+      if (n.t === '__hub') {
+        const sel = this.radialCenterId !== null && this.radialPick === this.radialCenterId;
+        n.g.clear();
+        n.g.fillStyle(sel ? selCol : 0x141020, 0.95);
+        n.g.fillCircle(0, 0, RING - 3);
+        n.g.lineStyle(2, sel ? selEdge : 0x6e521f, 1);
+        n.g.strokeCircle(0, 0, RING - 3);
+        n.txt.setScale(sel ? 1.1 : 1).setColor(sel ? '#ffffff' : this.radialCenterId ? '#b6ffd0' : '#8a7fb0');
+        continue;
+      }
       const sel = n.t === this.radialPick;
       n.g.clear();
-      n.g.fillStyle(sel ? 0x6e4a9a : 0x1a1530, sel ? 0.95 : 0.7);
-      n.g.fillCircle(n.dx, n.dy, 24);
-      n.g.lineStyle(2, sel ? 0xe8d0ff : 0x6e521f, 1);
-      n.g.strokeCircle(n.dx, n.dy, 24);
-      n.txt.setColor(sel ? '#fff4cf' : '#cfc6e0');
+      n.g.fillStyle(sel ? selCol : 0x171227, sel ? 0.96 : 0.78);
+      n.g.slice(0, 0, R - 2, n.a0 + 0.05, n.a1 - 0.05, false);
+      n.g.arc(0, 0, RING + 1, n.a1 - 0.05, n.a0 + 0.05, true);
+      n.g.fillPath();
+      n.g.lineStyle(sel ? 2.5 : 1, sel ? selEdge : 0x574a2a, sel ? 1 : 0.7);
+      n.g.beginPath();
+      n.g.arc(0, 0, R - 2, n.a0 + 0.05, n.a1 - 0.05, false);
+      n.g.strokePath();
+      n.icon?.setScale(sel ? 1.3 : 1.0).setAlpha(sel ? 1 : 0.72);
+      n.txt.setColor(sel ? '#ffffff' : '#cbb8ee').setScale(sel ? 1.08 : 1);
     }
   }
 
@@ -1913,6 +2047,7 @@ export class DungeonScene extends Phaser.Scene {
     this.radial?.destroy();
     this.radial = undefined;
     this.radialNodes = [];
+    this.radialCenterId = null;
     this.radialOpen = false;
   }
 
@@ -2534,6 +2669,8 @@ export class DungeonScene extends Phaser.Scene {
     m.knock(dirX * 150, dirY * 150, time);
     if (attacker.stats.fire > 0) m.applyStatus('burn', 1600, time);
     if (crit) m.applyStatus('shock', 1200, time);
+    // Starved Rootling familiar: its lashing vines chill (slow) whatever it strikes.
+    if ((attacker as Companion).arcaneType === 'rootling') m.applyStatus('chill', 1600, time);
   }
 
   /** Bark + golden flare when the Undying Bulwark refuses a killing blow. */
@@ -2810,6 +2947,22 @@ export class DungeonScene extends Phaser.Scene {
       const sc = Content.item(sid);
       if (sc) this.spawnLootPickup(m.x, m.y, sc);
     }
+    if (m.isBoss) this.dropBossLoot(m);
+  }
+
+  /** Every realm warden yields class-specific loot: a guaranteed Godforged class
+   *  SET piece (weighted toward the party's classes) plus a strong themed drop —
+   *  and the deeper/harder the realm, the better the odds of a BONUS set piece. */
+  private dropBossLoot(m: Monster): void {
+    const cheats = settings.get('gameplay');
+    if (cheats.lootMult <= 0) return;
+    const partyClasses = this.players.filter(Boolean).map((p) => p.classId);
+    this.dropLoot(m.x - 16, m.y + 4, 'ascendant');
+    this.spawnLootPickup(m.x + 16, m.y + 4, rollSetDrop(partyClasses));
+    const depth = Math.max(0, Content.levelOrder.indexOf(this.level.id)); // 0..9
+    const diffBonus = cheats.difficulty === 'hard' ? 0.18 : cheats.difficulty === 'moderate' ? 0.09 : 0;
+    const bonusChance = Math.min(0.85, 0.15 + depth * 0.07 + diffBonus);
+    if (Math.random() < bonusChance) this.spawnLootPickup(m.x, m.y - 14, rollSetDrop(partyClasses));
   }
 
   /** Apply a shared co-op reward to the local human player(s), with a popup. */

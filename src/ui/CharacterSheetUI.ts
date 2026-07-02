@@ -144,7 +144,7 @@ export class CharacterSheetUI {
       const help = STAT_HELP[st[0]];
       if (help) {
         const hz = this.scene.add.zone(right, yy - 2, statColW, STAT_ROW_H).setOrigin(0, 0).setInteractive({ useHandCursor: true });
-        hz.on('pointerover', () => this.tip.showText(st[0], help, right, yy, 'left'));
+        hz.on('pointerover', () => this.tip.showText(st[0], help, right + 116, yy, 'right'));
         hz.on('pointerout', () => this.tip.hide());
         addPinned(this.content!, hz);
       }
@@ -162,7 +162,7 @@ export class CharacterSheetUI {
     const growthRows: [string, number][] = [['Skill points', growthY + 18], ['Attribute points', growthY + 32], ['Attributes', growthY + 46]];
     for (const [key, gy] of growthRows) {
       const gz = this.scene.add.zone(right, gy - 2, statColW, 15).setOrigin(0, 0).setInteractive({ useHandCursor: true });
-      gz.on('pointerover', () => this.tip.showText(key, STAT_HELP[key], right, gy, 'left'));
+      gz.on('pointerover', () => this.tip.showText(key, STAT_HELP[key], right + 116, gy, 'right'));
       gz.on('pointerout', () => this.tip.hide());
       addPinned(this.content!, gz);
     }
@@ -178,9 +178,9 @@ export class CharacterSheetUI {
       this.tip.showText(
         set.name,
         setTierLines(h.classId).map((l, i) => (i === tierIdx ? '► ' : '') + l).join('\n') + '\nPieces drop in bright green.',
-        right,
+        right + 116,
         setY,
-        'left'
+        'right'
       )
     );
     sz.on('pointerout', () => this.tip.hide());
