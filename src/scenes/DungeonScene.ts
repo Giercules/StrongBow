@@ -373,9 +373,12 @@ export class DungeonScene extends Phaser.Scene {
       // combat realms stay moody but readable.
       const openAir = !!this.level.town || !!this.level.overworld;
       const interior = !!this.level.interior;
-      const ambient = openAir ? 0xe2e5ee : interior ? 0xa9a39a : 0xaab0c4;
+      const ambient = openAir ? 0xe2e5ee : interior ? 0xc4c0b8 : 0xaab0c4;
       this.lights.enable().setAmbientColor(ambient);
-      this.partyLightSrc = this.lights.addLight(0, 0, 400, atmoL.lightTint, openAir ? 0.45 : interior ? 0.6 : 0.9);
+      // No travelling point light in cozy interiors: a point light in a small
+      // room reads as a hot blob in the middle. Even ambient lights shops
+      // cleanly; open-air and combat realms keep a soft party light for depth.
+      if (!interior) this.partyLightSrc = this.lights.addLight(0, 0, 400, atmoL.lightTint, openAir ? 0.4 : 0.85);
     }
 
     this.shadows = new ShadowSystem(this);
@@ -444,22 +447,27 @@ export class DungeonScene extends Phaser.Scene {
     this.events.once('shutdown', () => this.game.events.off('viewportresize', this.onViewportResize, this));
 
     const atmo = ATMOSPHERE[this.level.theme ?? 'crypt'] ?? ATMOSPHERE.crypt;
-    if (this.lightingOn) {
-      // Enhanced mode: real post-processing instead of stretched overlay PNGs.
-      // Vignette darkens the frame edges; the parallel Threshold→Blur chain
-      // blended additively is the classic bloom recipe (bright pixels glow).
-      const cam = this.cameras.main;
-      cam.filters.internal.addVignette(0.5, 0.5, 1.0, 0.26);
-      const bloom = cam.filters.internal.addParallelFilters();
-      bloom.top.addThreshold(0.52, 0.86);
-      bloom.top.addBlur(2, 2, 2, 1.9);
-      bloom.blend.blendMode = Phaser.BlendModes.ADD;
-      bloom.blend.amount = 0.8;
-    } else {
-      this.vignette = this.add.image(PLAY_AREA_WIDTH / 2, GAME_HEIGHT / 2, 'fx-vignette').setScrollFactor(0).setDisplaySize(PLAY_AREA_WIDTH, GAME_HEIGHT).setDepth(DEPTH.VIGNETTE);
-
-      // soft light that travels with the party so heroes are always lit; its tint
-      // shifts with the level theme for instant mood.
+    // Mood is done with depth-sorted overlays that sit BELOW the UI layer, in
+    // BOTH modes. We deliberately do NOT use full-camera post filters (bloom/
+    // vignette): those also process the UI drawn on this camera and blew out the
+    // manual and centered shop panels into a bright hot-spot. Enhanced mode adds
+    // real-time lights instead (world sprites only — the UI is never touched).
+    this.vignette = this.add
+      .image(PLAY_AREA_WIDTH / 2, GAME_HEIGHT / 2, 'fx-vignette')
+      .setScrollFactor(0)
+      .setDisplaySize(PLAY_AREA_WIDTH, GAME_HEIGHT)
+      .setDepth(DEPTH.VIGNETTE);
+    this.edgeGrade = this.add
+      .image(PLAY_AREA_WIDTH / 2, GAME_HEIGHT / 2, 'fx-edge')
+      .setScrollFactor(0)
+      .setDisplaySize(PLAY_AREA_WIDTH, GAME_HEIGHT)
+      .setDepth(DEPTH.VIGNETTE + 1)
+      .setTint(atmo.edgeTint)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setAlpha(0.5);
+    // A soft travelling glow only when there are no real lights (non-enhanced);
+    // enhanced mode gets an actual party light instead (except cozy interiors).
+    if (!this.lightingOn) {
       this.partyLight = this.add
         .image(this.cameraTarget.x, this.cameraTarget.y, 'fx-light')
         .setScale(2.6)
@@ -467,15 +475,6 @@ export class DungeonScene extends Phaser.Scene {
         .setTint(atmo.lightTint)
         .setBlendMode(Phaser.BlendModes.ADD)
         .setDepth(DEPTH.VIGNETTE - 1);
-      // themed screen-edge colour grade, layered over the dark vignette
-      this.edgeGrade = this.add
-        .image(PLAY_AREA_WIDTH / 2, GAME_HEIGHT / 2, 'fx-edge')
-        .setScrollFactor(0)
-        .setDisplaySize(PLAY_AREA_WIDTH, GAME_HEIGHT)
-        .setDepth(DEPTH.VIGNETTE + 1)
-        .setTint(atmo.edgeTint)
-        .setBlendMode(Phaser.BlendModes.ADD)
-        .setAlpha(0.55);
     }
     this.spawnAmbience(this.level.theme ?? 'crypt');
 
@@ -909,6 +908,14 @@ export class DungeonScene extends Phaser.Scene {
     };
     const US = 0.75; // upright decor scale (HD decor is 2x res; halved to keep size)
     const FS = 0.65; // flat (floor) decor scale (HD decor is 2x res)
+    // Building facade tiles are authored at the native 32px tile size, so they
+    // must draw at 1:1 — drawing them at US left 8px gaps between every tile and
+    // made the houses look like a broken grid. These tile seamlessly into walls.
+    const buildingTiles = new Set([
+      'house-wall', 'house-post', 'house-beam', 'house-base', 'house-window', 'house-door',
+      'house-roof-red', 'house-roof-blue', 'house-roof-green', 'house-roof-teak',
+      'house-eave-red', 'house-eave-blue', 'house-eave-green', 'house-eave-teak',
+    ]);
     for (const d of this.level.decor ?? []) {
       const dc = this.tileCenter(d.x, d.y);
       if (flatDecor.has(d.key)) {
@@ -963,6 +970,8 @@ export class DungeonScene extends Phaser.Scene {
       } else if (swayDecor.has(d.key)) {
         const s = this.add.image(dc.x, dc.y, d.key).setDepth(dc.y - 2).setScale(US);
         this.tweens.add({ targets: s, scaleX: { from: US, to: US * 0.9 }, duration: 1400 + Math.random() * 700, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+      } else if (buildingTiles.has(d.key)) {
+        this.add.image(dc.x, dc.y, d.key).setDepth(dc.y - 2); // native 32px facade tiles, 1:1
       } else {
         this.add.image(dc.x, dc.y, d.key).setDepth(dc.y - 2).setScale(US);
       }

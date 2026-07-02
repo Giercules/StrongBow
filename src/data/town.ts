@@ -93,47 +93,52 @@ export function buildTown(): LevelData {
   const house = (x0: number, y0: number, x1: number, y1: number, roofKey: string) => {
     rect(x0, y0, x1, y1, Tile.WALL);
     const doorX = Math.floor((x0 + x1) / 2);
-    // facade: a header beam under the eaves, timber corner posts, glazed windows
-    // on two courses, and a stone ground-floor base.
-    for (let y = y0 + 1; y <= y1; y++) {
+    // Two-row pitched roof (ridge + overhanging eave) sits on top; below it a
+    // header beam under the eaves, timber corner posts, glazed windows on two
+    // courses, and a stone ground-floor base — so the house reads as a real
+    // roofed building rather than a flat wall with a thin hat.
+    for (let y = y0 + 2; y <= y1; y++) {
       for (let x = x0; x <= x1; x++) {
         const edge = x === x0 || x === x1;
         let key = 'house-wall';
         if (y === y1) key = 'house-base';
-        else if (y === y0 + 1) key = 'house-beam';
+        else if (y === y0 + 2) key = 'house-beam';
         else if (edge) key = 'house-post';
-        if ((y === y0 + 3 || y === y0 + 5) && !edge && (x - x0) % 2 === 1) key = 'house-window';
+        if ((y === y0 + 4 || y === y0 + 6) && y < y1 && !edge && (x - x0) % 2 === 1) key = 'house-window';
         decor.push({ x, y, key });
       }
     }
-    // pitched roof across the top course; door overlaid on the stone base
-    for (let x = x0; x <= x1; x++) decor.push({ x, y: y0, key: roofKey });
+    const eaveKey = roofKey.replace('roof', 'eave');
+    for (let x = x0; x <= x1; x++) {
+      decor.push({ x, y: y0, key: roofKey }); // ridge (peak)
+      decor.push({ x, y: y0 + 1, key: eaveKey }); // lower slope + overhang
+    }
     decor.push({ x: doorX, y: y1, key: 'house-door' });
     for (let y = y0 - 1; y <= y1 + 1; y++) for (let x = x0 - 1; x <= x1 + 1; x++) mark(noFoliage, x, y);
   };
 
   house(16, 11, 26, 18, 'house-roof-teak');
-  decor.push({ x: 21, y: 11, key: 'banner' });
+  decor.push({ x: 21, y: 14, key: 'banner' });
   spawns.push({ kind: 'door', x: 21, y: 18, interiorId: 'interior_forge', label: "Brunda's Forge" });
 
   house(33, 11, 43, 18, 'house-roof-green');
-  decor.push({ x: 38, y: 11, key: 'banner' });
+  decor.push({ x: 38, y: 14, key: 'banner' });
   spawns.push({ kind: 'door', x: 38, y: 18, interiorId: 'interior_apothecary', label: 'The Green Vial' });
 
   house(64, 11, 76, 19, 'house-roof-red');
-  decor.push({ x: 70, y: 11, key: 'banner' });
+  decor.push({ x: 70, y: 14, key: 'banner' });
   // The Gilded Tankard's keeper now waits inside; the door enters the interior.
   spawns.push({ kind: 'door', x: 70, y: 19, interiorId: 'interior_tankard', label: 'The Gilded Tankard' });
 
   house(82, 11, 92, 19, 'house-roof-blue');
-  decor.push({ x: 87, y: 11, key: 'banner' });
+  decor.push({ x: 87, y: 14, key: 'banner' });
   spawns.push({ kind: 'merchant', shop: 'home', x: 87, y: 21, label: 'Your Lodge' });
 
   // The Fighters Guild — hire sellswords inside.
   house(48, 11, 60, 19, 'house-roof-teak');
-  decor.push({ x: 54, y: 11, key: 'banner' });
-  decor.push({ x: 50, y: 11, key: 'weapon-rack' });
-  decor.push({ x: 58, y: 11, key: 'weapon-rack' });
+  decor.push({ x: 54, y: 14, key: 'banner' });
+  decor.push({ x: 50, y: 14, key: 'weapon-rack' });
+  decor.push({ x: 58, y: 14, key: 'weapon-rack' });
   spawns.push({ kind: 'door', x: 54, y: 19, interiorId: 'interior_guild', label: 'Fighters Guild' });
 
   house(20, 54, 28, 60, 'house-roof-red');

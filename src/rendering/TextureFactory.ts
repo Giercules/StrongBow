@@ -153,6 +153,10 @@ export class TextureFactory {
     img('house-roof-blue', 32, 32, (c) => townArt.drawHouseRoofBlue(c, 0, 0), true);
     img('house-roof-green', 32, 32, (c) => townArt.drawHouseRoofGreen(c, 0, 0), true);
     img('house-roof-teak', 32, 32, (c) => townArt.drawHouseRoofTeak(c, 0, 0), true);
+    img('house-eave-red', 32, 32, (c) => townArt.drawHouseEaveRed(c, 0, 0), true);
+    img('house-eave-blue', 32, 32, (c) => townArt.drawHouseEaveBlue(c, 0, 0), true);
+    img('house-eave-green', 32, 32, (c) => townArt.drawHouseEaveGreen(c, 0, 0), true);
+    img('house-eave-teak', 32, 32, (c) => townArt.drawHouseEaveTeak(c, 0, 0), true);
     img('house-door', 32, 32, (c) => townArt.drawHouseDoor(c, 0, 0), true);
     img('house-wall', 32, 32, (c) => townArt.drawHouseWall(c, 0, 0));
     img('house-post', 32, 32, (c) => townArt.drawHousePost(c, 0, 0));
