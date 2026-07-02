@@ -1259,7 +1259,11 @@ export class DungeonScene extends Phaser.Scene {
       this.updateCompanions(time, delta);
       if (this.level.town) {
         // peaceful hub: no monsters, generators, hazards or boss — just life.
+        // Auras still ring here: the Bard's March quickens the walk home and
+        // the Warden's regen mends the party between descents.
         this.updateTown(time, delta);
+        this.updateWardenRegen(delta);
+        this.updateAuras(time);
         this.handlePickups();
       } else {
         // In co-op, a guest's enemies are owned by the host (see updateCoop);
@@ -5056,6 +5060,8 @@ export class DungeonScene extends Phaser.Scene {
       gold: a.inventory.gold,
       keys: a.inventory.keys,
       materials: { ...a.inventory.materials },
+      song: a.song,
+      bearForm: a.bearForm,
       equipped: Object.fromEntries(
         (Object.entries(a.inventory.equipped) as [string, ItemDefinition | undefined][])
           .filter(([, it]) => !!it)
@@ -5086,6 +5092,9 @@ export class DungeonScene extends Phaser.Scene {
         const it = Content.item(id);
         if (it) a.inventory.equipped[migrateEquipKey(slot)] = it;
       }
+      // a bard's song keeps ringing and a druid stays shifted across levels
+      a.song = (sv.song as Hero['song']) ?? null;
+      if (a.classId === 'druid') a.applyForm(!!sv.bearForm);
       a.recompute();
     }
   }
@@ -5141,6 +5150,8 @@ export class DungeonScene extends Phaser.Scene {
         const it = Content.item(id);
         if (it) a.inventory.equipped[migrateEquipKey(slot)] = it;
       }
+      a.song = (sv.song as Hero['song']) ?? null;
+      if (a.classId === 'druid') a.applyForm(!!sv.bearForm);
       a.recompute();
       a.setPosition(sv.x, sv.y);
       if (!sv.alive) a.die();

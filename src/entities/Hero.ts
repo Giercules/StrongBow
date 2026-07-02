@@ -407,8 +407,19 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
     if (this.classId !== 'druid' || !this.alive || time < this.nextShiftAt) return false;
     this.nextShiftAt = time + 900;
     const frac = this.healthRatio();
-    this.bearForm = !this.bearForm;
-    if (this.bearForm) {
+    this.applyForm(!this.bearForm);
+    this.health = Math.max(1, Math.round(this.stats.maxHealth * frac));
+    if (this.hasSetPower()) this.heal(Math.round(this.stats.maxHealth * 0.25));
+    audio.sfx('hit');
+    return true;
+  }
+
+  /** Apply bear/human form visuals + stats directly (shapeshift, level carry,
+   *  save load) — no cooldown, sfx or Wildheart heal. */
+  applyForm(bear: boolean): void {
+    if (this.classId !== 'druid') return;
+    this.bearForm = bear;
+    if (bear) {
       this.skin = { walk: 'druid_bear-walk', attack: 'druid_bear-attack' };
       this.setTexture('druid-bear-sheet', 0);
     } else {
@@ -416,10 +427,6 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
       this.setTexture('hero-druid-sheet', 0);
     }
     this.recompute();
-    this.health = Math.max(1, Math.round(this.stats.maxHealth * frac));
-    if (this.hasSetPower()) this.heal(Math.round(this.stats.maxHealth * 0.25));
-    audio.sfx('hit');
-    return true;
   }
 
   // ---- active class ability ----

@@ -31,6 +31,10 @@ export interface SaveAlly {
   keys: number;
   /** Crafting materials (scrap iron / arcane essence / godshards). */
   materials?: { scrap: number; essence: number; shard: number };
+  /** Bard: the song still ringing when the level changed / game saved. */
+  song?: string | null;
+  /** Druid: true if travelling in Bear form. */
+  bearForm?: boolean;
   equipped: Record<string, string>; // slot -> itemId
   bag: string[]; // itemIds
 }
