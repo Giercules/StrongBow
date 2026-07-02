@@ -94,6 +94,18 @@ export class NetClient {
   }
 
   private openSocket(): void {
+    // Detach + close any previous socket first. Without this, switching server
+    // URLs leaks the old connection, and its onclose fires a reconnect loop
+    // that opens DUPLICATE sockets (ghost players on the server roster).
+    if (this.ws) {
+      const old = this.ws;
+      old.onopen = null;
+      old.onmessage = null;
+      old.onclose = null;
+      old.onerror = null;
+      try { old.close(); } catch { /* already closed */ }
+      this.ws = null;
+    }
     try {
       this.ws = new WebSocket(this.url);
     } catch {
@@ -201,6 +213,20 @@ export class NetClient {
     if (now - this.lastSent < 80) return;
     this.lastSent = now;
     this.send({ t: 'state', ...this.profile });
+  }
+
+  /** Detach every scene-bound callback. A scene MUST call this on shutdown —
+   *  otherwise a late server message runs against destroyed game objects. */
+  clearCallbacks(): void {
+    this.onConnect = undefined;
+    this.onDisconnect = undefined;
+    this.onAnnounce = undefined;
+    this.onKicked = undefined;
+    this.onCoopState = undefined;
+    this.onCoopHit = undefined;
+    this.onCoopReward = undefined;
+    this.onCoopLoot = undefined;
+    this.onGrant = undefined;
   }
 
   disconnect(): void {

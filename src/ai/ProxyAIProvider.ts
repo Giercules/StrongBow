@@ -1,4 +1,5 @@
 import type { AIProvider, AIRequest } from './AIProvider';
+import { AI_FETCH_TIMEOUT_MS } from './AIProvider';
 
 // Routes requests through the local Express proxy, keeping API keys server-side.
 export class ProxyAIProvider implements AIProvider {
@@ -17,6 +18,7 @@ export class ProxyAIProvider implements AIProvider {
   async complete(req: AIRequest): Promise<string> {
     const res = await fetch('/api/ai/complete', {
       method: 'POST',
+      signal: AbortSignal.timeout(AI_FETCH_TIMEOUT_MS),
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         prompt: req.prompt,

@@ -13,9 +13,35 @@ try {
 
 const app = express();
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '32kb' }));
 
 const PORT = Number(process.env.PORT) || Number(process.env.AI_PROXY_PORT) || 3847;
+
+// Guardrails — this endpoint spends real API credits, so clamp everything a
+// caller controls and rate-limit per IP. Overruns degrade to canned narration.
+const MAX_PROMPT_CHARS = 2000;
+const MAX_TOKENS_CAP = 256;
+const RATE_LIMIT_PER_MIN = Number(process.env.AI_RATE_LIMIT_PER_MIN) || 40;
+const UPSTREAM_TIMEOUT_MS = 12000;
+const PROVIDERS = new Set(['openai', 'anthropic', 'xai']);
+const EFFORTS = new Set(['none', 'low', 'medium', 'high']);
+
+const rateBuckets = new Map<string, { count: number; resetAt: number }>();
+function rateLimited(ip: string): boolean {
+  const now = Date.now();
+  const b = rateBuckets.get(ip);
+  if (!b || now >= b.resetAt) {
+    rateBuckets.set(ip, { count: 1, resetAt: now + 60000 });
+    return false;
+  }
+  b.count++;
+  return b.count > RATE_LIMIT_PER_MIN;
+}
+// sweep stale buckets so the map can't grow unboundedly
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, b] of rateBuckets) if (now >= b.resetAt) rateBuckets.delete(ip);
+}, 120000).unref();
 
 const MODELS = {
   openai: process.env.OPENAI_MODEL || 'gpt-4o-mini',
@@ -42,6 +68,7 @@ function fallbackLine(context = 'bark'): string {
 async function callOpenAIStyle(url: string, key: string, model: string, prompt: string, maxTokens: number, extra: Record<string, unknown> = {}): Promise<string> {
   const res = await fetch(url, {
     method: 'POST',
+    signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
     body: JSON.stringify({
       model,
@@ -62,6 +89,7 @@ async function callOpenAIStyle(url: string, key: string, model: string, prompt: 
 async function callAnthropic(key: string, model: string, prompt: string, maxTokens: number): Promise<string> {
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
+    signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
     headers: { 'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
     body: JSON.stringify({
       model,
@@ -98,7 +126,16 @@ app.get('/api/health', (_req, res) => {
 });
 
 app.post('/api/ai/complete', async (req, res) => {
-  const { prompt = '', context = 'bark', maxTokens = 40, provider = 'fallback', reasoningEffort = 'none' } = req.body ?? {};
+  const body = req.body ?? {};
+  const context = typeof body.context === 'string' ? body.context.slice(0, 40) : 'bark';
+  const prompt = typeof body.prompt === 'string' ? body.prompt.slice(0, MAX_PROMPT_CHARS) : '';
+  const provider = PROVIDERS.has(body.provider) ? (body.provider as string) : 'fallback';
+  const maxTokens = Math.max(1, Math.min(MAX_TOKENS_CAP, Number(body.maxTokens) || 40));
+  const reasoningEffort = EFFORTS.has(body.reasoningEffort) ? (body.reasoningEffort as string) : 'none';
+  if (rateLimited(req.ip ?? req.socket.remoteAddress ?? '?')) {
+    res.json({ text: fallbackLine(context), live: false });
+    return;
+  }
   try {
     const text = await complete(provider, prompt, maxTokens, reasoningEffort);
     if (text) {

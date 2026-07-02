@@ -33,7 +33,7 @@ class AIService {
     if (provider === 'fallback') return { connected: false, provider };
     if (AI_USE_PROXY) {
       try {
-        const res = await fetch('/api/health');
+        const res = await fetch('/api/health', { signal: AbortSignal.timeout(4000) });
         if (!res.ok) return { connected: false, provider };
         const data = await res.json();
         return { connected: !!data?.providers?.[provider], provider };

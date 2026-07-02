@@ -120,11 +120,22 @@ function slog(level: LogLevel, cat: string, msg: string): void {
 // ---- HTTP + dashboard -------------------------------------------------------
 const app = express();
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '16kb' }));
+
+/** Admin routes may only be called from this machine (the launcher / a local
+ *  browser). Players connect via WebSocket; they never need these, and leaving
+ *  them open would let anyone on the internet shut the server down, kick
+ *  players, or grant themselves loot. */
+function localOnly(req: express.Request, res: express.Response, next: express.NextFunction): void {
+  const ip = req.socket.remoteAddress ?? '';
+  if (ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1') { next(); return; }
+  slog('WARN', 'ADMIN', `blocked remote admin call to ${req.path} from ${ip}`);
+  res.status(403).json({ ok: false, error: 'admin endpoints are local-only' });
+}
 
 app.get('/api/health', (_req, res) => res.json({ ok: true, uptime: Date.now() - startedAt }));
 
-app.get('/api/state', (_req, res) => {
+app.get('/api/state', localOnly, (_req, res) => {
   res.json({
     uptime: Date.now() - startedAt,
     playerCount: players.size,
@@ -134,13 +145,13 @@ app.get('/api/state', (_req, res) => {
   });
 });
 
-app.post('/api/shutdown', (_req, res) => {
+app.post('/api/shutdown', localOnly, (_req, res) => {
   res.json({ ok: true });
   slog('WARN', 'ADMIN', 'shutdown requested from dashboard');
   setTimeout(() => process.exit(0), 250);
 });
 
-app.post('/api/config', (req, res) => {
+app.post('/api/config', localOnly, (req, res) => {
   const { aiNpcsEnabled, aiNpcCount, motd } = req.body ?? {};
   if (typeof aiNpcsEnabled === 'boolean') config.aiNpcsEnabled = aiNpcsEnabled;
   if (typeof aiNpcCount === 'number') config.aiNpcCount = Math.max(0, Math.min(12, Math.round(aiNpcCount)));
@@ -150,13 +161,13 @@ app.post('/api/config', (req, res) => {
   res.json({ ok: true, config });
 });
 
-app.post('/api/kick', (req, res) => {
+app.post('/api/kick', localOnly, (req, res) => {
   const p = players.get(req.body?.id);
   if (p) { slog('WARN', 'ADMIN', `kicked ${p.name} (${p.id})`); send(p.ws, { t: 'kicked' }); p.ws.close(); }
   res.json({ ok: !!p });
 });
 
-app.post('/api/broadcast', (req, res) => {
+app.post('/api/broadcast', localOnly, (req, res) => {
   const text = String(req.body?.text ?? '').slice(0, 200);
   if (text) {
     for (const p of players.values()) send(p.ws, { t: 'announce', text });
@@ -166,7 +177,7 @@ app.post('/api/broadcast', (req, res) => {
 });
 
 // Admin: grant gold or an item to a specific connected player.
-app.post('/api/grant', (req, res) => {
+app.post('/api/grant', localOnly, (req, res) => {
   const { id, gold, itemId } = req.body ?? {};
   const p = players.get(id);
   if (!p) { res.json({ ok: false, error: 'no-such-player' }); return; }
@@ -185,11 +196,25 @@ app.get('/', (_req, res) => {
 
 // ---- WebSocket sync ---------------------------------------------------------
 const httpServer = createServer(app);
-const wss = new WebSocketServer({ server: httpServer });
+// 64 KB cap: the largest legitimate message is a host's enemy snapshot (a few
+// KB). Without a cap, ws accepts up to 100 MB per message — which we would then
+// happily relay to every peer (a bandwidth amplification attack).
+const wss = new WebSocketServer({ server: httpServer, maxPayload: 64 * 1024 });
+
+/** Number if finite, else the fallback (0 is a valid coordinate/hp!). */
+const num = (v: unknown, fb: number): number => {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : fb;
+};
+/** Length-capped string (protects the roster + relays from megabyte "ids"). */
+const str = (v: unknown, fb: string, max: number): string =>
+  (typeof v === 'string' && v.length > 0 ? v : fb).slice(0, max);
 
 wss.on('connection', (ws: WebSocket) => {
   const id = randomUUID().slice(0, 8);
   let joined = false;
+  // a socket that never joins is dead weight — drop it after a grace period
+  const joinTimeout = setTimeout(() => { if (!joined) try { ws.close(); } catch { /* */ } }, 15000);
 
   ws.on('message', (raw) => {
     let msg: Record<string, unknown>;
@@ -199,17 +224,18 @@ wss.on('connection', (ws: WebSocket) => {
       case 'join': {
         players.set(id, {
           id,
-          name: String(msg.name ?? 'Adventurer').slice(0, 24),
-          classId: String(msg.classId ?? 'vanguard'),
-          level: Number(msg.level) || 1,
-          x: Number(msg.x) || 0,
-          y: Number(msg.y) || 0,
-          hp: Number(msg.hp) || 0,
-          levelId: String(msg.levelId ?? 'town'),
+          name: str(msg.name, 'Adventurer', 24),
+          classId: str(msg.classId, 'vanguard', 24),
+          level: num(msg.level, 1),
+          x: num(msg.x, 0),
+          y: num(msg.y, 0),
+          hp: num(msg.hp, 0),
+          levelId: str(msg.levelId, 'town', 40),
           lastSeen: now,
           ws,
         });
         joined = true;
+        clearTimeout(joinTimeout);
         send(ws, { t: 'welcome', id, config });
         slog('INFO', 'CONN', `${players.get(id)?.name ?? id} joined as ${players.get(id)?.classId ?? '?'} on ${players.get(id)?.levelId ?? '?'}`);
         break;
@@ -217,12 +243,12 @@ wss.on('connection', (ws: WebSocket) => {
       case 'state': {
         const p = players.get(id);
         if (!p) break;
-        p.x = Number(msg.x) || p.x;
-        p.y = Number(msg.y) || p.y;
-        p.classId = String(msg.classId ?? p.classId);
-        p.level = Number(msg.level) || p.level;
-        p.hp = Number(msg.hp) || p.hp;
-        p.levelId = String(msg.levelId ?? p.levelId);
+        p.x = num(msg.x, p.x);
+        p.y = num(msg.y, p.y);
+        p.classId = str(msg.classId, p.classId, 24);
+        p.level = num(msg.level, p.level);
+        p.hp = num(msg.hp, p.hp);
+        p.levelId = str(msg.levelId, p.levelId, 40);
         p.lastSeen = now;
         break;
       }
@@ -235,6 +261,7 @@ wss.on('connection', (ws: WebSocket) => {
         // host's authoritative enemy snapshot → relay to the rest of the party
         const me = players.get(id);
         if (!me) break;
+        if (!Array.isArray(msg.enemies) || msg.enemies.length > 300) break; // sanity cap
         for (const o of players.values()) {
           if (o.id !== id && o.levelId === me.levelId) send(o.ws, { t: 'coopState', enemies: msg.enemies });
         }
@@ -247,7 +274,7 @@ wss.on('connection', (ws: WebSocket) => {
         const hostId = hostIdFor(me.levelId);
         if (hostId && hostId !== id) {
           const h = players.get(hostId);
-          if (h) send(h.ws, { t: 'coopHit', netId: msg.netId, dmg: msg.dmg, from: id });
+          if (h) send(h.ws, { t: 'coopHit', netId: num(msg.netId, 0), dmg: Math.max(0, Math.min(100000, num(msg.dmg, 0))), from: id });
         }
         break;
       }
@@ -255,8 +282,10 @@ wss.on('connection', (ws: WebSocket) => {
         // host → rest of the party: shared XP/gold from a co-op kill
         const me = players.get(id);
         if (!me) break;
+        const xp = Math.max(0, Math.min(100000, num(msg.xp, 0)));
+        const gold = Math.max(0, Math.min(100000, num(msg.gold, 0)));
         for (const o of players.values()) {
-          if (o.id !== id && o.levelId === me.levelId) send(o.ws, { t: 'coopReward', xp: msg.xp, gold: msg.gold });
+          if (o.id !== id && o.levelId === me.levelId) send(o.ws, { t: 'coopReward', xp, gold });
         }
         break;
       }
@@ -273,6 +302,7 @@ wss.on('connection', (ws: WebSocket) => {
   });
 
   ws.on('close', () => {
+    clearTimeout(joinTimeout);
     if (joined) {
       const name = players.get(id)?.name ?? id;
       players.delete(id);

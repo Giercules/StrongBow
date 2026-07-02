@@ -1,5 +1,5 @@
 import type { AIProvider, AIRequest } from './AIProvider';
-import { SYSTEM_TONE } from './AIProvider';
+import { AI_FETCH_TIMEOUT_MS, SYSTEM_TONE } from './AIProvider';
 
 // Direct Anthropic call (DEV ONLY — exposes the key in the browser; prefer the proxy).
 export class AnthropicProvider implements AIProvider {
@@ -13,6 +13,7 @@ export class AnthropicProvider implements AIProvider {
   async complete(req: AIRequest): Promise<string> {
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
+      signal: AbortSignal.timeout(AI_FETCH_TIMEOUT_MS),
       headers: {
         'Content-Type': 'application/json',
         'x-api-key': this.key,

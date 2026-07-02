@@ -1,5 +1,5 @@
 import type { AIProvider, AIRequest } from './AIProvider';
-import { SYSTEM_TONE } from './AIProvider';
+import { AI_FETCH_TIMEOUT_MS, SYSTEM_TONE } from './AIProvider';
 
 // Direct OpenAI call (DEV ONLY — exposes the key in the browser; prefer the proxy).
 export class OpenAIProvider implements AIProvider {
@@ -13,6 +13,7 @@ export class OpenAIProvider implements AIProvider {
   async complete(req: AIRequest): Promise<string> {
     const res = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
+      signal: AbortSignal.timeout(AI_FETCH_TIMEOUT_MS),
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${this.key}`,

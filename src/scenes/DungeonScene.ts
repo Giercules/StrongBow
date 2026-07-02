@@ -300,6 +300,7 @@ export class DungeonScene extends Phaser.Scene {
   private coopEnemies = new Map<number, { spr: Phaser.GameObjects.Sprite; bar: Phaser.GameObjects.Graphics }>();
   private nextNetId = 1;
   private coopLastSent = 0;
+  private hudNextSync = 0;
 
   constructor() {
     super('DungeonScene');
@@ -560,6 +561,7 @@ export class DungeonScene extends Phaser.Scene {
     this.coopEnemies.clear();
     this.nextNetId = 1;
     this.summonTimerGfx = undefined;
+    this.hudNextSync = 0;
     this.portals = [];
     this.merchants = [];
     this.doors = [];
@@ -1151,7 +1153,13 @@ export class DungeonScene extends Phaser.Scene {
     this.updateLighting(time);
     this.updateCamera();
     this.updateMinimap();
-    this.syncHudData();
+    // ~11 Hz is plenty for HP bars + the m:ss timer, and skips rebuilding the
+    // slot/controls object graph on every frame. Gameplay events that need an
+    // instant HUD refresh still call syncHudData() directly.
+    if (time >= this.hudNextSync) {
+      this.hudNextSync = time + 90;
+      this.syncHudData();
+    }
     this.syncNet();
   }
 
@@ -2086,6 +2094,11 @@ export class DungeonScene extends Phaser.Scene {
         live.push(m);
       }
     }
+    // Compact: dead monsters otherwise pile up in this array forever (altars
+    // keep spawning), so long sessions end up scanning thousands of destroyed
+    // sprites here + in resolveCombat/updateSneak every frame. Death tweens
+    // finish on their own; combat only ever targets live entries.
+    if (live.length !== this.monsters.length) this.monsters = live;
     this.separateMonsters(live);
   }
 
@@ -3854,6 +3867,9 @@ export class DungeonScene extends Phaser.Scene {
   private quitToMenu(): void {
     audio.stopMusic();
     this.time.timeScale = 1;
+    // Leave the world properly: otherwise the keepalive ping keeps this hero
+    // standing in the shared world as a ghost while we sit in the menu.
+    net.disconnect();
     this.scene.stop('HudScene');
     this.scene.start('MenuScene');
   }
@@ -4257,6 +4273,9 @@ export class DungeonScene extends Phaser.Scene {
   }
 
   private onShutdown(): void {
+    // Detach net callbacks FIRST: they capture this scene, and a server message
+    // arriving after shutdown would otherwise touch destroyed game objects.
+    net.clearCallbacks();
     this.time.timeScale = 1;
     this.shadows.removeAll();
     this.inventoryUI?.close();

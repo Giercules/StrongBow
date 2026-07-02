@@ -24,6 +24,9 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..');
 const PORT = Number(process.env.LAUNCHER_PORT) || 8090;
 const GAME_PORT = Number(process.env.GAME_SERVER_PORT) || 8080;
+// The launcher can start/stop the server and grant items — keep its panel
+// local-only unless the operator explicitly opts into exposing it.
+const HOST = process.env.LAUNCHER_HOST || '127.0.0.1';
 
 const GAME_API = `http://127.0.0.1:${GAME_PORT}`;
 
@@ -143,7 +146,7 @@ app.get('/', (_req, res) => {
   }
 });
 
-app.listen(PORT, () => {
+app.listen(PORT, HOST, () => {
   console.log(`StrongBow launcher (control panel) on http://localhost:${PORT}`);
   console.log(`  controls the game server on port ${GAME_PORT}`);
   void startServer(); // adopt an already-running server, or spawn one
