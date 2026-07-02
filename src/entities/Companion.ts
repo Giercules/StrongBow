@@ -19,6 +19,8 @@ export class Companion extends Hero {
   nextBlink = 0;
   /** Arcanist familiar kind ('ember' | 'void' | 'homunculus' | 'rootling'), if any. */
   arcaneType?: string;
+  /** The hero who raised this summon — summon caps are counted per-summoner. */
+  summoner?: Hero;
 
   constructor(scene: Phaser.Scene, x: number, y: number, classId: HeroClassId) {
     super(scene, x, y, classId, false, 0);

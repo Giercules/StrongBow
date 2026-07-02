@@ -266,11 +266,11 @@ export const HERO_RAMPS: Record<string, HeroRamp> = {
   },
   // Thief — Drizzt-style drow ranger: ashen grey skin, white hair, dark cloak.
   thief: {
-    skin: '#6e6e80',
-    skinHi: '#a0a0b6',
-    cloth0: '#171326', // black cloak
-    cloth1: '#2c2442', // dark leather
-    cloth2: '#4a3a66', // lavender-shadow
+    skin: '#808096',
+    skinHi: '#b8b8ce',
+    cloth0: '#1a1530', // black cloak
+    cloth1: '#332a52', // dark leather
+    cloth2: '#59477e', // lavender-shadow
     trim: '#b6b6cc', // silver
     trimHi: '#eef0ff',
     hair: '#eef2ff', // white-silver hair
@@ -301,9 +301,9 @@ export const HERO_RAMPS: Record<string, HeroRamp> = {
   necromancer: {
     skin: '#b9c0c8',
     skinHi: '#dde3e8',
-    cloth0: '#140f1e',
-    cloth1: '#2a1f3e',
-    cloth2: '#4a3768',
+    cloth0: '#181226',
+    cloth1: '#332750',
+    cloth2: '#594380',
     trim: '#9a86c4',
     trimHi: '#d8cdf0',
     hair: '#0e0a16',

@@ -182,7 +182,14 @@ export const MANUAL_PAGES: ManualPage[] = [
       'Hold attack to strike — each hero differs: Vanguard cleaves, Warden bludgeons, Thief looses arrows, Arcanist and Necromancer hurl bolts.',
       'Tap magic for an attack (costs mana). Use / interact opens chests (all LOCKED now — spend an Iron Key, or play the Thief to pick them free) and lights shrines.',
       'Every action is REBINDABLE in Settings -> Keys (both players): move, attack, magic, use, DODGE, class ABILITY, and STEAL. Default dodge is Space and ability is F.',
-      'Dodge-roll for brief invulnerability. Your class ABILITY: Vanguard Seismic Slam; Warden SANCTUARY — a burst heal that also RESURRECTS a fallen ally nearby, atop a passive REGEN aura that mends nearby allies and pets (both grow with Warden level). The Thief toggles SNEAK (melt into shadow — every foe rolls on its own to notice you; a strike from stealth or at a turned-away foe is a BACKSTAB for 2.4x, on a short cooldown that shrinks as Sneak grows). From stealth, press Steal to PICKPOCKET the nearest foe or townsfolk — Sneak and Pickpocket set both your odds and the haul (up to a Godforged item at mastery).',
+      'Dodge-roll for brief invulnerability. Your class ABILITY: Vanguard Seismic Slam; Warden SANCTUARY — a burst heal that also RESURRECTS a fallen ally nearby, atop a passive REGEN aura that mends nearby allies and pets (both grow with Warden level).',
+    ],
+  },
+  {
+    title: 'How to Play (cont.)',
+    kind: 'text',
+    body: [
+      'The Thief toggles SNEAK (melt into shadow — every foe rolls on its own to notice you; a strike from stealth or at a turned-away foe is a BACKSTAB for 2.4x, on a short cooldown that shrinks as Sneak grows). From stealth, press Steal to PICKPOCKET the nearest foe or townsfolk — Sneak and Pickpocket set both your odds and the haul (up to a Godforged item at mastery).',
       'The Necromancer and the Arcanist HOLD the ability for a summon RADIAL — aim with mouse or stick to choose, release to conjure. The Necromancer raises Tank / Archer / Mage / Thief skeletons (a quick tap re-raises the last pick; high levels can bind a BEAST from the wheel\'s centre). The Arcanist conjures arcane familiars — EMBER SPRITE (burning bolts), VOID IMP (fast, shocking), ARCANE HOMUNCULUS (durable caster) and STARVED ROOTLING (melee vines that chill) — while a quick tap still casts METEOR. Summoning costs MANA, not a cooldown, so with enough mana you can raise several at once; servants now fight on PERMANENTLY until slain or until you leave the level. The Arcanist also keeps an always-on LANTERN WISP familiar that lights the dark and scouts ahead to reveal altars.',
     ],
   },

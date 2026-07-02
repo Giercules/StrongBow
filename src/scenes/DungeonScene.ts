@@ -195,6 +195,7 @@ export class DungeonScene extends Phaser.Scene {
   private allies: Hero[] = [];
   private summons: Companion[] = [];
   private summonIdx = 0;
+  private arcaneIdx = 0;
   private summonTimerGfx?: Phaser.GameObjects.Graphics;
   private vignette?: Phaser.GameObjects.Image;
   private edgeGrade?: Phaser.GameObjects.Image;
@@ -1467,6 +1468,11 @@ export class DungeonScene extends Phaser.Scene {
       if (this.companionShouldUseAbility(comp, liveMonsters)) {
         this.useAbility(comp, time, false);
         comp.markAbilityUsed(time);
+      } else if (comp.classId === 'arcanist' && this.companionWantsFamiliar(comp)) {
+        // Hired Arcanists keep their familiars conjured (mana-gated, like the
+        // hired Necromancer's servants) whenever Meteor isn't called for.
+        this.summonArcane(comp, ARCANE_ORDER[this.arcaneIdx++ % ARCANE_ORDER.length], true);
+        comp.markAbilityUsed(time);
       }
     }
     for (const comp of this.companions) {
@@ -1687,10 +1693,9 @@ export class DungeonScene extends Phaser.Scene {
     const within = (r: number) => monsters.filter((m) => Phaser.Math.Distance.Between(comp.x, comp.y, m.x, m.y) <= r);
     switch (comp.classId) {
       case 'necromancer': {
+        if (this.level.town) return false; // no raising the dead in Hearthwatch
         const free = settings.get('gameplay').infiniteMana;
-        const cap = comp.maxSummons();
-        const live = this.summons.filter((sk) => sk.active && sk.alive).length;
-        return live < cap && (free || comp.mana >= 20);
+        return this.ownedSummons(comp) < comp.maxSummons() && (free || comp.mana >= 20);
       }
       case 'warden':
         // Heal whenever any ally OR necro pet is hurt (no need for foes nearby),
@@ -1703,7 +1708,9 @@ export class DungeonScene extends Phaser.Scene {
       case 'arcanist':
         return within(300).length >= 2;
       case 'thief': {
-        const n = within(200);
+        // Shadow Flurry only reaches ~78px (60px arc struck 18px ahead), so
+        // don't burn the cooldown unless a foe is actually inside that arc.
+        const n = within(70);
         if (n.length === 0) return false;
         let best = n[0];
         let bd = Infinity;
@@ -1723,11 +1730,29 @@ export class DungeonScene extends Phaser.Scene {
     }
   }
 
+  /** Live servants raised by this specific caster — caps are per-summoner, so a
+   *  hired caster's pets never count against the player's cap (or vice versa). */
+  private ownedSummons(owner: Hero): number {
+    return this.summons.filter((s) => s.active && s.alive && s.summoner === owner).length;
+  }
+
+  /** Arcanist familiar cap: 1, growing to 3 with level, + summon affixes. */
+  private arcaneCap(mage: Hero): number {
+    return Math.min(3, 1 + Math.floor(mage.level / 4)) + (mage.stats.summonBonus ?? 0);
+  }
+
+  /** A hired Arcanist keeps familiars up: under their own cap, mana to spare, not in town. */
+  private companionWantsFamiliar(comp: Companion): boolean {
+    if (this.level.town) return false;
+    const free = settings.get('gameplay').infiniteMana;
+    return this.ownedSummons(comp) < this.arcaneCap(comp) && (free || comp.mana >= ARCANE_COST);
+  }
+
   private summonSkeleton(necro: Hero, quiet = false, type?: SkeletonType): void {
     const time = this.time.now;
     this.summons = this.summons.filter((s) => s.active && s.alive);
     const cap = necro.maxSummons();
-    if (this.summons.length >= cap) {
+    if (this.ownedSummons(necro) >= cap) {
       if (!quiet) this.showBark(`Your servants already crowd the dark (max ${cap}).`, 2400, 'system');
       return;
     }
@@ -1742,6 +1767,7 @@ export class DungeonScene extends Phaser.Scene {
     const info = SKELETON_INFO[t];
     const sk = new Companion(this, necro.x + Phaser.Math.Between(-16, 16), necro.y + Phaser.Math.Between(-8, 18), info.cls);
     sk.makeSkeleton(info.sheet, info.walk, info.attack);
+    sk.summoner = necro;
     if (t === 'tank') {
       sk.stats.maxHealth = Math.round(sk.stats.maxHealth * 1.9);
       sk.stats.armor += 5;
@@ -1845,7 +1871,7 @@ export class DungeonScene extends Phaser.Scene {
   private summonMonster(necro: Hero): void {
     const time = this.time.now;
     this.summons = this.summons.filter((s) => s.active && s.alive);
-    if (this.summons.length >= necro.maxSummons()) {
+    if (this.ownedSummons(necro) >= necro.maxSummons()) {
       this.showBark(`Your servants already crowd the dark (max ${necro.maxSummons()}).`, 2400, 'system');
       return;
     }
@@ -1861,6 +1887,7 @@ export class DungeonScene extends Phaser.Scene {
     const def = ENEMIES[id];
     const sk = new Companion(this, necro.x + Phaser.Math.Between(-16, 16), necro.y + Phaser.Math.Between(-8, 18), 'vanguard');
     sk.makeSkeleton(`monster-${id}-sheet`, `${id}-walk`, `${id}-attack`);
+    sk.summoner = necro;
     sk.stats.maxHealth = def.health;
     sk.health = def.health;
     sk.stats.damage = def.damage;
@@ -1882,17 +1909,17 @@ export class DungeonScene extends Phaser.Scene {
   /** Arcanist familiar: conjure an Ember Sprite / Void Imp / Arcane Homunculus /
    *  Starved Rootling. Mana-gated and permanent (fights until slain or the party
    *  leaves the level), mirroring the necromancer's servants. */
-  private summonArcane(mage: Hero, type: ArcaneType): void {
+  private summonArcane(mage: Hero, type: ArcaneType, quiet = false): void {
     const time = this.time.now;
     this.summons = this.summons.filter((s) => s.active && s.alive);
-    const cap = Math.min(3, 1 + Math.floor(mage.level / 4)) + (mage.stats.summonBonus ?? 0);
-    if (this.summons.length >= cap) {
-      this.showBark(`Your familiars already crowd the air (max ${cap}).`, 2400, 'system');
+    const cap = this.arcaneCap(mage);
+    if (this.ownedSummons(mage) >= cap) {
+      if (!quiet) this.showBark(`Your familiars already crowd the air (max ${cap}).`, 2400, 'system');
       return;
     }
     const free = settings.get('gameplay').infiniteMana;
     if (!free && mage.mana < ARCANE_COST) {
-      this.showBark('Not enough mana to conjure a familiar.', 2400, 'system');
+      if (!quiet) this.showBark('Not enough mana to conjure a familiar.', 2400, 'system');
       return;
     }
     if (!free) mage.mana = Math.max(0, mage.mana - ARCANE_COST);
@@ -1900,6 +1927,7 @@ export class DungeonScene extends Phaser.Scene {
     const sk = new Companion(this, mage.x + Phaser.Math.Between(-16, 16), mage.y + Phaser.Math.Between(-8, 18), info.cls);
     sk.makeSkeleton(info.sheet, info.walk, info.attack, info.tint);
     sk.arcaneType = type;
+    sk.summoner = mage;
     sk.setTint(info.tint);
     const s = sk.stats;
     if (type === 'ember') {
@@ -1928,7 +1956,7 @@ export class DungeonScene extends Phaser.Scene {
     this.flashLight(sk.x, sk.y, info.tint, 120, 300, 1.0);
     audio.sfx('magic');
     const art = /^[aeiou]/i.test(info.name) ? 'an' : 'a';
-    this.showBark(`${mage.def.name} conjures ${art} ${info.name}!`, 2600, 'event', '#bfe0ff');
+    if (!quiet) this.showBark(`${mage.def.name} conjures ${art} ${info.name}!`, 2600, 'event', '#bfe0ff');
   }
 
   private openSummonRadial(mode: 'necro' | 'arcane' = 'necro'): void {

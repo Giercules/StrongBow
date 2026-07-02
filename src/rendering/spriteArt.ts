@@ -1765,11 +1765,11 @@ function drawHeroBack(ctx: Ctx, ox: number, cls: string, ramp: HeroRamp, facing:
     PX(ctx, cx + 8 - sway, tTop + 13 - sway, ramp.cloth0);
   } else if (cls === 'necromancer') {
     // long tattered grave-cape, hem torn into strips that drift as he walks
-    R(ctx, cx - 12, tTop - 1, 24, 20, 'rgba(18,14,32,0.9)');
-    R(ctx, cx - 12, tTop - 1, 24, 2, 'rgba(74,63,106,0.8)');
+    R(ctx, cx - 11, tTop - 1, 22, 19, 'rgba(24,18,42,0.9)');
+    R(ctx, cx - 11, tTop - 1, 22, 2, 'rgba(89,67,128,0.8)');
     for (let i = 0; i < 5; i++) {
-      const tx = cx - 11 + i * 5 + (i % 2 === 0 ? sway : -sway);
-      R(ctx, tx, tTop + 19, 2, 4 + (i % 3), 'rgba(18,14,32,0.85)');
+      const tx = cx - 10 + i * 5 + (i % 2 === 0 ? sway : -sway);
+      R(ctx, tx, tTop + 18, 2, 4 + (i % 3), 'rgba(24,18,42,0.85)');
     }
   } else if (cls === 'warden') {
     // fur mantle draped over both shoulders
@@ -1787,8 +1787,8 @@ function drawHeroFlair(ctx: Ctx, ox: number, cls: string, ramp: HeroRamp, facing
   const sway = pose === 1 ? -1 : pose === 3 ? 1 : 0;
   const hTop = 8 + bob;
   const tTop = 19 + bob;
-  const hx0 = cx - 5;
-  const hw = 10;
+  const hx0 = cx - 6;
+  const hw = 12;
   if (cls === 'vanguard') {
     // iron browband + war-braids, crossed baldric, belt skulls
     R(ctx, hx0 - 1, hTop + 1, hw + 2, 1, ramp.trim);
@@ -1803,8 +1803,8 @@ function drawHeroFlair(ctx: Ctx, ox: number, cls: string, ramp: HeroRamp, facing
     }
   } else if (cls === 'thief') {
     if (facing !== 'up') {
-      // half-mask over the mouth + hood shadow so only the eyes catch light
-      R(ctx, hx0 + 1, hTop + 7, hw - 2, 3, ramp.cloth0);
+      // half-mask over the mouth only — the drow face stays readable
+      R(ctx, hx0 + 1, hTop + 7, hw - 2, 2, ramp.cloth0);
       R(ctx, hx0 + 1, hTop + 7, hw - 2, 1, 'rgba(255,255,255,0.08)');
     }
     // thigh sheath with dagger glint
@@ -1874,66 +1874,83 @@ export function drawHumanoid(
   if (facing === 'up') drawWeapon(ctx, ox, cls, ramp, facing, pose);
   drawHeroBack(ctx, ox, cls, ramp, facing, pose);
 
+  const side = facing === 'side';
+  // Side profiles are genuinely narrower than front/back views — this is what
+  // makes the three facings read as a real turn-around instead of a flat doll.
+  const tw = side ? 12 : 14; // class chest-panel width
+  const tx = cx - tw / 2;
+  const bw = tw + 2; // outer coat / rim width
+  const bx = cx - bw / 2;
+  // Walk cycle: front/back strides lift alternate feet; arms swing opposite
+  // the stride, and the weapon arm punches up on the attack pose.
+  const liftL = pose === 1 ? 2 : 0;
+  const liftR = pose === 2 ? 2 : 0;
+  const armSwingL = pose === 1 ? 1 : pose === 2 ? -1 : 0;
+  const armSwingR = pose === 3 ? -2 : -armSwingL;
+
   if (robe) {
-    R(ctx, cx - 9, tTop, 18, 25, ramp.cloth0);
-    R(ctx, cx - 9, tTop, 3, 25, ramp.cloth1);
-    R(ctx, cx + 7, tTop, 2, 25, SHd);
-    R(ctx, cx - 9, tTop + 23, 18, 2, ramp.trim);
-    R(ctx, cx - 3, tTop + 4, 1, 19, SH);
-    R(ctx, cx + 2, tTop + 4, 1, 19, SH);
+    const rw = side ? 16 : 18;
+    const rx = cx - rw / 2;
+    R(ctx, rx + 1, tTop, rw - 2, 2, ramp.cloth0); // sloped shoulders
+    R(ctx, rx, tTop + 2, rw, 15, ramp.cloth0);
+    R(ctx, rx - 1, tTop + 17, rw + 2, 6, ramp.cloth0); // flared skirt
+    R(ctx, rx, tTop + 23, rw, 2, ramp.cloth0); // chamfered hem
+    R(ctx, rx, tTop + 2, 3, 20, ramp.cloth1);
+    R(ctx, rx + rw - 2, tTop + 2, 2, 20, SHd);
+    R(ctx, rx - 1, tTop + 21, rw + 2, 2, ramp.trim); // hem trim band
+    PX(ctx, rx - 1, tTop + 21, ramp.trimHi);
+    R(ctx, cx - 3, tTop + 4, 1, 16, SH);
+    R(ctx, cx + 2, tTop + 4, 1, 16, SH);
   } else {
-    R(ctx, cx - 8, tTop, 16, 22, ramp.cloth0);
-    R(ctx, cx - 8, tTop, 3, 22, ramp.cloth1);
-    R(ctx, cx + 6, tTop, 2, 22, SHd);
+    R(ctx, bx + 1, tTop, bw - 2, 1, ramp.cloth0); // rounded shoulder line
+    R(ctx, bx, tTop + 1, bw, 13, ramp.cloth0);
+    R(ctx, bx + 1, tTop + 14, bw - 2, 8, ramp.cloth0); // tapered hips
+    R(ctx, bx, tTop + 1, 3, 13, ramp.cloth1);
+    R(ctx, bx + bw - 2, tTop + 1, 2, 13, SHd);
     PX(ctx, cx - 6 + sway, tTop + 22, ramp.cloth0);
     PX(ctx, cx - 2 + sway, tTop + 23, ramp.cloth1);
     PX(ctx, cx + 2 + sway, tTop + 22, ramp.cloth0);
-    PX(ctx, cx + 5 + sway, tTop + 23, ramp.cloth0);
   }
 
-  const lx = cx - 7 + ll;
-  const rx = cx + 3 + rl;
   if (robe) {
-    R(ctx, lx + 1, legTop + 4, 4, 5, ramp.cloth0);
-    R(ctx, rx, legTop + 4, 4, 5, ramp.cloth0);
-    R(ctx, lx + 1, legTop + 8, 4, 2, '#0a0a12');
-    R(ctx, rx, legTop + 8, 4, 2, '#0a0a12');
-  } else if (cls === 'vanguard') {
-    R(ctx, lx, legTop, 4, 8, ramp.skin);
-    R(ctx, rx, legTop, 4, 8, ramp.skin);
-    R(ctx, lx, legTop, 1, 8, ramp.skinHi);
-    R(ctx, rx, legTop, 1, 8, ramp.skinHi);
-    R(ctx, lx + 3, legTop, 1, 8, SH);
-    R(ctx, rx + 3, legTop, 1, 8, SH);
-    R(ctx, lx, legTop + 7, 4, 4, ramp.cloth1);
-    R(ctx, rx, legTop + 7, 4, 4, ramp.cloth1);
-    R(ctx, lx, legTop + 7, 4, 1, ramp.cloth2);
-    R(ctx, rx, legTop + 7, 4, 1, ramp.cloth2);
+    // boots peeking out from under the hem
+    const lx = cx - 5 + (side ? ll : 0);
+    const rx = cx + 1 + (side ? rl : 0);
+    R(ctx, lx, legTop + 6 - liftL, 4, 4, ramp.cloth0);
+    R(ctx, rx, legTop + 6 - liftR, 4, 4, ramp.cloth0);
+    R(ctx, lx, legTop + 8 - liftL, side ? 5 : 4, 2, '#0a0a12');
+    R(ctx, rx, legTop + 8 - liftR, side ? 5 : 4, 2, '#0a0a12');
   } else {
-    R(ctx, lx, legTop, 4, 9, ramp.cloth1);
-    R(ctx, rx, legTop, 4, 9, ramp.cloth1);
-    R(ctx, lx, legTop, 1, 9, ramp.cloth2);
-    R(ctx, rx, legTop, 1, 9, ramp.cloth2);
-    R(ctx, lx + 3, legTop, 1, 9, SH);
-    R(ctx, rx + 3, legTop, 1, 9, SH);
-    R(ctx, lx, legTop + 8, 4, 3, ramp.trim);
-    R(ctx, rx, legTop + 8, 4, 3, ramp.trim);
-    R(ctx, lx, legTop + 8, 4, 1, ramp.trimHi);
-    R(ctx, rx, legTop + 8, 4, 1, ramp.trimHi);
+    // real stride: side view scissors the legs, front/back lifts alternate feet
+    const legC = cls === 'vanguard' ? ramp.skin : ramp.cloth1;
+    const legHi = cls === 'vanguard' ? ramp.skinHi : ramp.cloth2;
+    const lx = cx - 6 + (side ? ll : 0);
+    const rx = cx + 2 + (side ? rl : 0);
+    R(ctx, rx, legTop - liftR, 4, 8, legC);
+    R(ctx, rx, legTop - liftR, 1, 8, legHi);
+    R(ctx, rx + 3, legTop - liftR, 1, 8, SH);
+    if (side) R(ctx, rx, legTop - liftR, 4, 8, 'rgba(0,0,0,0.16)'); // back leg
+    R(ctx, lx, legTop - liftL, 4, 8, legC);
+    R(ctx, lx, legTop - liftL, 1, 8, legHi);
+    R(ctx, lx + 3, legTop - liftL, 1, 8, SH);
+    // boots with directional toes (splayed out front-on, forward in profile)
+    const bootC = cls === 'vanguard' ? ramp.cloth1 : ramp.trim;
+    const bootHi = cls === 'vanguard' ? ramp.cloth2 : ramp.trimHi;
+    R(ctx, rx, legTop + 7 - liftR, 5, 3, bootC);
+    R(ctx, rx, legTop + 7 - liftR, 5, 1, bootHi);
+    R(ctx, lx - (side ? 0 : 1), legTop + 7 - liftL, 5, 3, bootC);
+    R(ctx, lx - (side ? 0 : 1), legTop + 7 - liftL, 5, 1, bootHi);
   }
-
-  const tw = 14;
-  const tx = cx - 7;
   if (cls === 'vanguard') {
     R(ctx, tx, tTop, tw, 14, ramp.skin);
     R(ctx, tx, tTop, tw, 2, ramp.skinHi);
     R(ctx, tx, tTop, 3, 14, ramp.skinHi);
-    R(ctx, tx + tw - 3, tTop, 3, 14, SH);
-    R(ctx, cx - 1, tTop + 2, 1, 8, SH);
-    R(ctx, tx + 2, tTop + 4, 4, 1, SH);
-    R(ctx, cx + 1, tTop + 4, 4, 1, SH);
-    R(ctx, tx + 3, tTop + 8, 8, 1, 'rgba(0,0,0,0.12)');
-    R(ctx, tx + 3, tTop + 10, 8, 1, 'rgba(0,0,0,0.12)');
+    R(ctx, tx + tw - 3, tTop, 3, 14, SHd);
+    R(ctx, cx - 1, tTop + 2, 1, 8, SHd);
+    R(ctx, tx + 2, tTop + 4, 4, 1, SHd);
+    R(ctx, cx + 1, tTop + 4, 4, 1, SHd);
+    R(ctx, tx + 3, tTop + 8, 8, 1, 'rgba(0,0,0,0.2)');
+    R(ctx, tx + 3, tTop + 10, 8, 1, 'rgba(0,0,0,0.2)');
     for (let i = 0; i < tw; i++) R(ctx, tx + i, tTop + 1 + Math.floor(i / 2), 1, 2, ramp.trim);
     R(ctx, tx, tTop + 11, tw, 3, ramp.cloth1);
     R(ctx, tx, tTop + 11, tw, 1, ramp.cloth2);
@@ -1966,45 +1983,75 @@ export function drawHumanoid(
     }
   }
 
+  // soften the chest panel's corners into the coat behind it
+  PX(ctx, tx, tTop, ramp.cloth0);
+  PX(ctx, tx + 1, tTop, ramp.cloth0);
+  PX(ctx, tx + tw - 2, tTop, ramp.cloth0);
+  PX(ctx, tx + tw - 1, tTop, ramp.cloth0);
+  PX(ctx, tx, tTop + 1, ramp.cloth0);
+  PX(ctx, tx + tw - 1, tTop + 1, ramp.cloth0);
+  PX(ctx, tx, tTop + 13, ramp.cloth0);
+  PX(ctx, tx + tw - 1, tTop + 13, ramp.cloth0);
+
   if (cls === 'vanguard') {
-    R(ctx, cx - 11, tTop - 1, 4, 5, ramp.cloth1);
-    R(ctx, cx - 11, tTop - 1, 4, 1, ramp.cloth2);
-    R(ctx, cx + 7, tTop - 1, 4, 5, ramp.cloth1);
-    R(ctx, cx + 7, tTop - 1, 4, 1, ramp.cloth2);
+    R(ctx, bx - 3, tTop - 1, 4, 5, ramp.cloth1);
+    R(ctx, bx - 3, tTop - 1, 4, 1, ramp.cloth2);
+    R(ctx, bx + bw - 1, tTop - 1, 4, 5, ramp.cloth1);
+    R(ctx, bx + bw - 1, tTop - 1, 4, 1, ramp.cloth2);
   }
 
   if (robe) {
-    R(ctx, cx - 11, tTop + 1, 4, 11, ramp.cloth1);
-    R(ctx, cx + 7, tTop + 1, 4, 11, ramp.cloth1);
-    R(ctx, cx - 11, tTop + 1, 1, 11, ramp.cloth2);
-    R(ctx, cx + 10, tTop + 1, 1, 11, ramp.cloth0);
-    R(ctx, cx - 10, tTop + 11, 3, 2, ramp.skin);
-    R(ctx, cx + 7, tTop + 11, 3, 2, ramp.skin);
+    const rw = side ? 16 : 18;
+    const rx = cx - rw / 2;
+    const sL = tTop + 1 + armSwingL;
+    const sR = tTop + 1 + armSwingR;
+    if (!side) {
+      // far (left) sleeve is hidden in profile — only the weapon arm shows
+      R(ctx, rx - 2, sL, 4, 11, ramp.cloth1);
+      R(ctx, rx - 2, sL, 1, 11, ramp.cloth2);
+      R(ctx, rx - 2, sL, 4, 1, ramp.cloth2);
+      R(ctx, rx - 1, sL + 10, 3, 2, ramp.skin);
+    }
+    R(ctx, rx + rw - 2, sR, 4, 11, ramp.cloth1);
+    R(ctx, rx + rw + 1, sR, 1, 11, ramp.cloth0);
+    R(ctx, rx + rw - 2, sR, 4, 1, ramp.cloth2);
+    R(ctx, rx + rw - 2, sR + 10, 3, 2, ramp.skin);
   } else {
     const armC = cls === 'vanguard' ? ramp.skin : ramp.cloth1;
     const armHi = cls === 'vanguard' ? ramp.skinHi : ramp.cloth2;
-    R(ctx, cx - 10, tTop + 1, 3, 10, armC);
-    R(ctx, cx + 7, tTop + 1, 3, 10, armC);
-    R(ctx, cx - 10, tTop + 1, 1, 10, armHi);
-    R(ctx, cx + 9, tTop + 1, 1, 10, SH);
-    R(ctx, cx - 10, tTop + 10, 3, 2, ramp.skin);
-    R(ctx, cx + 7, tTop + 10, 3, 2, ramp.skin);
-    if (cls === 'vanguard') {
-      R(ctx, cx - 10, tTop + 8, 3, 1, ramp.trim);
-      R(ctx, cx + 7, tTop + 8, 3, 1, ramp.trim);
-    } else {
-      R(ctx, cx - 10, tTop + 9, 3, 1, ramp.cloth0);
-      R(ctx, cx + 7, tTop + 9, 3, 1, ramp.cloth0);
+    const sL = tTop + 1 + armSwingL;
+    const sR = tTop + 1 + armSwingR;
+    if (!side) {
+      R(ctx, bx - 2, sL + 1, 3, 9, armC);
+      R(ctx, bx - 2, sL, 2, 1, armC); // rounded shoulder cap
+      R(ctx, bx - 2, sL + 1, 1, 9, armHi);
+      R(ctx, bx - 2, sL + 9, 3, 2, ramp.skin);
+      if (cls === 'vanguard') R(ctx, bx - 2, sL + 7, 3, 1, ramp.trim);
+      else R(ctx, bx - 2, sL + 8, 3, 1, ramp.cloth0);
     }
+    R(ctx, bx + bw - 1, sR + 1, 3, 9, armC);
+    R(ctx, bx + bw - 1, sR, 2, 1, armC);
+    R(ctx, bx + bw + 1, sR + 1, 1, 9, SH);
+    R(ctx, bx + bw - 1, sR + 9, 3, 2, ramp.skin);
+    if (cls === 'vanguard') R(ctx, bx + bw - 1, sR + 7, 3, 1, ramp.trim);
+    else R(ctx, bx + bw - 1, sR + 8, 3, 1, ramp.cloth0);
   }
 
-  const hw = 10;
-  const hx0 = cx - 5;
-  R(ctx, hx0, hTop, hw, 11, ramp.skin);
-  R(ctx, hx0, hTop, hw, 1, ramp.skinHi);
-  R(ctx, hx0, hTop, 2, 11, ramp.skinHi);
-  R(ctx, hx0 + hw - 2, hTop + 1, 2, 10, SH);
-  R(ctx, hx0 + 1, hTop + 10, hw - 2, 1, SH);
+  const hw = 12; // big friendly skull — matches the bestiary's chunky proportions
+  const hx0 = cx - 6;
+  // neck, then a rounded skull with a soft jawline (no more square head)
+  R(ctx, cx - 2, hTop + 8, 4, 4, ramp.skin);
+  R(ctx, cx - 2, hTop + 11, 4, 1, SHd); // collar shadow
+  R(ctx, hx0 + 1, hTop, hw - 2, 10, ramp.skin);
+  R(ctx, hx0, hTop + 1, hw, 8, ramp.skin);
+  R(ctx, hx0 + 1, hTop, hw - 2, 1, ramp.skinHi);
+  R(ctx, hx0, hTop + 1, 2, 7, ramp.skinHi);
+  R(ctx, hx0 + hw - 2, hTop + 2, 2, 7, SH);
+  R(ctx, hx0 + 2, hTop + 9, hw - 4, 1, SH); // chin shade
+  if (side) {
+    R(ctx, hx0 + hw, hTop + 5, 1, 2, ramp.skin); // nose in profile
+    PX(ctx, hx0 + hw, hTop + 6, SH);
+  }
 
   if (cls === 'vanguard') {
     R(ctx, hx0 - 1, hTop - 2, hw + 2, 4, ramp.hair);
@@ -2013,12 +2060,14 @@ export function drawHumanoid(
     R(ctx, hx0, hTop + 2, hw, 2, C.hpLow);
     R(ctx, hx0, hTop + 2, hw, 1, '#ff8a7a');
   } else if (cls === 'thief') {
-    R(ctx, hx0 - 1, hTop - 3, hw + 2, 4, ramp.hair);
-    R(ctx, hx0 - 2, hTop, 2, 8, ramp.hair);
-    R(ctx, hx0 + hw, hTop, 2, 8, ramp.hair);
-    R(ctx, hx0 - 2, hTop + 8, 1, 3, ramp.hair);
-    R(ctx, hx0 + hw + 1, hTop + 8, 1, 3, ramp.hair);
+    // swept-back silver hair — thinner than before so the drow face shows
+    R(ctx, hx0 - 1, hTop - 3, hw + 2, 3, ramp.hair);
+    R(ctx, hx0 - 2, hTop - 1, 2, 7, ramp.hair);
+    R(ctx, hx0 + hw, hTop - 1, 2, 7, ramp.hair);
+    R(ctx, hx0 - 2, hTop + 6, 1, 3, ramp.hair);
+    R(ctx, hx0 + hw + 1, hTop + 6, 1, 3, ramp.hair);
     R(ctx, hx0 - 1, hTop - 3, hw + 2, 1, ramp.trimHi);
+    R(ctx, hx0 + 1, hTop + 1, hw - 2, 1, ramp.hair); // hairline
     R(ctx, hx0 + 1, hTop + 2, hw - 2, 2, ramp.skinHi);
   } else if (cls === 'arcanist') {
     R(ctx, hx0 - 1, hTop - 1, hw + 2, 3, ramp.cloth2);
@@ -2042,10 +2091,13 @@ export function drawHumanoid(
   } else {
     // necromancer — a deep dark cowl shadowing the face, with cold soul-fire eyes
     R(ctx, hx0 - 2, hTop - 3, hw + 4, 6, ramp.cloth0);
-    R(ctx, hx0 - 2, hTop - 3, hw + 4, 1, ramp.cloth1);
+    R(ctx, hx0 - 2, hTop - 3, hw + 4, 1, ramp.cloth2);
+    R(ctx, hx0 - 2, hTop - 2, hw + 4, 1, ramp.cloth1);
     R(ctx, hx0 - 2, hTop, 2, 12, ramp.cloth0);
     R(ctx, hx0 + hw, hTop, 2, 12, ramp.cloth0);
-    R(ctx, hx0, hTop + 2, hw, 8, '#0a0a12');
+    R(ctx, hx0, hTop + 1, 1, 9, ramp.cloth1); // lit cowl rim around the void
+    R(ctx, hx0 + hw - 1, hTop + 1, 1, 9, ramp.cloth1);
+    R(ctx, hx0 + 1, hTop + 2, hw - 2, 8, '#0a0a12');
     if (facing === 'side') {
       // side profile: one forward soul-fire eye + a hint of nose/chin so the
       // necromancer reads as facing sideways (matches the other classes).
@@ -2071,13 +2123,16 @@ export function drawHumanoid(
       R(ctx, hx0 + 2, hTop + 4, 2, 1, ramp.hair);
       R(ctx, hx0 + hw - 4, hTop + 4, 2, 1, ramp.hair);
       PX(ctx, cx, hTop + 7, SHd);
-      R(ctx, hx0 + 3, hTop + 9, hw - 6, 1, SH);
+      R(ctx, hx0 + 4, hTop + 8, 2, 1, SHd); // mouth
     } else if (facing === 'side') {
       R(ctx, hx0 + hw - 4, hTop + 5, 2, 2, '#ffffff');
       PX(ctx, hx0 + hw - 3, hTop + 6, eye);
       R(ctx, hx0 + hw - 4, hTop + 4, 2, 1, ramp.hair);
       R(ctx, hx0 + hw - 1, hTop + 6, 2, 2, ramp.skinHi);
       R(ctx, hx0 + hw - 3, hTop + 9, 3, 1, SH);
+    } else {
+      // up: the back of the head is mane (or hood cloth), not a blank skin slab
+      R(ctx, hx0 + 1, hTop + 4, hw - 2, 6, cls === 'warden' ? ramp.cloth1 : ramp.hair);
     }
   } else if (cls === 'arcanist' && facing !== 'up') {
     PX(ctx, hx0 + 3, hTop + 5, '#cfe0ff');
