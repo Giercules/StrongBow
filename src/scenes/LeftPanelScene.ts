@@ -196,7 +196,7 @@ export class LeftPanelScene extends Phaser.Scene {
       const t = this.acquireLine(li);
       t.setWordWrapWidth(wrapW)
         .setText(KIND_PREFIX[e.kind] + e.text)
-        .setColor(KIND_COLOR[e.kind])
+        .setColor(e.color ?? KIND_COLOR[e.kind])
         .setFontStyle(e.kind === 'grok' ? 'italic' : 'normal');
       heights[li] = t.height;
       total += t.height + LINE_GAP;

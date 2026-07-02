@@ -39,6 +39,7 @@ const DEFAULTS: GameSettingsData = {
   zoom: 1.0,
   spriteScale: SPRITE_SCALE_DEFAULT,
   showMinimap: true,
+  enhancedGraphics: true,
   musicTrack: 'auto',
   companionAI: { ...DEFAULT_COMPANION_AI },
   bindings: defaultBindings(),

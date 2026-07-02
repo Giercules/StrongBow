@@ -340,11 +340,19 @@ export class SettingsUI {
     const toggleMap = () => settings.set('showMinimap', !settings.get('showMinimap'));
     this.btn(right - 45, y, 80, settings.get('showMinimap') ? 'ON' : 'OFF', toggleMap, settings.get('showMinimap') ? C.ivy : C.hudPanel2);
     this.focusRow(y, { activate: toggleMap, left: toggleMap, right: toggleMap });
+    y = this.rowLabel('Enhanced FX');
+    const toggleFx = () => settings.set('enhancedGraphics', !settings.get('enhancedGraphics'));
+    this.btn(right - 45, y, 80, settings.get('enhancedGraphics') ? 'ON' : 'OFF', toggleFx, settings.get('enhancedGraphics') ? C.ivy : C.hudPanel2);
+    this.focusRow(y, { activate: toggleFx, left: toggleFx, right: toggleFx });
     this.rowLabel('');
     const x0 = this.modal!.cx - PANEL_W / 2 + 24;
     this.text(x0, this.rowY, `Sprite size ranges ${Math.round(SPRITE_SCALE_MIN * 100)}-${Math.round(SPRITE_SCALE_MAX * 100)}% (default 150%).`, C.inkDim, 10);
     this.rowY += 18;
-    this.text(x0, this.rowY, 'Map can be toggled live; sprite size applies on next descent.', C.inkDim, 10);
+    this.text(x0, this.rowY, 'Map toggles live. Sprite size applies next descent.', C.inkDim, 10);
+    this.rowY += 18;
+    this.text(x0, this.rowY, 'Enhanced FX = real-time lights, bloom + vignette, smooth pixel art.', C.inkDim, 10);
+    this.rowY += 18;
+    this.text(x0, this.rowY, 'Lights/bloom apply next descent; pixel smoothing needs a full reload.', C.inkDim, 10);
   }
 
   private tabAI(): void {
@@ -454,7 +462,7 @@ export class SettingsUI {
       this.text(x0 + PANEL_W - 40, yy + 10, pl, pl === '—' ? C.inkDim : '#7fd0ff', 11, 1).setX(x0 + PANEL_W - 40);
     });
     const fy = this.rowY + REBINDABLE_ACTIONS.length * 22 + 8;
-    this.text(x0 + 24, fy, 'Controller also: Y dodge - RB ability - RT steal - Start settings - Select help', padOn ? '#7fd0ff' : C.inkDim, 9.5);
+    this.text(x0 + 24, fy, 'Fixed keys: Esc menu/close - F2 save/load - Start settings - Select help', padOn ? '#7fd0ff' : C.inkDim, 9.5);
   }
 
   private tabManual(): void {

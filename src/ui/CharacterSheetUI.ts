@@ -4,10 +4,32 @@ import type { Modal } from './uiHelpers';
 import { C } from '../rendering/Palette';
 import { describeItemStats } from '../data/pickupInfo';
 import { ItemTooltip } from './ItemTooltip';
+import { ARMOR_SETS, SET_COLOR, setTierLines } from '../data/setItems';
 import type { Hero } from '../entities/Hero';
 
 const PANEL_W = 480;
 const PANEL_H = 420;
+
+/** Hover explanations for every stat on the sheet (user-requested). */
+const STAT_HELP: Record<string, string> = {
+  Health: 'Hit points. Reach 0 and you fall. Restored by potions, food, regen, and the Warden’s aura.',
+  Mana: 'Fuel for magic blasts, class abilities, and summons. Regenerates slowly on its own.',
+  Damage: 'Base weapon damage per strike. Melee arcs, arrows, and bolts all start from this.',
+  Armor: 'Flat protection: each point blocks about half a point of incoming damage, and softens hazards.',
+  Speed: 'Movement speed in the world. Water, poison, and ice change your footing.',
+  Crit: 'Chance a strike lands for double damage. Crits also shock foes, briefly amplifying your hits.',
+  Fire: 'Elemental power: adds burn damage to strikes and makes magic blasts ignite enemies.',
+  Regen: 'Health recovered per second, passively, out of and in combat.',
+  Luck: 'Fortune. Raises loot drop rates and tilts equipment rolls toward higher grades.',
+  'Max summons': 'How many undead servants you can command at once. Grows with level and gear.',
+  Charisma: 'Silver tongue. Improves shop prices; grows as you trade with merchants.',
+  Sneak: 'Shadow skill. Higher Sneak makes foes less likely to spot you and speeds backstab recovery.',
+  Lockpick: 'Opens locked chests and doors without keys; grows each time you pick one.',
+  Pickpocket: 'Lifting purses. Raises steal success and the quality of what your fingers find.',
+  'Skill points': 'Spend in the Growth window (K) to rank up class skills.',
+  'Attribute points': 'Spend in the Growth window (K) to raise core attributes.',
+  Attributes: 'Your core attribute ranks. Raise them with attribute points from leveling.',
+};
 
 export class CharacterSheetUI {
   private scene: Phaser.Scene;
@@ -113,10 +135,19 @@ export class CharacterSheetUI {
     }
     const STATS_TOP = y0 + 56;
     const STAT_ROW_H = 17;
+    const statColW = x0 + PANEL_W - right - 16;
     stats.forEach((st, i) => {
       const yy = STATS_TOP + i * STAT_ROW_H;
       this.label(right, yy, st[0], C.inkDim, 11);
       this.label(right + 110, yy, st[1], C.ink, 11, true);
+      // hover a stat row for a plain-words explanation of what it does
+      const help = STAT_HELP[st[0]];
+      if (help) {
+        const hz = this.scene.add.zone(right, yy - 2, statColW, STAT_ROW_H).setOrigin(0, 0).setInteractive({ useHandCursor: true });
+        hz.on('pointerover', () => this.tip.showText(st[0], help, right, yy, 'left'));
+        hz.on('pointerout', () => this.tip.hide());
+        addPinned(this.content!, hz);
+      }
     });
 
     // growth — placed below the stats list, whose length varies by class
@@ -128,6 +159,32 @@ export class CharacterSheetUI {
     this.label(right, growthY + 32, `Attribute points: ${h.attributes.points}`, h.attributes.points > 0 ? C.coinHi : C.inkDim, 10);
     const attrs = h.attributes.list().map((a) => `${a.name[0]}${h.attributes.rank(a.id)}`).join('  ');
     this.label(right, growthY + 46, `Attributes: ${attrs}`, C.ink, 10);
+    const growthRows: [string, number][] = [['Skill points', growthY + 18], ['Attribute points', growthY + 32], ['Attributes', growthY + 46]];
+    for (const [key, gy] of growthRows) {
+      const gz = this.scene.add.zone(right, gy - 2, statColW, 15).setOrigin(0, 0).setInteractive({ useHandCursor: true });
+      gz.on('pointerover', () => this.tip.showText(key, STAT_HELP[key], right, gy, 'left'));
+      gz.on('pointerout', () => this.tip.hide());
+      addPinned(this.content!, gz);
+    }
+
+    // class armor set progress — how many pieces worn + what the tiers unlock
+    const set = ARMOR_SETS[h.classId];
+    const setY = growthY + 62;
+    const tierIdx = h.setPieces >= 5 ? 2 : h.setPieces >= 4 ? 1 : h.setPieces >= 2 ? 0 : -1;
+    this.label(right, setY, `SET: ${set.name}`, h.setPieces > 0 ? SET_COLOR : C.inkDim, 10, true);
+    this.label(right, setY + 14, h.setPieces >= 5 ? `${h.setPieces}/5 — ${set.powerName} ACTIVE` : `${h.setPieces}/5 pieces worn`, h.setPieces >= 5 ? SET_COLOR : C.ink, 9.5);
+    const sz = this.scene.add.zone(right, setY - 2, statColW, 30).setOrigin(0, 0).setInteractive({ useHandCursor: true });
+    sz.on('pointerover', () =>
+      this.tip.showText(
+        set.name,
+        setTierLines(h.classId).map((l, i) => (i === tierIdx ? '► ' : '') + l).join('\n') + '\nPieces drop in bright green.',
+        right,
+        setY,
+        'left'
+      )
+    );
+    sz.on('pointerout', () => this.tip.hide());
+    addPinned(this.content!, sz);
 
     // equipped gear — flows below the XP block; the left column's height
     // depends on how many lines the signature wrapped to.
@@ -138,7 +195,7 @@ export class CharacterSheetUI {
     eq.forEach((it, i) => {
       const yy = eqTop + i * 15;
       addPinned(this.content!, this.scene.add.image(left + 8, yy + 1, it.icon).setScale(0.85).setOrigin(0, 0));
-      this.label(left + 26, yy, it.name, C.ink, 9.5, true);
+      this.label(left + 26, yy, it.name, it.setId ? SET_COLOR : C.ink, 9.5, true);
       const cz = this.scene.add.zone(left, yy, PANEL_W / 2 - 30, 14).setOrigin(0, 0).setInteractive({ useHandCursor: true });
       cz.on('pointerover', () => this.tip.show(it, left + PANEL_W / 2 - 30, yy, 'right'));
       cz.on('pointerout', () => this.tip.hide());

@@ -1735,6 +1735,122 @@ export function drawWeapon(
   }
 }
 
+/** Behind-the-body layer: cloaks, capes and back-slung gear. Drawn FIRST so the
+ *  torso overlaps it — this is what gives each class a big, readable D&D
+ *  silhouette instead of a plain pixel doll. */
+function drawHeroBack(ctx: Ctx, ox: number, cls: string, ramp: HeroRamp, facing: Facing, pose: number): void {
+  const cx = ox + HERO_FW / 2;
+  const bob = pose === 1 ? -2 : 0;
+  const sway = pose === 1 ? -1 : pose === 3 ? 1 : 0;
+  const tTop = 19 + bob;
+  if (cls === 'vanguard') {
+    // heavy fur half-cloak spilling off the left shoulder + war banner strap
+    R(ctx, cx - 12, tTop - 1, 5, 18 + sway, ramp.cloth0);
+    R(ctx, cx - 12, tTop - 1, 2, 18 + sway, 'rgba(255,255,255,0.10)');
+    for (let i = 0; i < 6; i++) PX(ctx, cx - 12 + (i % 3), tTop + 2 + i * 2, 'rgba(230,220,200,0.28)');
+    PX(ctx, cx - 10 + sway, tTop + 17 + sway, ramp.cloth0);
+    PX(ctx, cx - 8 - sway, tTop + 18 + sway, ramp.cloth0);
+    if (facing === 'up') {
+      // round iron shield slung across the back
+      R(ctx, cx - 6, tTop + 1, 12, 12, ramp.trim);
+      R(ctx, cx - 6, tTop + 1, 12, 2, ramp.trimHi);
+      R(ctx, cx - 4, tTop + 3, 8, 8, ramp.cloth1);
+      R(ctx, cx - 1, tTop + 5, 2, 4, ramp.trimHi);
+    }
+  } else if (cls === 'thief') {
+    // short shadow-cape that flicks with movement
+    R(ctx, cx - 10, tTop, 4, 14 + sway, ramp.cloth0);
+    R(ctx, cx + 6, tTop, 4, 13 - sway, ramp.cloth0);
+    PX(ctx, cx - 9 + sway, tTop + 14 + sway, ramp.cloth0);
+    PX(ctx, cx + 8 - sway, tTop + 13 - sway, ramp.cloth0);
+  } else if (cls === 'necromancer') {
+    // long tattered grave-cape, hem torn into strips that drift as he walks
+    R(ctx, cx - 12, tTop - 1, 24, 20, 'rgba(18,14,32,0.9)');
+    R(ctx, cx - 12, tTop - 1, 24, 2, 'rgba(74,63,106,0.8)');
+    for (let i = 0; i < 5; i++) {
+      const tx = cx - 11 + i * 5 + (i % 2 === 0 ? sway : -sway);
+      R(ctx, tx, tTop + 19, 2, 4 + (i % 3), 'rgba(18,14,32,0.85)');
+    }
+  } else if (cls === 'warden') {
+    // fur mantle draped over both shoulders
+    R(ctx, cx - 12, tTop - 2, 24, 6, ramp.cloth0);
+    R(ctx, cx - 12, tTop - 2, 24, 1, 'rgba(255,255,255,0.14)');
+    for (let i = 0; i < 8; i++) PX(ctx, cx - 11 + i * 3, tTop + 3 + (i % 2), 'rgba(235,228,205,0.30)');
+  }
+}
+
+/** Front detail layer: crowns, masks, emblems, glows — drawn after the body so
+ *  every class reads as a proper D&D archetype at a glance. */
+function drawHeroFlair(ctx: Ctx, ox: number, cls: string, ramp: HeroRamp, facing: Facing, pose: number): void {
+  const cx = ox + HERO_FW / 2;
+  const bob = pose === 1 ? -2 : 0;
+  const sway = pose === 1 ? -1 : pose === 3 ? 1 : 0;
+  const hTop = 8 + bob;
+  const tTop = 19 + bob;
+  const hx0 = cx - 5;
+  const hw = 10;
+  if (cls === 'vanguard') {
+    // iron browband + war-braids, crossed baldric, belt skulls
+    R(ctx, hx0 - 1, hTop + 1, hw + 2, 1, ramp.trim);
+    PX(ctx, hx0 - 1, hTop + 1, ramp.trimHi);
+    R(ctx, hx0 - 2, hTop + 4, 1, 6, ramp.hair);
+    R(ctx, hx0 + hw + 1, hTop + 4, 1, 6, ramp.hair);
+    PX(ctx, hx0 - 2, hTop + 10, C.coinMid);
+    PX(ctx, hx0 + hw + 1, hTop + 10, C.coinMid);
+    if (facing !== 'up') {
+      for (let i = 0; i < 7; i++) PX(ctx, cx - 6 + i * 2, tTop + 2 + i, ramp.trim); // baldric strap
+      PX(ctx, cx - 6, tTop + 2, ramp.trimHi);
+    }
+  } else if (cls === 'thief') {
+    if (facing !== 'up') {
+      // half-mask over the mouth + hood shadow so only the eyes catch light
+      R(ctx, hx0 + 1, hTop + 7, hw - 2, 3, ramp.cloth0);
+      R(ctx, hx0 + 1, hTop + 7, hw - 2, 1, 'rgba(255,255,255,0.08)');
+    }
+    // thigh sheath with dagger glint
+    R(ctx, cx - 7, 35 + bob, 2, 6, ramp.cloth0);
+    PX(ctx, cx - 6, 36 + bob, '#cfd6e8');
+  } else if (cls === 'arcanist') {
+    // taller crooked hat tip + starpin, glowing hem runes that shift as he moves
+    R(ctx, hx0 + 3, hTop - 8, 3, 3, ramp.cloth2);
+    PX(ctx, hx0 + 4 + sway, hTop - 9, ramp.cloth2);
+    PX(ctx, hx0 + 6, hTop - 4, C.coinHi); // star pin
+    const runeY = tTop + 22;
+    for (let i = 0; i < 3; i++) PX(ctx, cx - 6 + i * 5 + sway, runeY, i === pose % 3 ? C.magicHot : C.magicMid);
+    // spellbook at the belt
+    R(ctx, cx - 8, tTop + 12, 4, 5, '#5a3a1e');
+    R(ctx, cx - 7, tTop + 13, 2, 3, '#e8e2cc');
+  } else if (cls === 'warden') {
+    // antler tips over the circlet + radiant sun-disc on the chest
+    PX(ctx, hx0 - 2, hTop - 4, '#d8cfb4');
+    PX(ctx, hx0 - 3, hTop - 5, '#d8cfb4');
+    PX(ctx, hx0 + hw + 1, hTop - 4, '#d8cfb4');
+    PX(ctx, hx0 + hw + 2, hTop - 5, '#d8cfb4');
+    if (facing !== 'up') {
+      PX(ctx, cx - 1, tTop + 5, '#fff4c0');
+      PX(ctx, cx + 1, tTop + 5, '#fff4c0');
+      PX(ctx, cx, tTop + 4, '#fffbe2');
+      PX(ctx, cx, tTop + 6, '#fffbe2');
+    }
+  } else if (cls === 'necromancer') {
+    // jagged bone crown above the cowl + drifting soul-wisp familiar
+    for (let i = 0; i < 4; i++) {
+      const bx = hx0 - 1 + i * 4;
+      R(ctx, bx, hTop - 5 - (i % 2), 2, 3 + (i % 2), '#cfc9af');
+      PX(ctx, bx, hTop - 6 - (i % 2), '#efe9d2');
+    }
+    const wx = cx + (facing === 'side' ? -11 : 10) + sway;
+    const wy = hTop + 2 - sway;
+    PX(ctx, wx, wy, '#8affd0');
+    PX(ctx, wx + 1, wy + 1, 'rgba(138,255,208,0.55)');
+    PX(ctx, wx - 1, wy + 1, 'rgba(138,255,208,0.35)');
+    // pale rib-bone trim over the robe front
+    if (facing !== 'up') for (let i = 0; i < 3; i++) R(ctx, cx - 3, tTop + 4 + i * 3, 6, 1, 'rgba(207,201,175,0.5)');
+  }
+  // shared top rim-light so every hero pops off the dungeon floor
+  R(ctx, hx0 - 1, hTop - (cls === 'arcanist' ? 6 : cls === 'necromancer' ? 3 : 2), hw + 2, 1, 'rgba(255,255,255,0.22)');
+}
+
 export function drawHumanoid(
   ctx: Ctx,
   ox: number,
@@ -1756,6 +1872,7 @@ export function drawHumanoid(
   const legTop = 33 + bob;
 
   if (facing === 'up') drawWeapon(ctx, ox, cls, ramp, facing, pose);
+  drawHeroBack(ctx, ox, cls, ramp, facing, pose);
 
   if (robe) {
     R(ctx, cx - 9, tTop, 18, 25, ramp.cloth0);
@@ -1969,6 +2086,7 @@ export function drawHumanoid(
     R(ctx, hx0 + hw - 4, hTop + 4, 2, 1, '#e8e8ee');
   }
 
+  drawHeroFlair(ctx, ox, cls, ramp, facing, pose);
   if (facing !== 'up') drawWeapon(ctx, ox, cls, ramp, facing, pose);
 }
 

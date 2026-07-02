@@ -67,6 +67,8 @@ export class Monster extends Phaser.Physics.Arcade.Sprite {
 
     scene.add.existing(this);
     scene.physics.add.existing(this);
+    // opt into the real-light pipeline when the scene runs enhanced graphics
+    if ((scene as unknown as { lightingOn?: boolean }).lightingOn) this.setLighting(true);
     this.setOrigin(0.5, 0.82);
     const scale = (this.def.scale ?? 1) * 0.56 * settings.spriteScale();
     this.setScale(scale);

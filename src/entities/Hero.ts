@@ -6,6 +6,7 @@ import { SkillSet } from '../systems/SkillSystem';
 import { AttributeSet } from '../systems/AttributeSystem';
 import { Inventory } from '../systems/InventorySystem';
 import { computeStats, xpToNext } from '../systems/StatsSystem';
+import { ARMOR_SETS, applySetBonuses, countSetPieces } from '../data/setItems';
 import { audio } from '../systems/AudioSystem';
 
 const MAGIC_COST = 15;
@@ -56,6 +57,13 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
   auraCritBonus = 0;
   auraDamageMult = 1;
 
+  /** Equipped pieces of this class's armor set (drives 2/4/5 tier bonuses). */
+  setPieces = 0;
+  /** Vanguard 5-piece: next time the Undying Bulwark can trigger. */
+  private undyingReadyAt = 0;
+  /** Scene hook fired when the Undying Bulwark saves this hero. */
+  onUndying?: (h: Hero) => void;
+
   attacking = false;
   attackUntil = 0;
   attackDir = { x: 0, y: 1 };
@@ -84,6 +92,8 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
 
     scene.add.existing(this);
     scene.physics.add.existing(this);
+    // opt into the real-light pipeline when the scene runs enhanced graphics
+    if ((scene as unknown as { lightingOn?: boolean }).lightingOn) this.setLighting(true);
     this.setOrigin(0.5, 0.82);
     const body = this.body as Phaser.Physics.Arcade.Body;
     body.setSize(22, 18);
@@ -104,9 +114,17 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
 
   recompute(): StatBlock {
     this.stats = computeStats(this.def.base, this.level, this.inventory.equippedList(), this.skillSet.ranks, this.attributes.ranks);
+    // class armor set: count equipped pieces, then fold in the 2/4/5 tier bonuses
+    this.setPieces = countSetPieces(this.inventory.equippedList(), ARMOR_SETS[this.classId].id);
+    applySetBonuses(this.stats, this.classId, this.setPieces);
     if (this.health !== undefined) this.health = Math.min(this.health, this.stats.maxHealth);
     if (this.mana !== undefined) this.mana = Math.min(this.mana, this.stats.maxMana);
     return this.stats;
+  }
+
+  /** True when the full 5-piece class set is worn (unlocks the set power). */
+  hasSetPower(): boolean {
+    return this.setPieces >= 5;
   }
 
   refreshStats(): StatBlock {
@@ -382,9 +400,11 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
     if (this.pickpocketXP >= (this.pickpocketLevel + 1) * 3) { this.pickpocketXP = 0; this.pickpocketLevel++; return true; }
     return false;
   }
-  /** Backstab recharge in ms — shrinks as Sneak grows (3.5s → 0.8s floor). */
+  /** Backstab recharge in ms — shrinks as Sneak grows (3.5s → 0.8s floor);
+   *  the Shadowmaster set power halves it again. */
   backstabCooldown(): number {
-    return Math.max(800, 3500 - this.sneakLevel * 200);
+    const base = Math.max(800, 3500 - this.sneakLevel * 200);
+    return this.classId === 'thief' && this.hasSetPower() ? Math.round(base * 0.5) : base;
   }
   canAbility(time: number): boolean {
     return this.alive && time >= this.nextAbilityAt;
@@ -406,7 +426,17 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
     this.setAlpha(0.5);
     audio.sfx('hurt');
     this.scene.tweens.add({ targets: this, x: this.x + Phaser.Math.Between(-2, 2), duration: 40, yoyo: true, repeat: 2 });
-    if (this.health <= 0) this.die();
+    if (this.health <= 0) {
+      // Undying Bulwark (vanguard 5-piece): shrug off one killing blow per 90s.
+      if (this.classId === 'vanguard' && this.hasSetPower() && time >= this.undyingReadyAt) {
+        this.undyingReadyAt = time + 90000;
+        this.health = 1;
+        this.hurtUntil = time + 1600; // a breath of invulnerability to escape
+        this.onUndying?.(this);
+        return actual;
+      }
+      this.die();
+    }
     return actual;
   }
 

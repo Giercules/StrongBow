@@ -41,6 +41,7 @@ import { ALL_CLASSES } from '../data/heroes';
 import { ITEMS } from '../data/items';
 import { GRADES } from '../data/grades';
 import { rollDrop, mintItem, monsterDropChance, generatorDropChance, eliteDropChance } from '../systems/LootSystem';
+import { ARMOR_SETS, SET_COLOR, rollSetDrop, setDropChance } from '../data/setItems';
 import { THEME_BASES } from '../data/themedItems';
 import { describeItem } from '../data/pickupInfo';
 import { Hero } from '../entities/Hero';
@@ -200,7 +201,15 @@ export class DungeonScene extends Phaser.Scene {
   private projectiles: Projectile[] = [];
   private enemyProjectiles: EnemyProjectile[] = [];
   private torchLights: Phaser.GameObjects.Image[] = [];
-  private partyLight!: Phaser.GameObjects.Image;
+  private partyLight?: Phaser.GameObjects.Image;
+
+  // ---- Phaser 4 enhanced graphics (real-time lights + camera filters) ----
+  /** True when enhanced graphics are on AND the renderer is WebGL. Entities
+   *  read this at spawn to opt into the light pipeline. */
+  lightingOn = false;
+  private partyLightSrc?: Phaser.GameObjects.Light;
+  private torchLightSrcs: Phaser.GameObjects.Light[] = [];
+  private auraPulseN = 0;
 
   private allyGroup!: Phaser.Physics.Arcade.Group;
   private monsterGroup!: Phaser.Physics.Arcade.Group;
@@ -223,9 +232,6 @@ export class DungeonScene extends Phaser.Scene {
   private escKey!: Phaser.Input.Keyboard.Key;
   private continueKey!: Phaser.Input.Keyboard.Key;
   private menuKey!: Phaser.Input.Keyboard.Key;
-  private dodgeKey!: Phaser.Input.Keyboard.Key;
-  private abilityKey!: Phaser.Input.Keyboard.Key;
-  private stealKey!: Phaser.Input.Keyboard.Key;
 
   private mmDots?: Phaser.GameObjects.Graphics;
   private mmImage?: Phaser.GameObjects.Image;
@@ -328,6 +334,16 @@ export class DungeonScene extends Phaser.Scene {
     this.cameras.main.setBackgroundColor(this.level.ambientColor ?? 0x05060a);
     this.physics.world.setBounds(0, 0, wPx, hPx);
 
+    // Phaser 4 real-time lighting: dim ambient + warm pools around the party
+    // and torches. Purely presentational — physics/AI never read light state.
+    this.lightingOn = settings.get('enhancedGraphics') && this.game.renderer.type === Phaser.WEBGL;
+    if (this.lightingOn) {
+      const atmoL = ATMOSPHERE[this.level.theme ?? 'crypt'] ?? ATMOSPHERE.crypt;
+      const outdoors = !!this.level.town || !!this.level.overworld || !!this.level.interior;
+      this.lights.enable().setAmbientColor(outdoors ? 0xc6cad6 : 0x767d94);
+      this.partyLightSrc = this.lights.addLight(0, 0, 330, atmoL.lightTint, outdoors ? 0.5 : 1.0);
+    }
+
     this.shadows = new ShadowSystem(this);
     this.allyGroup = this.physics.add.group();
     this.monsterGroup = this.physics.add.group();
@@ -367,6 +383,8 @@ export class DungeonScene extends Phaser.Scene {
       this.applyPartyCarry(carry);
       this.registry.remove('carryParty');
     }
+    // Undying Bulwark (vanguard 5-piece set) needs scene FX when it procs.
+    for (const a of this.allies) a.onUndying = (h) => this.undyingProc(h);
     if (this.level.town && !carry && !save) {
       // fresh campaign: each hero starts with 100 gold + a health & mana potion
       for (const p of this.players) {
@@ -390,27 +408,40 @@ export class DungeonScene extends Phaser.Scene {
     this.game.events.on('viewportresize', this.onViewportResize, this);
     this.events.once('shutdown', () => this.game.events.off('viewportresize', this.onViewportResize, this));
 
-    this.vignette = this.add.image(PLAY_AREA_WIDTH / 2, GAME_HEIGHT / 2, 'fx-vignette').setScrollFactor(0).setDisplaySize(PLAY_AREA_WIDTH, GAME_HEIGHT).setDepth(DEPTH.VIGNETTE);
-
-    // soft light that travels with the party so heroes are always lit; its tint
-    // shifts with the level theme for instant mood.
     const atmo = ATMOSPHERE[this.level.theme ?? 'crypt'] ?? ATMOSPHERE.crypt;
-    this.partyLight = this.add
-      .image(this.cameraTarget.x, this.cameraTarget.y, 'fx-light')
-      .setScale(2.6)
-      .setAlpha(0.3)
-      .setTint(atmo.lightTint)
-      .setBlendMode(Phaser.BlendModes.ADD)
-      .setDepth(DEPTH.VIGNETTE - 1);
-    // themed screen-edge colour grade, layered over the dark vignette
-    this.edgeGrade = this.add
-      .image(PLAY_AREA_WIDTH / 2, GAME_HEIGHT / 2, 'fx-edge')
-      .setScrollFactor(0)
-      .setDisplaySize(PLAY_AREA_WIDTH, GAME_HEIGHT)
-      .setDepth(DEPTH.VIGNETTE + 1)
-      .setTint(atmo.edgeTint)
-      .setBlendMode(Phaser.BlendModes.ADD)
-      .setAlpha(0.55);
+    if (this.lightingOn) {
+      // Enhanced mode: real post-processing instead of stretched overlay PNGs.
+      // Vignette darkens the frame edges; the parallel Threshold→Blur chain
+      // blended additively is the classic bloom recipe (bright pixels glow).
+      const cam = this.cameras.main;
+      cam.filters.internal.addVignette(0.5, 0.5, 0.99, 0.4);
+      const bloom = cam.filters.internal.addParallelFilters();
+      bloom.top.addThreshold(0.52, 0.86);
+      bloom.top.addBlur(2, 2, 2, 1.9);
+      bloom.blend.blendMode = Phaser.BlendModes.ADD;
+      bloom.blend.amount = 0.8;
+    } else {
+      this.vignette = this.add.image(PLAY_AREA_WIDTH / 2, GAME_HEIGHT / 2, 'fx-vignette').setScrollFactor(0).setDisplaySize(PLAY_AREA_WIDTH, GAME_HEIGHT).setDepth(DEPTH.VIGNETTE);
+
+      // soft light that travels with the party so heroes are always lit; its tint
+      // shifts with the level theme for instant mood.
+      this.partyLight = this.add
+        .image(this.cameraTarget.x, this.cameraTarget.y, 'fx-light')
+        .setScale(2.6)
+        .setAlpha(0.3)
+        .setTint(atmo.lightTint)
+        .setBlendMode(Phaser.BlendModes.ADD)
+        .setDepth(DEPTH.VIGNETTE - 1);
+      // themed screen-edge colour grade, layered over the dark vignette
+      this.edgeGrade = this.add
+        .image(PLAY_AREA_WIDTH / 2, GAME_HEIGHT / 2, 'fx-edge')
+        .setScrollFactor(0)
+        .setDisplaySize(PLAY_AREA_WIDTH, GAME_HEIGHT)
+        .setDepth(DEPTH.VIGNETTE + 1)
+        .setTint(atmo.edgeTint)
+        .setBlendMode(Phaser.BlendModes.ADD)
+        .setAlpha(0.55);
+    }
     this.spawnAmbience(this.level.theme ?? 'crypt');
 
     this.input2 = new DungeonInput(this);
@@ -442,9 +473,7 @@ export class DungeonScene extends Phaser.Scene {
     this.escKey = kb.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
     this.continueKey = kb.addKey(Phaser.Input.Keyboard.KeyCodes.C);
     this.menuKey = kb.addKey(Phaser.Input.Keyboard.KeyCodes.M);
-    this.dodgeKey = kb.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
-    this.abilityKey = kb.addKey(Phaser.Input.Keyboard.KeyCodes.F);
-    this.stealKey = kb.addKey(Phaser.Input.Keyboard.KeyCodes.T);
+    // dodge / class ability / steal are rebindable actions now — see KeyBindings
     kb.on('keydown-F2', () => this.toggleSaveLoad());
     // mouse combat: right = attack, double right-click = magic
     this.input.mouse?.disableContextMenu();
@@ -562,6 +591,13 @@ export class DungeonScene extends Phaser.Scene {
     this.nextNetId = 1;
     this.summonTimerGfx = undefined;
     this.hudNextSync = 0;
+    this.vignette = undefined;
+    this.edgeGrade = undefined;
+    this.partyLight = undefined;
+    this.partyLightSrc = undefined;
+    this.torchLightSrcs = [];
+    this.lightingOn = false;
+    this.auraPulseN = 0;
     this.portals = [];
     this.merchants = [];
     this.doors = [];
@@ -734,7 +770,8 @@ export class DungeonScene extends Phaser.Scene {
     const bgKey = 'level-bg';
     if (this.textures.exists(bgKey)) this.textures.remove(bgKey);
     this.textures.addCanvas(bgKey, bgCanvas);
-    this.add.image(0, 0, bgKey).setOrigin(0, 0).setDepth(DEPTH.FLOOR);
+    const bgImg = this.add.image(0, 0, bgKey).setOrigin(0, 0).setDepth(DEPTH.FLOOR);
+    if (this.lightingOn) bgImg.setLighting(true); // floors/walls react to torch + party light
     // Walls/floors are now fully themed via per-theme palettes (THEME_ART), so the
     // old flat multiply-tint is no longer applied — colours come from the bake.
 
@@ -792,6 +829,10 @@ export class DungeonScene extends Phaser.Scene {
               .setTint(atmo.flameTint);
             light.setData('ph', Math.random() * 6.28);
             this.torchLights.push(light);
+            // a real point light per torch (budgeted: the light cap is 24)
+            if (this.lightingOn && this.torchLightSrcs.length < 14) {
+              this.torchLightSrcs.push(this.lights.addLight(c.x, faceBase - 10, 150, atmo.flameTint, 0.85));
+            }
           }
           // pulsing arcane glow centered on the mid-face mural
           if ((x * 3 + y * 7) % 5 === 0 && y % 5 !== 0) {
@@ -1217,8 +1258,8 @@ export class DungeonScene extends Phaser.Scene {
     if (this.input2.globalJustDown('manual')) this.toggleManual();
     if (this.input2.globalJustDown('joinP2')) this.joinPlayer2();
     if (!this.anyOverlayOpen()) {
-      if (Phaser.Input.Keyboard.JustDown(this.stealKey) || this.input2.padJustDown('p1', 'steal')) this.attemptPickpocket(0);
-      if (this.players[1] && this.input2.padJustDown('p2', 'steal')) this.attemptPickpocket(1);
+      if (this.input2.justDown('p1', 'steal') || this.input2.padJustDown('p1', 'steal')) this.attemptPickpocket(0);
+      if (this.players[1] && (this.input2.justDown('p2', 'steal') || this.input2.padJustDown('p2', 'steal'))) this.attemptPickpocket(1);
     }
   }
 
@@ -1302,7 +1343,7 @@ export class DungeonScene extends Phaser.Scene {
       if (this.input2.isDown('p1', 'attack')) p1.tryMelee(time);
       if (this.input2.justDown('p1', 'magic')) p1.tryMagic(time);
       if (this.input2.justDown('p1', 'use')) this.interact(p1);
-      if ((Phaser.Input.Keyboard.JustDown(this.dodgeKey) || this.input2.padJustDown('p1', 'dodge')) && p1.tryDodge(time)) this.spawnDodgeFx(p1);
+      if ((this.input2.justDown('p1', 'dodge') || this.input2.padJustDown('p1', 'dodge')) && p1.tryDodge(time)) this.spawnDodgeFx(p1);
       this.handleAbilityInput(p1, time);
       this.checkLowHealth(p1);
     }
@@ -1316,6 +1357,8 @@ export class DungeonScene extends Phaser.Scene {
       if (this.input2.isDown('p2', 'attack')) p2.tryMelee(time);
       if (this.input2.justDown('p2', 'magic')) p2.tryMagic(time);
       if (this.input2.justDown('p2', 'use')) this.interact(p2);
+      if ((this.input2.justDown('p2', 'dodge') || this.input2.padJustDown('p2', 'dodge')) && p2.tryDodge(time)) this.spawnDodgeFx(p2);
+      this.handleAbilityInputP2(p2, time);
     }
     if (p2) p2.tick(time, delta);
   }
@@ -1602,7 +1645,8 @@ export class DungeonScene extends Phaser.Scene {
     sk.stats.damage = Math.round(sk.stats.damage * lvlMult);
     sk.health = sk.stats.maxHealth;
     // Servants linger longer the mightier the necromancer grows.
-    const dur = 9000 + necro.level * 1800;
+    // Deathlord (necromancer 5-piece): servants linger 60% longer.
+    const dur = Math.round((9000 + necro.level * 1800) * (necro.hasSetPower() ? 1.6 : 1));
     sk.lifeStart = time;
     sk.expireAt = time + dur;
     this.companions.push(sk);
@@ -1620,9 +1664,9 @@ export class DungeonScene extends Phaser.Scene {
   /** Necromancer ability input: tap raises the selected servant; hold opens a
    *  radial to pick Tank / Archer / Mage / Thief, released to raise it. */
   private handleAbilityInput(p1: Hero, time: number): void {
-    const down = Phaser.Input.Keyboard.JustDown(this.abilityKey) || this.input2.padJustDown('p1', 'ability');
-    const held = this.abilityKey.isDown || this.input2.padAbilityDown('p1');
-    const up = Phaser.Input.Keyboard.JustUp(this.abilityKey) || this.input2.padJustUp('p1', 'ability');
+    const down = this.input2.justDown('p1', 'ability') || this.input2.padJustDown('p1', 'ability');
+    const held = this.input2.isDown('p1', 'ability') || this.input2.padAbilityDown('p1');
+    const up = this.input2.justUp('p1', 'ability') || this.input2.padJustUp('p1', 'ability');
     if (p1.classId === 'thief') {
       if (down) this.toggleSneak(p1);
       return;
@@ -1649,6 +1693,18 @@ export class DungeonScene extends Phaser.Scene {
         this.trySummon(p1, time);
       }
       this.abilityDownAt = 0;
+    }
+  }
+
+  /** Player 2's class ability (tap only — the P1 hold-radial stays P1's). */
+  private handleAbilityInputP2(p2: Hero, time: number): void {
+    const down = this.input2.justDown('p2', 'ability') || this.input2.padJustDown('p2', 'ability');
+    if (!down) return;
+    if (p2.classId === 'thief') { this.toggleSneak(p2); return; }
+    if (p2.classId === 'necromancer') { this.trySummon(p2, time); return; }
+    if (p2.canAbility(time)) {
+      this.useAbility(p2, time);
+      p2.markAbilityUsed(time);
     }
   }
 
@@ -2314,7 +2370,8 @@ export class DungeonScene extends Phaser.Scene {
             // Backstab now respects a cooldown that shrinks as Sneak grows; a
             // strike on cooldown still hits, just without the 2.4x bonus.
             const back = ally.classId === 'thief' && time >= ally.backstabReadyAt && this.isBackstab(ally, m);
-            const d = back ? Math.round(dmg * 2.4) : dmg;
+            // Shadowmaster (thief 5-piece): backstabs strike for 3.2x instead of 2.4x
+            const d = back ? Math.round(dmg * (ally.hasSetPower() ? 3.2 : 2.4)) : dmg;
             const died = m.takeDamage(d, time);
             this.floatDamage(m.x, m.y, d, crit || back);
             if (back) {
@@ -2359,11 +2416,14 @@ export class DungeonScene extends Phaser.Scene {
   }
 
   private castMagic(ally: Hero, time: number): void {
-    const radius = 54;
+    // Archmage (arcanist 5-piece): the blast reaches 45% farther and always ignites.
+    const archmage = ally.classId === 'arcanist' && ally.hasSetPower();
+    const radius = archmage ? 78 : 54;
     const dmg = ally.magicDamage();
     const fx = this.add.sprite(ally.x, ally.y, 'fx-magic').setDepth(ally.y + 20).setScale((radius * 2) / 32);
     fx.play('fx-magic');
     fx.once('animationcomplete', () => fx.destroy());
+    this.flashLight(ally.x, ally.y, archmage ? 0xc79bff : 0x9a6bff, radius + 70, 320, 1.2);
     for (const m of this.monsters) {
       if (!m.active || !m.alive) continue;
       if (Phaser.Math.Distance.Between(ally.x, ally.y, m.x, m.y) <= radius) {
@@ -2376,7 +2436,7 @@ export class DungeonScene extends Phaser.Scene {
           const l = Math.hypot(dx, dy) || 1;
           m.knock((dx / l) * 90, (dy / l) * 90, time);
           m.applyStatus('chill', 1800, time); // magic blasts chill
-          if (ally.stats.fire > 0) m.applyStatus('burn', 1400, time);
+          if (ally.stats.fire > 0 || archmage) m.applyStatus('burn', 1400, time);
         }
       }
     }
@@ -2391,6 +2451,15 @@ export class DungeonScene extends Phaser.Scene {
     m.knock(dirX * 150, dirY * 150, time);
     if (attacker.stats.fire > 0) m.applyStatus('burn', 1600, time);
     if (crit) m.applyStatus('shock', 1200, time);
+  }
+
+  /** Bark + golden flare when the Undying Bulwark refuses a killing blow. */
+  private undyingProc(h: Hero): void {
+    audio.sfx('levelup');
+    this.showBark(`${h.def.name}'s Bulwark holds — death itself is refused!`, 3400, 'event', '#ffd24a');
+    this.flashLight(h.x, h.y, 0xffd24a, 200, 750, 1.6);
+    const fx = this.add.image(h.x, h.y - 6, 'fx-glow-warm').setBlendMode(Phaser.BlendModes.ADD).setScale(0.8).setDepth(h.y + 12).setTint(0xffd24a);
+    this.tweens.add({ targets: fx, scale: 2.8, alpha: 0, duration: 640, onComplete: () => fx.destroy() });
   }
 
   /** Weighty melee feedback for the player: screen shake, crit zoom-punch, burst. */
@@ -2690,15 +2759,25 @@ export class DungeonScene extends Phaser.Scene {
     return best;
   }
 
-  /** Mint a themed, graded item and drop it into the world as a pickup. */
+  /** Mint a themed, graded item and drop it into the world as a pickup.
+   *  A slice of successful drops upgrades into a class armor-set piece,
+   *  weighted toward the classes actually in the party. */
   private dropLoot(x: number, y: number, floor?: Grade): void {
+    const luck = this.bestLuck();
+    if (Math.random() < setDropChance(luck)) {
+      const partyClasses = this.players.filter(Boolean).map((p) => p.classId);
+      this.spawnLootPickup(x, y, rollSetDrop(partyClasses));
+      return;
+    }
     const theme = this.level.theme ?? 'crypt';
-    const item = rollDrop(theme, this.bestLuck(), floor ? { floor } : {});
+    const item = rollDrop(theme, luck, floor ? { floor } : {});
     this.spawnLootPickup(x, y, item);
   }
 
   private spawnLootPickup(x: number, y: number, item: ItemDefinition, fromNet = false): void {
-    const color = item.grade ? GRADES[item.grade].color : '#ffe9a8';
+    // class set pieces present in BRIGHT GREEN everywhere (drop beam, float
+    // text, log line) so they read instantly as chase items.
+    const color = item.setId ? SET_COLOR : item.grade ? GRADES[item.grade].color : '#ffe9a8';
     const tint = Phaser.Display.Color.HexStringToColor(color).color;
     const spr = this.add.image(x, y, item.icon).setDepth(y);
     const glow = this.add
@@ -2732,6 +2811,11 @@ export class DungeonScene extends Phaser.Scene {
       beam.destroy();
       halo.destroy();
     });
+    // top-tier drops cast real light in enhanced mode (removed on pickup)
+    if (this.lightingOn && (item.setId || item.grade === 'godforged')) {
+      const lp = this.lights.addLight(x, y, 130, tint, 0.85);
+      spr.once('destroy', () => this.lights.removeLight(lp));
+    }
     // little pop so a fresh drop reads as "new"
     spr.setScale(0);
     this.tweens.add({ targets: spr, scale: 1, duration: 240, ease: 'Back.easeOut', onComplete: () => this.floatBob(spr) });
@@ -2902,9 +2986,26 @@ export class DungeonScene extends Phaser.Scene {
         if (item) {
           collector.inventory.add(item);
           collector.refreshStats();
-          const col = item.grade ? GRADES[item.grade].color : '#ffe9a8';
-          this.showBark(`Picked up ${describeItem(item)}`, 3400, 'loot');
-          this.floatPickup(p.sprite.x, p.sprite.y, item.name, col);
+          if (item.setId) {
+            // class set piece: bright green line + live set progress
+            const set = Object.values(ARMOR_SETS).find((s) => s.id === item.setId);
+            const owned = collector.setPieces;
+            const forMe = set?.classId === collector.classId;
+            this.showBark(`SET PIECE — ${item.name}${set && forMe ? `  (${set.name} ${owned}/5)` : set ? `  (${set.name})` : ''}`, 4200, 'loot', SET_COLOR);
+            this.floatPickup(p.sprite.x, p.sprite.y, item.name, SET_COLOR);
+            if (forMe && owned >= 5 && set) {
+              audio.sfx('levelup');
+              this.showBark(`${set.name} COMPLETE — ${set.powerName} awakens: ${set.powerDesc}`, 6000, 'event', SET_COLOR);
+              this.flashLight(collector.x, collector.y, 0x39ff6a, 210, 900, 1.5);
+              const fx = this.add.sprite(collector.x, collector.y, 'fx-levelup').setDepth(collector.y + 10).setTint(0x8affa0);
+              fx.play('fx-levelup');
+              fx.once('animationcomplete', () => fx.destroy());
+            }
+          } else {
+            const col = item.grade ? GRADES[item.grade].color : '#ffe9a8';
+            this.showBark(`Picked up ${describeItem(item)}`, 3400, 'loot');
+            this.floatPickup(p.sprite.x, p.sprite.y, item.name, col);
+          }
         }
         audio.sfx('chest');
       } else if (p.kind === 'key') {
@@ -3109,6 +3210,7 @@ export class DungeonScene extends Phaser.Scene {
       let g = this.netGhosts.get(peer.id);
       if (!g) {
         const spr = this.add.sprite(0, 0, `hero-${peer.classId}-sheet`).setAlpha(peer.npc ? 0.78 : 0.55).setScale(settings.spriteScale());
+        if (this.lightingOn) spr.setLighting(true);
         if (peer.npc) spr.setTint(0x9affc0); // AI NPCs read green; real players stay natural
         try { spr.play(`${peer.classId}-idle-down`); } catch { /* texture may be absent */ }
         const tag = this.add
@@ -3182,6 +3284,7 @@ export class DungeonScene extends Phaser.Scene {
       if (!ce) {
         const scale = (ENEMIES[e.enemyId as EnemyId]?.scale ?? 1) * 0.56 * settings.spriteScale();
         const spr = this.add.sprite(e.x, e.y, `monster-${e.enemyId}-sheet`).setScale(scale);
+        if (this.lightingOn) spr.setLighting(true);
         try { spr.play(`${e.enemyId}-walk`); } catch { /* no walk anim for this sheet */ }
         ce = { spr, bar: this.add.graphics() };
         this.coopEnemies.set(e.netId, ce);
@@ -3647,10 +3750,15 @@ export class DungeonScene extends Phaser.Scene {
       }
     }
     if (time >= this.auraHealAt) {
-      this.auraHealAt = time + WARDEN_HEAL_INTERVAL;
+      // Pulse at HALF the base interval: normal wardens act every other pulse,
+      // Lifewarden (5-piece) wardens act every pulse and mend 60% more.
+      this.auraHealAt = time + WARDEN_HEAL_INTERVAL / 2;
+      this.auraPulseN++;
       for (const src of this.allies) {
         if (!src.alive || src.classId !== 'warden') continue;
-        const heal = 4 + src.level + Math.round(src.stats.regen * 2);
+        const lifewarden = src.hasSetPower();
+        if (!lifewarden && this.auraPulseN % 2 !== 0) continue;
+        const heal = Math.round((4 + src.level + Math.round(src.stats.regen * 2)) * (lifewarden ? 1.6 : 1));
         for (const tgt of this.allies) {
           if (!tgt.alive || tgt.health >= tgt.stats.maxHealth) continue;
           const dx = src.x - tgt.x;
@@ -3884,6 +3992,27 @@ export class DungeonScene extends Phaser.Scene {
       this.partyLight.setPosition(this.cameraTarget.x, this.cameraTarget.y);
       this.partyLight.setAlpha(0.28 + Math.sin(time * 0.006) * 0.05);
     }
+    if (this.lightingOn) {
+      // flicker the real torch lights + carry the party light with the camera target
+      for (let i = 0; i < this.torchLightSrcs.length; i++) {
+        const s = this.torchLightSrcs[i];
+        s.intensity = Phaser.Math.Clamp(0.78 + Math.sin(time * 0.009 + i * 1.7) * 0.14 + (Math.random() - 0.5) * 0.05, 0.5, 1.05);
+      }
+      this.partyLightSrc?.setPosition(this.cameraTarget.x, this.cameraTarget.y);
+    }
+  }
+
+  /** Brief point light for impacts/casts/procs (enhanced mode only). */
+  private flashLight(x: number, y: number, color: number, radius = 130, dur = 280, intensity = 1.1): void {
+    if (!this.lightingOn) return;
+    const l = this.lights.addLight(x, y, radius, color, intensity);
+    this.tweens.addCounter({
+      from: intensity,
+      to: 0,
+      duration: dur,
+      onUpdate: (tw) => { l.intensity = tw.getValue() ?? 0; },
+      onComplete: () => this.lights.removeLight(l),
+    });
   }
 
   private updateCamera(): void {
@@ -3901,16 +4030,17 @@ export class DungeonScene extends Phaser.Scene {
 
   private showBark(text: string, holdMs = 3400, kind: LogEntry['kind'] = 'event', color = '#ffe9a8'): void {
     if (!text) return;
-    this.pushLog(text, kind);
+    // set-piece green (and any explicit non-default colour) carries into the log line
+    this.pushLog(text, kind, color !== '#ffe9a8' ? color : undefined);
     if (!this.barkText) return;
     this.barkText.setText(text).setAlpha(1).setColor(color);
     this.tweens.killTweensOf(this.barkText);
     this.tweens.add({ targets: this.barkText, alpha: 0, delay: Math.min(holdMs, 2600), duration: 700 });
   }
 
-  private pushLog(text: string, kind: LogEntry['kind'] = 'event'): void {
+  private pushLog(text: string, kind: LogEntry['kind'] = 'event', color?: string): void {
     if (!text) return;
-    this.logEntries.push({ text, kind });
+    this.logEntries.push(color ? { text, kind, color } : { text, kind });
     if (this.logEntries.length > DungeonScene.LOG_CAP) {
       this.logEntries.splice(0, this.logEntries.length - DungeonScene.LOG_CAP);
     }

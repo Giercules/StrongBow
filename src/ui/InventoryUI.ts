@@ -9,6 +9,13 @@ import { audio } from '../systems/AudioSystem';
 import type { Hero } from '../entities/Hero';
 import type { ItemDefinition, EquipSlot } from '../core/types';
 import { EQUIP_SLOTS, EQUIP_SLOT_LABEL } from '../core/equipment';
+import { SET_COLOR } from '../data/setItems';
+
+/** One display row in the backpack: consumables stack into a single row. */
+interface BagRow {
+  item: ItemDefinition;
+  count: number;
+}
 
 const PANEL_W = 480;
 const PANEL_H = 430;
@@ -85,14 +92,36 @@ export class InventoryUI {
       const cons = h.inventory.firstConsumable('health') ?? h.inventory.firstConsumable('mana');
       if (cons) this.useItem(cons);
     } else if (e.key >= '1' && e.key <= '9') {
-      const item = h.inventory.bag[this.bagPage * BAG_PER_PAGE + Number(e.key) - 1];
-      if (item) this.useItem(item);
+      const row = this.bagRows()[this.bagPage * BAG_PER_PAGE + Number(e.key) - 1];
+      if (row) this.useItem(row.item);
     }
+  }
+
+  /** Bag entries with identical consumables (potions/scrolls) stacked as xN.
+   *  Gear never stacks — every piece can roll differently. */
+  private bagRows(): BagRow[] {
+    const rows: BagRow[] = [];
+    const stacks = new Map<string, BagRow>();
+    for (const it of this.hero?.inventory.bag ?? []) {
+      if (it.slot === 'consumable') {
+        const st = stacks.get(it.id);
+        if (st) {
+          st.count++;
+          continue;
+        }
+        const row = { item: it, count: 1 };
+        stacks.set(it.id, row);
+        rows.push(row);
+      } else {
+        rows.push({ item: it, count: 1 });
+      }
+    }
+    return rows;
   }
 
   private changePage(d: number): void {
     if (!this.hero) return;
-    const pageCount = Math.max(1, Math.ceil(this.hero.inventory.bag.length / BAG_PER_PAGE));
+    const pageCount = Math.max(1, Math.ceil(this.bagRows().length / BAG_PER_PAGE));
     this.bagPage = Phaser.Math.Wrap(this.bagPage + d, 0, pageCount);
     audio.sfx('ui_move');
     this.rebuild();
@@ -134,7 +163,7 @@ export class InventoryUI {
       if (item) {
         addPinned(this.content!, this.scene.add.image(leftX + 50, yy + 2, item.icon).setScale(0.9).setOrigin(0, 0));
         const nm = item.name.length > 19 ? item.name.slice(0, 18) + '…' : item.name;
-        this.label(leftX + 70, yy + 5, nm, numHex(RARITY_COLOR[item.rarity]), 9.5, true);
+        this.label(leftX + 70, yy + 5, nm, item.setId ? SET_COLOR : numHex(RARITY_COLOR[item.rarity]), 9.5, true);
         const ez = this.scene.add.zone(leftX, yy, 200, 19).setOrigin(0, 0).setInteractive({ useHandCursor: true });
         ez.on('pointerover', () => this.tip.show(item, leftX + 200, yy, 'right'));
         ez.on('pointerout', () => this.tip.hide());
@@ -155,19 +184,23 @@ export class InventoryUI {
     this.label(leftX, y0 + PANEL_H - 28, `Gold ${hero.inventory.gold}   Keys ${hero.inventory.keys}   Score ${hero.score}`, C.coinHi, 11, true);
 
     const bag = hero.inventory.bag;
-    const pageCount = Math.max(1, Math.ceil(bag.length / BAG_PER_PAGE));
+    const rows = this.bagRows();
+    const pageCount = Math.max(1, Math.ceil(rows.length / BAG_PER_PAGE));
     if (this.bagPage >= pageCount) this.bagPage = pageCount - 1;
     const start = this.bagPage * BAG_PER_PAGE;
-    const pageItems = bag.slice(start, start + BAG_PER_PAGE);
+    const pageRows = rows.slice(start, start + BAG_PER_PAGE);
 
     this.label(rightX, y0 + 38, `BACKPACK (${bag.length})  1-9 equip/use`, C.hudBorder, 11, true);
     this.label(rightX, y0 + 53, `C drink   S sort   <-/-> page ${this.bagPage + 1}/${pageCount}`, C.inkDim, 9);
-    if (bag.length === 0) this.label(rightX, y0 + 76, 'Empty - loot chests and the dead.', C.inkDim, 10);
-    pageItems.forEach((item, i) => {
+    if (rows.length === 0) this.label(rightX, y0 + 76, 'Empty - loot chests and the dead.', C.inkDim, 10);
+    pageRows.forEach((row, i) => {
+      const item = row.item;
       const gy = y0 + 74 + i * 22;
       this.label(rightX, gy, `${i + 1}`, C.coinHi, 10, true);
       this.icon(rightX + 16, gy, item.icon);
-      this.label(rightX + 36, gy + 1, item.name, numHex(RARITY_COLOR[item.rarity]), 10, false);
+      const nameCol = item.setId ? SET_COLOR : numHex(RARITY_COLOR[item.rarity]);
+      const t = this.label(rightX + 36, gy + 1, item.name, nameCol, 10, false);
+      if (row.count > 1) this.label(rightX + 38 + t.width, gy + 1, `x${row.count}`, C.coinHi, 10, true);
       const zone = this.scene.add.zone(rightX, gy, PANEL_W / 2 - 40, 20).setOrigin(0, 0).setInteractive({ useHandCursor: true });
       zone.on('pointerdown', () => this.useItem(item));
       zone.on('pointerover', () => this.tip.show(item, rightX, gy, 'left'));

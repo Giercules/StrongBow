@@ -149,6 +149,9 @@ export interface ItemDefinition {
   baseId?: string;
   /** Theme this item is themed to (minted gear only). */
   theme?: ThemeId;
+  /** Class armor-set membership (e.g. 'set_thief'). Set pieces are Godforged-
+   *  tier and grant tiered bonuses at 2/4/5 equipped pieces. */
+  setId?: string;
 }
 
 export interface SkillDef {
@@ -340,6 +343,9 @@ export interface GameSettingsData {
   zoom: number;
   spriteScale: number;
   showMinimap: boolean;
+  /** Phaser 4 renderer upgrades: real-time lights, bloom/vignette filters,
+   *  smooth pixel-art scaling. Applies on next descent (scene restart). */
+  enhancedGraphics: boolean;
   musicTrack: string;
   companionAI: CompanionAISettings;
   bindings: import('./KeyBindings').GameBindings;
@@ -349,6 +355,8 @@ export interface GameSettingsData {
 export interface LogEntry {
   text: string;
   kind: 'event' | 'grok' | 'system' | 'combat' | 'loot';
+  /** Optional per-line colour override (e.g. bright green for set pieces). */
+  color?: string;
 }
 
 export interface LogRegistryData {

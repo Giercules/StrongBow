@@ -33,6 +33,9 @@ const PAD_LABEL: Record<PlayerAction, string> = {
   attack: 'A',
   magic: 'X',
   use: 'B',
+  dodge: 'Y',
+  ability: 'RB',
+  steal: 'RT',
   inventory: 'LB',
   sheet: '—',
   growth: '—',
@@ -144,6 +147,13 @@ export class DungeonInput {
     if (k && Phaser.Input.Keyboard.JustDown(k)) return true;
     const pn = PAD_FOR_ACTION[action];
     return !!pn && this.padEdge(player, pn);
+  }
+
+  /** Falling-edge (released this frame) for a rebindable action's key. */
+  justUp(player: 'p1' | 'p2', action: PlayerAction): boolean {
+    if (this.capturing) return false;
+    const k = this.key(settings.bindings[player][action]);
+    return !!k && Phaser.Input.Keyboard.JustUp(k);
   }
 
   /** Edge-triggered non-rebindable combat actions (dodge / class ability / steal). */
