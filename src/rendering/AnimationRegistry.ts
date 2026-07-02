@@ -73,6 +73,10 @@ export class AnimationRegistry {
       add(scene, `${id}-attack`, sheet, [3], 1, 0);
     }
 
+    // the Druid's bear form (monster-style clip pair)
+    add(scene, 'druid_bear-walk', 'druid-bear-sheet', [0, 1, 2, 1], 6, -1);
+    add(scene, 'druid_bear-attack', 'druid-bear-sheet', [3], 1, 0);
+
     // ---- animated tiles ----
     add(scene, 'water', 'water-sheet', [0, 1, 2, 3], 4, -1);
     add(scene, 'lava', 'lava-sheet', [0, 1, 2, 3], 6, -1);

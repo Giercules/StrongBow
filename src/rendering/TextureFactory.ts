@@ -260,6 +260,9 @@ export class TextureFactory {
     img('fx-vignette', 740, 540, (c) => art.drawVignette(c, 740, 540));
     img('fx-edge', 740, 540, (c) => art.drawEdgeTint(c, 740, 540));
 
+    // the Druid's bear form: a monster-style 4-frame sheet (walk 0-2, attack 3)
+    sheet('druid-bear-sheet', MON_FW, MON_FH, 4, (c, ox, f) => art.drawDruidBear(c, ox, f), true);
+
     // ---- heroes (outlined) ----
     for (const cls of ['vanguard', 'thief', 'arcanist', 'warden', 'necromancer', 'bard', 'druid']) {
       if (provided.has(`hero-${cls}-sheet`)) continue;

@@ -4,8 +4,8 @@
     {
       "name": "strongbow",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev:client"],
-      "port": 5173
+      "runtimeArgs": ["run", "dev:client", "--", "--port", "5199", "--strictPort"],
+      "port": 5199
     }
   ]
 }

@@ -409,12 +409,10 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
     const frac = this.healthRatio();
     this.bearForm = !this.bearForm;
     if (this.bearForm) {
-      this.skin = { walk: 'brute-walk', attack: 'brute-attack' };
-      this.setTexture('monster-brute-sheet', 0);
-      this.setTint(0x9db06a); // mossy pelt
+      this.skin = { walk: 'druid_bear-walk', attack: 'druid_bear-attack' };
+      this.setTexture('druid-bear-sheet', 0);
     } else {
       this.skin = undefined;
-      this.clearTint();
       this.setTexture('hero-druid-sheet', 0);
     }
     this.recompute();

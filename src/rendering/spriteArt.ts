@@ -2268,6 +2268,129 @@ export function drawHumanoid(
 }
 
 // ============================================================================
+// DRUID BEAR FORM — a proper quadruped bear (side profile, mirrored by flipX),
+// with mossy druid-green markings so it still reads as a shapeshifted hero.
+// Frames: 0-2 walk (legs scissor), 3 attack (rearing swipe).
+// ============================================================================
+export function drawDruidBear(ctx: Ctx, ox: number, frame: number): void {
+  const furDk = '#33220f';
+  const fur = '#57391c';
+  const furHi = '#7c5830';
+  const muzzle = '#a8845a';
+  const claw = '#e8e2cc';
+  const moss = '#6ab04a';
+  const mossDk = '#3f7a34';
+  const eye = '#8aff6a';
+  const bob = [0, -1, 0, -1][frame % 4];
+  const rear = frame === 3; // attack: rear up on the hind legs and swipe
+  // rounded mass: a rect with its corner pixels knocked off
+  const blob = (x: number, y: number, w: number, h: number, c: string): void => {
+    R(ctx, ox + x + 1, y, w - 2, h, c);
+    R(ctx, ox + x, y + 1, w, h - 2, c);
+  };
+
+  if (!rear) {
+    // ---- ambling quadruped: arched back, shoulder hump, low-slung head ----
+    const by = 18 + bob; // top of the back at the rump
+    // short thick legs first (the body overlaps their tops); walking scissors them
+    const step = frame === 1 ? 2 : frame === 2 ? -2 : 0;
+    const legs: [number, number][] = [
+      [8 + step, 30], // hind pair
+      [15 - step, 31],
+      [26 + step, 31], // fore pair
+      [33 - step, 30],
+    ];
+    for (const [lx, ly] of legs) {
+      blob(lx, ly, 6, 11, fur);
+      R(ctx, ox + lx, ly + 1, 1, 9, furHi);
+      R(ctx, ox + lx + 5, ly + 1, 1, 9, furDk);
+      R(ctx, ox + lx, ly + 9, 6, 2, furDk); // paw
+      PX(ctx, ox + lx + 5, ly + 10, claw);
+      PX(ctx, ox + lx + 6, ly + 10, claw);
+    }
+    // body built back-to-front so the silhouette arcs: round rump, rising
+    // spine, and a big hump over the forelegs
+    blob(5, by + 2, 14, 14, fur); // rump (round)
+    blob(8, by, 20, 15, fur); // mid-back
+    blob(18, by - 4, 15, 18, fur); // shoulder mass + hump
+    R(ctx, ox + 20, by - 5, 10, 3, fur); // hump crest
+    // shading: sunlit spine, deep belly
+    R(ctx, ox + 8, by + 1, 12, 2, furHi);
+    R(ctx, ox + 19, by - 3, 10, 2, furHi);
+    R(ctx, ox + 21, by - 5, 7, 1, furHi);
+    R(ctx, ox + 7, by + 13, 26, 3, furDk); // belly shadow
+    R(ctx, ox + 6, by + 4, 2, 8, furHi); // rump rim light
+    PX(ctx, ox + 4, by + 6, fur); // stub tail
+    PX(ctx, ox + 4, by + 7, furHi);
+    // head hangs forward and LOW off the hump — the classic bear amble
+    blob(31, by + 1, 10, 9, fur); // skull
+    R(ctx, ox + 32, by + 1, 8, 1, furHi); // brow light
+    R(ctx, ox + 33, by - 2, 4, 4, fur); // round ear atop the skull
+    PX(ctx, ox + 34, by - 1, furDk); // ear pit
+    // tapered two-step snout dipping toward the ground
+    R(ctx, ox + 39, by + 5, 4, 4, muzzle);
+    R(ctx, ox + 41, by + 7, 3, 3, muzzle);
+    PX(ctx, ox + 43, by + 8, furDk); // nose at the tip
+    R(ctx, ox + 39, by + 9, 3, 1, furDk); // jaw line
+    R(ctx, ox + 36, by + 4, 2, 2, eye); // soul-green druid eye
+    PX(ctx, ox + 36, by + 4, '#eaffd0');
+    // mossy druid markings along the spine + a sprouting sprig on the hump
+    PX(ctx, ox + 11, by + 2, moss);
+    PX(ctx, ox + 16, by, mossDk);
+    PX(ctx, ox + 23, by - 4, moss);
+    PX(ctx, ox + 27, by - 3, mossDk);
+    PX(ctx, ox + 24, by - 7, moss); // sprig leaf
+    PX(ctx, ox + 25, by - 8, '#b6ff8a');
+  } else {
+    // ---- rearing swipe: upright on hind legs, forepaw raking forward ----
+    const by = 5;
+    // hind legs planted wide
+    for (const lx of [11, 21] as number[]) {
+      blob(lx, 32, 7, 10, fur);
+      R(ctx, ox + lx, 33, 1, 8, furHi);
+      R(ctx, ox + lx, 41, 7, 2, furDk);
+      PX(ctx, ox + lx + 6, 42, claw);
+      PX(ctx, ox + lx + 7, 42, claw);
+    }
+    // upright torso: broad round shoulders narrowing to the hips
+    blob(9, by + 8, 20, 26, fur);
+    blob(12, by + 5, 17, 8, fur); // shoulder mass
+    R(ctx, ox + 9, by + 10, 3, 22, furHi); // back light
+    R(ctx, ox + 25, by + 12, 4, 20, furDk); // chest shade
+    blob(21, by + 14, 6, 12, muzzle); // pale chest blaze
+    // head thrown back, jaws open mid-roar
+    blob(19, by, 11, 10, fur);
+    R(ctx, ox + 21, by, 8, 1, furHi);
+    R(ctx, ox + 18, by - 3, 4, 4, fur); // round ear
+    PX(ctx, ox + 19, by - 2, furDk);
+    R(ctx, ox + 28, by + 3, 6, 3, muzzle); // upper jaw
+    R(ctx, ox + 30, by + 7, 5, 2, muzzle); // lower jaw (open)
+    R(ctx, ox + 29, by + 6, 5, 1, '#5a1208'); // maw
+    PX(ctx, ox + 33, by + 3, furDk); // nose
+    PX(ctx, ox + 29, by + 6, claw); // fangs
+    PX(ctx, ox + 32, by + 6, claw);
+    R(ctx, ox + 25, by + 2, 2, 2, eye);
+    PX(ctx, ox + 25, by + 2, '#eaffd0');
+    // raking forepaw swung high, claws splayed
+    blob(27, by + 10, 11, 6, fur);
+    R(ctx, ox + 28, by + 10, 9, 1, furHi);
+    blob(36, by + 9, 5, 8, fur); // paw
+    for (let i = 0; i < 3; i++) {
+      R(ctx, ox + 40, by + 10 + i * 2, 3, 1, claw); // splayed claws
+    }
+    // the other forepaw tucked low across the belly
+    blob(23, by + 24, 9, 5, fur);
+    R(ctx, ox + 30, by + 26, 3, 3, furDk);
+    // moss + sprig
+    PX(ctx, ox + 12, by + 12, moss);
+    PX(ctx, ox + 11, by + 18, mossDk);
+    PX(ctx, ox + 13, by + 24, moss);
+    PX(ctx, ox + 15, by - 2, moss);
+    PX(ctx, ox + 16, by - 3, '#b6ff8a');
+  }
+}
+
+// ============================================================================
 // MONSTERS
 // ============================================================================
 export function drawGrunt(ctx: Ctx, ox: number, frame: number, r: MonsterRamp): void {
