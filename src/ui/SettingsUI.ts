@@ -137,7 +137,17 @@ export class SettingsUI {
   }
 
   private activate(): void {
-    if (this.focus === 0) return;
+    if (this.focus === 0) {
+      // A on the tab bar steps INTO the tab's first option — a silent no-op
+      // here made controllers feel like they had no select button at all.
+      if (this.rowCount() > 0) {
+        this.focus = 1;
+        if (this.tab === 'controls') this.cSel = 0;
+        audio.sfx('ui_move');
+        this.rebuild();
+      }
+      return;
+    }
     if (this.tab === 'controls') {
       this.cSel = Math.max(0, this.focus - 1);
       this.beginCapture();
@@ -168,8 +178,23 @@ export class SettingsUI {
       case 13: this.navY(1); break; // dpad down
       case 14: this.navX(-1); break; // dpad left
       case 15: this.navX(1); break; // dpad right
-      case 0: this.activate(); break; // A
-      case 1: this.close(); break; // B
+      case 0: // A — select/adjust
+      case 2: // X — alternate select (Nintendo-position pads report A as 1)
+        this.activate();
+        break;
+      case 1: this.back(); break; // B — back out one level, then close
+    }
+  }
+
+  /** B backs out of the rows to the tab bar first; a second press closes.
+   *  (Closing outright from a row made pads with swapped A/B feel broken.) */
+  private back(): void {
+    if (this.focus > 0) {
+      this.focus = 0;
+      audio.sfx('ui_move');
+      this.rebuild();
+    } else {
+      this.close();
     }
   }
 
@@ -282,7 +307,7 @@ export class SettingsUI {
 
     this.drawFocus(x0, y0, tabW);
 
-    this.text(this.modal!.cx, y0 + PANEL_H - 18, 'Arrows/D-Pad move - Enter/A adjust - Esc/B close', C.inkDim, 11, 0.5).setX(this.modal!.cx);
+    this.text(this.modal!.cx, y0 + PANEL_H - 18, 'Arrows/D-Pad move - Enter/A/X select+adjust - B back - Esc close', C.inkDim, 11, 0.5).setX(this.modal!.cx);
   }
 
   /** Outline the focused element (tab bar at focus 0, else the focused row). */
