@@ -46,6 +46,7 @@ import { THEME_BASES } from '../data/themedItems';
 import { describeItem } from '../data/pickupInfo';
 import { Hero } from '../entities/Hero';
 import { Companion } from '../entities/Companion';
+import { LanternWisp } from '../entities/LanternWisp';
 import { Monster } from '../entities/Monster';
 import { Generator } from '../entities/Generator';
 import { ShadowSystem } from '../systems/ShadowSystem';
@@ -211,6 +212,19 @@ export class DungeonScene extends Phaser.Scene {
   private torchLightSrcs: Phaser.GameObjects.Light[] = [];
   private auraPulseN = 0;
 
+  // ---- Arcanist familiar: the Lantern Wisp (scout + light, never fights) ----
+  private wisp?: LanternWisp;
+  private wispScoutUntil = 0;
+  private wispNextScout = 0;
+  private wispNextBark = 0;
+  private static readonly WISP_LINES = [
+    'The wisp bobs toward a fading seal in the dark.',
+    'Your familiar flares — old lantern-light remembering itself.',
+    'The wisp whispers of the hungering dark below.',
+    'A cold blue glow steadies at your shoulder.',
+    'The wisp shivers; something stirs beyond the torchlight.',
+  ];
+
   private allyGroup!: Phaser.Physics.Arcade.Group;
   private monsterGroup!: Phaser.Physics.Arcade.Group;
 
@@ -340,8 +354,9 @@ export class DungeonScene extends Phaser.Scene {
     if (this.lightingOn) {
       const atmoL = ATMOSPHERE[this.level.theme ?? 'crypt'] ?? ATMOSPHERE.crypt;
       const outdoors = !!this.level.town || !!this.level.overworld || !!this.level.interior;
-      this.lights.enable().setAmbientColor(outdoors ? 0xc6cad6 : 0x767d94);
-      this.partyLightSrc = this.lights.addLight(0, 0, 330, atmoL.lightTint, outdoors ? 0.5 : 1.0);
+      // Bright, readable base — the lights add warmth and depth, never murk.
+      this.lights.enable().setAmbientColor(outdoors ? 0xe2e5ee : 0xaab0c4);
+      this.partyLightSrc = this.lights.addLight(0, 0, 400, atmoL.lightTint, outdoors ? 0.45 : 0.9);
     }
 
     this.shadows = new ShadowSystem(this);
@@ -385,6 +400,7 @@ export class DungeonScene extends Phaser.Scene {
     }
     // Undying Bulwark (vanguard 5-piece set) needs scene FX when it procs.
     for (const a of this.allies) a.onUndying = (h) => this.undyingProc(h);
+    this.spawnFamiliar();
     if (this.level.town && !carry && !save) {
       // fresh campaign: each hero starts with 100 gold + a health & mana potion
       for (const p of this.players) {
@@ -414,7 +430,7 @@ export class DungeonScene extends Phaser.Scene {
       // Vignette darkens the frame edges; the parallel Threshold→Blur chain
       // blended additively is the classic bloom recipe (bright pixels glow).
       const cam = this.cameras.main;
-      cam.filters.internal.addVignette(0.5, 0.5, 0.99, 0.4);
+      cam.filters.internal.addVignette(0.5, 0.5, 1.0, 0.26);
       const bloom = cam.filters.internal.addParallelFilters();
       bloom.top.addThreshold(0.52, 0.86);
       bloom.top.addBlur(2, 2, 2, 1.9);
@@ -598,6 +614,10 @@ export class DungeonScene extends Phaser.Scene {
     this.torchLightSrcs = [];
     this.lightingOn = false;
     this.auraPulseN = 0;
+    this.wisp = undefined;
+    this.wispScoutUntil = 0;
+    this.wispNextScout = 0;
+    this.wispNextBark = 0;
     this.portals = [];
     this.merchants = [];
     this.doors = [];
@@ -831,7 +851,7 @@ export class DungeonScene extends Phaser.Scene {
             this.torchLights.push(light);
             // a real point light per torch (budgeted: the light cap is 24)
             if (this.lightingOn && this.torchLightSrcs.length < 14) {
-              this.torchLightSrcs.push(this.lights.addLight(c.x, faceBase - 10, 150, atmo.flameTint, 0.85));
+              this.torchLightSrcs.push(this.lights.addLight(c.x, faceBase - 10, 175, atmo.flameTint, 1.0));
             }
           }
           // pulsing arcane glow centered on the mid-face mural
@@ -1192,6 +1212,7 @@ export class DungeonScene extends Phaser.Scene {
 
     this.shadows.update();
     this.updateLighting(time);
+    if (this.wisp) this.updateFamiliar(time);
     this.updateCamera();
     this.updateMinimap();
     // ~11 Hz is plenty for HP bars + the m:ss timer, and skips rebuilding the
@@ -1468,6 +1489,71 @@ export class DungeonScene extends Phaser.Scene {
     }
   }
 
+  /** The living Arcanist the familiar should shadow (player first), if any. */
+  private familiarOwner(): Hero | null {
+    return this.players.find((p) => p?.alive && p.classId === 'arcanist')
+      ?? this.allies.find((a) => a.alive && a.classId === 'arcanist')
+      ?? null;
+  }
+
+  /** Give the Arcanist their always-on Lantern Wisp familiar. */
+  private spawnFamiliar(): void {
+    const owner = this.familiarOwner();
+    if (!owner) return;
+    this.wisp = new LanternWisp(this, owner.x + 18, owner.y - 22, this.lightingOn, DEPTH.BARK - 5);
+    this.wispNextBark = this.time.now + 8000;
+    this.wispNextScout = this.time.now + 3000;
+  }
+
+  /** Familiar behaviour: hover at the mage's shoulder, dart out to reveal a
+   *  nearby unfound altar now and then, light the dark, and murmur lore. */
+  private updateFamiliar(time: number): void {
+    const w = this.wisp;
+    if (!w) return;
+    const owner = this.familiarOwner();
+    if (!owner) { w.destroy(); this.wisp = undefined; return; }
+
+    // scout: every so often, if an unrevealed altar is within range, dart to it
+    if (!this.level.town && time >= this.wispNextScout && time >= this.wispScoutUntil) {
+      let best: Generator | null = null;
+      let bd = 300;
+      for (const g of this.generators) {
+        if (!g.alive || this.foundGens.has(g)) continue;
+        const d = Phaser.Math.Distance.Between(owner.x, owner.y, g.x, g.y);
+        if (d < bd) { bd = d; best = g; }
+      }
+      if (best) {
+        w.seek(best.x, best.y);
+        this.wispScoutUntil = time + 2600; // give it time to fly out and reveal
+        this.wispNextScout = time + 9000;
+        if (time >= this.wispNextBark) {
+          this.wispNextBark = time + 15000;
+          this.showBark(DungeonScene.WISP_LINES[0], 2600, 'system', '#9fd0ff');
+        }
+      } else {
+        this.wispNextScout = time + 2500;
+      }
+    }
+    // hover home once a scout dart has expired
+    if (time >= this.wispScoutUntil) {
+      w.seek(owner.x + (owner.facing === 'left' ? 18 : -18), owner.y - 24);
+    }
+    w.update(time, this.game.loop.delta);
+
+    // reveal altars the wisp floats near (same sight rule as the party)
+    for (const g of this.generators) {
+      if (g.alive && !this.foundGens.has(g) && Phaser.Math.Distance.Between(w.x, w.y, g.x, g.y) <= 120) {
+        this.foundGens.add(g);
+      }
+    }
+    // idle lore murmurs
+    if (time >= this.wispNextBark && Math.random() < 0.004) {
+      this.wispNextBark = time + 22000;
+      const line = DungeonScene.WISP_LINES[Phaser.Math.Between(1, DungeonScene.WISP_LINES.length - 1)];
+      this.showBark(line, 2600, 'system', '#9fd0ff');
+    }
+  }
+
   /** Blink a companion to the party leader with a small puff of magic. */
   private teleportCompanion(comp: Companion, leader: Hero): void {
     let tx = leader.x + Phaser.Math.Between(-18, 18);
@@ -1645,10 +1731,10 @@ export class DungeonScene extends Phaser.Scene {
     sk.stats.damage = Math.round(sk.stats.damage * lvlMult);
     sk.health = sk.stats.maxHealth;
     // Servants linger longer the mightier the necromancer grows.
-    // Deathlord (necromancer 5-piece): servants linger 60% longer.
-    const dur = Math.round((9000 + necro.level * 1800) * (necro.hasSetPower() ? 1.6 : 1));
+    // Servants are permanent: they fight until slain, and are released when
+    // the party leaves the level (portal, teleport, or exit).
     sk.lifeStart = time;
-    sk.expireAt = time + dur;
+    sk.expireAt = 0;
     this.companions.push(sk);
     this.allies.push(sk);
     this.summons.push(sk);
@@ -1658,7 +1744,7 @@ export class DungeonScene extends Phaser.Scene {
     fx.play('fx-magic');
     fx.once('animationcomplete', () => fx.destroy());
     audio.sfx('magic');
-    if (!quiet) this.showBark(`${necro.def.name} raises a ${info.name}! (${Math.round(dur / 1000)}s)`, 2600, 'event');
+    if (!quiet) this.showBark(`${necro.def.name} raises a ${info.name}!`, 2600, 'event');
   }
 
   /** Necromancer ability input: tap raises the selected servant; hold opens a
@@ -1708,14 +1794,11 @@ export class DungeonScene extends Phaser.Scene {
     }
   }
 
-  private trySummon(necro: Hero, time: number): void {
-    if (!necro.canAbility(time)) {
-      this.showBark('Your magic must gather again before you raise more dead.', 1800, 'system');
-      return;
-    }
+  private trySummon(necro: Hero, _time: number): void {
+    // Summoning is MANA-gated, not cooldown-gated: with enough mana you can
+    // raise several servants back-to-back (20 mana per skeleton, 30 per beast).
     if (this.selectedSkeleton === 'beast') this.summonMonster(necro);
     else this.summonSkeleton(necro, false, this.selectedSkeleton);
-    necro.markAbilityUsed(time);
   }
 
   /** High-level necromancy: bind a random bestiary monster as a (temporary) ally. */
@@ -1743,7 +1826,7 @@ export class DungeonScene extends Phaser.Scene {
     sk.stats.damage = def.damage;
     sk.stats.speed = def.speed;
     sk.lifeStart = time;
-    sk.expireAt = time + 9000 + necro.level * 1800;
+    sk.expireAt = 0; // bound beasts also serve until slain or the level is left
     this.companions.push(sk);
     this.allies.push(sk);
     this.summons.push(sk);
@@ -3409,7 +3492,7 @@ export class DungeonScene extends Phaser.Scene {
     this.won = true; // lock input during the transition
     audio.sfx('portal');
     this.showBark(`Descending into ${label}...`, 3000);
-    this.registry.set('carryParty', this.allies.map((a) => this.allyToSave(a)));
+    this.registry.set('carryParty', this.carryList());
     this.registry.set('levelId', realmId);
     this.registry.set('twoPlayer', this.twoPlayer);
     this.registry.set('fromTown', true);
@@ -3749,6 +3832,10 @@ export class DungeonScene extends Phaser.Scene {
         else if (src.classId === 'arcanist') tgt.auraDamageMult = Math.max(tgt.auraDamageMult, 1.18);
       }
     }
+    // Deathlord (necromancer 5-piece): your risen servants strike 25% harder.
+    if (this.summons.length && this.allies.some((a) => a.alive && a.classId === 'necromancer' && a.hasSetPower())) {
+      for (const s of this.summons) if (s.alive) s.auraDamageMult = Math.max(s.auraDamageMult, 1.25);
+    }
     if (time >= this.auraHealAt) {
       // Pulse at HALF the base interval: normal wardens act every other pulse,
       // Lifewarden (5-piece) wardens act every pulse and mend 60% more.
@@ -3848,7 +3935,7 @@ export class DungeonScene extends Phaser.Scene {
       .setOrigin(0.5)
       .setScrollFactor(0)
       .setDepth(DEPTH.OVERLAY + 1);
-    this.registry.set('carryParty', this.allies.map((a) => this.allyToSave(a)));
+    this.registry.set('carryParty', this.carryList());
     this.registry.set('levelId', nextId);
     this.registry.set('twoPlayer', this.twoPlayer);
     this.registry.remove('loadSave');
@@ -3872,7 +3959,7 @@ export class DungeonScene extends Phaser.Scene {
       .setOrigin(0.5)
       .setScrollFactor(0)
       .setDepth(DEPTH.OVERLAY + 1);
-    this.registry.set('carryParty', this.allies.map((a) => this.allyToSave(a)));
+    this.registry.set('carryParty', this.carryList());
     this.registry.set('levelId', 'town');
     this.registry.set('twoPlayer', this.twoPlayer);
     this.registry.set('fromTown', false);
@@ -3996,7 +4083,7 @@ export class DungeonScene extends Phaser.Scene {
       // flicker the real torch lights + carry the party light with the camera target
       for (let i = 0; i < this.torchLightSrcs.length; i++) {
         const s = this.torchLightSrcs[i];
-        s.intensity = Phaser.Math.Clamp(0.78 + Math.sin(time * 0.009 + i * 1.7) * 0.14 + (Math.random() - 0.5) * 0.05, 0.5, 1.05);
+        s.intensity = Phaser.Math.Clamp(0.95 + Math.sin(time * 0.009 + i * 1.7) * 0.14 + (Math.random() - 0.5) * 0.05, 0.7, 1.2);
       }
       this.partyLightSrc?.setPosition(this.cameraTarget.x, this.cameraTarget.y);
     }
@@ -4233,6 +4320,12 @@ export class DungeonScene extends Phaser.Scene {
     this.scene.start('DungeonScene');
   }
 
+  /** Party members that travel between levels/saves. Summoned servants are
+   *  bound to the level they were raised in — leaving releases them. */
+  private carryList(): SaveAlly[] {
+    return this.allies.filter((a) => !(a as Companion).isSummon).map((a) => this.allyToSave(a));
+  }
+
   private allyToSave(a: Hero): SaveAlly {
     return {
       classId: a.classId,
@@ -4304,7 +4397,7 @@ export class DungeonScene extends Phaser.Scene {
       shrinesUsed: this.shrines.map((s) => s.used),
       doorsOpen: this.lockedDoors.map((d) => d.open),
       collectedPickups: [...this.collectedIds],
-      allies: this.allies.map((a) => this.allyToSave(a)),
+      allies: this.carryList(),
       mintedItems: Content.mintedList(),
     };
   }
@@ -4406,6 +4499,8 @@ export class DungeonScene extends Phaser.Scene {
     // Detach net callbacks FIRST: they capture this scene, and a server message
     // arriving after shutdown would otherwise touch destroyed game objects.
     net.clearCallbacks();
+    this.wisp?.destroy();
+    this.wisp = undefined;
     this.time.timeScale = 1;
     this.shadows.removeAll();
     this.inventoryUI?.close();

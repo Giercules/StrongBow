@@ -122,7 +122,7 @@ export const ARMOR_SETS: Record<HeroClassId, ArmorSetDef> = {
     name: 'Regalia of the Pale King',
     power: 'deathlord',
     powerName: 'Deathlord',
-    powerDesc: 'Command 2 extra servants and they linger 60% longer before crumbling.',
+    powerDesc: 'Command 2 extra servants, and your risen dead strike 25% harder.',
     tier2: { maxMana: 24, regen: 0.4 },
     tier4: { damage: 5, cdr: 0.1 },
     tier5: { summonBonus: 2 },

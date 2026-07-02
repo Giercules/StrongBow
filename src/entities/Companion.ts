@@ -63,21 +63,22 @@ export class Companion extends Hero {
 
     if (this.alive) {
       const manaRatio = this.stats.maxMana > 0 ? this.mana / this.stats.maxMana : 0;
-      const d = decideCompanion(this, leader, monsters, cfg, manaRatio, this.reach(), pathDir);
       const ranged = this.weaponStyle() === 'ranged';
+      const reach = this.reach();
+      // Ranged pets (archer/mage skeletons, arcanist/necromancer allies) hold a
+      // real standoff and kite; melee pets close to reach. This is what makes
+      // archers actually shoot from a distance instead of walking into melee.
+      const profile = ranged
+        ? { attackRange: reach, ranged: true, fireRange: 230, standoff: 150, minKite: 95 }
+        : { attackRange: reach, ranged: false, fireRange: 0, standoff: 0, minKite: 0 };
+      const d = decideCompanion(this, leader, monsters, cfg, manaRatio, profile, pathDir);
       let mx = d.dirX;
       let my = d.dirY;
       if (d.target) {
-        const dist = Math.hypot(d.target.x - this.x, d.target.y - this.y);
         this.faceTo(d.target.x - this.x, d.target.y - this.y);
-        if (ranged && dist <= this.reach() && dist > 10) {
-          // hold position and loose shots from range
-          mx = d.dirX * 0.15;
-          my = d.dirY * 0.15;
-          this.tryMelee(time);
-        } else if (d.wantAttack) {
-          this.tryMelee(time);
-        }
+        // tryMelee dispatches a ranged shot for bow/staff wielders and a melee
+        // swing otherwise, so this one call serves both archetypes.
+        if (d.wantAttack) this.tryMelee(time);
         if (d.wantMagic && this.tryMagic(time)) castTarget = d.target;
       }
       // separation: ease away from crowding allies so the party fans out

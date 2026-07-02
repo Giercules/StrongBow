@@ -350,9 +350,9 @@ export class SettingsUI {
     this.rowY += 18;
     this.text(x0, this.rowY, 'Map toggles live. Sprite size applies next descent.', C.inkDim, 10);
     this.rowY += 18;
-    this.text(x0, this.rowY, 'Enhanced FX = real-time lights, bloom + vignette, smooth pixel art.', C.inkDim, 10);
+    this.text(x0, this.rowY, 'Enhanced FX = real-time torch/party lights, bloom + vignette.', C.inkDim, 10);
     this.rowY += 18;
-    this.text(x0, this.rowY, 'Lights/bloom apply next descent; pixel smoothing needs a full reload.', C.inkDim, 10);
+    this.text(x0, this.rowY, 'Enhanced FX applies on the next descent.', C.inkDim, 10);
   }
 
   private tabAI(): void {
