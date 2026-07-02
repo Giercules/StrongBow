@@ -17,7 +17,8 @@ import { ItemTooltip } from './ItemTooltip';
 // resolves on the other side.
 // ----------------------------------------------------------------------------
 
-const PANEL_W = 560;
+// sized to fit the NARROWEST play area (min window: 460px between HUD panels)
+const PANEL_W = 450;
 const PANEL_H = 420;
 const OFFER_MAX = 5;
 
@@ -169,7 +170,7 @@ export class TradeUI {
       hz.on('pointerover', () => this.tip?.show(it, x, y, x < m.cx ? 'right' : 'left'));
       hz.on('pointerout', () => this.tip?.hide());
       m.add(hz);
-      if (action && fn) makeButton(this.scene, x + colW - 26, y + 13, 44, 20, action, fn, { size: 10 });
+      if (action && fn) m.add(makeButton(this.scene, x + colW - 26, y + 13, 44, 20, action, fn, { size: 10 }));
     };
 
     // ---- my side ----
@@ -178,12 +179,12 @@ export class TradeUI {
       this.myOffer.splice(i, 1);
       this.pushOffer();
     }));
-    // gold controls
+    // gold controls (kept inside the left column at the narrower panel width)
     const gy = y0 + 50 + OFFER_MAX * 30 + 4;
-    label(x0 + 16, gy + 2, `Gold (you carry ${this.hero.inventory.gold}g):`, C.inkDim, 10);
-    makeButton(this.scene, x0 + 156, gy + 8, 40, 18, '+10', () => { this.myGold = Math.min(this.hero.inventory.gold, this.myGold + 10); this.pushOffer(); }, { size: 10 });
-    makeButton(this.scene, x0 + 200, gy + 8, 44, 18, '+100', () => { this.myGold = Math.min(this.hero.inventory.gold, this.myGold + 100); this.pushOffer(); }, { size: 10 });
-    makeButton(this.scene, x0 + 246, gy + 8, 36, 18, '0', () => { this.myGold = 0; this.pushOffer(); }, { size: 10 });
+    label(x0 + 16, gy + 2, `Gold (${this.hero.inventory.gold}g):`, C.inkDim, 10);
+    m.add(makeButton(this.scene, x0 + 120, gy + 8, 38, 18, '+10', () => { this.myGold = Math.min(this.hero.inventory.gold, this.myGold + 10); this.pushOffer(); }, { size: 10 }));
+    m.add(makeButton(this.scene, x0 + 162, gy + 8, 42, 18, '+100', () => { this.myGold = Math.min(this.hero.inventory.gold, this.myGold + 100); this.pushOffer(); }, { size: 10 }));
+    m.add(makeButton(this.scene, x0 + 205, gy + 8, 32, 18, '0', () => { this.myGold = 0; this.pushOffer(); }, { size: 10 }));
 
     // bag (add to offer)
     label(x0 + 16, gy + 24, 'YOUR BAG — click ADD to offer', C.inkDim, 10, true);
@@ -196,8 +197,8 @@ export class TradeUI {
       this.pushOffer();
     }));
     if (pages > 1) {
-      makeButton(this.scene, x0 + 40, gy + 134, 34, 16, '◀', () => { this.bagPage = Math.max(0, this.bagPage - 1); this.render(); }, { size: 10 });
-      makeButton(this.scene, x0 + 220, gy + 134, 34, 16, '▶', () => { this.bagPage = Math.min(pages - 1, this.bagPage + 1); this.render(); }, { size: 10 });
+      m.add(makeButton(this.scene, x0 + 40, gy + 134, 34, 16, '◀', () => { this.bagPage = Math.max(0, this.bagPage - 1); this.render(); }, { size: 10 }));
+      m.add(makeButton(this.scene, x0 + 190, gy + 134, 34, 16, '▶', () => { this.bagPage = Math.min(pages - 1, this.bagPage + 1); this.render(); }, { size: 10 }));
     }
 
     // ---- their side ----
@@ -206,9 +207,9 @@ export class TradeUI {
     if (this.theirOffer.length === 0 && this.theirGold === 0) label(m.cx + 16, y0 + 56, 'Nothing yet...', C.inkDim, 10.5);
     label(m.cx + 8, gy + 2, this.theirReady ? `${this.partnerName} is READY.` : `${this.partnerName} is still choosing...`, this.theirReady ? '#8affa0' : C.inkDim, 11, true);
     label(m.cx + 8, gy + 20, this.myReady ? 'You are READY — waiting on them.' : 'Press READY when the deal suits you.', this.myReady ? '#8affa0' : C.inkDim, 10.5);
-    label(m.cx + 8, gy + 44, 'Any change to either offer clears both READY marks.', C.inkDim, 9.5);
+    label(m.cx + 8, gy + 44, 'Any change clears both READY marks.', C.inkDim, 9.5);
 
-    makeButton(this.scene, m.cx - 80, y0 + PANEL_H - 26, 130, 26, this.myReady ? 'READY ✓' : 'READY', () => this.ready(), { text: this.myReady ? '#8affa0' : undefined });
-    makeButton(this.scene, m.cx + 80, y0 + PANEL_H - 26, 130, 26, 'CANCEL (ESC)', () => this.cancel());
+    m.add(makeButton(this.scene, m.cx - 80, y0 + PANEL_H - 26, 130, 26, this.myReady ? 'READY ✓' : 'READY', () => this.ready(), { text: this.myReady ? '#8affa0' : undefined }));
+    m.add(makeButton(this.scene, m.cx + 80, y0 + PANEL_H - 26, 130, 26, 'CANCEL (ESC)', () => this.cancel()));
   }
 }

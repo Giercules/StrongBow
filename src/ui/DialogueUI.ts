@@ -78,19 +78,19 @@ export class DialogueUI {
     m.add(this.textLine);
 
     const canRumor = this.hero.charisma >= 3 || questLog.reputation >= 10;
-    makeButton(this.scene, m.cx - 140, y0 + PANEL_H - 34, 120, 26, 'CHAT', () => {
+    m.add(makeButton(this.scene, m.cx - 140, y0 + PANEL_H - 34, 120, 26, 'CHAT', () => {
       audio.sfx('ui_move');
       this.onChat?.();
-    });
-    makeButton(this.scene, m.cx, y0 + PANEL_H - 34, 120, 26, canRumor ? 'ASK FOR RUMORS' : 'RUMORS (locked)', () => {
+    }));
+    m.add(makeButton(this.scene, m.cx, y0 + PANEL_H - 34, 120, 26, canRumor ? 'ASK FOR RUMORS' : 'RUMORS (locked)', () => {
       if (!canRumor) {
         this.say('Rumors are for friends and silver tongues. (Charisma 3 or reputation 10 opens ears.)');
         return;
       }
       audio.sfx('ui_select');
       this.say(RUMORS[Math.floor(Math.random() * RUMORS.length)]);
-    }, { text: canRumor ? undefined : C.inkDim });
-    makeButton(this.scene, m.cx + 140, y0 + PANEL_H - 34, 120, 26, 'FAREWELL', () => this.close());
+    }, { text: canRumor ? undefined : C.inkDim }));
+    m.add(makeButton(this.scene, m.cx + 140, y0 + PANEL_H - 34, 120, 26, 'FAREWELL', () => this.close()));
   }
 
   /** Replace the spoken line (used by rumors and streamed Grok chat). */

@@ -19,7 +19,8 @@ import { ItemTooltip } from './ItemTooltip';
 
 const STASH_KEY = 'strongbow_stash_v1';
 export const STASH_SLOTS = 24;
-const PANEL_W = 540;
+// sized to fit the NARROWEST play area (min window: 460px between HUD panels)
+const PANEL_W = 450;
 const PANEL_H = 400;
 const PAGE_SIZE = 7;
 
@@ -124,7 +125,7 @@ export class StashUI {
       hz.on('pointerover', () => this.tip?.show(it, x, y, x < m.cx ? 'right' : 'left'));
       hz.on('pointerout', () => this.tip?.hide());
       m.add(hz);
-      makeButton(this.scene, x + colW - 30, y + 16, 50, 22, action, fn, { size: 11 });
+      m.add(makeButton(this.scene, x + colW - 30, y + 16, 50, 22, action, fn, { size: 11 }));
     };
 
     // stash column
@@ -143,8 +144,8 @@ export class StashUI {
     });
     if (this.stash.length === 0) label(x0 + 24, y0 + 66, 'Empty. Store treasures for any hero to claim.', C.inkDim, 10.5);
     if (sPages > 1) {
-      makeButton(this.scene, x0 + 60, y0 + PANEL_H - 58, 60, 20, '◀', () => { this.stashPage = Math.max(0, this.stashPage - 1); this.render(); }, { size: 11 });
-      makeButton(this.scene, x0 + 190, y0 + PANEL_H - 58, 60, 20, '▶', () => { this.stashPage = Math.min(sPages - 1, this.stashPage + 1); this.render(); }, { size: 11 });
+      m.add(makeButton(this.scene, x0 + 60, y0 + PANEL_H - 58, 60, 20, '◀', () => { this.stashPage = Math.max(0, this.stashPage - 1); this.render(); }, { size: 11 }));
+      m.add(makeButton(this.scene, x0 + 190, y0 + PANEL_H - 58, 60, 20, '▶', () => { this.stashPage = Math.min(sPages - 1, this.stashPage + 1); this.render(); }, { size: 11 }));
       label(x0 + 125, y0 + PANEL_H - 66, `${this.stashPage + 1}/${sPages}`, C.inkDim, 10);
     }
 
@@ -167,11 +168,11 @@ export class StashUI {
     });
     if (bag.length === 0) label(m.cx + 16, y0 + 66, 'Your bag is empty.', C.inkDim, 10.5);
     if (bPages > 1) {
-      makeButton(this.scene, m.cx + 52, y0 + PANEL_H - 58, 60, 20, '◀', () => { this.bagPage = Math.max(0, this.bagPage - 1); this.render(); }, { size: 11 });
-      makeButton(this.scene, m.cx + 182, y0 + PANEL_H - 58, 60, 20, '▶', () => { this.bagPage = Math.min(bPages - 1, this.bagPage + 1); this.render(); }, { size: 11 });
+      m.add(makeButton(this.scene, m.cx + 52, y0 + PANEL_H - 58, 60, 20, '◀', () => { this.bagPage = Math.max(0, this.bagPage - 1); this.render(); }, { size: 11 }));
+      m.add(makeButton(this.scene, m.cx + 182, y0 + PANEL_H - 58, 60, 20, '▶', () => { this.bagPage = Math.min(bPages - 1, this.bagPage + 1); this.render(); }, { size: 11 }));
       label(m.cx + 117, y0 + PANEL_H - 66, `${this.bagPage + 1}/${bPages}`, C.inkDim, 10);
     }
 
-    makeButton(this.scene, m.cx, y0 + PANEL_H - 26, 130, 26, 'CLOSE  (ESC)', () => this.close());
+    m.add(makeButton(this.scene, m.cx, y0 + PANEL_H - 26, 130, 26, 'CLOSE  (ESC)', () => this.close()));
   }
 }

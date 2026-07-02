@@ -7,7 +7,8 @@ import type { Quest } from '../systems/QuestSystem';
 import type { Hero } from '../entities/Hero';
 import { audio } from '../systems/AudioSystem';
 
-const PANEL_W = 520;
+// sized to fit the NARROWEST play area (min window: 460px between HUD panels)
+const PANEL_W = 450;
 const PANEL_H = 430;
 
 const KIND_TAG: Record<string, string> = { bounty: 'BOUNTY', gather: 'RELICS', rescue: 'RESCUE' };
@@ -100,8 +101,7 @@ export class QuestBoardUI {
       yy += 46;
     }
 
-    makeButton(this.scene, m.cx, y0 + PANEL_H - 26, 130, 26, 'CLOSE  (ESC)', () => this.close());
-    m.add(this.scene.add.zone(0, 0, 0, 0)); // keep container non-empty on rerender
+    m.add(makeButton(this.scene, m.cx, y0 + PANEL_H - 26, 130, 26, 'CLOSE  (ESC)', () => this.close()));
   }
 
   private questRow(m: Modal, x: number, y: number, q: Quest, action: string, enabled: boolean, fn: () => void): void {
@@ -120,7 +120,7 @@ export class QuestBoardUI {
     label(x + 74, y + 4, q.title, '#ffe9a8', 12.5, true);
     if (!compact) label(x + 10, y + 22, q.desc, C.ink, 10);
     label(x + 10, y + h - 15, `${q.gold}g  ·  ${q.xp} XP  ·  +${q.rep} rep`, '#8ad0ff', 10);
-    if (enabled) makeButton(this.scene, x + w - 52, y + h / 2, 84, 24, action, fn, { text: q.done ? '#8affa0' : undefined });
+    if (enabled) m.add(makeButton(this.scene, x + w - 52, y + h / 2, 84, 24, action, fn, { text: q.done ? '#8affa0' : undefined }));
     else m.add(this.scene.add.text(x + w - 90, y + h / 2 - 7, action, { fontFamily: 'MedievalSharp, "Trebuchet MS", cursive', fontSize: '12px', color: C.inkDim }));
   }
 }
