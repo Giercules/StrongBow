@@ -188,6 +188,7 @@ export class TextureFactory {
     img('hay-bale', 32, 32, (c) => townArt.drawHayBale(c, 0, 0), true);
     img('flower-bed', 32, 32, (c) => townArt.drawFlowerBed(c, 0, 0));
     img('statue', 32, 32, (c) => townArt.drawStatue(c, 0, 0), true);
+    img('quest-board', 32, 32, (c) => townArt.drawQuestBoard(c, 0, 0), true);
     img('fountain', 64, 80, (c) => townArt.drawFountain(c, 0, 0), true);
     img('fountain-base', 200, 164, (c) => townArt.drawFountainBase(c, 0, 0));
     img('fx-ripple', 40, 40, (c) => townArt.drawRipple(c, 0, 0));
@@ -238,6 +239,7 @@ export class TextureFactory {
     img('icon-gloves', 16, 16, art.drawIconGloves, true);
     img('icon-boots', 16, 16, art.drawIconBoots, true);
     img('icon-scroll', 16, 16, art.drawIconScroll, true);
+    img('icon-fish', 16, 16, art.drawIconFish, true);
 
     // ---- FX (no outline) ----
     sheet('fx-magic', 32, 32, 5, (c, ox, f) => art.drawMagicBurst(c, ox, f));
@@ -259,7 +261,7 @@ export class TextureFactory {
     img('fx-edge', 740, 540, (c) => art.drawEdgeTint(c, 740, 540));
 
     // ---- heroes (outlined) ----
-    for (const cls of ['vanguard', 'thief', 'arcanist', 'warden', 'necromancer']) {
+    for (const cls of ['vanguard', 'thief', 'arcanist', 'warden', 'necromancer', 'bard', 'druid']) {
       if (provided.has(`hero-${cls}-sheet`)) continue;
       makeHeroSheet(scene, cls);
       count++;

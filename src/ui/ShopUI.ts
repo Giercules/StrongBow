@@ -5,6 +5,8 @@ import { audio } from '../systems/AudioSystem';
 import type { ShopKind, ItemDefinition, Rarity } from '../core/types';
 import type { Hero } from '../entities/Hero';
 import { ItemTooltip } from './ItemTooltip';
+import { questLog } from '../systems/QuestSystem';
+import { salvageYield, reforgeCost, ascendCost, canAfford, pay, grant, fmtCost, reforge, ascend, gradeTag } from '../systems/CraftSystem';
 
 const SERIF = 'MedievalSharp, Georgia, serif';
 const TITLE = 'Cinzel, Georgia, serif';
@@ -83,7 +85,7 @@ export class ShopUI {
   private onClosed?: () => void;
   private tip!: ItemTooltip;
   private backdrop: Phaser.GameObjects.Rectangle | null = null;
-  private mode: 'buy' | 'sell' = 'buy';
+  private mode: 'buy' | 'sell' | 'craft' = 'buy';
   private haggled = false;
   private haggleDiscount = 0;
 
@@ -142,10 +144,11 @@ export class ShopUI {
   }
 
   private charismaDiscount(): number {
-    return Math.min(0.4, (this.buyer.charisma ?? 0) * 0.03) + this.haggleDiscount;
+    // silver tongue + haggling + the town's opinion of you (reputation)
+    return Math.min(0.4, (this.buyer.charisma ?? 0) * 0.03) + this.haggleDiscount + questLog.repDiscount();
   }
   private sellBonus(): number {
-    return Math.min(0.5, (this.buyer.charisma ?? 0) * 0.04);
+    return Math.min(0.5, (this.buyer.charisma ?? 0) * 0.04) + questLog.repDiscount();
   }
   private priceFor(base: number): number {
     return Math.max(1, Math.round(base * (1 - this.charismaDiscount())));
@@ -158,7 +161,7 @@ export class ShopUI {
     return Math.max(2, Math.round(v * (1 + this.sellBonus())));
   }
 
-  private setMode(m: 'buy' | 'sell'): void {
+  private setMode(m: 'buy' | 'sell' | 'craft'): void {
     this.mode = m;
     this.page = 0;
     this.status = '';
@@ -245,6 +248,7 @@ export class ShopUI {
 
     this.button(x0 + 92, y0 + 60, 64, 22, 'BUY', this.mode !== 'buy', () => this.setMode('buy'));
     this.button(x0 + 166, y0 + 60, 64, 22, 'SELL', this.mode !== 'sell', () => this.setMode('sell'));
+    if (this.shop === 'blacksmith') this.button(x0 + 240, y0 + 60, 64, 22, 'CRAFT', this.mode !== 'craft', () => this.setMode('craft'));
     if (this.mode === 'buy' && cha >= 1) this.button(x0 + PANEL_W - 96, y0 + 60, 130, 24, this.haggled ? 'HAGGLED' : 'HAGGLE', !this.haggled, () => this.haggle());
 
     const top = y0 + 92;
@@ -262,6 +266,20 @@ export class ShopUI {
         const def = Content.item(entry.id);
         if (!def) return;
         this.itemRow(x0, top + i * rowH, rowH, def, entry.name ?? def.name, this.priceFor(entry.price) + 'g', this.buyer.inventory.gold >= this.priceFor(entry.price), () => this.buy(entry, def));
+      });
+      this.pages(cx, x0, y0, totalPages);
+    } else if (this.mode === 'craft') {
+      const inv = this.buyer.inventory;
+      this.text(x0 + 24, top - 20, `Materials:  ${inv.materials.scrap} scrap iron  ·  ${inv.materials.essence} arcane essence  ·  ${inv.materials.shard} godshards`, GOLD_DK, 11, SERIF, true);
+      // every piece of gear you carry or wear can be worked at the forge
+      const gear = [...inv.equippedList(), ...inv.bag.filter((b) => b.slot !== 'consumable')];
+      count = gear.length;
+      if (count === 0) this.text(cx, top + 30, 'Nothing to work — bring Brunda some gear.', INK, 13).setOrigin(0.5, 0);
+      const totalPages = Math.max(1, Math.ceil(count / PAGE_SIZE));
+      this.page = Math.min(Math.max(this.page, 0), totalPages - 1);
+      const rows = gear.slice(this.page * PAGE_SIZE, this.page * PAGE_SIZE + PAGE_SIZE);
+      rows.forEach((item, i) => {
+        this.craftRow(x0, top + i * rowH, rowH, item, inv.equippedList().includes(item));
       });
       this.pages(cx, x0, y0, totalPages);
     } else {
@@ -296,6 +314,80 @@ export class ShopUI {
     hz.on('pointerover', () => this.tip.show(def, x0 + 18, ry, 'right'));
     hz.on('pointerout', () => this.tip.hide());
     this.pin(hz);
+  }
+
+  /** One forge-work row: name/grade + SALVAGE / REFORGE / ASCEND actions. */
+  private craftRow(x0: number, ry: number, rowH: number, item: ItemDefinition, equipped: boolean): void {
+    const panel = this.scene.add.graphics();
+    panel.fillStyle(hx(PAGE2), 1);
+    panel.fillRoundedRect(x0 + 18, ry, PANEL_W - 36, rowH - 8, 5);
+    panel.lineStyle(1.5, hx(GOLD_DK), 0.8);
+    panel.strokeRoundedRect(x0 + 18, ry, PANEL_W - 36, rowH - 8, 5);
+    this.pin(panel);
+    this.pin(this.scene.add.image(x0 + 40, ry + (rowH - 8) / 2, item.icon).setScale(1.6));
+    this.text(x0 + 60, ry + 5, `${item.name}${equipped ? '  (worn)' : ''}`, RARITY_COLOR[item.rarity] ?? INK, 12, SERIF, true);
+    this.text(x0 + 60, ry + 21, gradeTag(item), GOLD_DK, 10);
+    const hz = this.scene.add.zone(x0 + 18, ry, 180, rowH - 8).setScrollFactor(0).setOrigin(0, 0).setInteractive({ useHandCursor: true });
+    hz.on('pointerover', () => this.tip.show(item, x0 + 18, ry, 'right'));
+    hz.on('pointerout', () => this.tip.hide());
+    this.pin(hz);
+
+    const inv = this.buyer.inventory;
+    const bx = x0 + PANEL_W - 60;
+    this.button(bx - 148, ry + (rowH - 8) / 2, 68, 24, 'SALVAGE', true, () => this.salvage(item));
+    const rCost = reforgeCost(item);
+    this.button(bx - 74, ry + (rowH - 8) / 2, 68, 24, 'REFORGE', !!rCost && canAfford(inv, rCost), () => this.reforgeItem(item));
+    const aCost = ascendCost(item);
+    this.button(bx, ry + (rowH - 8) / 2, 62, 24, 'ASCEND', !!aCost && canAfford(inv, aCost), () => this.ascendItem(item));
+  }
+
+  private salvage(item: ItemDefinition): void {
+    const inv = this.buyer.inventory;
+    const y = salvageYield(item);
+    if (!inv.removeItem(item)) return;
+    grant(inv, y);
+    this.buyer.refreshStats();
+    this.status = `${item.name} melts down: +${fmtCost(y)}.`;
+    audio.sfx('hit');
+    this.render();
+  }
+
+  private reforgeItem(item: ItemDefinition): void {
+    const inv = this.buyer.inventory;
+    const cost = reforgeCost(item);
+    if (!cost || !canAfford(inv, cost)) {
+      this.status = cost ? `Reforging needs ${fmtCost(cost)}.` : 'Brunda cannot rework that one.';
+      this.render();
+      return;
+    }
+    pay(inv, cost);
+    const next = reforge(item);
+    if (next) {
+      inv.replaceItem(item, next);
+      this.buyer.refreshStats();
+      this.status = `The affixes run molten and reset: ${next.name}.`;
+      audio.sfx('magic');
+    }
+    this.render();
+  }
+
+  private ascendItem(item: ItemDefinition): void {
+    const inv = this.buyer.inventory;
+    const cost = ascendCost(item);
+    if (!cost || !canAfford(inv, cost)) {
+      this.status = cost ? `Ascending needs ${fmtCost(cost)}.` : 'That piece can climb no higher.';
+      this.render();
+      return;
+    }
+    pay(inv, cost);
+    const next = ascend(item);
+    if (next) {
+      inv.replaceItem(item, next);
+      this.buyer.refreshStats();
+      this.status = `Brunda works a wonder: ${next.name}!`;
+      audio.sfx('levelup');
+    }
+    this.render();
   }
 
   private pages(cx: number, x0: number, y0: number, totalPages: number): void {

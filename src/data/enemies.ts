@@ -233,6 +233,43 @@ export const ENEMIES: Record<EnemyId, EnemyDef> = {
   },
 };
 
+// ----------------------------------------------------------------------------
+// Boss PHASE TWO — at half health every realm warden changes the fight.
+// Read by Monster (pattern/cooldown/speed shifts) and DungeonScene (entry
+// burst: bark, adds, heal, relocation).
+// ----------------------------------------------------------------------------
+export interface BossPhase2 {
+  /** Special-attack cooldown multiplier once enraged (e.g. 0.6 = 40% faster). */
+  cdMult: number;
+  /** Movement speed multiplier once enraged. */
+  speedMult?: number;
+  /** Radial volley grows to this many shots (base 10). */
+  volleyShots?: number;
+  /** Extra chance-weight for the summon pattern (0..1 added to the roll). */
+  addBias?: number;
+  /** Adds burst-summoned the moment phase two begins. */
+  entryAdds?: number;
+  /** Fraction of max health recovered on entry (the Champion's second wind). */
+  healFrac?: number;
+  /** Vanish and resurface beside a hero on entry (leviathan, devourer). */
+  relocate?: boolean;
+  /** Adventure-log line announcing the turn. */
+  bark: string;
+}
+
+export const BOSS_PHASE2: Partial<Record<EnemyId, BossPhase2>> = {
+  grave_warden: { cdMult: 0.7, entryAdds: 3, addBias: 0.2, bark: 'The Grave Warden howls — and the graves answer!' },
+  molten_colossus: { cdMult: 0.65, volleyShots: 14, bark: 'The Colossus cracks open — magma gouts from the wound!' },
+  rime_cantor: { cdMult: 0.7, volleyShots: 14, entryAdds: 2, bark: 'The choir rises to a killing pitch!' },
+  rot_sovereign: { cdMult: 0.75, entryAdds: 4, addBias: 0.25, bark: 'The Sovereign bursts, and the rot walks on its own!' },
+  brass_magnus: { cdMult: 0.55, volleyShots: 16, bark: 'OVERDRIVE — every gauge in the vault screams!' },
+  arena_champion: { cdMult: 0.7, speedMult: 1.3, healFrac: 0.15, bark: 'Second wind — the Champion refuses the sand!' },
+  mire_leviathan: { cdMult: 0.7, relocate: true, entryAdds: 2, bark: 'The Leviathan sounds — watch the water!' },
+  tempest_herald: { cdMult: 0.6, volleyShots: 12, speedMult: 1.15, bark: 'The storm speaks its true name!' },
+  umbral_devourer: { cdMult: 0.65, relocate: true, speedMult: 1.2, bark: 'The dark eats the light!' },
+  hollow_king: { cdMult: 0.6, volleyShots: 12, entryAdds: 4, healFrac: 0.1, bark: 'The Undermaw pours into its vessel!' },
+};
+
 export const ENEMY_IDS: EnemyId[] = [
   'grunt',
   'ghost',

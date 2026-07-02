@@ -164,6 +164,82 @@ export const SKILLS: Record<string, SkillDef> = {
     icon: 'icon-staff',
     perRank: { spellChain: 1 },
   },
+
+  // ---- Bard ----
+  brd_anthem: {
+    id: 'brd_anthem',
+    classId: 'bard',
+    name: 'Anthem',
+    description: 'Your songs sing 12% stronger per rank.',
+    maxRank: 5,
+    icon: 'icon-amulet',
+    perRank: {},
+  },
+  brd_reach: {
+    id: 'brd_reach',
+    classId: 'bard',
+    name: 'Carrying Voice',
+    description: 'Song aura reaches +25 farther per rank.',
+    maxRank: 3,
+    icon: 'icon-scroll',
+    perRank: {},
+  },
+  brd_tempo: {
+    id: 'brd_tempo',
+    classId: 'bard',
+    name: 'Tempo',
+    description: '+10 speed and +2% crit per rank.',
+    maxRank: 5,
+    icon: 'icon-boots',
+    perRank: { speed: 10, critChance: 0.02 },
+  },
+  brd_encore: {
+    id: 'brd_encore',
+    classId: 'bard',
+    name: 'Encore',
+    description: '+3 damage per rank — the power chord hits harder.',
+    maxRank: 3,
+    icon: 'icon-sword',
+    perRank: { damage: 3 },
+  },
+
+  // ---- Druid ----
+  dru_fangs: {
+    id: 'dru_fangs',
+    classId: 'druid',
+    name: 'Savage Fangs',
+    description: 'Bear form deals +8% damage per rank.',
+    maxRank: 5,
+    icon: 'icon-sword',
+    perRank: {},
+  },
+  dru_hide: {
+    id: 'dru_hide',
+    classId: 'druid',
+    name: 'Thick Hide',
+    description: '+2 armor per rank.',
+    maxRank: 5,
+    icon: 'icon-armor',
+    perRank: { armor: 2 },
+  },
+  dru_growth: {
+    id: 'dru_growth',
+    classId: 'druid',
+    name: 'Wild Growth',
+    description: '+0.4 health regen per rank.',
+    maxRank: 3,
+    icon: 'icon-amulet',
+    perRank: { regen: 0.4 },
+  },
+  dru_moon: {
+    id: 'dru_moon',
+    classId: 'druid',
+    name: 'Moonfire',
+    description: '+3 spell damage per rank.',
+    maxRank: 3,
+    icon: 'icon-staff',
+    perRank: { damage: 3 },
+  },
 };
 
 export const ALL_SKILLS = Object.values(SKILLS);

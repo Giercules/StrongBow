@@ -15,10 +15,11 @@ TypeScript + Vite. All original art and audio, generated in code at runtime.
 >
 > No longer. The spawning altars are bleeding the dead back into the light, and
 > one by one the lanterns of the realms are going out. In **Hearthwatch**, the
-> last free town above the pit, five unlikely champions answer a call the rest
+> last free town above the pit, seven unlikely champions answer a call the rest
 > of the world is too afraid to hear — a barbarian, a hooded thief, an aging
-> wizard, a warden of the failing light, and a necromancer who turns the dead
-> against their master.
+> wizard, a warden of the failing light, a necromancer who turns the dead
+> against their master, a bard whose songs steel the living, and a druid who
+> answers the hunger with tooth and claw.
 >
 > Beneath them wait **ten realms** — crypt, fire, ice, rot, brass, blood, bog,
 > storm, shadow — each ruled by a warden of the hunger, each darker than the
@@ -181,32 +182,81 @@ enters your address, and presses **PLAY**.
 ## Hearthwatch — the town hub
 
 Every run begins (and every cleared realm returns you to) **Hearthwatch**, the
-last free town above the Undermaw: grassy lawns and cobbled roads ring a central
-fountain, dotted with **timber-framed houses** that now have **pitched shingled roofs,
-glazed windows and doors you can step through**, lit braziers and festival
-banners. A **water moat** encircles the town, crossed by
-four **timber bridges** — the grand south span hung with heavy **chains** —
-leading to gatehouses at each cardinal point. **Butterflies and birds** drift
-over the square and a **stray dog** trots between the stalls, while the
-**townsfolk** — a flower-seller, a town crier, a hooded pilgrim, a watchman, a
-lute-player, a fortune-teller and a down-on-his-luck merchant, each with their
-own look — **wander on their own** and can be **hailed for AI-flavored chatter**.
+last free town above the Undermaw — now **two districts divided by the river
+Hearthrun** and crossed by **three plank bridges**, inside a water moat with
+gatehouses at the cardinal points:
 
-Walk to a building's **door** and press **Use** to step **inside** — the
-shopkeepers and the guildmaster now wait within furnished interiors (use the
-inner door to step back out).
+- **Upper Hearthwatch (the civic quarter)** — the five shops with **pitched-roof,
+  walk-inside buildings**, a paved **fountain plaza** squared off with trimmed
+  hedges, lamp posts and two weathered **hero statues**, orchards, and the **High
+  Court**, where the gates to realms **I–V** stand on paved pads.
+- **Lower Hearthwatch (the commons)** — a **market square** with striped stalls, a
+  stone well, carts and hay; **cottages with fenced gardens**; a **farmstead**; a
+  glowing **wayside shrine**; and the **Deep Court** with the gates to realms
+  **VI–X**.
 
-- **Ten descent gates** ring the square — one per realm. A gate glows when it's
-  **unlocked** and stays **sealed** until you clear the realm before it. Step on
-  a gate and press **Use** to descend.
-- **Brunda's Forge** (blacksmith) — buy weapons & armor.
+**Butterflies and birds** drift over the lawns while **ten townsfolk** wander both
+districts — hail one (**Use**) for a proper **dialogue window** with rep-tiered
+greetings, AI-flavored chat, and **rumors** for the silver-tongued.
+
+- **Descent gates** glow when **unlocked** and stay **sealed** until you clear the
+  realm before them. Step on a gate and press **Use** to descend.
+- **Notice boards** (market + plaza) — take **contracts** for gold, XP and
+  **reputation** (see *Contracts & reputation*).
+- **Brunda's Forge** (blacksmith) — buy weapons & armor, and **craft**: salvage,
+  reforge, ascend (see *Crafting*).
 - **The Green Vial** (apothecary) — potions and trinkets.
 - **The Gilded Tankard** (tavern, keeper inside) — food, drink and rumour.
 - **The Fighters Guild** — **hire allies** for your next descent (see Heroes).
-- **Your Lodge** — rest to **fully restore** the party's HP and MP, free.
+- **Your Lodge** — rest to **fully restore** the party, free; the **stash chest**
+  beside it shares 24 slots across **every hero and every save**, and the lawn
+  mounts a stone **trophy for each realm warden you fell**.
+- **The Hearthrun** — stand at any calm bank and press **Use** to **fish** (see
+  *Fishing*).
 
 Gold, gear, levels and unlocked gates **persist** across town ⇄ realm trips and
 through saves.
+
+## Contracts & reputation
+
+The **notice boards** post three contracts at a time — **bounties** (slay N of a
+named foe), **relic hunts** (kills in a realm uncover Undermaw relics), and
+**rescues** (a caged villager waits somewhere in the realm; find them and break
+the lock). Contracts pay **gold + XP + reputation**; progress pops on screen and
+finished contracts turn in at any board.
+
+**Reputation** is Hearthwatch's opinion of the party — **Stranger → Known in the
+Market → Friend of Hearthwatch → Shield of the Town → Legend of the Undermaw**.
+It improves every shop's **buy and sell prices** (stacking with Charisma and
+Haggle) and unlocks warmer townsfolk dialogue. **Rumors** (Charisma 3 or
+reputation 10) are genuinely useful tips.
+
+## Crafting at Brunda's
+
+The blacksmith's new **CRAFT** tab works any gear you carry or wear:
+
+- **SALVAGE** melts an item into materials — **scrap iron**, **arcane essence**,
+  and (from Godforged/set/unique pieces) **godshards**.
+- **REFORGE** rerolls a graded item's affixes for essence + gold.
+- **ASCEND** raises an item **one whole grade** — Cracked to Honed all the way to
+  **Godforged** — for escalating materials + gold.
+
+Materials live with your gold and persist through saves and level transitions.
+
+## Fishing the Hearthrun
+
+Stand beside calm water in town or the Wilds and press **Use** to cast. Wait for
+the **bite**, then strike while the bobber rides the **green zone** — dead centre
+on the **gold** lands the finest catch. **River Perch**, **Silver Trout**, and the
+arcane **Glimmer Carp** restore health/mana or sell for coin; the epic
+**Stormscale** is the fish of fireside legend. Sometimes you get a boot.
+
+## Player trading
+
+On a shared server, walk up to another player and press **Use** to open a
+**trade window**: both sides offer items and gold, any change clears both READY
+marks, and when both accept the swap applies atomically on each client — minted
+gear travels whole, so graded items arrive intact.
 
 ## The Wilds of Hearthwatch (overworld)
 
@@ -261,7 +311,7 @@ sludge, spikes) hurt but never trap you.
 
 ## Heroes
 
-Five iconic archetypes, each with a distinct silhouette, weapon, group aura, and
+Seven iconic archetypes, each with a distinct silhouette, weapon, group aura, and
 active ability (**F**):
 
 - **Vanguard** — a Conan-style barbarian with a great broadsword. Tanks blows;
@@ -278,6 +328,15 @@ active ability (**F**):
   **Hold** the ability to open a radial and raise one of four servants — **Tank**,
   **Archer**, **Mage**, or **Thief** (which blinks behind foes to backstab) — up to
   three at once. Summons **expire on a timer that lengthens as the necromancer levels**.
+- **Bard** — a swashbuckling skald with a rapier, a feathered cap and a lute on
+  his back. **Hold** the ability for the **song radial** — *War Chant* (+party
+  damage), *Traveler's March* (+party speed), *Mending Hymn* (party regen) or
+  *Dirge of Dread* (slows nearby foes) — one song rings until you change it. A
+  quick **tap** strikes an **Encore**: a shocking power chord around the skald.
+- **Druid** — an antler-hooded keeper of the old wild. In human form he casts
+  moonlit **nature bolts** at range; **tap** the ability to **shapeshift into a
+  great bear** — more health, heavier claws, a mauling sweep — and tap again to
+  shift back. Shifting preserves your health fraction, so it's a stance, not a heal.
 
 Allies are **hired per descent at the Fighters Guild** — there are no free
 followers. Pay gold for each (the price rises with your level), hire as many as
@@ -301,6 +360,11 @@ you** if they fall too far behind.
   always drop strong themed gear.
 - **Bosses** cycle telegraphed patterns — radial volleys, summons, flame novas —
   that scale with their health. Watch for the wind-up flash.
+- **Boss phase two** — at **half health every realm warden turns the fight**:
+  faster, denser volleys (Brass Magnus goes into overdrive), burst-summoned
+  broods (the Grave Warden calls the graves open), a **second wind** (the
+  Undying Champion), or a vanish-and-resurface beside a hero (the Mire
+  Leviathan, the Umbral Devourer) — each announced with its own roar.
 
 ## Loot, grades & Fortune
 
@@ -314,6 +378,12 @@ you** if they fall too far behind.
   lock for free and sharpens his **Lockpicking** with each.
 - The **Fortune** attribute (Luck) raises drop rate and tilts rolls toward the
   higher grades.
+- **Unique legendaries** — twelve **named items** in **burnt orange**, rarer than
+  set pieces, each build-warping: the **Sunfall Edge** sets every strike ablaze,
+  the **Whisperwind Bow**'s shots pierce, the **Stormcaller Staff** answers crits
+  with chain lightning, the **Crown of the Hollow King** commands two extra
+  servants, **Midas Grips** spill 40% more gold, the **Boots of the Comet** leave
+  a burning dodge-trail...
 - **Growth (K):** raise class skills and the attributes Might / Vitality / Focus
   / Fortune; the panel also **names each class's signature ability**. **Inventory
   (I):** equip (1-9), unequip (U), drink (C), page (←/→),
@@ -330,7 +400,8 @@ opens a return gate back to your exact spot in the depths) and **Iron Keys**, or
 
 **Charisma** rises every time you buy or sell. It steadily **lowers buy prices**
 (up to −40%) and **raises sell payouts** (up to +50%), and unlocks a once-per-visit
-**Haggle** — gamble for an extra discount (the keeper might scoff and trim it). The
+**Haggle** — gamble for an extra discount (the keeper might scoff and trim it).
+**Reputation** from notice-board contracts sweetens both directions further. The
 Lodge still restores the whole party for free between descents.
 
 ## Examine anything

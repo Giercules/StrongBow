@@ -13,7 +13,7 @@ export const SET_PIECE_SLOTS = ['head', 'body', 'legs', 'hands', 'feet'] as cons
 export type SetPieceSlot = (typeof SET_PIECE_SLOTS)[number];
 
 /** The full-set (5-piece) class power. Consumed by Hero + DungeonScene. */
-export type SetPowerId = 'undying' | 'shadowmaster' | 'archmage' | 'lifewarden' | 'deathlord';
+export type SetPowerId = 'undying' | 'shadowmaster' | 'archmage' | 'lifewarden' | 'deathlord' | 'maestro' | 'wildheart';
 
 export interface SetPieceDef {
   name: string;
@@ -132,6 +132,42 @@ export const ARMOR_SETS: Record<HeroClassId, ArmorSetDef> = {
       legs: { name: 'Legwraps of Quiet Earth', icon: ICONS.legs, mods: { armor: 3, maxMana: 18, speed: 8 }, flavor: 'Dust of a hundred barrows rides in the weave.' },
       hands: { name: 'Clawgrips of Dominion', icon: ICONS.hands, mods: { damage: 7, maxMana: 14 }, flavor: 'The dead answer when these fingers snap.' },
       feet: { name: 'Boneheel Boots', icon: ICONS.feet, mods: { speed: 12, armor: 2, regen: 0.3 }, flavor: 'Every step sounds like a knuckle cracking.' },
+    },
+  },
+  bard: {
+    id: 'set_bard',
+    classId: 'bard',
+    name: 'Regalia of the First Song',
+    power: 'maestro',
+    powerName: 'Maestro',
+    powerDesc: 'Your songs reach every ally in the realm and sing half again as strong.',
+    tier2: { speed: 8, critChance: 0.04 },
+    tier4: { damage: 5, luck: 5 },
+    tier5: { maxMana: 30 },
+    pieces: {
+      head: { name: 'Plumed Cap of the First Song', icon: ICONS.head, mods: { critChance: 0.05, luck: 4, armor: 3 }, flavor: 'The feather has never once drooped.' },
+      body: { name: 'Doublet of Ringing Silver', icon: ICONS.body, mods: { armor: 5, speed: 8, maxHealth: 22 }, flavor: 'Its threads hum a fifth above the wearer.' },
+      legs: { name: 'Dancer’s Breeks', icon: ICONS.legs, mods: { armor: 3, speed: 14, maxHealth: 14 }, flavor: 'They know every step, including the missing one.' },
+      hands: { name: 'Fretwork Gloves', icon: ICONS.hands, mods: { damage: 7, critChance: 0.04 }, flavor: 'Calloused where the strings bite, quick where it counts.' },
+      feet: { name: 'Heels of the Standing Ovation', icon: ICONS.feet, mods: { speed: 16, luck: 4, armor: 2 }, flavor: 'The floorboards applaud. The dead do not.' },
+    },
+  },
+  druid: {
+    id: 'set_druid',
+    classId: 'druid',
+    name: 'Pelts of the Wildheart',
+    power: 'wildheart',
+    powerName: 'Wildheart',
+    powerDesc: 'Shapeshifting mends a quarter of your health, and Bear form strikes 25% harder.',
+    tier2: { maxHealth: 26, regen: 0.4 },
+    tier4: { armor: 4, damage: 5 },
+    tier5: { maxHealth: 30 },
+    pieces: {
+      head: { name: 'Antlered Cowl of the Wildheart', icon: ICONS.head, mods: { armor: 4, maxHealth: 20, regen: 0.3 }, flavor: 'The antlers are not decoration. They shed in spring.' },
+      body: { name: 'Barkbound Pelt', icon: ICONS.body, mods: { armor: 7, maxHealth: 32, regen: 0.3 }, flavor: 'Rings inside the hide count more winters than any tree.' },
+      legs: { name: 'Mosswoven Leggings', icon: ICONS.legs, mods: { armor: 4, maxHealth: 20, speed: 6 }, flavor: 'Soft as the forest floor, and as patient.' },
+      hands: { name: 'Clawed Mitts of the Maul', icon: ICONS.hands, mods: { damage: 8, armor: 2 }, flavor: 'They flex around claws that are not always there.' },
+      feet: { name: 'Rootstep Treads', icon: ICONS.feet, mods: { speed: 10, maxHealth: 16, regen: 0.3 }, flavor: 'Wherever they land, something green comes up after.' },
     },
   },
 };

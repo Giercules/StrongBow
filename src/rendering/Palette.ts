@@ -308,6 +308,28 @@ export const HERO_RAMPS: Record<string, HeroRamp> = {
     trimHi: '#d8cdf0',
     hair: '#0e0a16',
   },
+  // Bard — swashbuckling skald: wine-red doublet, gold trim, chestnut hair.
+  bard: {
+    skin: '#d8a276',
+    skinHi: '#f2c79e',
+    cloth0: '#3a1622',
+    cloth1: '#7e2f47',
+    cloth2: '#b04a66',
+    trim: '#e0b04a',
+    trimHi: '#ffe9a8',
+    hair: '#8a5a2e',
+  },
+  // Druid — keeper of the old wild: moss-green robes, bark trim, auburn mane.
+  druid: {
+    skin: '#c98e5a',
+    skinHi: '#e8b584',
+    cloth0: '#22301a',
+    cloth1: '#41592a',
+    cloth2: '#64883e',
+    trim: '#8a6e3a',
+    trimHi: '#c9a94e',
+    hair: '#6e4a2a',
+  },
 };
 
 // ---- Monster ramps ----

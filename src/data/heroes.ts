@@ -46,9 +46,27 @@ export const HEROES: Record<HeroClassId, HeroClassDef> = {
     base: { maxHealth: 82, maxMana: 110, damage: 9, speed: 122, armor: 1, critChance: 0.03, fire: 0, regen: 0.3, luck: 4 },
     skillIds: ['nec_legion', 'nec_grimoire', 'nec_blight', 'nec_horde'],
   },
+  bard: {
+    id: 'bard',
+    name: 'Bard',
+    role: 'Skald',
+    blurb: 'A blade with a ballad. Songs that steel the whole party.',
+    signature: 'Hold the ability to choose a SONG — a persistent aura that empowers every nearby ally.',
+    base: { maxHealth: 88, maxMana: 60, damage: 11, speed: 140, armor: 1, critChance: 0.05, fire: 0, regen: 0, luck: 5 },
+    skillIds: ['brd_anthem', 'brd_reach', 'brd_tempo', 'brd_encore'],
+  },
+  druid: {
+    id: 'druid',
+    name: 'Druid',
+    role: 'Shapeshifter',
+    blurb: 'Keeper of the old wild. Casts as a sage, mauls as a bear.',
+    signature: 'Tap the ability to SHAPESHIFT between nature caster and bear-form bruiser.',
+    base: { maxHealth: 95, maxMana: 70, damage: 10, speed: 128, armor: 2, critChance: 0.03, fire: 0, regen: 0.3, luck: 3 },
+    skillIds: ['dru_fangs', 'dru_hide', 'dru_growth', 'dru_moon'],
+  },
 };
 
-export const ALL_CLASSES: HeroClassId[] = ['vanguard', 'thief', 'arcanist', 'warden', 'necromancer'];
+export const ALL_CLASSES: HeroClassId[] = ['vanguard', 'thief', 'arcanist', 'warden', 'necromancer', 'bard', 'druid'];
 
 export const HERO_WEAPON_ICON: Record<HeroClassId, string> = {
   vanguard: 'icon-sword',
@@ -56,4 +74,6 @@ export const HERO_WEAPON_ICON: Record<HeroClassId, string> = {
   arcanist: 'icon-staff',
   warden: 'icon-mace',
   necromancer: 'icon-staff',
+  bard: 'icon-sword',
+  druid: 'icon-staff',
 };

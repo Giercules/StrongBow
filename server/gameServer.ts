@@ -307,6 +307,26 @@ wss.on('connection', (ws: WebSocket) => {
         }
         break;
       }
+      // ---- player-to-player trading: point relays to the named peer, tagged
+      // with the sender so the receiving client can pair the exchange ----
+      case 'tradeRequest':
+      case 'tradeAccept':
+      case 'tradeCancel': {
+        const me = players.get(id);
+        const target = players.get(str(msg.to, '', 16));
+        if (!me || !target || target.levelId !== me.levelId) break;
+        send(target.ws, { t: msg.t, fromId: id, fromName: me.name });
+        break;
+      }
+      case 'tradeUpdate': {
+        const me = players.get(id);
+        const target = players.get(str(msg.to, '', 16));
+        if (!me || !target || target.levelId !== me.levelId) break;
+        const items = Array.isArray(msg.items) && msg.items.length <= 12 ? msg.items : [];
+        const gold = Math.max(0, Math.min(1000000, num(msg.gold, 0)));
+        send(target.ws, { t: 'tradeUpdate', fromId: id, items, gold });
+        break;
+      }
     }
   });
 

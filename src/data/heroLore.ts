@@ -54,4 +54,22 @@ export const HERO_LORE: Record<HeroClassId, HeroDossier> = {
       'Raise skeletal warriors and bone casters to screen for you, then strike from the back. Keep your servants between you and the horde; spend mana to refresh the line.',
     quote: '"Death is not the end. It is my beginning."',
   },
+  bard: {
+    id: 'bard',
+    title: 'The Bard',
+    origin:
+      'The last voice of a burned college, the Bard walked out of the ashes with a rapier, a lute, and every song the fire could not take. Where the music goes, courage follows.',
+    tactics:
+      'Keep a song ringing at all times — War Chant for the push, Mending Hymn when the line buckles. Dart along the front with quick rapier work and drop an Encore into any pack that crowds you.',
+    quote: '"Every ending is just a verse that has not found its chorus."',
+  },
+  druid: {
+    id: 'druid',
+    title: 'The Druid',
+    origin:
+      'Warden of a grove the Undermaw swallowed whole, the Druid descends not for gold but to take the forest back. The old wild answers: bark for skin, thunder for a heartbeat, the bear when it is time.',
+    tactics:
+      'Open at range with moonlit bolts, then shift to Bear when the horde closes and maul through it. Shift back the moment the press breaks — the caster heals what the bear endures.',
+    quote: '"The wild does not forgive. Neither do I."',
+  },
 };

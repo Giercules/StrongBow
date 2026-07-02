@@ -59,7 +59,14 @@ import { aiService, type BarkContext } from '../ai/AIService';
 import { InventoryUI } from '../ui/InventoryUI';
 import { ShopUI } from '../ui/ShopUI';
 import { GuildHireUI } from '../ui/GuildHireUI';
-import { ENEMIES, ENEMY_IDS } from '../data/enemies';
+import { ENEMIES, ENEMY_IDS, BOSS_PHASE2 } from '../data/enemies';
+import { rollUniqueDrop, uniqueDropChance, UNIQUE_COLOR } from '../data/uniqueItems';
+import { questLog } from '../systems/QuestSystem';
+import { QuestBoardUI } from '../ui/QuestBoardUI';
+import { DialogueUI } from '../ui/DialogueUI';
+import { StashUI } from '../ui/StashUI';
+import { FishingUI } from '../ui/FishingUI';
+import { TradeUI } from '../ui/TradeUI';
 
 type SkeletonType = 'tank' | 'archer' | 'mage' | 'thief';
 const SKELETON_INFO: Record<SkeletonType, { cls: HeroClassId; name: string; sheet: string; walk: string; attack: string }> = {
@@ -84,6 +91,16 @@ const ARCANE_INFO: Record<ArcaneType, { cls: HeroClassId; name: string; sheet: s
 // radial wedge order: top, right, bottom, left
 const ARCANE_ORDER: ArcaneType[] = ['ember', 'void', 'homunculus', 'rootling'];
 const ARCANE_COST = 25;
+
+// --- Bard songs (the "hold ability" radial; tap plays an Encore power chord) --
+type SongId = 'war' | 'march' | 'hymn' | 'dirge';
+const SONG_INFO: Record<SongId, { name: string; icon: string; tint: number; line: string }> = {
+  war: { name: 'War Chant', icon: 'icon-sword', tint: 0xff8a5a, line: 'blades rise with the beat' },
+  march: { name: "Traveler's March", icon: 'icon-boots', tint: 0x8ad0ff, line: 'feet fall light and fast' },
+  hymn: { name: 'Mending Hymn', icon: 'icon-amulet', tint: 0x8affa0, line: 'wounds close to the melody' },
+  dirge: { name: 'Dirge of Dread', icon: 'icon-scroll', tint: 0xc08aff, line: 'foes falter at the sound' },
+};
+const SONG_ORDER: SongId[] = ['war', 'march', 'hymn', 'dirge'];
 import type { ShopKind } from '../core/types';
 import { SkillTreeUI } from '../ui/SkillTreeUI';
 import { SettingsUI } from '../ui/SettingsUI';
@@ -98,7 +115,7 @@ interface Chest { sprite: Phaser.GameObjects.Image; itemId: string; opened: bool
 interface Shrine { sprite: Phaser.GameObjects.Image; used: boolean; x: number; y: number; }
 interface Pickup { sprite: Phaser.GameObjects.Image | Phaser.GameObjects.Sprite; kind: 'coin' | 'food' | 'potion' | 'key' | 'item'; value: number; itemId?: string; id?: number; }
 interface LockedDoor { rect: Phaser.GameObjects.Rectangle; sprite: Phaser.GameObjects.Image; x: number; y: number; open: boolean; }
-interface Projectile { spr: Phaser.GameObjects.Sprite; vx: number; vy: number; dmg: number; crit: boolean; bornAt: number; ttl: number; owner: Hero; }
+interface Projectile { spr: Phaser.GameObjects.Sprite; vx: number; vy: number; dmg: number; crit: boolean; bornAt: number; ttl: number; owner: Hero; pierce?: number; hit?: Set<Monster>; }
 interface EnemyProjectile { spr: Phaser.GameObjects.Sprite; vx: number; vy: number; dmg: number; bornAt: number; ttl: number; }
 
 // Per-theme mood: the colour of the party/ambient light and the drifting motes
@@ -196,12 +213,20 @@ export class DungeonScene extends Phaser.Scene {
   private summons: Companion[] = [];
   private summonIdx = 0;
   private arcaneIdx = 0;
+  private songPulseAt = 0;
   private summonTimerGfx?: Phaser.GameObjects.Graphics;
   private vignette?: Phaser.GameObjects.Image;
   private edgeGrade?: Phaser.GameObjects.Image;
   private selectedSkeleton: SummonChoice = 'tank';
+  private questBoardUI!: QuestBoardUI;
+  private dialogueUI!: DialogueUI;
+  private stashUI!: StashUI;
+  private fishingUI!: FishingUI;
+  private tradeUI!: TradeUI;
+  /** A caged villager waiting for rescue in this realm (quest-spawned). */
+  private rescueCage: { x: number; y: number; parts: Phaser.GameObjects.GameObject[]; questId: string } | null = null;
   private radialOpen = false;
-  private radialMode: 'necro' | 'arcane' = 'necro';
+  private radialMode: 'necro' | 'arcane' | 'song' = 'necro';
   private radialPick = 'tank';
   private radial?: Phaser.GameObjects.Container;
   private radialNodes: { t: string; dx: number; dy: number; a0: number; a1: number; g: Phaser.GameObjects.Graphics; icon?: Phaser.GameObjects.Image; txt: Phaser.GameObjects.Text }[] = [];
@@ -422,8 +447,22 @@ export class DungeonScene extends Phaser.Scene {
       this.registry.remove('carryParty');
     }
     // Undying Bulwark (vanguard 5-piece set) needs scene FX when it procs.
-    for (const a of this.allies) a.onUndying = (h) => this.undyingProc(h);
+    for (const a of this.allies) {
+      a.onUndying = (h) => this.undyingProc(h);
+      // Aegis of Embers (unique): being struck can burst into a ring of flame
+      a.onDamaged = (h) => {
+        if (!h.hasUniquePower('embers') || Math.random() > 0.25) return;
+        const t = this.time.now;
+        this.aoeHit(h, h.x, h.y, 90, Math.round(12 + h.stats.armor * 1.5), t, 'burn', 160);
+        const ring = this.add.sprite(h.x, h.y, 'fx-fire').setDepth(h.y + 18).setScale(3.4).setTint(0xff7a2a);
+        ring.play('fx-fire');
+        ring.once('animationcomplete', () => ring.destroy());
+        audio.sfx('magic');
+      };
+    }
     this.spawnFamiliar();
+    this.spawnRescueCage();
+    if (this.level.town) this.spawnLodgeTrophies();
     if (this.level.town && !carry && !save) {
       // fresh campaign: each hero starts with 100 gold + a health & mana potion
       for (const p of this.players) {
@@ -504,6 +543,11 @@ export class DungeonScene extends Phaser.Scene {
     this.settingsUI = new SettingsUI(this, { input: this.input2, onOpenManual: () => this.manualUI.open() });
     this.shopUI = new ShopUI(this);
     this.guildUI = new GuildHireUI(this);
+    this.questBoardUI = new QuestBoardUI(this);
+    this.dialogueUI = new DialogueUI(this);
+    this.stashUI = new StashUI(this);
+    this.fishingUI = new FishingUI(this);
+    this.tradeUI = new TradeUI(this);
     const kb = this.input.keyboard!;
     this.escKey = kb.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
     this.continueKey = kb.addKey(Phaser.Input.Keyboard.KeyCodes.C);
@@ -1283,6 +1327,11 @@ export class DungeonScene extends Phaser.Scene {
     if (this.saveLoadUI.isOpen()) this.saveLoadUI.close();
     if (this.shopUI.isOpen()) this.shopUI.close();
     if (this.guildUI.isOpen()) this.guildUI.close();
+    if (this.questBoardUI.isOpen()) this.questBoardUI.close();
+    if (this.dialogueUI.isOpen()) this.dialogueUI.close();
+    if (this.stashUI.isOpen()) this.stashUI.close();
+    if (this.fishingUI.isOpen()) this.fishingUI.close();
+    if (this.tradeUI.isOpen()) this.tradeUI.close();
   }
 
   private pollMenus(): void {
@@ -1396,7 +1445,7 @@ export class DungeonScene extends Phaser.Scene {
       if (this.input2.isDown('p1', 'attack')) p1.tryMelee(time);
       if (this.input2.justDown('p1', 'magic')) p1.tryMagic(time);
       if (this.input2.justDown('p1', 'use')) this.interact(p1);
-      if ((this.input2.justDown('p1', 'dodge') || this.input2.padJustDown('p1', 'dodge')) && p1.tryDodge(time)) this.spawnDodgeFx(p1);
+      if ((this.input2.justDown('p1', 'dodge') || this.input2.padJustDown('p1', 'dodge')) && p1.tryDodge(time)) { this.spawnDodgeFx(p1); this.dodgePowers(p1, time); }
       this.handleAbilityInput(p1, time);
       this.checkLowHealth(p1);
     }
@@ -1410,7 +1459,7 @@ export class DungeonScene extends Phaser.Scene {
       if (this.input2.isDown('p2', 'attack')) p2.tryMelee(time);
       if (this.input2.justDown('p2', 'magic')) p2.tryMagic(time);
       if (this.input2.justDown('p2', 'use')) this.interact(p2);
-      if ((this.input2.justDown('p2', 'dodge') || this.input2.padJustDown('p2', 'dodge')) && p2.tryDodge(time)) this.spawnDodgeFx(p2);
+      if ((this.input2.justDown('p2', 'dodge') || this.input2.padJustDown('p2', 'dodge')) && p2.tryDodge(time)) { this.spawnDodgeFx(p2); this.dodgePowers(p2, time); }
       this.handleAbilityInputP2(p2, time);
     }
     if (p2) p2.tick(time, delta);
@@ -1474,6 +1523,27 @@ export class DungeonScene extends Phaser.Scene {
         // hired Necromancer's servants) whenever Meteor isn't called for.
         this.summonArcane(comp, ARCANE_ORDER[this.arcaneIdx++ % ARCANE_ORDER.length], true);
         comp.markAbilityUsed(time);
+      } else if (comp.classId === 'bard' && !comp.song) {
+        // A hired Bard always keeps a song ringing — Hymn when the party is
+        // hurting, War Chant otherwise (the Encore path handles combat bursts).
+        const hurting = this.allies.some((a) => a.alive && a.healthRatio() < 0.6);
+        this.bardSing(comp, hurting ? 'hymn' : 'war');
+        comp.markAbilityUsed(time);
+      }
+    }
+    // Hired Bards retune to the fight; hired Druids shift with the tide of battle.
+    for (const comp of this.companions) {
+      if (!comp.alive || comp.isSummon) continue;
+      if (comp.classId === 'bard' && comp.song && time >= comp.nextShiftAt) {
+        const hurting = this.allies.some((a) => a.alive && a.healthRatio() < 0.55);
+        const want: SongId = hurting ? 'hymn' : 'war';
+        if (comp.song !== want) {
+          comp.nextShiftAt = time + 4000; // don't thrash between tunes
+          this.bardSing(comp, want);
+        }
+      } else if (comp.classId === 'druid') {
+        const near = liveMonsters.some((m) => Phaser.Math.Distance.Between(comp.x, comp.y, m.x, m.y) < 150);
+        if (near !== comp.bearForm && comp.shapeshift(time)) this.shiftFx(comp);
       }
     }
     for (const comp of this.companions) {
@@ -1533,6 +1603,71 @@ export class DungeonScene extends Phaser.Scene {
       ?? null;
   }
 
+  /** If a rescue contract targets this realm, cage a villager in a far corner. */
+  /** Stone-grey warden busts on plinths along the Lodge lawn — one trophy per
+   *  cleared realm, so your victories are on show every time you come home. */
+  private spawnLodgeTrophies(): void {
+    const BOSS_SHEETS = [
+      'monster-boss-sheet',
+      'monster-molten_colossus-sheet',
+      'monster-rime_cantor-sheet',
+      'monster-rot_sovereign-sheet',
+      'monster-brass_magnus-sheet',
+      'monster-arena_champion-sheet',
+      'monster-mire_leviathan-sheet',
+      'monster-tempest_herald-sheet',
+      'monster-umbral_devourer-sheet',
+      'monster-hollow_king-sheet',
+    ];
+    const cleared = Math.min(this.unlockedRealms() - 1, BOSS_SHEETS.length);
+    for (let i = 0; i < cleared; i++) {
+      const c = this.tileCenter(82 + i, 24);
+      this.add.image(c.x, c.y + 4, 'pillar').setDepth(c.y).setScale(0.55);
+      this.add.image(c.x, c.y - 10, BOSS_SHEETS[i]).setDepth(c.y + 1).setScale(0.24).setTint(0xb8b0a2);
+    }
+    if (cleared > 0) {
+      const c = this.tileCenter(82, 26);
+      this.add
+        .text(c.x, c.y, 'Trophies of the fallen wardens', { fontFamily: 'MedievalSharp, "Trebuchet MS", cursive', fontSize: '10px', color: '#cfc4a8', stroke: '#000', strokeThickness: 3 })
+        .setDepth(c.y + 40);
+    }
+  }
+
+  private spawnRescueCage(): void {
+    this.rescueCage = null;
+    if (this.level.town) return;
+    const q = questLog.pendingRescue(this.level.id);
+    if (!q) return;
+    // probe for a far walkable tile — the farthest of many random tries
+    const sx = this.startTile.x;
+    const sy = this.startTile.y;
+    let best: { x: number; y: number; d: number } | null = null;
+    for (let i = 0; i < 240; i++) {
+      const x = Phaser.Math.Between(3, this.level.width - 4);
+      const y = Phaser.Math.Between(3, this.level.height - 4);
+      if (!this.isWalkable(x, y)) continue;
+      const d = Math.hypot(x - sx, y - sy);
+      if (!best || d > best.d) best = { x, y, d };
+    }
+    if (!best) return;
+    const c = this.tileCenter(best.x, best.y);
+    const villager = this.add
+      .sprite(c.x, c.y, `townsfolk-${Phaser.Math.Between(0, 6)}`)
+      .setDepth(c.y)
+      .setScale(0.62 * settings.spriteScale())
+      .setTint(0xb0b0c8);
+    const bars = this.add.graphics().setDepth(c.y + 8);
+    bars.lineStyle(2, 0x565c70, 1);
+    bars.strokeRect(c.x - 11, c.y - 20, 22, 30);
+    bars.lineStyle(2, 0x3a3f52, 1);
+    for (let i = -7; i <= 7; i += 4) bars.lineBetween(c.x + i, c.y - 20, c.x + i, c.y + 10);
+    const tag = this.add
+      .text(c.x, c.y - 32, 'Caged Villager', { fontFamily: 'MedievalSharp, "Trebuchet MS", cursive', fontSize: '10px', color: '#8affa0', stroke: '#000', strokeThickness: 3 })
+      .setOrigin(0.5)
+      .setDepth(c.y + 40);
+    this.rescueCage = { x: c.x, y: c.y, parts: [villager, bars, tag], questId: q.id };
+  }
+
   /** Give the Arcanist their always-on Lantern Wisp familiar. */
   private spawnFamiliar(): void {
     const owner = this.familiarOwner();
@@ -1589,6 +1724,45 @@ export class DungeonScene extends Phaser.Scene {
       const line = DungeonScene.WISP_LINES[Phaser.Math.Between(1, DungeonScene.WISP_LINES.length - 1)];
       this.showBark(line, 2600, 'system', '#9fd0ff');
     }
+  }
+
+  /** A realm warden crosses half health: announce the turn and fire its
+   *  entry burst (adds, second wind, relocation) per BOSS_PHASE2. */
+  private bossPhase2(m: Monster): void {
+    const p2 = BOSS_PHASE2[m.enemyId];
+    if (!p2) return;
+    this.showBark(p2.bark, 4200, 'combat', '#ff8a6a');
+    this.cameras.main.shake(420, 0.012);
+    audio.sfx('boss_roar');
+    // crimson flare so the turn reads even mid-melee
+    const flare = this.add.image(m.x, m.y - 8, 'fx-glow-warm').setScale(4).setAlpha(0.85).setBlendMode(Phaser.BlendModes.ADD).setDepth(m.y + 24).setTint(0xff4a2a);
+    this.tweens.add({ targets: flare, alpha: 0, scale: 6, duration: 700, onComplete: () => flare.destroy() });
+    if (p2.healFrac) {
+      m.health = Math.min(m.maxHealth, m.health + Math.round(m.maxHealth * p2.healFrac));
+      this.floatPickup(m.x, m.y - 26, 'second wind!', '#ff8a6a');
+    }
+    if (p2.entryAdds && m.def.summons) {
+      for (let i = 0; i < p2.entryAdds; i++) {
+        const a = (i / p2.entryAdds) * Math.PI * 2;
+        this.makeMonster(m.x + Math.cos(a) * 34, m.y + Math.sin(a) * 34, m.def.summons);
+      }
+    }
+    if (p2.relocate) {
+      // vanish... and resurface beside a hero
+      const target = this.players.find((p) => p?.alive) ?? this.players[0];
+      if (target) {
+        this.spawnBlink(m.x, m.y);
+        const ang = Math.random() * Math.PI * 2;
+        let nx = target.x + Math.cos(ang) * 60;
+        let ny = target.y + Math.sin(ang) * 60;
+        if (!this.isWalkable(Math.floor(nx / TILE_SIZE), Math.floor(ny / TILE_SIZE))) { nx = target.x; ny = target.y - 40; }
+        m.setPosition(nx, ny);
+        const body = m.body as Phaser.Physics.Arcade.Body | null;
+        if (body) body.reset(nx, ny);
+        this.spawnBlink(nx, ny);
+      }
+    }
+    this.dmSetPiece(aiService.generateBark(`the wounded ${m.def.name} entering its terrible second phase in ${this.level.name}`));
   }
 
   /** Blink a companion to the party leader with a small puff of magic. */
@@ -1657,6 +1831,37 @@ export class DungeonScene extends Phaser.Scene {
     this.tweens.add({ targets: fx, alpha: 0, scaleX: 2.4, duration: 240, onComplete: () => fx.destroy() });
   }
 
+  /** Unique-legendary dodge riders: the Comet's fire trail, the Nightveil's shadow. */
+  private dodgePowers(h: Hero, time: number): void {
+    if (h.hasUniquePower('comet')) {
+      // three burning patches bloom along the roll's path
+      const sx = h.x;
+      const sy = h.y;
+      for (let i = 0; i < 3; i++) {
+        this.time.delayedCall(60 + i * 90, () => {
+          if (!h.active) return;
+          const px = Phaser.Math.Linear(sx, h.x, (i + 1) / 3);
+          const py = Phaser.Math.Linear(sy, h.y, (i + 1) / 3);
+          const flame = this.add.sprite(px, py, 'fx-fire').setDepth(py + 4).setScale(1.6).setTint(0xff8a2a);
+          flame.play('fx-fire');
+          flame.once('animationcomplete', () => flame.destroy());
+          for (const m of this.monsters) {
+            if (m.active && m.alive && Phaser.Math.Distance.Between(px, py, m.x, m.y) < 26) {
+              m.applyStatus('burn', 1800, this.time.now);
+            }
+          }
+        });
+      }
+    }
+    if (h.hasUniquePower('nightveil')) {
+      // wrapped in shadow: a longer breath of untouchability
+      h.grantIframes(time, 1300);
+      h.setAlpha(0.35);
+      const veil = this.add.image(h.x, h.y - 6, 'fx-glow-magic').setScale(1.4).setAlpha(0.5).setBlendMode(Phaser.BlendModes.ADD).setDepth(h.y + 8).setTint(0x6a4a9a);
+      this.tweens.add({ targets: veil, alpha: 0, scale: 2.2, duration: 500, onComplete: () => veil.destroy() });
+    }
+  }
+
   /** Necromancer ability: raise a skeletal servant (alternating warrior/caster, max 3). */
   /** Levels smaller than the play-area viewport (building interiors) are pinned
    *  to the centre instead of the top-left corner. */
@@ -1708,6 +1913,11 @@ export class DungeonScene extends Phaser.Scene {
         return within(120).length >= 2;
       case 'arcanist':
         return within(300).length >= 2;
+      case 'bard':
+        // Encore when a pack presses in close (its ring reaches ~100px)
+        return within(90).length >= 2;
+      case 'druid':
+        return false; // shapeshifting is handled by the form-upkeep pass
       case 'thief': {
         // Shadow Flurry only reaches ~78px (60px arc struck 18px ahead), so
         // don't burn the cooldown unless a foe is actually inside that arc.
@@ -1817,7 +2027,12 @@ export class DungeonScene extends Phaser.Scene {
       if (down) this.toggleSneak(p1);
       return;
     }
-    const radialClass = p1.classId === 'necromancer' || p1.classId === 'arcanist';
+    if (p1.classId === 'druid') {
+      // shapeshifting is fluid — a short breath between shifts, no long cooldown
+      if (down && p1.shapeshift(time)) this.shiftFx(p1);
+      return;
+    }
+    const radialClass = p1.classId === 'necromancer' || p1.classId === 'arcanist' || p1.classId === 'bard';
     if (!radialClass) {
       if (down && p1.canAbility(time)) {
         this.useAbility(p1, time);
@@ -1825,7 +2040,7 @@ export class DungeonScene extends Phaser.Scene {
       }
       return;
     }
-    const mode: 'necro' | 'arcane' = p1.classId === 'arcanist' ? 'arcane' : 'necro';
+    const mode: 'necro' | 'arcane' | 'song' = p1.classId === 'arcanist' ? 'arcane' : p1.classId === 'bard' ? 'song' : 'necro';
     if (down) this.abilityDownAt = time;
     if (held && this.abilityDownAt && !this.radialOpen && time - this.abilityDownAt > 200) this.openSummonRadial(mode);
     if (this.radialOpen) {
@@ -1836,10 +2051,12 @@ export class DungeonScene extends Phaser.Scene {
       if (this.radialOpen) {
         this.closeSummonRadial();
         if (mode === 'arcane') this.summonArcane(p1, this.radialPick as ArcaneType);
+        else if (mode === 'song') this.bardSing(p1, this.radialPick as SongId);
         else { this.selectedSkeleton = this.radialPick as SummonChoice; this.trySummon(p1, time); }
       } else if (this.abilityDownAt) {
-        // quick tap: necromancer raises the last servant; arcanist nukes with Meteor
-        if (mode === 'arcane') {
+        // quick tap: necro raises the last servant; arcanist nukes with Meteor;
+        // the bard strikes an Encore power chord
+        if (mode === 'arcane' || mode === 'song') {
           if (p1.canAbility(time)) { this.useAbility(p1, time); p1.markAbilityUsed(time); }
         } else {
           this.trySummon(p1, time);
@@ -1854,7 +2071,14 @@ export class DungeonScene extends Phaser.Scene {
     const down = this.input2.justDown('p2', 'ability') || this.input2.padJustDown('p2', 'ability');
     if (!down) return;
     if (p2.classId === 'thief') { this.toggleSneak(p2); return; }
+    if (p2.classId === 'druid') { if (p2.shapeshift(time)) this.shiftFx(p2); return; }
     if (p2.classId === 'necromancer') { this.trySummon(p2, time); return; }
+    if (p2.classId === 'bard') {
+      // tap cycles to the next song (P2 has no hold-radial)
+      const next = SONG_ORDER[(SONG_ORDER.indexOf((p2.song ?? 'dirge') as SongId) + 1) % SONG_ORDER.length];
+      this.bardSing(p2, next);
+      return;
+    }
     if (p2.canAbility(time)) {
       this.useAbility(p2, time);
       p2.markAbilityUsed(time);
@@ -1960,13 +2184,13 @@ export class DungeonScene extends Phaser.Scene {
     if (!quiet) this.showBark(`${mage.def.name} conjures ${art} ${info.name}!`, 2600, 'event', '#bfe0ff');
   }
 
-  private openSummonRadial(mode: 'necro' | 'arcane' = 'necro'): void {
+  private openSummonRadial(mode: 'necro' | 'arcane' | 'song' = 'necro'): void {
     if (this.radialOpen) return;
     this.radialOpen = true;
     this.radialMode = mode;
     const R = 92; // outer radius
     const RING = 40; // inner hub radius
-    const ringCol = mode === 'arcane' ? 0x6fb0ff : 0x9b7be0;
+    const ringCol = mode === 'arcane' ? 0x6fb0ff : mode === 'song' ? 0xe0b04a : 0x9b7be0;
 
     const cont = this.add.container(PLAY_AREA_WIDTH / 2, GAME_HEIGHT / 2).setScrollFactor(0).setDepth(DEPTH.OVERLAY + 6);
     const scrim = this.add.graphics();
@@ -1974,14 +2198,18 @@ export class DungeonScene extends Phaser.Scene {
     scrim.fillCircle(0, 0, R + 26);
     cont.add(scrim);
 
-    const ids: string[] = mode === 'arcane' ? [...ARCANE_ORDER] : ['tank', 'archer', 'mage', 'thief'];
+    const ids: string[] = mode === 'arcane' ? [...ARCANE_ORDER] : mode === 'song' ? [...SONG_ORDER] : ['tank', 'archer', 'mage', 'thief'];
     const dirDeg = [-90, 0, 90, 180]; // top, right, bottom, left
     const labelFor = (id: string): string =>
-      mode === 'arcane' ? ARCANE_INFO[id as ArcaneType].name.toUpperCase() : id.toUpperCase();
+      mode === 'arcane' ? ARCANE_INFO[id as ArcaneType].name.toUpperCase()
+      : mode === 'song' ? SONG_INFO[id as SongId].name.toUpperCase()
+      : id.toUpperCase();
     const iconFor = (id: string): { key: string; frame: number; tint: number } =>
       mode === 'arcane'
         ? { key: ARCANE_INFO[id as ArcaneType].sheet, frame: 0, tint: ARCANE_INFO[id as ArcaneType].tint }
-        : { key: SKELETON_INFO[id as SkeletonType].sheet, frame: 0, tint: 0xdfe8ff };
+        : mode === 'song'
+          ? { key: SONG_INFO[id as SongId].icon, frame: 0, tint: SONG_INFO[id as SongId].tint }
+          : { key: SKELETON_INFO[id as SkeletonType].sheet, frame: 0, tint: 0xdfe8ff };
 
     this.radialNodes = [];
     for (let i = 0; i < 4; i++) {
@@ -2011,7 +2239,7 @@ export class DungeonScene extends Phaser.Scene {
     const hub = this.add.graphics();
     cont.add(hub);
     const hubLabel = this.add
-      .text(0, 0, beastOk ? 'BEAST' : mode === 'arcane' ? 'CONJURE' : 'RAISE', { fontFamily: 'MedievalSharp, "Trebuchet MS", cursive', fontSize: beastOk ? '10px' : '9px', color: beastOk ? '#b6ffd0' : '#cbb8ee', stroke: '#000', strokeThickness: 3 })
+      .text(0, 0, beastOk ? 'BEAST' : mode === 'arcane' ? 'CONJURE' : mode === 'song' ? 'SING' : 'RAISE', { fontFamily: 'MedievalSharp, "Trebuchet MS", cursive', fontSize: beastOk ? '10px' : '9px', color: beastOk ? '#b6ffd0' : mode === 'song' ? '#ffe9a8' : '#cbb8ee', stroke: '#000', strokeThickness: 3 })
       .setOrigin(0.5);
     cont.add(hubLabel);
     this.radialNodes.push({ t: '__hub', dx: 0, dy: 0, a0: 0, a1: 0, g: hub, txt: hubLabel });
@@ -2024,7 +2252,7 @@ export class DungeonScene extends Phaser.Scene {
     cont.add(ring);
 
     this.radial = cont;
-    this.radialPick = mode === 'arcane' ? 'ember' : (this.selectedSkeleton === 'beast' ? 'tank' : this.selectedSkeleton);
+    this.radialPick = mode === 'arcane' ? 'ember' : mode === 'song' ? (this.players[0]?.song ?? 'war') : (this.selectedSkeleton === 'beast' ? 'tank' : this.selectedSkeleton);
     this.updateSummonRadial();
   }
 
@@ -2032,8 +2260,8 @@ export class DungeonScene extends Phaser.Scene {
     if (!this.radial) return;
     const R = 92;
     const RING = 40;
-    const selCol = this.radialMode === 'arcane' ? 0x2c4a86 : 0x4a2e6e;
-    const selEdge = this.radialMode === 'arcane' ? 0xbfe0ff : 0xe8d0ff;
+    const selCol = this.radialMode === 'arcane' ? 0x2c4a86 : this.radialMode === 'song' ? 0x6e5220 : 0x4a2e6e;
+    const selEdge = this.radialMode === 'arcane' ? 0xbfe0ff : this.radialMode === 'song' ? 0xffe9a8 : 0xe8d0ff;
 
     let ang: number | null = null;
     let center = false;
@@ -2050,7 +2278,7 @@ export class DungeonScene extends Phaser.Scene {
     if (center) this.radialPick = this.radialCenterId!;
     else if (ang !== null) {
       const deg = ((ang * 180) / Math.PI + 360) % 360;
-      const ids = this.radialMode === 'arcane' ? ARCANE_ORDER : (['tank', 'archer', 'mage', 'thief'] as string[]);
+      const ids = this.radialMode === 'arcane' ? ARCANE_ORDER : this.radialMode === 'song' ? (SONG_ORDER as string[]) : (['tank', 'archer', 'mage', 'thief'] as string[]);
       const idx = deg >= 315 || deg < 45 ? 1 : deg < 135 ? 2 : deg < 225 ? 3 : 0;
       this.radialPick = ids[idx] as string;
     }
@@ -2185,8 +2413,41 @@ export class DungeonScene extends Phaser.Scene {
   }
 
   private abilityName(c: HeroClassId): string {
-    const names: Record<HeroClassId, string> = { vanguard: 'Seismic Slam', thief: 'Shadow Flurry', arcanist: 'Meteor', warden: 'Sanctuary', necromancer: 'Raise Dead' };
+    const names: Record<HeroClassId, string> = { vanguard: 'Seismic Slam', thief: 'Shadow Flurry', arcanist: 'Meteor', warden: 'Sanctuary', necromancer: 'Raise Dead', bard: 'Encore', druid: 'Wild Shape' };
     return names[c];
+  }
+
+  /** Bard: strike up (or change) a song — a persistent party aura. */
+  private bardSing(bard: Hero, song: SongId): void {
+    if (bard.song === song) return;
+    bard.song = song;
+    const info = SONG_INFO[song];
+    const fx = this.add.sprite(bard.x, bard.y - 8, 'fx-magic').setDepth(bard.y + 16).setScale(1.6).setTint(info.tint);
+    fx.play('fx-magic');
+    fx.once('animationcomplete', () => fx.destroy());
+    // a flourish of notes
+    for (let i = 0; i < 3; i++) {
+      const note = this.add
+        .text(bard.x + Phaser.Math.Between(-12, 12), bard.y - 14, i % 2 ? '♪' : '♫', { fontSize: '12px', color: '#ffe9a8', stroke: '#000', strokeThickness: 2 })
+        .setOrigin(0.5)
+        .setDepth(bard.y + 20);
+      this.tweens.add({ targets: note, y: note.y - 26 - i * 6, alpha: 0, duration: 900 + i * 180, ease: 'Quad.easeOut', onComplete: () => note.destroy() });
+    }
+    audio.sfx('shrine');
+    this.showBark(`${bard.def.name} strikes up ${info.name} — ${info.line}.`, 2600, 'event', '#ffe9a8');
+  }
+
+  /** Druid shapeshift flourish (the Hero handles the actual form change). */
+  private shiftFx(d: Hero): void {
+    const fx = this.add.sprite(d.x, d.y, 'fx-magic').setDepth(d.y + 16).setScale(2).setTint(0x8fe06a);
+    fx.play('fx-magic');
+    fx.once('animationcomplete', () => fx.destroy());
+    for (let i = 0; i < 5; i++) {
+      const leaf = this.add.image(d.x + Phaser.Math.Between(-10, 10), d.y - 6, 'fx-glow-green').setScale(0.5).setAlpha(0.8).setBlendMode(Phaser.BlendModes.ADD).setDepth(d.y + 18);
+      this.tweens.add({ targets: leaf, y: leaf.y - 18 - i * 4, x: leaf.x + Phaser.Math.Between(-8, 8), alpha: 0, duration: 600 + i * 90, onComplete: () => leaf.destroy() });
+    }
+    audio.sfx('magic');
+    this.showBark(d.bearForm ? `${d.def.name} shifts into a great bear!` : `${d.def.name} returns to human form.`, 2200, 'event', '#b6ff8a');
   }
 
   /** Per-class active ability (key F), gated by Hero cooldown. */
@@ -2195,8 +2456,30 @@ export class DungeonScene extends Phaser.Scene {
       this.summonSkeleton(h, !announce);
       return;
     }
+    if (h.classId === 'druid') {
+      if (h.shapeshift(time)) this.shiftFx(h);
+      return;
+    }
     const cx = h.x;
     const cy = h.y;
+    if (h.classId === 'bard') {
+      // Encore — a ringing power chord that staggers everything around the skald
+      const radius = 100 + h.skillSet.rank('brd_reach') * 12;
+      const ring = this.add.sprite(cx, cy, 'fx-magic').setDepth(cy + 20).setScale((radius * 2) / 32).setTint(0xffd98a);
+      ring.play('fx-magic');
+      ring.once('animationcomplete', () => ring.destroy());
+      for (let i = 0; i < 4; i++) {
+        const note = this.add
+          .text(cx + Phaser.Math.Between(-radius / 2, radius / 2), cy - 10, i % 2 ? '♪' : '♫', { fontSize: '14px', color: '#ffe9a8', stroke: '#000', strokeThickness: 2 })
+          .setOrigin(0.5)
+          .setDepth(cy + 22);
+        this.tweens.add({ targets: note, y: note.y - 30, alpha: 0, duration: 800 + i * 120, onComplete: () => note.destroy() });
+      }
+      this.aoeHit(h, cx, cy, radius, Math.round(h.attackDamage().dmg * 1.7), time, 'shock', 180);
+      audio.sfx('shrine');
+      if (announce) this.showBark(`${h.def.name} unleashes ${this.abilityName(h.classId)}!`);
+      return;
+    }
     if (h.classId === 'thief') {
       // Shadow Flurry — a blur of dagger strikes in an arc ahead, each a backstab-grade hit
       const fx = this.add.sprite(cx + h.attackDir.x * 16, cy + h.attackDir.y * 16, 'fx-slash').setDepth(cy + 8).setScale(2.0).setRotation(Math.atan2(h.attackDir.y, h.attackDir.x)).setTint(0xcfe0ff);
@@ -2704,9 +2987,16 @@ export class DungeonScene extends Phaser.Scene {
 
   /** Knockback + on-hit status from a melee/projectile strike. */
   private applyHitEffects(attacker: Hero, m: Monster, dirX: number, dirY: number, crit: boolean, time: number): void {
-    m.knock(dirX * 150, dirY * 150, time);
-    if (attacker.stats.fire > 0) m.applyStatus('burn', 1600, time);
+    // Tidebreaker Maul: blows land like a breaking wave — huge knock + chill
+    const tide = attacker.hasUniquePower('tidebreaker');
+    m.knock(dirX * (tide ? 380 : 150), dirY * (tide ? 380 : 150), time);
+    if (tide) m.applyStatus('chill', 1800, time);
+    if (attacker.stats.fire > 0 || attacker.hasUniquePower('sunfall')) m.applyStatus('burn', 1600, time);
     if (crit) m.applyStatus('shock', 1200, time);
+    // Stormcaller Staff: criticals call lightning that arcs between foes
+    if (crit && attacker.hasUniquePower('stormcaller')) {
+      this.chainBolt(attacker, m, Math.round(attacker.attackDamage().dmg * 0.8), time, 2);
+    }
     // Starved Rootling familiar: its lashing vines chill (slow) whatever it strikes.
     if ((attacker as Companion).arcaneType === 'rootling') m.applyStatus('chill', 1600, time);
   }
@@ -2745,6 +3035,7 @@ export class DungeonScene extends Phaser.Scene {
       .setDepth(owner.y + 6)
       .setScale(arrow ? 1 : 1.4);
     if (arrow) spr.setRotation(Math.atan2(dir.y, dir.x));
+    if (owner.classId === 'druid') spr.setTint(0x9aff6a); // moonlit nature bolt
     // weapon flourish: bow twang flash / arcane cast burst at the hands
     const flash = this.add
       .image(owner.x + dir.x * 10, owner.y + dir.y * 10 - 4, arrow ? 'fx-glow-white' : 'fx-glow-magic')
@@ -2754,7 +3045,9 @@ export class DungeonScene extends Phaser.Scene {
       .setTint(arrow ? 0xffffff : 0xb98cff);
     this.tweens.add({ targets: flash, alpha: 0, scale: arrow ? 0.95 : 1.5, duration: 170, onComplete: () => flash.destroy() });
     const { dmg, crit } = owner.attackDamage();
-    this.projectiles.push({ spr, vx: dir.x * speed, vy: dir.y * speed, dmg, crit, bornAt: time, ttl: arrow ? 850 : 600, owner });
+    // Whisperwind Bow: shots pass through what they strike and keep flying
+    const pierce = owner.hasUniquePower('whisperwind') ? 3 : 0;
+    this.projectiles.push({ spr, vx: dir.x * speed, vy: dir.y * speed, dmg, crit, bornAt: time, ttl: arrow ? 850 : 600, owner, pierce, hit: pierce > 0 ? new Set() : undefined });
   }
 
   private updateProjectiles(time: number, delta: number): void {
@@ -2772,6 +3065,7 @@ export class DungeonScene extends Phaser.Scene {
       if (!dead) {
         for (const m of this.monsters) {
           if (!m.active || !m.alive) continue;
+          if (p.hit?.has(m)) continue; // a piercing shot never re-hits the same foe
           if (Phaser.Math.Distance.Between(p.spr.x, p.spr.y, m.x, m.y) <= 14) {
             const died = m.takeDamage(p.dmg, time);
             this.floatDamage(m.x, m.y, p.dmg, p.crit);
@@ -2782,7 +3076,12 @@ export class DungeonScene extends Phaser.Scene {
               const chains = p.owner.stats.spellChain ?? 0;
               if (chains > 0) this.chainBolt(p.owner, m, p.dmg, time, chains);
             }
-            dead = true;
+            if ((p.pierce ?? 0) > 0) {
+              p.pierce!--;
+              p.hit?.add(m);
+            } else {
+              dead = true;
+            }
             break;
           }
         }
@@ -2853,6 +3152,7 @@ export class DungeonScene extends Phaser.Scene {
     m.onRanged = (mm, ux, uy) => this.spawnEnemyShot(mm, ux, uy);
     m.onSummon = (mm) => this.summonAdds(mm);
     m.onNova = (mm, radius) => this.enemyNova(mm, radius);
+    m.onPhase2 = (mm) => this.bossPhase2(mm);
     this.monsters.push(m);
     this.monsterGroup.add(m);
     this.shadows.add(m, 4);
@@ -2950,12 +3250,15 @@ export class DungeonScene extends Phaser.Scene {
   private onMonsterKilled(killer: Hero, m: Monster): void {
     const cheats = settings.get('gameplay');
     const mult = cheats.xpMultiplier;
+    // Heartroot Plate: every kill mends the slayer
+    if (killer.alive && killer.hasUniquePower('heartroot')) killer.heal(Math.max(2, Math.round(killer.stats.maxHealth * 0.04)));
+    const goldMul = killer.hasUniquePower('midas') ? 1.4 : 1; // Midas Grips
     const coop = MULTIPLAYER_ENABLED && net.connected && net.partySize > 1 && !this.level.town && net.isHost;
     if (coop) {
       // Shared, party-bonused XP + gold — everyone earns MORE than playing solo.
       const bonus = 1 + 0.2 * (net.partySize - 1);
       const xp = Math.round(m.def.xp * mult * bonus);
-      const gold = cheats.goldMult > 0 ? Math.max(1, Math.round((2 + m.def.xp * 0.4) * cheats.goldMult * bonus)) : 0;
+      const gold = cheats.goldMult > 0 ? Math.max(1, Math.round((2 + m.def.xp * 0.4) * cheats.goldMult * bonus * goldMul)) : 0;
       this.coopApplyReward(xp, gold);   // host's own party
       net.sendCoopReward(xp, gold);     // guests apply the same
       killer.addScore(m.def.xp);
@@ -2970,7 +3273,7 @@ export class DungeonScene extends Phaser.Scene {
       }
       // gold coin drop (solo path; co-op gold is shared directly above)
       if (cheats.goldMult > 0 && !m.isBoss && Math.random() < 0.45) {
-        this.spawnCoin(m.x, m.y, Math.max(1, Math.round((2 + m.def.xp * 0.4) * cheats.goldMult)));
+        this.spawnCoin(m.x, m.y, Math.max(1, Math.round((2 + m.def.xp * 0.4) * cheats.goldMult * goldMul)));
       }
     }
     // Item + scroll drops roll host-side / solo (cross-client item instancing is a follow-up).
@@ -2986,6 +3289,17 @@ export class DungeonScene extends Phaser.Scene {
       if (sc) this.spawnLootPickup(m.x, m.y, sc);
     }
     if (m.isBoss) this.dropBossLoot(m);
+    // notice-board contracts: bounty tallies + relics uncovered on realm kills
+    for (const q of questLog.onKill(m.enemyId, this.level.id)) {
+      if (q.done) {
+        this.showBark(`Contract complete: ${q.title} — return to the notice board for your payout.`, 5200, 'event', '#8affa0');
+        this.floatPickup(m.x, m.y - 26, 'contract complete!', '#8affa0');
+      } else if (q.kind === 'gather') {
+        this.floatPickup(m.x, m.y - 26, `relic secured  ${q.progress}/${q.need}`, '#8ad0ff');
+      } else {
+        this.floatPickup(m.x, m.y - 26, `bounty  ${q.progress}/${q.need}`, '#ff9a6a');
+      }
+    }
   }
 
   /** Every realm warden yields class-specific loot: a guaranteed Godforged class
@@ -3038,6 +3352,11 @@ export class DungeonScene extends Phaser.Scene {
    *  weighted toward the classes actually in the party. */
   private dropLoot(x: number, y: number, floor?: Grade): void {
     const luck = this.bestLuck();
+    // uniques are the rarest, most exciting roll — check them first
+    if (Math.random() < uniqueDropChance(luck)) {
+      this.spawnLootPickup(x, y, rollUniqueDrop());
+      return;
+    }
     if (Math.random() < setDropChance(luck)) {
       const partyClasses = this.players.filter(Boolean).map((p) => p.classId);
       this.spawnLootPickup(x, y, rollSetDrop(partyClasses));
@@ -3049,9 +3368,9 @@ export class DungeonScene extends Phaser.Scene {
   }
 
   private spawnLootPickup(x: number, y: number, item: ItemDefinition, fromNet = false): void {
-    // class set pieces present in BRIGHT GREEN everywhere (drop beam, float
-    // text, log line) so they read instantly as chase items.
-    const color = item.setId ? SET_COLOR : item.grade ? GRADES[item.grade].color : '#ffe9a8';
+    // class set pieces present in BRIGHT GREEN, uniques in BURNT ORANGE
+    // everywhere (drop beam, float text, log line) so they read instantly.
+    const color = item.unique ? UNIQUE_COLOR : item.setId ? SET_COLOR : item.grade ? GRADES[item.grade].color : '#ffe9a8';
     const tint = Phaser.Display.Color.HexStringToColor(color).color;
     // 0..4 rarity tier drives how loud the marker is (set pieces = top tier)
     const tier = item.setId ? 4 : item.grade ? GRADE_ORDER.indexOf(item.grade) : 1;
@@ -3492,6 +3811,29 @@ export class DungeonScene extends Phaser.Scene {
     net.onCoopHit = (netId, dmg) => this.coopApplyHit(netId, dmg);
     net.onCoopReward = (xp, gold) => this.coopApplyReward(xp, gold);
     net.onCoopLoot = (loot) => this.coopApplyLoot(loot);
+    // ---- player-to-player trading ----
+    net.onTradeRequest = (fromId, fromName) => {
+      if (this.tradeUI.isOpen()) {
+        net.sendTradeCancel(fromId); // already mid-trade — wave them off
+        return;
+      }
+      const me = this.players.find((p) => p?.alive) ?? this.players[0];
+      if (!me) return;
+      this.closeAllOverlays();
+      this.showBark(`${fromName} opens a trade with you.`, 3200, 'event', '#8ad0ff');
+      this.tradeUI.open(me, fromId, fromName, {
+        onComplete: () => { this.showBark('The trade is struck — fair dealing!', 3200, 'loot', '#8affa0'); this.syncHudData(); },
+        onClosed: () => this.syncHudData(),
+      });
+    };
+    net.onTradeUpdate = (fromId, items, gold) => this.tradeUI.remoteUpdate(fromId, items as ItemDefinition[], gold);
+    net.onTradeAccept = (fromId) => this.tradeUI.remoteAccept(fromId);
+    net.onTradeCancel = (fromId) => {
+      if (this.tradeUI.isOpen() && this.tradeUI.currentPartner() === fromId) {
+        this.showBark('The trade is called off.', 2600, 'system');
+        this.tradeUI.remoteCancel(fromId);
+      }
+    };
     net.connect(getServerUrl(), {
       name: p0?.def?.name ?? 'Adventurer',
       classId: p0?.classId ?? 'vanguard',
@@ -3655,6 +3997,39 @@ export class DungeonScene extends Phaser.Scene {
   }
 
   private townInteract(player: Hero): boolean {
+    // the lodge stash chest: shared storage for every hero, every save
+    for (const d of this.level.decor ?? []) {
+      if (d.key !== 'chest') continue;
+      const cc = this.tileCenter(d.x, d.y);
+      if (Phaser.Math.Distance.Between(player.x, player.y, cc.x, cc.y) < 34) {
+        this.closeAllOverlays();
+        this.stashUI.open(player, () => this.syncHudData());
+        return true;
+      }
+    }
+    // the notice board: contracts, payouts, reputation
+    for (const d of this.level.decor ?? []) {
+      if (d.key !== 'quest-board') continue;
+      const c = this.tileCenter(d.x, d.y);
+      if (Phaser.Math.Distance.Between(player.x, player.y, c.x, c.y) < 40) {
+        this.closeAllOverlays();
+        audio.sfx('ui_select');
+        this.questBoardUI.open(player, this.unlockedRealms(), {
+          onAccepted: (q) => {
+            this.showBark(`Contract accepted: ${q.title}. ${q.desc}`, 5200, 'event', '#8ad0ff');
+            // let the Dungeon Master embroider the notice
+            void aiService.generateBark(`a Hearthwatch notice-board contract: ${q.desc}`).then(({ text, live }) => {
+              if (text && live) this.showBark(text, 6200, 'grok');
+            }).catch(() => undefined);
+          },
+          onTurnedIn: (q) => {
+            this.showBark(`Contract fulfilled — ${q.gold}g, ${q.xp} XP, +${q.rep} reputation. The town nods its thanks.`, 5200, 'loot', '#8affa0');
+            this.syncHudData();
+          },
+        });
+        return true;
+      }
+    }
     let bestP: (typeof this.portals)[number] | null = null;
     let bd = 34;
     for (const p of this.portals) {
@@ -3902,6 +4277,38 @@ export class DungeonScene extends Phaser.Scene {
 
   private interact(player: Hero): void {
     if (this.level.town && this.townInteract(player)) return;
+    // hail a fellow adventurer to trade (works anywhere you share a map)
+    if (net.connected && !this.tradeUI.isOpen()) {
+      let ghost: { id: string; name: string; d: number } | null = null;
+      for (const [id, g] of this.netGhosts) {
+        if (g.getData('npc')) continue;
+        const d = Phaser.Math.Distance.Between(player.x, player.y, g.x, g.y);
+        if (d < 44 && (!ghost || d < ghost.d)) ghost = { id, name: String(g.getData('name') ?? 'Adventurer'), d };
+      }
+      if (ghost) {
+        const partner = ghost;
+        net.sendTradeRequest(partner.id);
+        this.closeAllOverlays();
+        this.showBark(`You offer to trade with ${partner.name}...`, 2600, 'event', '#8ad0ff');
+        this.tradeUI.open(player, partner.id, partner.name, {
+          onComplete: () => { this.showBark('The trade is struck — fair dealing!', 3200, 'loot', '#8affa0'); this.syncHudData(); },
+          onClosed: () => this.syncHudData(),
+        });
+        return;
+      }
+    }
+    // a caged villager: break the lock, complete the rescue contract
+    if (this.rescueCage && Phaser.Math.Distance.Between(player.x, player.y, this.rescueCage.x, this.rescueCage.y) < 34) {
+      const cage = this.rescueCage;
+      this.rescueCage = null;
+      questLog.completeRescue(cage.questId);
+      audio.sfx('portal');
+      this.spawnBlink(cage.x, cage.y);
+      for (const p of cage.parts) p.destroy();
+      this.showBark('The lock breaks — the villager bolts for the surface, shouting thanks! Claim your payout at the notice board.', 5600, 'event', '#8affa0');
+      this.floatPickup(cage.x, cage.y - 20, 'rescued!', '#8affa0');
+      return;
+    }
     for (const ch of this.chests) {
       if (ch.opened) continue;
       const c = this.tileCenter(ch.x, ch.y);
@@ -3951,8 +4358,41 @@ export class DungeonScene extends Phaser.Scene {
         return;
       }
     }
+    // a quiet bank: cast a line if we're standing beside open water
+    if (this.tryFish(player)) return;
     // nothing to use — examine the surroundings instead
     this.examine(player);
+  }
+
+  /** Cast a line when standing beside calm water in town or out in the Wilds. */
+  private tryFish(player: Hero): boolean {
+    if (!this.level.town && !this.level.overworld) return false;
+    if (this.fishingUI.isOpen()) return true;
+    const tx = Math.floor(player.x / TILE_SIZE);
+    const ty = Math.floor(player.y / TILE_SIZE);
+    let water = false;
+    for (let dy = -1; dy <= 1 && !water; dy++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        if (this.level.tiles[ty + dy]?.[tx + dx] === Tile.WATER) {
+          water = true;
+          break;
+        }
+      }
+    }
+    if (!water) return false;
+    this.closeAllOverlays();
+    this.fishingUI.open(player.stats.luck ?? 0, (fish) => {
+      if (!fish) {
+        this.showBark('The river keeps its secrets... this time.', 2600, 'system');
+        return;
+      }
+      player.inventory.add(fish);
+      audio.sfx('coin');
+      this.floatPickup(player.x, player.y - 20, fish.name, '#8ad0ff');
+      this.showBark(fish.id === 'stormscale' ? 'A STORMSCALE! The fish of legend thrashes in your hands!' : `You land a ${fish.name}.`, 3200, 'loot');
+      this.syncHudData();
+    });
+    return true;
   }
 
   /** Look at the nearest feature/NPC/tile and report DnD-flavored lore (AI-augmented). */
@@ -3969,16 +4409,22 @@ export class DungeonScene extends Phaser.Scene {
       }
       if (nearN) {
         const who = nearN;
-        this.showBark(`${who.label}: "${this.townLine(who.role)}"`, 7200);
         audio.sfx('ui_move');
-        this.setGrokStatus('thinking');
-        void aiService
-          .generateBark(`${who.role} named ${who.label} chatting with an adventurer in the town of Hearthwatch above the Undermaw`)
-          .then(({ text, live }) => {
-            this.setGrokStatus('connected');
-            if (text) this.showBark(`${who.label}: ${text}`, 7200, live ? 'grok' : 'event');
-          })
-          .catch(() => this.setGrokStatus('connected'));
+        this.closeAllOverlays();
+        // a proper hail: rep-tiered greeting + chat + rumors for silver tongues
+        this.dialogueUI.open(player, who.label, who.role, {
+          onChat: () => {
+            this.setGrokStatus('thinking');
+            this.dialogueUI.say(this.townLine(who.role));
+            void aiService
+              .generateBark(`${who.role} named ${who.label} chatting with a ${questLog.repTitle()} adventurer in the town of Hearthwatch above the Undermaw`)
+              .then(({ text }) => {
+                this.setGrokStatus('connected');
+                if (text) this.dialogueUI.say(text);
+              })
+              .catch(() => this.setGrokStatus('connected'));
+          },
+        });
         return;
       }
     }
@@ -4046,7 +4492,34 @@ export class DungeonScene extends Phaser.Scene {
       a.auraDamageReduction = 0;
       a.auraCritBonus = 0;
       a.auraDamageMult = 1;
+      a.auraSpeedBonus = 0;
     }
+    // ---- bard songs: persistent party auras that ring until the song changes.
+    // Anthem ranks strengthen them, Carrying Voice widens them, and the
+    // Maestro set power makes them realm-wide and half again as strong.
+    for (const bard of this.allies) {
+      if (!bard.alive || bard.classId !== 'bard' || !bard.song) continue;
+      const maestro = bard.hasSetPower();
+      const power = (1 + bard.skillSet.rank('brd_anthem') * 0.12) * (maestro ? 1.5 : 1);
+      const radius = maestro ? Number.MAX_SAFE_INTEGER : 150 + bard.skillSet.rank('brd_reach') * 25;
+      const inSong = (t: { x: number; y: number }) =>
+        maestro || Phaser.Math.Distance.Between(bard.x, bard.y, t.x, t.y) <= radius;
+      if (bard.song === 'war') {
+        for (const a of this.allies) if (a.alive && inSong(a)) a.auraDamageMult = Math.max(a.auraDamageMult, 1 + 0.15 * power);
+      } else if (bard.song === 'march') {
+        for (const a of this.allies) if (a.alive && inSong(a)) a.auraSpeedBonus = Math.max(a.auraSpeedBonus, Math.round(28 * power));
+      }
+      if (time >= this.songPulseAt) {
+        if (bard.song === 'hymn') {
+          for (const a of this.allies) if (a.alive && inSong(a)) a.heal(Math.round(4 * power));
+        } else if (bard.song === 'dirge') {
+          for (const m of this.monsters) {
+            if (m.active && m.alive && inSong(m)) m.applyStatus('chill', 1300, time);
+          }
+        }
+      }
+    }
+    if (time >= this.songPulseAt) this.songPulseAt = time + 1000;
     const r2 = AURA_RADIUS * AURA_RADIUS;
     for (const src of this.allies) {
       if (!src.alive) continue;
@@ -4060,8 +4533,9 @@ export class DungeonScene extends Phaser.Scene {
         else if (src.classId === 'arcanist') tgt.auraDamageMult = Math.max(tgt.auraDamageMult, 1.18);
       }
     }
-    // Deathlord (necromancer 5-piece): your risen servants strike 25% harder.
-    if (this.summons.length && this.allies.some((a) => a.alive && a.classId === 'necromancer' && a.hasSetPower())) {
+    // Deathlord (necromancer 5-piece) / Crown of the Hollow King (unique):
+    // risen servants and conjured familiars strike 25% harder.
+    if (this.summons.length && this.allies.some((a) => a.alive && ((a.classId === 'necromancer' && a.hasSetPower()) || a.hasUniquePower('hollowcrown')))) {
       for (const s of this.summons) if (s.alive) s.auraDamageMult = Math.max(s.auraDamageMult, 1.25);
     }
     if (time >= this.auraHealAt) {
@@ -4573,6 +5047,7 @@ export class DungeonScene extends Phaser.Scene {
       attrPoints: a.attributes.points,
       gold: a.inventory.gold,
       keys: a.inventory.keys,
+      materials: { ...a.inventory.materials },
       equipped: Object.fromEntries(
         (Object.entries(a.inventory.equipped) as [string, ItemDefinition | undefined][])
           .filter(([, it]) => !!it)
@@ -4596,6 +5071,7 @@ export class DungeonScene extends Phaser.Scene {
       a.attributes.points = sv.attrPoints;
       a.inventory.gold = sv.gold;
       a.inventory.keys = sv.keys;
+      if (sv.materials) a.inventory.materials = { ...sv.materials };
       a.inventory.bag = sv.bag.map((id) => Content.item(id)).filter(Boolean) as ItemDefinition[];
       a.inventory.equipped = {};
       for (const [slot, id] of Object.entries(sv.equipped)) {
@@ -4627,6 +5103,7 @@ export class DungeonScene extends Phaser.Scene {
       collectedPickups: [...this.collectedIds],
       allies: this.carryList(),
       mintedItems: Content.mintedList(),
+      questLog: questLog.serialize(),
     };
   }
 
@@ -4635,6 +5112,7 @@ export class DungeonScene extends Phaser.Scene {
     this.startTime = this.time.now - (data.elapsedMs || 0);
     // Re-register any minted (dropped) gear so equipped/bag ids resolve.
     Content.registerItems((data.mintedItems ?? []).map((m) => ({ ...m, slot: migrateItemSlot(m.slot, m.icon) })));
+    questLog.restore(data.questLog);
 
     for (const a of this.allies) {
       const sv = data.allies.find((m) => m.classId === a.classId);
@@ -4648,6 +5126,7 @@ export class DungeonScene extends Phaser.Scene {
       a.attributes.points = sv.attrPoints;
       a.inventory.gold = sv.gold;
       a.inventory.keys = sv.keys;
+      if (sv.materials) a.inventory.materials = { ...sv.materials };
       a.inventory.bag = sv.bag.map((id) => Content.item(id)).filter(Boolean) as ItemDefinition[];
       a.inventory.equipped = {};
       for (const [slot, id] of Object.entries(sv.equipped)) {

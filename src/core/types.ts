@@ -2,7 +2,7 @@
 // StrongBow -- shared types
 // ----------------------------------------------------------------------------
 
-export type HeroClassId = 'vanguard' | 'thief' | 'arcanist' | 'warden' | 'necromancer';
+export type HeroClassId = 'vanguard' | 'thief' | 'arcanist' | 'warden' | 'necromancer' | 'bard' | 'druid';
 export type Direction = 'down' | 'up' | 'left' | 'right';
 export type Rarity = 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary';
 export type ItemSlot =
@@ -152,6 +152,8 @@ export interface ItemDefinition {
   /** Class armor-set membership (e.g. 'set_thief'). Set pieces are Godforged-
    *  tier and grant tiered bonuses at 2/4/5 equipped pieces. */
   setId?: string;
+  /** Unique-legendary power id (e.g. 'sunfall') — named, build-warping items. */
+  unique?: string;
 }
 
 export interface SkillDef {

@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import type { EnemyBehavior, EnemyDef, EnemyId } from '../core/types';
-import { ENEMIES } from '../data/enemies';
+import { ENEMIES, BOSS_PHASE2 } from '../data/enemies';
 import { audio } from '../systems/AudioSystem';
 import { settings } from '../core/GameSettings';
 import { Hero } from './Hero';
@@ -56,6 +56,10 @@ export class Monster extends Phaser.Physics.Arcade.Sprite {
   onRanged?: (m: Monster, ux: number, uy: number) => void;
   onSummon?: (m: Monster) => void;
   onNova?: (m: Monster, radius: number) => void;
+  onPhase2?: (m: Monster) => void;
+
+  /** True once a boss has crossed half health and changed the fight. */
+  phase2 = false;
 
   constructor(scene: Phaser.Scene, x: number, y: number, enemyId: EnemyId, hpOverride?: number) {
     super(scene, x, y, ENEMIES[enemyId].sheet, 0);
@@ -284,8 +288,9 @@ export class Monster extends Phaser.Physics.Arcade.Sprite {
     }
 
     const hr = this.healthRatio();
+    const p2 = this.phase2 ? BOSS_PHASE2[this.enemyId] : undefined;
     if (time >= this.nextSpecialAt && best <= this.def.chaseRange) {
-      this.nextSpecialAt = time + (this.def.specialCooldown ?? 4000);
+      this.nextSpecialAt = time + (this.def.specialCooldown ?? 4000) * (p2?.cdMult ?? 1);
       const r = Math.random();
       this.attacking = true;
       this.attackUntil = time + 520;
@@ -294,7 +299,7 @@ export class Monster extends Phaser.Physics.Arcade.Sprite {
       if (hr < 0.4 && (best < 150 || r < 0.45)) {
         this.telegraphUntil = time + 520;
         this.pendingSpecial = 'nova';
-      } else if (this.def.summons && hr < 0.7 && r < 0.5) {
+      } else if (this.def.summons && hr < 0.7 && r < 0.5 + (p2?.addBias ?? 0)) {
         this.telegraphUntil = time + 460;
         this.pendingSpecial = 'summon';
       } else {
@@ -304,8 +309,9 @@ export class Monster extends Phaser.Physics.Arcade.Sprite {
       return;
     }
 
+    const spd = this.def.speed * (p2?.speedMult ?? 1);
     if (best > this.def.attackRange) {
-      body.setVelocity(ux * this.def.speed, uy * this.def.speed);
+      body.setVelocity(ux * spd, uy * spd);
     } else {
       body.setVelocity(0, 0);
       if (time >= this.nextAttackAt) this.strike(target, time);
@@ -313,7 +319,7 @@ export class Monster extends Phaser.Physics.Arcade.Sprite {
   }
 
   private fireVolley(): void {
-    const n = 10;
+    const n = (this.phase2 ? BOSS_PHASE2[this.enemyId]?.volleyShots : undefined) ?? 10;
     for (let i = 0; i < n; i++) {
       const a = (i / n) * Math.PI * 2;
       this.onRanged?.(this, Math.cos(a), Math.sin(a));
@@ -364,6 +370,11 @@ export class Monster extends Phaser.Physics.Arcade.Sprite {
     if (this.health <= 0) {
       this.die();
       return true;
+    }
+    // realm wardens turn the fight at half health
+    if (this.isBoss && !this.phase2 && this.health <= this.maxHealth / 2) {
+      this.phase2 = true;
+      this.onPhase2?.(this);
     }
     return false;
   }

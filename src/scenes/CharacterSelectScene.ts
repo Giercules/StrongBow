@@ -56,7 +56,7 @@ export class CharacterSelectScene extends Phaser.Scene {
     });
 
     this.add
-      .text(GAME_WIDTH / 2, GAME_HEIGHT - 24, '◀ ▶ / A D to move   ·   ENTER or click to choose   ·   1–5 quick pick', {
+      .text(GAME_WIDTH / 2, GAME_HEIGHT - 24, '◀ ▶ / A D to move   ·   ENTER or click to choose   ·   1–7 quick pick', {
         fontFamily: 'MedievalSharp, "Trebuchet MS", cursive',
         fontSize: '12px',
         color: C.inkDim,
@@ -73,7 +73,7 @@ export class CharacterSelectScene extends Phaser.Scene {
     kb.on('keydown-D', () => this.move(1));
     kb.on('keydown-ENTER', () => this.choose(this.cursor));
     kb.on('keydown-SPACE', () => this.choose(this.cursor));
-    const numKeys = ['ONE', 'TWO', 'THREE', 'FOUR', 'FIVE'];
+    const numKeys = ['ONE', 'TWO', 'THREE', 'FOUR', 'FIVE', 'SIX', 'SEVEN'];
     for (let n = 1; n <= Math.min(ALL_CLASSES.length, numKeys.length); n++) kb.on(`keydown-${numKeys[n - 1]}`, () => this.choose(n - 1));
   }
 

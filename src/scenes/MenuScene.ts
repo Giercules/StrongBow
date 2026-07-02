@@ -73,7 +73,7 @@ export class MenuScene extends Phaser.Scene {
     }).setDepth(8);
 
     // ---- heroes lined up on the ledge, each in a shaft of light ----
-    const tints = [0x4fa3ff, 0x5fe06a, 0xc06bff, 0xffcf5a, 0x9b7be0];
+    const tints = [0x4fa3ff, 0x5fe06a, 0xc06bff, 0xffcf5a, 0x9b7be0, 0xff8a9a, 0x8fce5a];
     const heroN = ALL_CLASSES.length;
     const heroStep = 100;
     ALL_CLASSES.forEach((cls, i) => {

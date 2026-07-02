@@ -74,6 +74,11 @@ export class NetClient {
   onCoopReward?: (xp: number, gold: number) => void;
   onCoopLoot?: (loot: CoopLoot) => void;
   onGrant?: (gold: number, itemId?: string) => void;
+  // player-to-player trading (relayed by the server to the named peer)
+  onTradeRequest?: (fromId: string, fromName: string) => void;
+  onTradeUpdate?: (fromId: string, items: unknown[], gold: number) => void;
+  onTradeAccept?: (fromId: string) => void;
+  onTradeCancel?: (fromId: string) => void;
 
   private profile: NetProfile = { name: 'Adventurer', classId: 'vanguard', level: 1, x: 0, y: 0, hp: 0, levelId: 'town' };
   private lastSent = 0;
@@ -173,6 +178,18 @@ export class NetClient {
       case 'grant':
         this.onGrant?.(Number(msg.gold) || 0, typeof msg.itemId === 'string' ? msg.itemId : undefined);
         break;
+      case 'tradeRequest':
+        this.onTradeRequest?.(String(msg.fromId ?? ''), String(msg.fromName ?? 'Adventurer'));
+        break;
+      case 'tradeUpdate':
+        this.onTradeUpdate?.(String(msg.fromId ?? ''), (msg.items as unknown[]) ?? [], Number(msg.gold) || 0);
+        break;
+      case 'tradeAccept':
+        this.onTradeAccept?.(String(msg.fromId ?? ''));
+        break;
+      case 'tradeCancel':
+        this.onTradeCancel?.(String(msg.fromId ?? ''));
+        break;
       case 'config':
         this.config = (msg.config as NetConfig) ?? this.config;
         break;
@@ -210,6 +227,24 @@ export class NetClient {
     if (this.connected) this.send({ t: 'coopLoot', loot });
   }
 
+  /** Ask a nearby player to trade. */
+  sendTradeRequest(to: string): void {
+    if (this.connected) this.send({ t: 'tradeRequest', to });
+  }
+
+  /** Update my side of an open trade: offered items (full defs) + gold. */
+  sendTradeUpdate(to: string, items: unknown[], gold: number): void {
+    if (this.connected) this.send({ t: 'tradeUpdate', to, items, gold });
+  }
+
+  sendTradeAccept(to: string): void {
+    if (this.connected) this.send({ t: 'tradeAccept', to });
+  }
+
+  sendTradeCancel(to: string): void {
+    if (this.connected) this.send({ t: 'tradeCancel', to });
+  }
+
   /** Push the local hero's latest state (throttled to ~12/s). Call each frame. */
   update(state: Partial<NetProfile>): void {
     Object.assign(this.profile, state);
@@ -232,6 +267,10 @@ export class NetClient {
     this.onCoopReward = undefined;
     this.onCoopLoot = undefined;
     this.onGrant = undefined;
+    this.onTradeRequest = undefined;
+    this.onTradeUpdate = undefined;
+    this.onTradeAccept = undefined;
+    this.onTradeCancel = undefined;
   }
 
   disconnect(): void {

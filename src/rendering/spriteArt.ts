@@ -1612,6 +1612,29 @@ export function drawRadialLight(ctx: Ctx, w: number, h: number, inner = 'rgba(25
   ctx.fillRect(0, 0, w, h);
 }
 
+export function drawIconFish(ctx: Ctx): void {
+  const body = '#7fb8d8', hi = '#cfeaff', dk = '#3a6a8a', fin = '#5a94b8';
+  // body
+  R(ctx, 3, 6, 8, 4, body);
+  R(ctx, 4, 5, 6, 1, hi);
+  R(ctx, 4, 10, 6, 1, dk);
+  PX(ctx, 2, 7, body);
+  PX(ctx, 2, 8, body);
+  // tail
+  R(ctx, 11, 5, 2, 2, fin);
+  R(ctx, 11, 9, 2, 2, fin);
+  PX(ctx, 12, 7, fin);
+  PX(ctx, 12, 8, fin);
+  // dorsal + belly fins
+  PX(ctx, 6, 4, fin);
+  PX(ctx, 7, 4, fin);
+  PX(ctx, 6, 11, fin);
+  // eye + gill + shine
+  PX(ctx, 4, 7, '#0a0a14');
+  PX(ctx, 6, 7, dk);
+  PX(ctx, 5, 6, '#ffffff');
+}
+
 export function drawArrow(ctx: Ctx, ox = 0): void {
   // wooden shaft
   R(ctx, ox + 2, 2, 8, 2, '#8a5a28');
@@ -1723,6 +1746,38 @@ export function drawWeapon(
     PX(ctx, hx, 22, '#1a1410');
     PX(ctx, hx + 2, 22, '#1a1410');
     if (attack) { PX(ctx, hx - 4, 2, orb); PX(ctx, hx + 6, 3, orb); PX(ctx, hx + 1, 0, '#ffffff'); }
+  } else if (cls === 'bard') {
+    // slender rapier: needle blade, swept gold guard — lunges on the attack
+    const hx = cx + (attack ? 12 : 10);
+    const top = attack ? 12 : 18;
+    const len = attack ? 22 : 16;
+    R(ctx, hx, top, 2, len, '#cfd6e8');
+    R(ctx, hx, top, 1, len, '#ffffff');
+    PX(ctx, hx, top - 1, '#ffffff');
+    R(ctx, hx - 2, top + len, 6, 2, ramp.trim); // swept hilt
+    PX(ctx, hx - 2, top + len - 1, ramp.trimHi);
+    PX(ctx, hx + 3, top + len - 1, ramp.trimHi);
+    R(ctx, hx, top + len + 2, 2, 4, '#3a1622');
+    PX(ctx, hx + 1, top + len + 6, ramp.trim); // pommel
+    if (attack) { PX(ctx, hx - 1, top - 3, '#eaf0ff'); PX(ctx, hx + 2, top - 2, '#eaf0ff'); }
+  } else if (cls === 'druid') {
+    // gnarled living staff crowned with a moonlit leaf-orb
+    const hx = cx + (attack ? 12 : 10);
+    R(ctx, hx, 12, 3, 30, '#5a4426');
+    R(ctx, hx, 12, 1, 30, '#7e6238');
+    PX(ctx, hx - 1, 18, '#5a4426'); // knots
+    PX(ctx, hx + 3, 26, '#5a4426');
+    const orb = attack ? '#b6ff8a' : '#7fce58';
+    ctx.fillStyle = '#1e3312';
+    ctx.beginPath(); ctx.arc(hx + 1, 9, 5, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = orb;
+    ctx.beginPath(); ctx.arc(hx + 1, 9, 3.4, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#eaffd0';
+    ctx.beginPath(); ctx.arc(hx, 8, 1.5, 0, Math.PI * 2); ctx.fill();
+    // sprouting leaves at the crown
+    PX(ctx, hx - 3, 6, '#4a8a3a'); PX(ctx, hx - 4, 5, '#7fce58');
+    PX(ctx, hx + 5, 7, '#4a8a3a'); PX(ctx, hx + 6, 6, '#7fce58');
+    if (attack) { PX(ctx, hx - 3, 3, orb); PX(ctx, hx + 5, 2, orb); PX(ctx, hx + 1, 1, '#ffffff'); }
   } else {
     const hx = cx + (attack ? 12 : 10);
     R(ctx, hx, 16, 3, 22, C.doorWood);
@@ -1776,6 +1831,25 @@ function drawHeroBack(ctx: Ctx, ox: number, cls: string, ramp: HeroRamp, facing:
     R(ctx, cx - 12, tTop - 2, 24, 6, ramp.cloth0);
     R(ctx, cx - 12, tTop - 2, 24, 1, 'rgba(255,255,255,0.14)');
     for (let i = 0; i < 8; i++) PX(ctx, cx - 11 + i * 3, tTop + 3 + (i % 2), 'rgba(235,228,205,0.30)');
+  } else if (cls === 'bard') {
+    // beloved lute slung across the back, neck over the left shoulder
+    R(ctx, cx + 4, tTop + 4, 8, 10, '#7e5228'); // rounded body
+    R(ctx, cx + 5, tTop + 5, 6, 8, '#a8763c');
+    R(ctx, cx + 6, tTop + 7, 3, 3, '#3a2410'); // sound hole
+    R(ctx, cx - 6 - sway, tTop - 4, 10, 2, '#5a3a1c'); // neck (angled up-left)
+    R(ctx, cx - 6 - sway, tTop - 4, 10, 1, '#7a5128');
+    R(ctx, cx - 8 - sway, tTop - 6, 3, 4, '#5a3a1c'); // headstock
+    PX(ctx, cx - 7 - sway, tTop - 7, ramp.trim); // tuning pegs
+    for (let i = 0; i < 4; i++) PX(ctx, cx - 2 + i * 2, tTop - 3 + Math.floor(i / 2) + 2, 'rgba(255,233,168,0.6)'); // strings glint
+    // shoulder strap
+    for (let i = 0; i < 6; i++) PX(ctx, cx - 4 + i, tTop + 1 + i, ramp.trim);
+  } else if (cls === 'druid') {
+    // leaf-trimmed hide mantle over the shoulders
+    R(ctx, cx - 12, tTop - 2, 24, 6, ramp.cloth0);
+    R(ctx, cx - 12, tTop - 2, 24, 1, 'rgba(255,255,255,0.10)');
+    for (let i = 0; i < 8; i++) PX(ctx, cx - 11 + i * 3, tTop + 3 + (i % 2), 'rgba(127,206,88,0.45)'); // leaf fringe
+    PX(ctx, cx - 10 + sway, tTop + 5, '#7fce58');
+    PX(ctx, cx + 9 - sway, tTop + 5, '#4a8a3a');
   }
 }
 
@@ -1846,6 +1920,27 @@ function drawHeroFlair(ctx: Ctx, ox: number, cls: string, ramp: HeroRamp, facing
     PX(ctx, wx - 1, wy + 1, 'rgba(138,255,208,0.35)');
     // pale rib-bone trim over the robe front
     if (facing !== 'up') for (let i = 0; i < 3; i++) R(ctx, cx - 3, tTop + 4 + i * 3, 6, 1, 'rgba(207,201,175,0.5)');
+  } else if (cls === 'bard') {
+    // gold doublet buttons + a sash that catches the light as he moves
+    if (facing !== 'up') {
+      for (let i = 0; i < 3; i++) PX(ctx, cx, tTop + 3 + i * 3, ramp.trimHi);
+      for (let i = 0; i < 7; i++) PX(ctx, cx - 6 + i * 2, tTop + 9 + Math.floor(i / 2) - (i % 2), ramp.trim); // sash
+    }
+    // drifting music notes beside the skald (shift with the walk sway)
+    const nx = cx + (facing === 'side' ? -10 : 11) + sway;
+    PX(ctx, nx, hTop + 1 - sway, '#ffe9a8');
+    PX(ctx, nx + 1, hTop - sway, 'rgba(255,233,168,0.6)');
+    PX(ctx, nx - 1, hTop + 4 + sway, 'rgba(255,233,168,0.4)');
+  } else if (cls === 'druid') {
+    // living vine belt with a leaf clasp + fireflies drifting at the shoulder
+    if (facing !== 'up') {
+      for (let i = 0; i < 7; i++) PX(ctx, cx - 6 + i * 2, tTop + 11 + (i % 2), '#4a8a3a');
+      PX(ctx, cx, tTop + 11, '#7fce58'); // leaf clasp
+      PX(ctx, cx + 1, tTop + 12, '#b6ff8a');
+    }
+    const fx = cx + (facing === 'side' ? -10 : 10) - sway;
+    PX(ctx, fx, hTop + 3 + sway, 'rgba(182,255,138,0.8)');
+    PX(ctx, fx + 2, hTop + 6 - sway, 'rgba(182,255,138,0.45)');
   }
   // shared top rim-light so every hero pops off the dungeon floor
   R(ctx, hx0 - 1, hTop - (cls === 'arcanist' ? 6 : cls === 'necromancer' ? 3 : 2), hw + 2, 1, 'rgba(255,255,255,0.22)');
@@ -1862,7 +1957,7 @@ export function drawHumanoid(
   const cx = ox + HERO_FW / 2;
   const bob = pose === 1 ? -2 : 0;
   const [ll, rl] = legShift(pose);
-  const robe = cls === 'arcanist' || cls === 'warden' || cls === 'necromancer';
+  const robe = cls === 'arcanist' || cls === 'warden' || cls === 'necromancer' || cls === 'druid';
   const sway = pose === 1 ? -1 : pose === 3 ? 1 : 0;
   const SH = 'rgba(0,0,0,0.18)';
   const SHd = 'rgba(0,0,0,0.32)';
@@ -2088,6 +2183,33 @@ export function drawHumanoid(
     R(ctx, hx0, hTop - 4, hw, 1, '#fff4c0');
     PX(ctx, hx0 - 1, hTop - 3, '#fff4c0');
     PX(ctx, hx0 + hw, hTop - 3, '#fff4c0');
+  } else if (cls === 'bard') {
+    // rakish tilted cap with a long sweeping feather + chestnut hair beneath
+    R(ctx, hx0 - 1, hTop - 1, hw + 2, 3, ramp.hair); // hair under the brim
+    R(ctx, hx0 - 2, hTop + 1, 2, 6, ramp.hair);
+    R(ctx, hx0 + hw, hTop + 1, 2, 6, ramp.hair);
+    R(ctx, hx0 - 1, hTop - 3, hw + 2, 3, ramp.cloth1); // cap
+    R(ctx, hx0, hTop - 4, hw - 2, 2, ramp.cloth2); // tilted crown
+    R(ctx, hx0 - 1, hTop - 1, hw + 2, 1, ramp.trim); // gold band
+    PX(ctx, hx0 + hw - 2, hTop - 2, ramp.trimHi); // band pin
+    // the feather sweeps up and back to the left
+    PX(ctx, hx0 - 1, hTop - 5, '#efe6c8');
+    PX(ctx, hx0 - 2, hTop - 6, '#efe6c8');
+    PX(ctx, hx0 - 3, hTop - 7, '#ffffff');
+    PX(ctx, hx0 - 4, hTop - 7, 'rgba(239,230,200,0.7)');
+  } else if (cls === 'druid') {
+    // antlered leather hood with a sprig of green at the brow
+    R(ctx, hx0 - 1, hTop - 2, hw + 2, 5, ramp.cloth1);
+    R(ctx, hx0 - 1, hTop - 2, hw + 2, 1, ramp.trimHi);
+    R(ctx, hx0 - 2, hTop, 2, 9, ramp.cloth1);
+    R(ctx, hx0 + hw, hTop, 2, 9, ramp.cloth1);
+    // antler tines rise from the hood's crown
+    PX(ctx, hx0 - 1, hTop - 4, '#d8cfb4'); PX(ctx, hx0 - 2, hTop - 5, '#d8cfb4');
+    PX(ctx, hx0 - 1, hTop - 6, '#efe9d2'); PX(ctx, hx0 - 3, hTop - 6, '#d8cfb4');
+    PX(ctx, hx0 + hw, hTop - 4, '#d8cfb4'); PX(ctx, hx0 + hw + 1, hTop - 5, '#d8cfb4');
+    PX(ctx, hx0 + hw, hTop - 6, '#efe9d2'); PX(ctx, hx0 + hw + 2, hTop - 6, '#d8cfb4');
+    PX(ctx, cx, hTop - 3, '#7fce58'); // sprig
+    PX(ctx, cx + 1, hTop - 4, '#b6ff8a');
   } else {
     // necromancer — a deep dark cowl shadowing the face, with cold soul-fire eyes
     R(ctx, hx0 - 2, hTop - 3, hw + 4, 6, ramp.cloth0);
@@ -2114,7 +2236,7 @@ export function drawHumanoid(
   }
 
   if (cls !== 'arcanist' && cls !== 'necromancer') {
-    const eye = cls === 'thief' ? '#c08aff' : '#2a3b6a';
+    const eye = cls === 'thief' ? '#c08aff' : cls === 'druid' ? '#7a5a22' : cls === 'bard' ? '#2a6b46' : '#2a3b6a';
     if (facing === 'down') {
       R(ctx, hx0 + 2, hTop + 5, 2, 2, '#ffffff');
       R(ctx, hx0 + hw - 4, hTop + 5, 2, 2, '#ffffff');
@@ -2132,7 +2254,7 @@ export function drawHumanoid(
       R(ctx, hx0 + hw - 3, hTop + 9, 3, 1, SH);
     } else {
       // up: the back of the head is mane (or hood cloth), not a blank skin slab
-      R(ctx, hx0 + 1, hTop + 4, hw - 2, 6, cls === 'warden' ? ramp.cloth1 : ramp.hair);
+      R(ctx, hx0 + 1, hTop + 4, hw - 2, 6, cls === 'warden' || cls === 'druid' ? ramp.cloth1 : ramp.hair);
     }
   } else if (cls === 'arcanist' && facing !== 'up') {
     PX(ctx, hx0 + 3, hTop + 5, '#cfe0ff');

@@ -49,7 +49,7 @@ const skelDraw = (ramp, role) => (ctx) => art.drawSkeletonServant(ctx, 0, 0, MON
 
 async function build() {
   const HEROES = [];
-  for (const [n,c] of [['Vanguard','vanguard'],['Thief','thief'],['Arcanist','arcanist'],['Warden','warden'],['Necromancer','necromancer']])
+  for (const [n,c] of [['Vanguard','vanguard'],['Thief','thief'],['Arcanist','arcanist'],['Warden','warden'],['Necromancer','necromancer'],['Bard','bard'],['Druid','druid']])
     HEROES.push([n, await sheetSprite(`hero-${c}-sheet`, 40, 48, heroDraw(c), true)]);
 
   const BOSSES = [];

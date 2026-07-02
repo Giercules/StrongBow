@@ -56,6 +56,14 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
   auraDamageReduction = 0;
   auraCritBonus = 0;
   auraDamageMult = 1;
+  auraSpeedBonus = 0;
+
+  /** Bard: the song currently ringing (null = silent). */
+  song: 'war' | 'march' | 'hymn' | 'dirge' | null = null;
+  /** Druid: true while shifted into Bear form. */
+  bearForm = false;
+  /** Druid: earliest time the next shapeshift is allowed (short breath between). */
+  nextShiftAt = 0;
 
   /** Equipped pieces of this class's armor set (drives 2/4/5 tier bonuses). */
   setPieces = 0;
@@ -63,6 +71,8 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
   private undyingReadyAt = 0;
   /** Scene hook fired when the Undying Bulwark saves this hero. */
   onUndying?: (h: Hero) => void;
+  /** Scene hook fired whenever this hero takes real damage (unique powers). */
+  onDamaged?: (h: Hero, dmg: number) => void;
 
   attacking = false;
   attackUntil = 0;
@@ -117,6 +127,15 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
     // class armor set: count equipped pieces, then fold in the 2/4/5 tier bonuses
     this.setPieces = countSetPieces(this.inventory.equippedList(), ARMOR_SETS[this.classId].id);
     applySetBonuses(this.stats, this.classId, this.setPieces);
+    // Druid Bear form: trade the caster's poise for tooth and hide. Savage
+    // Fangs ranks and the Wildheart set power deepen the bear further.
+    if (this.classId === 'druid' && this.bearForm) {
+      const fangs = 1.4 + this.skillSet.rank('dru_fangs') * 0.08 + (this.hasSetPower() ? 0.25 : 0);
+      this.stats.maxHealth = Math.round(this.stats.maxHealth * 1.5);
+      this.stats.damage = Math.round(this.stats.damage * fangs);
+      this.stats.armor += 4;
+      this.stats.speed = Math.round(this.stats.speed * 0.95);
+    }
     if (this.health !== undefined) this.health = Math.min(this.health, this.stats.maxHealth);
     if (this.mana !== undefined) this.mana = Math.min(this.mana, this.stats.maxMana);
     return this.stats;
@@ -125,6 +144,11 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
   /** True when the full 5-piece class set is worn (unlocks the set power). */
   hasSetPower(): boolean {
     return this.setPieces >= 5;
+  }
+
+  /** True when a unique legendary with the given power id is equipped. */
+  hasUniquePower(power: string): boolean {
+    return this.inventory.equippedList().some((it) => it.unique === power);
   }
 
   refreshStats(): StatBlock {
@@ -169,7 +193,7 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
       dy /= len;
       this.faceTo(dx, dy);
     }
-    const spd = this.stats.speed * this.speedMult;
+    const spd = (this.stats.speed + this.auraSpeedBonus) * this.speedMult;
     const targetVx = dx * spd;
     const targetVy = dy * spd;
     if (this.slip > 0) {
@@ -240,8 +264,9 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
   }
 
   reach(): number {
-    const base: Record<HeroClassId, number> = { vanguard: 24, thief: 30, arcanist: 24, warden: 26, necromancer: 40 };
+    const base: Record<HeroClassId, number> = { vanguard: 24, thief: 30, arcanist: 24, warden: 26, necromancer: 40, bard: 30, druid: 24 };
     const cleave = this.classId === 'vanguard' ? this.skillSet.rank('van_cleave') * 4 : 0;
+    if (this.classId === 'druid' && this.bearForm) return 34; // a bear's mauling sweep
     return base[this.classId] + cleave;
   }
 
@@ -332,6 +357,7 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
   }
 
   weaponStyle(): 'melee' | 'ranged' {
+    if (this.classId === 'druid') return this.bearForm ? 'melee' : 'ranged';
     return this.classId === 'arcanist' || this.classId === 'necromancer' ? 'ranged' : 'melee';
   }
 
@@ -367,6 +393,35 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
 
   dodgeCooldownRatio(time: number): number {
     return Phaser.Math.Clamp((this.nextDodgeAt - time) / 850, 0, 1);
+  }
+
+  /** Grant a brief window of untouchability (Nightveil Cowl, scripted saves). */
+  grantIframes(time: number, dur: number): void {
+    this.hurtUntil = Math.max(this.hurtUntil, time + dur);
+  }
+
+  /** Druid: toggle Bear form. Preserves the current health FRACTION across the
+   *  max-health change so shifting is never a free heal — except the Wildheart
+   *  set power, which mends a quarter of the new maximum on every shift. */
+  shapeshift(time: number): boolean {
+    if (this.classId !== 'druid' || !this.alive || time < this.nextShiftAt) return false;
+    this.nextShiftAt = time + 900;
+    const frac = this.healthRatio();
+    this.bearForm = !this.bearForm;
+    if (this.bearForm) {
+      this.skin = { walk: 'brute-walk', attack: 'brute-attack' };
+      this.setTexture('monster-brute-sheet', 0);
+      this.setTint(0x9db06a); // mossy pelt
+    } else {
+      this.skin = undefined;
+      this.clearTint();
+      this.setTexture('hero-druid-sheet', 0);
+    }
+    this.recompute();
+    this.health = Math.max(1, Math.round(this.stats.maxHealth * frac));
+    if (this.hasSetPower()) this.heal(Math.round(this.stats.maxHealth * 0.25));
+    audio.sfx('hit');
+    return true;
   }
 
   // ---- active class ability ----
@@ -425,6 +480,7 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
     this.hurtUntil = time + IFRAME_MS;
     this.setAlpha(0.5);
     audio.sfx('hurt');
+    this.onDamaged?.(this, actual);
     this.scene.tweens.add({ targets: this, x: this.x + Phaser.Math.Between(-2, 2), duration: 40, yoyo: true, repeat: 2 });
     if (this.health <= 0) {
       // Undying Bulwark (vanguard 5-piece): shrug off one killing blow per 90s.

@@ -1,4 +1,5 @@
 import type { HeroClassId, ItemDefinition } from '../core/types';
+import type { QuestLogState } from './QuestSystem';
 
 // ----------------------------------------------------------------------------
 // SaveSystem — multi-slot saves in localStorage. Each slot stores a full run
@@ -28,6 +29,8 @@ export interface SaveAlly {
   attrPoints: number;
   gold: number;
   keys: number;
+  /** Crafting materials (scrap iron / arcane essence / godshards). */
+  materials?: { scrap: number; essence: number; shard: number };
   equipped: Record<string, string>; // slot -> itemId
   bag: string[]; // itemIds
 }
@@ -54,6 +57,8 @@ export interface SaveData {
   allies: SaveAlly[];
   /** Minted (dropped/graded) item definitions, persisted so ids resolve on load. */
   mintedItems?: ItemDefinition[];
+  /** Notice-board state: reputation, posted offers, active contracts. */
+  questLog?: QuestLogState;
   /** Small JPEG data-URL preview of the moment the save was made. */
   thumbnail?: string;
 }

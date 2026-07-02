@@ -7,12 +7,46 @@ export interface UseResult {
   consumed: boolean;
 }
 
-// Per-hero inventory: bag, equipped gear, gold and keys.
+// Per-hero inventory: bag, equipped gear, gold, keys and crafting materials.
 export class Inventory {
   bag: ItemDefinition[] = [];
   equipped: Partial<Record<EquipSlot, ItemDefinition>> = {};
   gold = 0;
   keys = 0;
+  /** Crafting materials from salvaging gear at Brunda's Forge. */
+  materials = { scrap: 0, essence: 0, shard: 0 };
+
+  /** Drop an item entirely (salvage, trade) wherever it lives. */
+  removeItem(item: ItemDefinition): boolean {
+    const idx = this.bag.indexOf(item);
+    if (idx >= 0) {
+      this.bag.splice(idx, 1);
+      return true;
+    }
+    for (const [slot, it] of Object.entries(this.equipped) as [EquipSlot, ItemDefinition][]) {
+      if (it === item) {
+        delete this.equipped[slot];
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /** Swap an item in place (reforge/ascend keeps the same equip slot). */
+  replaceItem(prev: ItemDefinition, next: ItemDefinition): void {
+    const idx = this.bag.indexOf(prev);
+    if (idx >= 0) {
+      this.bag[idx] = next;
+      return;
+    }
+    for (const [slot, it] of Object.entries(this.equipped) as [EquipSlot, ItemDefinition][]) {
+      if (it === prev) {
+        this.equipped[slot] = next;
+        return;
+      }
+    }
+    this.add(next);
+  }
 
   /** Add an item. Equips gear automatically if a matching slot is free. */
   add(item: ItemDefinition): void {

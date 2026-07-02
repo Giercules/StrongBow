@@ -168,6 +168,7 @@ export function buildTown(): LevelData {
   house(82, 11, 92, 19, 'house-roof-blue');
   decor.push({ x: 87, y: 14, key: 'banner' });
   spawns.push({ kind: 'merchant', shop: 'home', x: 87, y: 21, label: 'Your Lodge' });
+  deco(90, 21, 'chest'); // the shared lodge stash
   deco(83, 22, 'flower-bed');
   deco(91, 22, 'flower-bed');
   deco(89, 23, 'town-bush');
@@ -253,6 +254,9 @@ export function buildTown(): LevelData {
 
   // ---- market square (west of the high street) ----
   for (let y = 62; y <= 70; y++) for (let x = 16; x <= 38; x++) roadTile(x, y);
+  // the notice board — contracts, payouts, reputation (one per district)
+  deco(24, 59, 'quest-board');
+  deco(40, 30, 'quest-board');
   deco(19, 61, 'stall-red');
   deco(26, 61, 'stall-blue');
   deco(33, 61, 'stall-red');

@@ -175,6 +175,25 @@ export const MANUAL_PAGES: ManualPage[] = [
     ],
   },
   {
+    title: 'Contracts & Standing',
+    kind: 'text',
+    body: [
+      'NOTICE BOARDS stand in both districts (by the market stalls and on the plaza). They post three CONTRACTS at a time: BOUNTIES (slay a named foe), RELIC hunts (kills in a realm uncover Undermaw relics), and RESCUES (a caged villager waits somewhere in a realm — find them and break the lock).',
+      'Contracts pay gold, XP and REPUTATION. Reputation is Hearthwatch\'s opinion of the party: it climbs from Stranger through Friend of Hearthwatch to Legend of the Undermaw, sweetens every shop\'s buy AND sell prices, and warms the townsfolk\'s greetings.',
+      'HAIL a townsperson (Use) to talk: chat for local color, or ASK FOR RUMORS — genuinely useful tips, unlocked by Charisma 3 or Reputation 10. Turn finished contracts in at any board for the payout.',
+    ],
+  },
+  {
+    title: 'Forge, Stash & River',
+    kind: 'text',
+    body: [
+      'BRUNDA\'S CRAFT: the forge\'s CRAFT tab works any gear you carry. SALVAGE melts items into scrap iron, arcane essence and godshards (better gear yields better materials). REFORGE rerolls a graded item\'s affixes. ASCEND raises an item one whole grade — all the way to Godforged, for the right price.',
+      'THE LODGE STASH: the chest beside your Lodge holds 24 treasures OUTSIDE your save — everything stored there is shared by every hero on every save. The lawn beside it mounts a stone trophy for each realm warden you have felled.',
+      'FISHING: stand at the Hearthrun (or any calm water in town and the Wilds) and press Use to cast. Strike when the bobber rides the green — dead centre on the gold lands the finest catch, from River Perch up to the legendary STORMSCALE. Fish restore health and mana, or sell for coin.',
+      'TRADING: on a shared server, walk up to another player and press Use to open a TRADE window — offer items and gold, and when both sides mark READY the swap is struck.',
+    ],
+  },
+  {
     title: 'How to Play',
     kind: 'text',
     body: [
@@ -202,6 +221,7 @@ export const MANUAL_PAGES: ManualPage[] = [
       'A minimap (top-right) shows the party and boss, but spawning altars stay hidden until a hero explores near them — each level is a hunt. The left-hand ADVENTURE LOG narrates your run (scroll it with the mouse wheel), with live Grok "Dungeon Master" commentary when AI is connected.',
       'Press O for Options — every tab is fully navigable by gamepad too: VIEW (sprite size, map), AUDIO (music track), ALLIES (companions), KEYS (rebind — shows both keyboard and gamepad mappings), CHEATS (incl. DIFFICULTY: easy/moderate/hard, and WILD MONSTERS density — roaming foes that wander each realm apart from the altars), HELP. Press F2 for save/load.',
       'WIN: shatter the spawning altars (DIFFICULTY sets how many — easy 2, moderate 3, hard all), slay the realm’s warden, then stand on the exit portal to descend. Cleared gates show a green check back in town.',
+      'BEWARE: every realm warden turns the fight at HALF HEALTH — a second fury of faster volleys, summoned broods, second winds, or vanishing strikes. Save your burst for the turn.',
     ],
   },
   {
@@ -221,6 +241,7 @@ export const MANUAL_PAGES: ManualPage[] = [
       'Each level grants a skill point and an attribute point. Open Growth (K) to raise class skills and the attributes Might, Vitality, Focus, and Fortune. Some skills boost abilities directly — the Necromancer Horde (+1 servant) and the Arcanist Chain Magic (spells arc to more foes).',
       'FORTUNE raises your luck: more loot drops, and far better odds of the higher equipment grades.',
       'Foes, altars and chests drop gear themed to the realm, in five grades: Cracked, Honed, Runed, Ascendant, and Godforged — each with more affixes, including class-ability affixes: of the Legion (+1 summon), of Alacrity (-cooldown), of Arcing (spells chain). Hover any item for its full stats.',
+      'UNIQUE LEGENDARIES: twelve NAMED items, rarer than set pieces, shown in BURNT ORANGE — each warps a build: the Sunfall Edge sets every strike ablaze, the Whisperwind Bow\'s arrows pierce, the Crown of the Hollow King commands two more servants, Midas Grips spill extra gold...',
       'CLASS ARMOR SETS: five Godforged pieces per class (helm, chest, legs, gloves, boots), each a rare drop shown in BRIGHT GREEN. Wearing more of your class\'s set unlocks tiered bonuses at 2 and 4 pieces, and a class-defining power at the full 5 — the Vanguard\'s Undying Bulwark, the Thief\'s Shadowmaster, the Arcanist\'s Archmage, the Warden\'s Lifewarden, and the Necromancer\'s Deathlord. Every realm WARDEN drops a class piece, and the deeper the realm the better the odds of a bonus one.',
       'Open Inventory (I) to equip backpack gear (1-9), unequip (U), or drink a potion (C) — potions and scrolls STACK. The backpack pages with Left/Right (9 per page) and tidies with S (sort). Open the Character Sheet (P) for full stats — hover any stat for what it does.',
     ],

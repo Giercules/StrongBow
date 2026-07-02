@@ -761,6 +761,33 @@ export function drawFlowerBed(ctx: Ctx, ox: number, oy: number): void {
   }
 }
 
+/** Village quest board: posted parchments under a little shingle roof. */
+export function drawQuestBoard(ctx: Ctx, ox: number, oy: number): void {
+  const wood = '#6e4a24', woodHi = '#9a6c38', dk = '#3a2410';
+  // posts
+  R(ctx, ox + 4, oy + 8, 3, 22, wood);
+  R(ctx, ox + 25, oy + 8, 3, 22, wood);
+  R(ctx, ox + 4, oy + 8, 1, 22, woodHi);
+  R(ctx, ox + 25, oy + 8, 1, 22, woodHi);
+  // board
+  R(ctx, ox + 2, oy + 9, 28, 14, '#5a3a1c');
+  R(ctx, ox + 3, oy + 10, 26, 12, '#7a5128');
+  R(ctx, ox + 2, oy + 22, 28, 1, dk);
+  // little shingle roof
+  R(ctx, ox + 1, oy + 6, 30, 3, '#7a3a28');
+  R(ctx, ox + 3, oy + 4, 26, 3, '#9a4a32');
+  R(ctx, ox + 1, oy + 8, 30, 1, dk);
+  // pinned notices
+  R(ctx, ox + 5, oy + 12, 6, 8, '#e8e2cc');
+  R(ctx, ox + 13, oy + 11, 7, 9, '#efe6c8');
+  R(ctx, ox + 22, oy + 13, 6, 7, '#e2d8b8');
+  PX(ctx, ox + 7, oy + 11, '#b83a2e'); // wax pins
+  PX(ctx, ox + 16, oy + 10, '#2e5a9a');
+  PX(ctx, ox + 24, oy + 12, '#b83a2e');
+  for (const [lx, ly, lw] of [[6, 14, 4], [6, 16, 3], [14, 13, 5], [14, 15, 4], [14, 17, 5], [23, 15, 4]] as [number, number, number][])
+    R(ctx, ox + lx, oy + ly, lw, 1, '#8a734e'); // scribbled lines
+}
+
 /** Weathered stone statue of a hero on a plinth — a proud town centrepiece. */
 export function drawStatue(ctx: Ctx, ox: number, oy: number): void {
   const stn = '#9a9486', stnHi = '#c8c2b2', stnDk = '#5e594c';

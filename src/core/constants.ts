@@ -129,6 +129,8 @@ export const CLASS_HUD_COLORS: Record<string, number> = {
   arcanist: 0xc06bff,
   warden: 0xffcf5a,
   necromancer: 0x9b7be0,
+  bard: 0xff8a9a,
+  druid: 0x8fce5a,
 };
 
 export const hexStr = (n: number): string => '#' + n.toString(16).padStart(6, '0');

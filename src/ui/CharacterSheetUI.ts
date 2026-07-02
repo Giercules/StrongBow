@@ -10,6 +10,14 @@ import type { Hero } from '../entities/Hero';
 const PANEL_W = 480;
 const PANEL_H = 420;
 
+/** Display names for the Bard's songs (kept local — the sheet only reads them). */
+const SONG_NAMES: Record<string, string> = {
+  war: 'War Chant',
+  march: "Traveler's March",
+  hymn: 'Mending Hymn',
+  dirge: 'Dirge of Dread',
+};
+
 /** Hover explanations for every stat on the sheet (user-requested). */
 const STAT_HELP: Record<string, string> = {
   Health: 'Hit points. Reach 0 and you fall. Restored by potions, food, regen, and the Warden’s aura.',
@@ -22,6 +30,8 @@ const STAT_HELP: Record<string, string> = {
   Regen: 'Health recovered per second, passively, out of and in combat.',
   Luck: 'Fortune. Raises loot drop rates and tilts equipment rolls toward higher grades.',
   'Max summons': 'How many undead servants you can command at once. Grows with level and gear.',
+  Song: 'The aura currently ringing from your lute. Hold the ability key to choose a different song.',
+  Form: 'Your current shape. Tap the ability key to shift between nature caster and bear.',
   Charisma: 'Silver tongue. Improves shop prices; grows as you trade with merchants.',
   Sneak: 'Shadow skill. Higher Sneak makes foes less likely to spot you and speeds backstab recovery.',
   Lockpick: 'Opens locked chests and doors without keys; grows each time you pick one.',
@@ -127,6 +137,8 @@ export class CharacterSheetUI {
       ['Luck', `${s.luck}`],
     ];
     if (h.classId === 'necromancer') stats.push(['Max summons', `${h.maxSummons()}`]);
+    if (h.classId === 'bard') stats.push(['Song', h.song ? SONG_NAMES[h.song] : 'silent']);
+    if (h.classId === 'druid') stats.push(['Form', h.bearForm ? 'Bear' : 'Human']);
     stats.push(['Charisma', `${h.charisma}`]);
     if (h.classId === 'thief') {
       stats.push(['Sneak', `${h.sneakLevel}`]);
