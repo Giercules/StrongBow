@@ -177,6 +177,17 @@ export class TextureFactory {
     img('anvil', 32, 32, (c) => townArt.drawAnvil(c, 0, 0), true);
     img('crate', 32, 32, (c) => townArt.drawCrate(c, 0, 0), true);
     img('cauldron', 32, 32, (c) => townArt.drawCauldron(c, 0, 0), true);
+    img('fence-h', 32, 32, (c) => townArt.drawFenceH(c, 0, 0), true);
+    img('fence-v', 32, 32, (c) => townArt.drawFenceV(c, 0, 0), true);
+    img('hedge', 32, 32, (c) => townArt.drawHedge(c, 0, 0), true);
+    img('lamp-post', 32, 32, (c) => townArt.drawLampPost(c, 0, 0), true);
+    img('stall-red', 32, 32, (c) => townArt.drawStallRed(c, 0, 0), true);
+    img('stall-blue', 32, 32, (c) => townArt.drawStallBlue(c, 0, 0), true);
+    img('well', 32, 32, (c) => townArt.drawWell(c, 0, 0), true);
+    img('cart', 32, 32, (c) => townArt.drawCart(c, 0, 0), true);
+    img('hay-bale', 32, 32, (c) => townArt.drawHayBale(c, 0, 0), true);
+    img('flower-bed', 32, 32, (c) => townArt.drawFlowerBed(c, 0, 0));
+    img('statue', 32, 32, (c) => townArt.drawStatue(c, 0, 0), true);
     img('fountain', 64, 80, (c) => townArt.drawFountain(c, 0, 0), true);
     img('fountain-base', 200, 164, (c) => townArt.drawFountainBase(c, 0, 0));
     img('fx-ripple', 40, 40, (c) => townArt.drawRipple(c, 0, 0));

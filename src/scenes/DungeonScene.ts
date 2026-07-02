@@ -39,7 +39,7 @@ import { migrateEquipKey, migrateItemSlot } from '../core/equipment';
 import { Content } from '../content/ContentRegistry';
 import { ALL_CLASSES } from '../data/heroes';
 import { ITEMS } from '../data/items';
-import { GRADES } from '../data/grades';
+import { GRADES, GRADE_ORDER } from '../data/grades';
 import { rollDrop, mintItem, monsterDropChance, generatorDropChance, eliteDropChance } from '../systems/LootSystem';
 import { ARMOR_SETS, SET_COLOR, rollSetDrop, setDropChance } from '../data/setItems';
 import { THEME_BASES } from '../data/themedItems';
@@ -895,7 +895,7 @@ export class DungeonScene extends Phaser.Scene {
     // Floor-level decor renders UNDER characters (DEPTH.FLOOR+1). Interior floor
     // coverings (wood-floor, rug) must be here or they clip anyone standing on
     // them — the "npcs/character vanish on the shop floor" bug.
-    const flatDecor = new Set(['blood-stain', 'lilypad', 'sanctum-glyph', 'void-rift', 'lava-crack', 'rune-circle', 'road', 'grass-tuft', 'bridge-plank', 'chain', 'wood-floor', 'rug']);
+    const flatDecor = new Set(['blood-stain', 'lilypad', 'sanctum-glyph', 'void-rift', 'lava-crack', 'rune-circle', 'road', 'grass-tuft', 'bridge-plank', 'chain', 'wood-floor', 'rug', 'flower-bed', 'wildflowers']);
     const swayDecor = new Set(['banner', 'vines', 'frost-banner', 'cloth', 'cattail', 'toxic-mushroom', 'town-tree', 'town-bush']);
     const glowDecor: Record<string, string> = {
       crystal: 'fx-glow-magic',
@@ -906,6 +906,7 @@ export class DungeonScene extends Phaser.Scene {
       idol: 'fx-glow-warm',
       'storm-orb': 'fx-glow-magic',
       'gauge': 'fx-glow-warm',
+      'lamp-post': 'fx-glow-warm',
     };
     const US = 0.75; // upright decor scale (HD decor is 2x res; halved to keep size)
     const FS = 0.65; // flat (floor) decor scale (HD decor is 2x res)
@@ -3052,41 +3053,78 @@ export class DungeonScene extends Phaser.Scene {
     // text, log line) so they read instantly as chase items.
     const color = item.setId ? SET_COLOR : item.grade ? GRADES[item.grade].color : '#ffe9a8';
     const tint = Phaser.Display.Color.HexStringToColor(color).color;
+    // 0..4 rarity tier drives how loud the marker is (set pieces = top tier)
+    const tier = item.setId ? 4 : item.grade ? GRADE_ORDER.indexOf(item.grade) : 1;
     const spr = this.add.image(x, y, item.icon).setDepth(y);
     const glow = this.add
       .image(x, y, 'fx-glow-warm')
-      .setScale(1.7)
-      .setAlpha(0.3)
+      .setScale(2.1)
+      .setAlpha(0.5)
       .setBlendMode(Phaser.BlendModes.ADD)
       .setDepth(y - 1)
       .setTint(tint);
-    this.tweens.add({ targets: glow, alpha: { from: 0.3, to: 0.18 }, scale: { from: 1.7, to: 1.4 }, duration: 1100, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
-    // rarity beam — a SOFT coloured light shaft (a stretched glow, no hard edges)
-    // so good drops read pleasingly from across the room.
+    this.tweens.add({ targets: glow, alpha: { from: 0.5, to: 0.3 }, scale: { from: 2.1, to: 1.7 }, duration: 1100, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+    // ground ring — a flattened pulse under the item so drops read as a marked
+    // spot on the floor even when the beam is behind scenery.
+    const ring = this.add
+      .image(x, y + 4, 'fx-glow-white')
+      .setTint(tint)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setDepth(y - 3)
+      .setAlpha(0.45)
+      .setScale(1.7, 0.55);
+    this.tweens.add({ targets: ring, alpha: { from: 0.45, to: 0.7 }, scaleX: { from: 1.7, to: 2.1 }, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+    // rarity beam — a tall coloured light shaft with a white-hot core, so good
+    // drops read instantly from across the room. Height grows with rarity.
+    const beamH = 3.4 + tier * 0.6;
     const beam = this.add
-      .image(x, y - 20, 'fx-glow-white')
+      .image(x, y - 24, 'fx-glow-white')
       .setTint(tint)
       .setBlendMode(Phaser.BlendModes.ADD)
       .setDepth(y - 2)
-      .setAlpha(0.26)
-      .setScale(0.8, 2.8);
-    this.tweens.add({ targets: beam, alpha: { from: 0.26, to: 0.4 }, scaleX: { from: 0.8, to: 0.98 }, duration: 1200, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+      .setAlpha(0.55)
+      .setScale(1.1, beamH);
+    this.tweens.add({ targets: beam, alpha: { from: 0.55, to: 0.85 }, scaleX: { from: 1.1, to: 1.35 }, duration: 1000, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+    const core = this.add
+      .image(x, y - 24, 'fx-glow-white')
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setDepth(y - 2)
+      .setAlpha(0.5)
+      .setScale(0.45, beamH * 0.9);
+    this.tweens.add({ targets: core, alpha: { from: 0.5, to: 0.75 }, duration: 1000, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
     const halo = this.add
-      .image(x, y - 26, 'fx-glow-white')
+      .image(x, y - 30, 'fx-glow-white')
       .setTint(tint)
       .setBlendMode(Phaser.BlendModes.ADD)
       .setDepth(y - 2)
-      .setAlpha(0.18)
-      .setScale(1.2);
-    this.tweens.add({ targets: halo, alpha: { from: 0.18, to: 0.07 }, scale: { from: 1.0, to: 1.5 }, duration: 1600, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+      .setAlpha(0.3)
+      .setScale(1.5);
+    this.tweens.add({ targets: halo, alpha: { from: 0.3, to: 0.14 }, scale: { from: 1.3, to: 1.9 }, duration: 1600, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+    // rising rarity-coloured sparkles — denser the better the drop
+    const sparks = this.add.particles(x, y - 2, 'fx-glow-white', {
+      x: { min: -7, max: 7 },
+      speedY: { min: -34, max: -16 },
+      speedX: { min: -4, max: 4 },
+      lifespan: 1000,
+      frequency: 340 - tier * 55,
+      quantity: 1,
+      scale: { start: 0.32, end: 0 },
+      alpha: { start: 0.9, end: 0 },
+      tint,
+      blendMode: 'ADD',
+    });
+    sparks.setDepth(y + 1);
     spr.once('destroy', () => {
       glow.destroy();
+      ring.destroy();
       beam.destroy();
+      core.destroy();
       halo.destroy();
+      sparks.destroy();
     });
-    // top-tier drops cast real light in enhanced mode (removed on pickup)
-    if (this.lightingOn && (item.setId || item.grade === 'godforged')) {
-      const lp = this.lights.addLight(x, y, 130, tint, 0.85);
+    // strong drops cast real light in enhanced mode (removed on pickup)
+    if (this.lightingOn && (item.setId || item.grade === 'godforged' || item.grade === 'ascendant')) {
+      const lp = this.lights.addLight(x, y, 110 + tier * 15, tint, 0.9);
       spr.once('destroy', () => this.lights.removeLight(lp));
     }
     // little pop so a fresh drop reads as "new"

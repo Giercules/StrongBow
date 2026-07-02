@@ -593,3 +593,197 @@ export function drawRipple(ctx: Ctx, ox: number, oy: number): void {
       }
     }
 }
+
+// ---- district decor (Upper & Lower Hearthwatch) ------------------------------
+
+/** Horizontal wooden rail fence — tiles seamlessly side-by-side. */
+export function drawFenceH(ctx: Ctx, ox: number, oy: number): void {
+  const wood = '#6e4a24', hi = '#9a6c38', dk = '#3a2410';
+  R(ctx, ox, oy + 14, 32, 3, wood); // upper rail
+  R(ctx, ox, oy + 14, 32, 1, hi);
+  R(ctx, ox, oy + 21, 32, 3, wood); // lower rail
+  R(ctx, ox, oy + 21, 32, 1, hi);
+  for (const px of [3, 15, 27]) {
+    R(ctx, ox + px, oy + 10, 3, 18, wood);
+    R(ctx, ox + px, oy + 10, 1, 18, hi);
+    R(ctx, ox + px, oy + 9, 3, 2, dk); // weathered cap
+    R(ctx, ox + px + 2, oy + 12, 1, 16, dk);
+  }
+}
+
+/** Vertical wooden rail fence — tiles seamlessly top-to-bottom. */
+export function drawFenceV(ctx: Ctx, ox: number, oy: number): void {
+  const wood = '#6e4a24', hi = '#9a6c38', dk = '#3a2410';
+  R(ctx, ox + 14, oy, 3, 32, wood); // single rail line running down
+  R(ctx, ox + 14, oy, 1, 32, hi);
+  for (const py of [2, 14, 26]) {
+    R(ctx, ox + 12, oy + py, 7, 4, wood);
+    R(ctx, ox + 12, oy + py, 7, 1, hi);
+    R(ctx, ox + 12, oy + py + 3, 7, 1, dk);
+  }
+}
+
+/** Dense trimmed box hedge — tiles side-by-side into garden walls. */
+export function drawHedge(ctx: Ctx, ox: number, oy: number): void {
+  const g0 = '#24481c', g1 = '#37662a', g2 = '#4d8a38', g3 = '#6ab04a';
+  R(ctx, ox, oy + 12, 32, 16, g1);
+  R(ctx, ox, oy + 10, 32, 4, g2); // sunlit top face
+  R(ctx, ox, oy + 24, 32, 4, g0); // ground shadow row
+  for (let i = 0; i < 10; i++) {
+    const x = (i * 13 + 5) % 30;
+    PX(ctx, ox + x, oy + 11 + ((i * 7) % 4), g3);
+    PX(ctx, ox + ((i * 11 + 9) % 30), oy + 17 + ((i * 5) % 7), i % 3 ? g2 : g0);
+  }
+}
+
+/** Wrought-iron lamp post with a warm glass lantern (scene adds the glow). */
+export function drawLampPost(ctx: Ctx, ox: number, oy: number): void {
+  const iron = '#2c2f3a', ironHi = '#565c70', glass = '#ffd98a', flame = '#fff2c0';
+  R(ctx, ox + 15, oy + 8, 3, 22, iron);
+  R(ctx, ox + 15, oy + 8, 1, 22, ironHi);
+  R(ctx, ox + 12, oy + 28, 9, 3, iron); // base plinth
+  R(ctx, ox + 12, oy + 28, 9, 1, ironHi);
+  R(ctx, ox + 13, oy + 2, 7, 8, iron); // lantern housing
+  R(ctx, ox + 14, oy + 3, 5, 6, glass);
+  R(ctx, ox + 15, oy + 4, 3, 3, flame);
+  PX(ctx, ox + 16, oy + 4, '#ffffff');
+  R(ctx, ox + 14, oy, 5, 2, iron); // cap
+  PX(ctx, ox + 12, oy + 5, glass); // light spill
+  PX(ctx, ox + 20, oy + 6, glass);
+}
+
+/** Market stall: timber counter under a striped canvas awning. */
+function stall(ctx: Ctx, ox: number, oy: number, c0: string, c1: string): void {
+  const wood = '#6e4a24', woodHi = '#9a6c38', dk = '#3a2410';
+  // legs
+  R(ctx, ox + 4, oy + 12, 2, 16, dk);
+  R(ctx, ox + 26, oy + 12, 2, 16, dk);
+  // counter
+  R(ctx, ox + 2, oy + 20, 28, 8, wood);
+  R(ctx, ox + 2, oy + 20, 28, 2, woodHi);
+  R(ctx, ox + 2, oy + 27, 28, 1, dk);
+  // goods on the counter
+  R(ctx, ox + 6, oy + 17, 5, 4, '#d2452f'); // apples
+  PX(ctx, ox + 7, oy + 17, '#ff7a5a');
+  R(ctx, ox + 14, oy + 16, 6, 5, '#c9a94e'); // bread
+  PX(ctx, ox + 15, oy + 16, '#eed37a');
+  R(ctx, ox + 23, oy + 17, 4, 4, '#7fb84a'); // greens
+  // striped awning
+  for (let i = 0; i < 8; i++) R(ctx, ox + i * 4, oy + 6, 4, 6, i % 2 ? c0 : c1);
+  R(ctx, ox, oy + 4, 32, 3, c0);
+  R(ctx, ox, oy + 4, 32, 1, '#ffffff');
+  R(ctx, ox, oy + 11, 32, 1, dk); // awning shadow line
+  for (let i = 0; i < 8; i++) PX(ctx, ox + i * 4 + 1, oy + 12, i % 2 ? c0 : c1); // scalloped hem
+}
+export function drawStallRed(ctx: Ctx, ox: number, oy: number): void {
+  stall(ctx, ox, oy, '#b83a2e', '#efe6c8');
+}
+export function drawStallBlue(ctx: Ctx, ox: number, oy: number): void {
+  stall(ctx, ox, oy, '#2e5a9a', '#efe6c8');
+}
+
+/** Stone well with an A-frame roof, windlass and hanging bucket. */
+export function drawWell(ctx: Ctx, ox: number, oy: number): void {
+  const stn = '#8a8274', stnHi = '#b6ae9e', stnDk = '#57503f';
+  const wood = '#6e4a24', woodHi = '#9a6c38';
+  // stone ring
+  R(ctx, ox + 6, oy + 20, 20, 8, stn);
+  R(ctx, ox + 6, oy + 20, 20, 2, stnHi);
+  R(ctx, ox + 6, oy + 26, 20, 2, stnDk);
+  for (const sx of [9, 14, 19, 24]) R(ctx, ox + sx, oy + 22, 1, 4, stnDk); // block seams
+  R(ctx, ox + 9, oy + 22, 14, 2, '#0e2940'); // dark water inside
+  PX(ctx, ox + 12, oy + 22, '#2f86b5');
+  // posts + pitched roof
+  R(ctx, ox + 7, oy + 6, 2, 15, wood);
+  R(ctx, ox + 23, oy + 6, 2, 15, wood);
+  R(ctx, ox + 4, oy + 4, 24, 3, '#7a3a28'); // shingle roof
+  R(ctx, ox + 6, oy + 2, 20, 3, '#9a4a32');
+  R(ctx, ox + 10, oy, 12, 3, '#b85a3a');
+  R(ctx, ox + 4, oy + 6, 24, 1, '#3a2410');
+  // windlass + rope + bucket
+  R(ctx, ox + 9, oy + 9, 14, 2, woodHi);
+  R(ctx, ox + 15, oy + 11, 1, 7, '#cfc9af');
+  R(ctx, ox + 13, oy + 18, 5, 4, wood);
+  R(ctx, ox + 13, oy + 18, 5, 1, woodHi);
+}
+
+/** Two-wheeled wooden hand cart loaded with sacks. */
+export function drawCart(ctx: Ctx, ox: number, oy: number): void {
+  const wood = '#6e4a24', woodHi = '#9a6c38', dk = '#3a2410';
+  // bed
+  R(ctx, ox + 4, oy + 14, 22, 8, wood);
+  R(ctx, ox + 4, oy + 14, 22, 2, woodHi);
+  R(ctx, ox + 4, oy + 21, 22, 1, dk);
+  R(ctx, ox + 3, oy + 12, 2, 10, dk); // front board
+  // handles
+  R(ctx, ox + 26, oy + 15, 5, 2, wood);
+  PX(ctx, ox + 30, oy + 15, woodHi);
+  // sacks
+  R(ctx, ox + 7, oy + 9, 6, 6, '#c9b083');
+  R(ctx, ox + 7, oy + 9, 6, 1, '#e2cda2');
+  PX(ctx, ox + 9, oy + 8, '#8a734e');
+  R(ctx, ox + 15, oy + 10, 6, 5, '#b09a6e');
+  PX(ctx, ox + 17, oy + 9, '#8a734e');
+  // wheel
+  ctx.fillStyle = dk;
+  ctx.beginPath(); ctx.arc(ox + 15, oy + 24, 6, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = wood;
+  ctx.beginPath(); ctx.arc(ox + 15, oy + 24, 4, 0, Math.PI * 2); ctx.fill();
+  R(ctx, ox + 14, oy + 20, 1, 8, dk); // spokes
+  R(ctx, ox + 11, oy + 23, 8, 1, dk);
+  PX(ctx, ox + 15, oy + 24, '#cfa64e'); // hub
+}
+
+/** Golden hay bale. */
+export function drawHayBale(ctx: Ctx, ox: number, oy: number): void {
+  const hay = '#c9a94e', hayHi = '#eed37a', hayDk = '#8a6e2a';
+  R(ctx, ox + 5, oy + 12, 22, 14, hay);
+  R(ctx, ox + 5, oy + 12, 22, 3, hayHi);
+  R(ctx, ox + 5, oy + 23, 22, 3, hayDk);
+  for (let i = 0; i < 8; i++) PX(ctx, ox + 6 + i * 3, oy + 15 + (i % 3) * 3, i % 2 ? hayHi : hayDk);
+  R(ctx, ox + 10, oy + 12, 2, 14, '#6e4a24'); // binding cords
+  R(ctx, ox + 20, oy + 12, 2, 14, '#6e4a24');
+  PX(ctx, ox + 8, oy + 10, hayHi); // stray straws
+  PX(ctx, ox + 24, oy + 11, hay);
+}
+
+/** Flat bed of flowers on tilled soil (floor-level decor). */
+export function drawFlowerBed(ctx: Ctx, ox: number, oy: number): void {
+  R(ctx, ox + 4, oy + 8, 24, 18, '#3a2a18'); // tilled soil
+  R(ctx, ox + 4, oy + 8, 24, 2, '#4e3a22');
+  for (let i = 0; i < 6; i++) {
+    const fx = ox + 6 + (i % 3) * 8 + (i > 2 ? 3 : 0);
+    const fy = oy + 11 + Math.floor(i / 3) * 7;
+    const col = ['#e0574a', '#e8c93e', '#c07be0'][i % 3];
+    R(ctx, fx, fy + 3, 1, 3, '#4a8a3a'); // stem
+    R(ctx, fx - 1, fy, 3, 3, col);
+    PX(ctx, fx, fy + 1, '#fff2c0'); // centre
+  }
+}
+
+/** Weathered stone statue of a hero on a plinth — a proud town centrepiece. */
+export function drawStatue(ctx: Ctx, ox: number, oy: number): void {
+  const stn = '#9a9486', stnHi = '#c8c2b2', stnDk = '#5e594c';
+  // plinth
+  R(ctx, ox + 8, oy + 24, 16, 6, stn);
+  R(ctx, ox + 8, oy + 24, 16, 1, stnHi);
+  R(ctx, ox + 8, oy + 29, 16, 1, stnDk);
+  R(ctx, ox + 10, oy + 22, 12, 2, stnDk);
+  // legs + torso
+  R(ctx, ox + 13, oy + 16, 6, 6, stn);
+  R(ctx, ox + 12, oy + 9, 8, 8, stn);
+  R(ctx, ox + 12, oy + 9, 3, 8, stnHi);
+  // head
+  R(ctx, ox + 13, oy + 4, 5, 5, stn);
+  R(ctx, ox + 13, oy + 4, 5, 1, stnHi);
+  // raised sword arm
+  R(ctx, ox + 19, oy + 8, 3, 2, stn);
+  R(ctx, ox + 21, oy + 1, 2, 9, stnHi);
+  PX(ctx, ox + 21, oy, '#ffffff');
+  // shield arm
+  R(ctx, ox + 10, oy + 10, 3, 6, stnDk);
+  // moss + weathering
+  PX(ctx, ox + 9, oy + 26, '#5a7a3a');
+  PX(ctx, ox + 22, oy + 27, '#5a7a3a');
+  PX(ctx, ox + 14, oy + 12, stnDk);
+}
