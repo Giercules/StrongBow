@@ -21,6 +21,9 @@ export class Companion extends Hero {
   arcaneType?: string;
   /** The hero who raised this summon — summon caps are counted per-summoner. */
   summoner?: Hero;
+  /** What this companion is CALLED (HUD, barks). Summons borrow a hero class
+   *  for stats, so without this a skeleton knight would read as "Vanguard". */
+  displayName?: string;
 
   constructor(scene: Phaser.Scene, x: number, y: number, classId: HeroClassId) {
     super(scene, x, y, classId, false, 0);

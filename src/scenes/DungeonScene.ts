@@ -1979,6 +1979,7 @@ export class DungeonScene extends Phaser.Scene {
     const sk = new Companion(this, necro.x + Phaser.Math.Between(-16, 16), necro.y + Phaser.Math.Between(-8, 18), info.cls);
     sk.makeSkeleton(info.sheet, info.walk, info.attack);
     sk.summoner = necro;
+    sk.displayName = info.name.replace(/\b\w/g, (c) => c.toUpperCase());
     if (t === 'tank') {
       sk.stats.maxHealth = Math.round(sk.stats.maxHealth * 1.9);
       sk.stats.armor += 5;
@@ -2113,6 +2114,7 @@ export class DungeonScene extends Phaser.Scene {
     const sk = new Companion(this, necro.x + Phaser.Math.Between(-16, 16), necro.y + Phaser.Math.Between(-8, 18), 'vanguard');
     sk.makeSkeleton(`monster-${id}-sheet`, `${id}-walk`, `${id}-attack`);
     sk.summoner = necro;
+    sk.displayName = def.name;
     sk.stats.maxHealth = def.health;
     sk.health = def.health;
     sk.stats.damage = def.damage;
@@ -2153,6 +2155,7 @@ export class DungeonScene extends Phaser.Scene {
     sk.makeSkeleton(info.sheet, info.walk, info.attack, info.tint);
     sk.arcaneType = type;
     sk.summoner = mage;
+    sk.displayName = info.name.replace(/\b\w/g, (c) => c.toUpperCase());
     sk.setTint(info.tint);
     const s = sk.stats;
     if (type === 'ember') {
@@ -4907,12 +4910,17 @@ export class DungeonScene extends Phaser.Scene {
 
   private syncHudData(): void {
     const slots: (HudHeroSlot | null)[] = [null, null, null, null];
-    this.allies.slice(0, 4).forEach((a, i) => {
+    // real party first (players + hired allies), summons fill leftover slots —
+    // and summons show their OWN name, not the hero class they borrow stats from
+    const isSummon = (a: Hero): boolean => !!(a as Companion).isSummon;
+    const roster = [...this.allies.filter((a) => !isSummon(a)), ...this.allies.filter(isSummon)];
+    roster.slice(0, 4).forEach((a, i) => {
       slots[i] = {
         classId: a.classId,
-        name: a.def.name,
+        name: (a as Companion).displayName ?? a.def.name,
         isPlayer: a.isPlayer,
         playerNum: a.playerNum,
+        summon: isSummon(a),
         health: a.health,
         maxHealth: a.stats.maxHealth,
         mana: a.mana,

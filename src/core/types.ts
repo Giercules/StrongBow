@@ -278,6 +278,8 @@ export interface HudHeroSlot {
   name: string;
   isPlayer: boolean;
   playerNum: number;
+  /** True for summoned servants/familiars (shown as PET, listed after allies). */
+  summon?: boolean;
   health: number;
   maxHealth: number;
   mana: number;

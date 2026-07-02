@@ -139,10 +139,10 @@ export class GauntletHUD {
     g.fillStyle(color, slot.alive ? 1 : 0.3);
     g.fillRect(PAD, y, 4, SLOT_H - 6);
 
-    const icons: Record<string, string> = { vanguard: 'icon-sword', thief: 'icon-bow', arcanist: 'icon-staff', warden: 'icon-mace', necromancer: 'icon-staff' };
-    this.slotIcon[i].setVisible(true).setAlpha(slot.alive ? 1 : 0.4).setTexture(icons[slot.classId] ?? 'icon-sword');
+    const icons: Record<string, string> = { vanguard: 'icon-sword', thief: 'icon-bow', arcanist: 'icon-staff', warden: 'icon-mace', necromancer: 'icon-staff', bard: 'icon-sword', druid: 'icon-staff' };
+    this.slotIcon[i].setVisible(true).setAlpha(slot.alive ? 1 : 0.4).setTexture(slot.summon ? 'icon-amulet' : icons[slot.classId] ?? 'icon-sword');
 
-    const tag = slot.playerNum > 0 ? `P${slot.playerNum}` : 'ALLY';
+    const tag = slot.playerNum > 0 ? `P${slot.playerNum}` : slot.summon ? 'PET' : 'ALLY';
     const growth = slot.skillPoints + slot.attrPoints;
     this.slotName[i]
       .setText(`${tag} - ${slot.name} L${slot.level}${growth > 0 ? `  +${growth}` : ''}`)
