@@ -108,7 +108,7 @@ export class GuildHireUI {
       } else {
         const afford = buyer.inventory.gold >= cost;
         this.content!.add(
-          makeButton(this.scene, left + PANEL_W - 70, yy + 26, 72, 24, afford ? `HIRE ${cost}g` : 'NO GOLD', () => this.hire(cls), {
+          makeButton(this.scene, left + PANEL_W - 90, yy + 26, 72, 24, afford ? `HIRE ${cost}g` : 'NO GOLD', () => this.hire(cls), {
             fill: afford ? C.ivy : C.hudPanel2,
             size: 10,
           })
