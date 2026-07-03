@@ -258,6 +258,17 @@ On a shared server, walk up to another player and press **Use** to open a
 marks, and when both accept the swap applies atomically on each client — minted
 gear travels whole, so graded items arrive intact.
 
+## Party loot rolls
+
+In a party, **fine drops are rolled for instead of copied to everyone**: when
+the host's world drops **Ascendant+, set, or unique** gear, a banner offers the
+party a roll — press **L** (or click it) to open the **dice window**, throw a
+**d20** or pass, and close it whenever you like; the winner is announced once
+every die is in (30s timeout counts as a pass, ties re-rolled by fate). The
+highest roll takes the item straight into their inventory — and if the whole
+party passes, it drops to the floor for anyone. Everyday loot still instances
+to each player as before.
+
 ## The Wilds of Hearthwatch (overworld)
 
 The four **outer gatehouses** don't just lead back inside — step through one to

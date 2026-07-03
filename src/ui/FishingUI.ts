@@ -72,8 +72,8 @@ export class FishingUI {
     this.cont.add(this.marker);
 
     this.keyHandler = (e) => {
-      if (e.key === 'Escape') this.finish(null, 'You reel the line back in.');
-      else if (e.key === ' ' || e.key === 'Enter' || e.key === 'e' || e.key === 'E') this.strike();
+      // Esc handled centrally by the scene (closeAllOverlays → close)
+      if (e.key === ' ' || e.key === 'Enter' || e.key === 'e' || e.key === 'E') this.strike();
     };
     this.scene.input.keyboard?.on('keydown', this.keyHandler);
     const zone = this.scene.add.zone(0, 0, PANEL_W, PANEL_H).setScrollFactor(0).setInteractive();

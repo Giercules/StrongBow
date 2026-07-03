@@ -327,6 +327,36 @@ wss.on('connection', (ws: WebSocket) => {
         send(target.ws, { t: 'tradeUpdate', fromId: id, items, gold });
         break;
       }
+      // ---- party loot rolls: fine drops are ROLLED for, not instanced.
+      // lootRoll (host announces) and lootRollWinner (host decides) fan out to
+      // the level; lootRollResult (each player's d20) fans out too so every
+      // client's dice window updates live — the host resolves from its copy. ----
+      case 'lootRoll':
+      case 'lootRollWinner': {
+        const me = players.get(id);
+        if (!me) break;
+        const out: Record<string, unknown> = { t: msg.t, rollId: str(msg.rollId, '', 40), item: msg.item, fromId: id, fromName: me.name };
+        if (msg.t === 'lootRollWinner') {
+          out.winnerId = str(msg.winnerId, '', 16);
+          out.winnerName = str(msg.winnerName, 'Adventurer', 24);
+          out.value = Math.max(0, Math.min(100, num(msg.value, 0)));
+        }
+        for (const o of players.values()) {
+          if (o.id !== id && o.levelId === me.levelId) send(o.ws, out);
+        }
+        break;
+      }
+      case 'lootRollResult': {
+        const me = players.get(id);
+        if (!me) break;
+        const value = Math.max(0, Math.min(100, num(msg.value, 0)));
+        for (const o of players.values()) {
+          if (o.id !== id && o.levelId === me.levelId) {
+            send(o.ws, { t: 'lootRollResult', rollId: str(msg.rollId, '', 40), value, fromId: id, fromName: me.name });
+          }
+        }
+        break;
+      }
     }
   });
 

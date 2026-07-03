@@ -191,6 +191,7 @@ export const MANUAL_PAGES: ManualPage[] = [
       'THE LODGE STASH: the chest beside your Lodge holds 24 treasures OUTSIDE your save — everything stored there is shared by every hero on every save. The lawn beside it mounts a stone trophy for each realm warden you have felled.',
       'FISHING: stand at the Hearthrun (or any calm water in town and the Wilds) and press Use to cast. Strike when the bobber rides the green — dead centre on the gold lands the finest catch, from River Perch up to the legendary STORMSCALE. Fish restore health and mana, or sell for coin.',
       'TRADING: on a shared server, walk up to another player and press Use to open a TRADE window — offer items and gold, and when both sides mark READY the swap is struck.',
+      'LOOT ROLLS: in a party, drops of ASCENDANT quality or better (and every set piece and unique) go up for a party ROLL — press L when the banner appears, throw your d20 or pass, and the highest die takes the prize. If everyone passes, the item simply falls to the floor.',
     ],
   },
   {

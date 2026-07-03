@@ -34,7 +34,6 @@ const RUMORS = [
 export class DialogueUI {
   private scene: Phaser.Scene;
   private modal: Modal | null = null;
-  private keyHandler?: (e: KeyboardEvent) => void;
   private onClosed?: () => void;
   private npcLabel = '';
   private npcRole = '';
@@ -59,10 +58,7 @@ export class DialogueUI {
     this.npcRole = npcRole;
     this.onClosed = hooks.onClosed;
     this.onChat = hooks.onChat;
-    this.keyHandler = (e) => {
-      if (e.key === 'Escape') this.close();
-    };
-    this.scene.input.keyboard?.on('keydown', this.keyHandler);
+    // Esc handled centrally by the scene (closeAllOverlays)
 
     const m = framedPanel(this.scene, PANEL_W, PANEL_H, npcLabel.toUpperCase());
     this.modal = m;
@@ -104,8 +100,6 @@ export class DialogueUI {
   }
 
   close(): void {
-    if (this.keyHandler) this.scene.input.keyboard?.off('keydown', this.keyHandler);
-    this.keyHandler = undefined;
     this.nav.detach();
     this.modal?.destroy();
     this.modal = null;

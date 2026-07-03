@@ -23,7 +23,6 @@ export class QuestBoardUI {
   private onClosed?: () => void;
   private onAccepted?: (q: Quest) => void;
   private onTurnedIn?: (q: Quest) => void;
-  private keyHandler?: (e: KeyboardEvent) => void;
   private nav = new MenuNav();
 
   constructor(scene: Phaser.Scene) {
@@ -41,17 +40,13 @@ export class QuestBoardUI {
     this.onAccepted = hooks.onAccepted;
     this.onTurnedIn = hooks.onTurnedIn;
     questLog.refreshOffers(unlockedRealms);
-    this.keyHandler = (e) => {
-      if (e.key === 'Escape') this.close();
-    };
-    this.scene.input.keyboard?.on('keydown', this.keyHandler);
+    // Esc is handled centrally by the scene (closeAllOverlays) — a local Esc
+    // handler would close first and let the same press open the quit prompt.
     this.nav.attach(this.scene, () => this.close());
     this.render();
   }
 
   close(): void {
-    if (this.keyHandler) this.scene.input.keyboard?.off('keydown', this.keyHandler);
-    this.keyHandler = undefined;
     this.nav.detach();
     this.modal?.destroy();
     this.modal = null;

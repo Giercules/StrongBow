@@ -79,6 +79,10 @@ export class NetClient {
   onTradeUpdate?: (fromId: string, items: unknown[], gold: number) => void;
   onTradeAccept?: (fromId: string) => void;
   onTradeCancel?: (fromId: string) => void;
+  // party loot rolls (fine drops are rolled for, not instanced to everyone)
+  onLootRoll?: (rollId: string, item: unknown, fromId: string, fromName: string) => void;
+  onLootRollResult?: (rollId: string, value: number, fromId: string, fromName: string) => void;
+  onLootRollWinner?: (rollId: string, winnerId: string, winnerName: string, value: number, item: unknown) => void;
 
   private profile: NetProfile = { name: 'Adventurer', classId: 'vanguard', level: 1, x: 0, y: 0, hp: 0, levelId: 'town' };
   private lastSent = 0;
@@ -190,6 +194,15 @@ export class NetClient {
       case 'tradeCancel':
         this.onTradeCancel?.(String(msg.fromId ?? ''));
         break;
+      case 'lootRoll':
+        this.onLootRoll?.(String(msg.rollId ?? ''), msg.item, String(msg.fromId ?? ''), String(msg.fromName ?? 'Adventurer'));
+        break;
+      case 'lootRollResult':
+        this.onLootRollResult?.(String(msg.rollId ?? ''), Number(msg.value) || 0, String(msg.fromId ?? ''), String(msg.fromName ?? 'Adventurer'));
+        break;
+      case 'lootRollWinner':
+        this.onLootRollWinner?.(String(msg.rollId ?? ''), String(msg.winnerId ?? ''), String(msg.winnerName ?? 'Adventurer'), Number(msg.value) || 0, msg.item);
+        break;
       case 'config':
         this.config = (msg.config as NetConfig) ?? this.config;
         break;
@@ -245,6 +258,21 @@ export class NetClient {
     if (this.connected) this.send({ t: 'tradeCancel', to });
   }
 
+  /** Host → party: a fine drop goes up for rolls (full item def travels). */
+  sendLootRoll(rollId: string, item: unknown): void {
+    if (this.connected) this.send({ t: 'lootRoll', rollId, item });
+  }
+
+  /** Anyone → the level: my d20 for this roll (0 = pass). */
+  sendLootRollResult(rollId: string, value: number): void {
+    if (this.connected) this.send({ t: 'lootRollResult', rollId, value });
+  }
+
+  /** Host → party: the roll is decided. */
+  sendLootRollWinner(rollId: string, winnerId: string, winnerName: string, value: number, item: unknown): void {
+    if (this.connected) this.send({ t: 'lootRollWinner', rollId, winnerId, winnerName, value, item });
+  }
+
   /** Push the local hero's latest state (throttled to ~12/s). Call each frame. */
   update(state: Partial<NetProfile>): void {
     Object.assign(this.profile, state);
@@ -271,6 +299,9 @@ export class NetClient {
     this.onTradeUpdate = undefined;
     this.onTradeAccept = undefined;
     this.onTradeCancel = undefined;
+    this.onLootRoll = undefined;
+    this.onLootRollResult = undefined;
+    this.onLootRollWinner = undefined;
   }
 
   disconnect(): void {

@@ -54,7 +54,6 @@ export class StashUI {
   private stashPage = 0;
   private bagPage = 0;
   private tip?: ItemTooltip;
-  private keyHandler?: (e: KeyboardEvent) => void;
   private onClosed?: () => void;
   private nav = new MenuNav();
 
@@ -74,18 +73,13 @@ export class StashUI {
     this.stashPage = 0;
     this.bagPage = 0;
     this.tip = new ItemTooltip(this.scene);
-    this.keyHandler = (e) => {
-      if (e.key === 'Escape') this.close();
-    };
-    this.scene.input.keyboard?.on('keydown', this.keyHandler);
+    // Esc handled centrally by the scene (closeAllOverlays)
     audio.sfx('chest');
     this.nav.attach(this.scene, () => this.close());
     this.render();
   }
 
   close(): void {
-    if (this.keyHandler) this.scene.input.keyboard?.off('keydown', this.keyHandler);
-    this.keyHandler = undefined;
     this.nav.detach();
     saveStash(this.stash);
     this.tip?.destroy();

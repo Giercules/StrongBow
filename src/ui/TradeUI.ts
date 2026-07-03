@@ -37,7 +37,6 @@ export class TradeUI {
   private theirReady = false;
   private bagPage = 0;
   private tip?: ItemTooltip;
-  private keyHandler?: (e: KeyboardEvent) => void;
   private onClosed?: () => void;
   private onComplete?: (gave: number, got: number) => void;
   private nav = new MenuNav();
@@ -69,10 +68,7 @@ export class TradeUI {
     this.onClosed = hooks.onClosed;
     this.onComplete = hooks.onComplete;
     this.tip = new ItemTooltip(this.scene);
-    this.keyHandler = (e) => {
-      if (e.key === 'Escape') this.cancel();
-    };
-    this.scene.input.keyboard?.on('keydown', this.keyHandler);
+    // Esc handled centrally by the scene (closeAllOverlays → close → cancel)
     audio.sfx('ui_select');
     this.nav.attach(this.scene, () => this.cancel());
     this.render();
@@ -142,8 +138,6 @@ export class TradeUI {
   }
 
   private teardown(): void {
-    if (this.keyHandler) this.scene.input.keyboard?.off('keydown', this.keyHandler);
-    this.keyHandler = undefined;
     this.nav.detach();
     this.tip?.destroy();
     this.modal?.destroy();

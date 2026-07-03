@@ -67,6 +67,8 @@ import { DialogueUI } from '../ui/DialogueUI';
 import { StashUI } from '../ui/StashUI';
 import { FishingUI } from '../ui/FishingUI';
 import { TradeUI } from '../ui/TradeUI';
+import { LootRollUI } from '../ui/LootRollUI';
+import type { LootRollView, RollEntry } from '../ui/LootRollUI';
 
 type SkeletonType = 'tank' | 'archer' | 'mage' | 'thief';
 const SKELETON_INFO: Record<SkeletonType, { cls: HeroClassId; name: string; sheet: string; walk: string; attack: string }> = {
@@ -223,6 +225,21 @@ export class DungeonScene extends Phaser.Scene {
   private stashUI!: StashUI;
   private fishingUI!: FishingUI;
   private tradeUI!: TradeUI;
+  private lootRollUI!: LootRollUI;
+  /** Party loot rolls in flight on this level (host + guests each track). */
+  private lootRolls: {
+    rollId: string;
+    item: ItemDefinition;
+    origin: { x: number; y: number };
+    myValue?: number;
+    results: Map<string, { name: string; value: number }>;
+    winnerName?: string;
+    winnerValue?: number;
+    resolved: boolean;
+    hostExpect?: Set<string>;
+  }[] = [];
+  private lootRollSeq = 0;
+  private lootRollBanner: Phaser.GameObjects.Container | null = null;
   /** A caged villager waiting for rescue in this realm (quest-spawned). */
   private rescueCage: { x: number; y: number; parts: Phaser.GameObjects.GameObject[]; questId: string } | null = null;
   private radialOpen = false;
@@ -548,12 +565,14 @@ export class DungeonScene extends Phaser.Scene {
     this.stashUI = new StashUI(this);
     this.fishingUI = new FishingUI(this);
     this.tradeUI = new TradeUI(this);
+    this.lootRollUI = new LootRollUI(this);
     const kb = this.input.keyboard!;
     this.escKey = kb.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
     this.continueKey = kb.addKey(Phaser.Input.Keyboard.KeyCodes.C);
     this.menuKey = kb.addKey(Phaser.Input.Keyboard.KeyCodes.M);
     // dodge / class ability / steal are rebindable actions now — see KeyBindings
     kb.on('keydown-F2', () => this.toggleSaveLoad());
+    kb.on('keydown-L', () => this.openPendingLootRoll());
     // mouse combat: right = attack, double right-click = magic
     this.input.mouse?.disableContextMenu();
     this.input.on('pointerdown', (p: Phaser.Input.Pointer) => {
@@ -1317,6 +1336,13 @@ export class DungeonScene extends Phaser.Scene {
       this.saveLoadUI.isOpen() ||
       this.shopUI.isOpen() ||
       this.guildUI.isOpen() ||
+      this.questBoardUI.isOpen() ||
+      this.dialogueUI.isOpen() ||
+      this.stashUI.isOpen() ||
+      this.fishingUI.isOpen() ||
+      this.tradeUI.isOpen() ||
+      // NOTE: lootRollUI is deliberately NOT here — pausing would freeze the
+      // dice timers and, for a party host, everyone's enemies mid-fight.
       this.quitConfirm !== null
     );
   }
@@ -1336,6 +1362,8 @@ export class DungeonScene extends Phaser.Scene {
     if (this.stashUI.isOpen()) this.stashUI.close();
     if (this.fishingUI.isOpen()) this.fishingUI.close();
     if (this.tradeUI.isOpen()) this.tradeUI.close();
+    // programmatic close keeps an unanswered roll pending (banner returns)
+    if (this.lootRollUI.isOpen()) this.lootRollUI.close(false);
   }
 
   private pollMenus(): void {
@@ -1344,6 +1372,7 @@ export class DungeonScene extends Phaser.Scene {
     if (Phaser.Input.Keyboard.JustDown(this.escKey)) {
       if (this.quitConfirm) this.closeQuitConfirm();
       else if (this.manualUI.isOpen()) this.manualUI.close();
+      else if (this.lootRollUI.isOpen()) this.lootRollUI.close(false); // stays pending
       else if (this.anyOverlayOpen()) this.closeAllOverlays();
       else this.confirmQuit();
       return;
@@ -3374,7 +3403,194 @@ export class DungeonScene extends Phaser.Scene {
     this.spawnLootPickup(x, y, item);
   }
 
+  // ==== party loot rolls =====================================================
+  /** Fine enough that a party rolls for it instead of everyone getting a copy. */
+  private rollWorthy(item: ItemDefinition): boolean {
+    return !!item.setId || !!item.unique || item.grade === 'ascendant' || item.grade === 'godforged';
+  }
+
+  /** Host-side: put a fine drop up for party rolls. True = pickup suppressed. */
+  private maybeStartLootRoll(x: number, y: number, item: ItemDefinition): boolean {
+    if (!MULTIPLAYER_ENABLED || !net.connected || net.partySize <= 1 || !net.isHost) return false;
+    if (this.level.town || !this.rollWorthy(item)) return false;
+    if (this.lootRolls.some((r) => r.item.id === item.id)) return false; // all-pass fallback re-drop
+    const rollId = `${net.id}_${this.lootRollSeq++}`;
+    const expect = new Set<string>([net.id]);
+    for (const p of net.peers) if (!p.npc) expect.add(p.id);
+    this.lootRolls.push({ rollId, item, origin: { x, y }, results: new Map(), resolved: false, hostExpect: expect });
+    net.sendLootRoll(rollId, item);
+    this.announceLootRoll(item);
+    // the host referees: whoever hasn't answered in 30s passes by default
+    this.time.delayedCall(30000, () => this.resolveLootRoll(rollId, true));
+    return true;
+  }
+
+  /** Guest-side: the host put a drop up for rolls. */
+  private onLootRollStarted(rollId: string, itemRaw: unknown): void {
+    const item = itemRaw as ItemDefinition;
+    if (!item || !item.id || this.lootRolls.some((r) => r.rollId === rollId)) return;
+    Content.registerItem(item);
+    this.lootRolls.push({ rollId, item, origin: { x: 0, y: 0 }, results: new Map(), resolved: false });
+    this.announceLootRoll(item);
+    // guests expire abandoned rolls locally (host gone, level changed...)
+    this.time.delayedCall(45000, () => {
+      const r = this.lootRolls.find((rr) => rr.rollId === rollId);
+      if (r && !r.resolved) {
+        r.resolved = true;
+        this.updateLootRollBanner();
+      }
+    });
+  }
+
+  private announceLootRoll(item: ItemDefinition): void {
+    audio.sfx('ui_select');
+    this.showBark(`The party rolls for ${item.name}! Press L to throw your die.`, 5200, 'loot', '#ffd24a');
+    this.updateLootRollBanner();
+  }
+
+  /** Throw my d20 for a roll (returns the value for the dice window). */
+  private lootRollThrow(rollId: string): number {
+    const r = this.lootRolls.find((rr) => rr.rollId === rollId);
+    if (!r || r.resolved || r.myValue !== undefined) return r?.myValue ?? 0;
+    const value = Phaser.Math.Between(1, 20);
+    this.lootRollAnswer(r, value);
+    return value;
+  }
+
+  private lootRollPass(rollId: string): void {
+    const r = this.lootRolls.find((rr) => rr.rollId === rollId);
+    if (!r || r.resolved || r.myValue !== undefined) return;
+    this.lootRollAnswer(r, 0);
+  }
+
+  private lootRollAnswer(r: (typeof this.lootRolls)[number], value: number): void {
+    r.myValue = value;
+    const myName = this.players[0]?.def?.name ?? 'Adventurer';
+    r.results.set(net.id || 'me', { name: myName, value });
+    net.sendLootRollResult(r.rollId, value);
+    this.updateLootRollBanner();
+    this.lootRollUI.refresh(this.lootRollView(r));
+    if (net.isHost) this.resolveLootRoll(r.rollId, false);
+  }
+
+  /** A party member's die landed (relayed level-wide). */
+  private onLootRollResult(rollId: string, value: number, fromId: string, fromName: string): void {
+    const r = this.lootRolls.find((rr) => rr.rollId === rollId);
+    if (!r || r.resolved) return;
+    r.results.set(fromId, { name: fromName, value });
+    this.lootRollUI.refresh(this.lootRollView(r));
+    if (net.isHost) this.resolveLootRoll(rollId, false);
+  }
+
+  /** Host: decide the roll once every answer is in (or the timer forces it). */
+  private resolveLootRoll(rollId: string, force: boolean): void {
+    const r = this.lootRolls.find((rr) => rr.rollId === rollId);
+    if (!r || r.resolved || !r.hostExpect) return;
+    if (!force) {
+      for (const id of r.hostExpect) if (!r.results.has(id)) return; // still waiting
+    }
+    const entries = [...r.results.entries()].filter(([, e]) => e.value > 0);
+    if (entries.length === 0) {
+      // every die stayed in the cup — the prize falls to the floor for anyone
+      r.resolved = true;
+      this.updateLootRollBanner();
+      this.showBark(`No one rolls for ${r.item.name} — it falls to the floor.`, 4200, 'loot');
+      this.spawnLootPickup(r.origin.x, r.origin.y, r.item);
+      net.sendLootRollWinner(r.rollId, '', '', 0, r.item);
+      return;
+    }
+    const top = Math.max(...entries.map(([, e]) => e.value));
+    const tied = entries.filter(([, e]) => e.value === top);
+    const [winnerId, winner] = tied[Math.floor(Math.random() * tied.length)];
+    net.sendLootRollWinner(r.rollId, winnerId, winner.name, top, r.item);
+    this.applyLootRollWinner(r.rollId, winnerId, winner.name, top, r.item);
+  }
+
+  /** Everyone: the host announced the outcome. */
+  private applyLootRollWinner(rollId: string, winnerId: string, winnerName: string, value: number, itemRaw: unknown): void {
+    const item = (itemRaw as ItemDefinition) ?? this.lootRolls.find((rr) => rr.rollId === rollId)?.item;
+    const r = this.lootRolls.find((rr) => rr.rollId === rollId);
+    if (r) {
+      if (r.resolved && winnerId === '') return; // host's own all-pass echo
+      r.resolved = true;
+      r.winnerName = winnerName;
+      r.winnerValue = value;
+      this.lootRollUI.refresh(this.lootRollView(r));
+    }
+    this.updateLootRollBanner();
+    if (!item || !winnerId) {
+      if (winnerId === '' && !net.isHost && item) {
+        // all passed: the host dropped it to the floor and shares the instance
+        this.showBark(`No one rolls for ${item.name} — it lies where it fell.`, 4200, 'loot');
+      }
+      return;
+    }
+    if (winnerId === net.id) {
+      Content.registerItem(item);
+      const p = this.players[0];
+      if (p) {
+        p.inventory.add(item);
+        p.refreshStats();
+        this.floatPickup(p.x, p.y - 22, `${item.name} — yours!`, '#8affa0');
+      }
+      audio.sfx('levelup');
+      this.showBark(`Your ${value} takes it — ${item.name} is YOURS!`, 5200, 'loot', '#8affa0');
+      this.syncHudData();
+    } else {
+      this.showBark(`${winnerName} wins ${item.name} with a ${value}.`, 4600, 'loot');
+    }
+  }
+
+  private lootRollView(r: (typeof this.lootRolls)[number]): LootRollView {
+    const results: RollEntry[] = [...r.results.values()].sort((a, b) => b.value - a.value);
+    return { rollId: r.rollId, item: r.item, myValue: r.myValue, results, winnerName: r.winnerName, winnerValue: r.winnerValue };
+  }
+
+  /** Open the dice window for the oldest roll still awaiting my answer. */
+  private openPendingLootRoll(): void {
+    if (this.input2.capturing || this.gameOverUI.isOpen()) return;
+    const r = this.lootRolls.find((rr) => !rr.resolved && rr.myValue === undefined);
+    if (!r) return;
+    this.closeAllOverlays();
+    this.lootRollUI.open(this.lootRollView(r), {
+      onRoll: (id) => this.lootRollThrow(id),
+      onPass: (id) => this.lootRollPass(id),
+      onClosed: () => this.updateLootRollBanner(),
+    });
+  }
+
+  /** A clickable "press L to roll" banner while a roll awaits my answer. */
+  private updateLootRollBanner(): void {
+    const pending = this.lootRolls.find((rr) => !rr.resolved && rr.myValue === undefined);
+    if (!pending) {
+      this.lootRollBanner?.destroy();
+      this.lootRollBanner = null;
+      return;
+    }
+    if (this.lootRollBanner) this.lootRollBanner.destroy();
+    const cont = this.add.container(PLAY_AREA_WIDTH / 2, 58).setDepth(DEPTH.OVERLAY + 4).setScrollFactor(0);
+    const w = 340;
+    const g = this.add.graphics().setScrollFactor(0);
+    g.fillStyle(0x0d1322, 0.94);
+    g.fillRoundedRect(-w / 2, -16, w, 32, 8);
+    g.lineStyle(2, 0xffd24a, 0.95);
+    g.strokeRoundedRect(-w / 2, -16, w, 32, 8);
+    cont.add(g);
+    const txt = this.add
+      .text(0, 0, `⚄ Roll for ${pending.item.name} — press L`, { fontFamily: 'MedievalSharp, "Trebuchet MS", cursive', fontSize: '12px', color: '#ffe9a8', fontStyle: 'bold' })
+      .setOrigin(0.5)
+      .setScrollFactor(0);
+    cont.add(txt);
+    const z = this.add.zone(0, 0, w, 32).setScrollFactor(0).setInteractive({ useHandCursor: true });
+    z.on('pointerdown', () => this.openPendingLootRoll());
+    cont.add(z);
+    this.tweens.add({ targets: cont, y: 62, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+    this.lootRollBanner = cont;
+  }
+
   private spawnLootPickup(x: number, y: number, item: ItemDefinition, fromNet = false): void {
+    // in a party, fine drops go up for rolls instead of raining copies
+    if (!fromNet && this.maybeStartLootRoll(x, y, item)) return;
     // class set pieces present in BRIGHT GREEN, uniques in BURNT ORANGE
     // everywhere (drop beam, float text, log line) so they read instantly.
     const color = item.unique ? UNIQUE_COLOR : item.setId ? SET_COLOR : item.grade ? GRADES[item.grade].color : '#ffe9a8';
@@ -3841,6 +4057,10 @@ export class DungeonScene extends Phaser.Scene {
         this.tradeUI.remoteCancel(fromId);
       }
     };
+    // ---- party loot rolls ----
+    net.onLootRoll = (rollId, item) => this.onLootRollStarted(rollId, item);
+    net.onLootRollResult = (rollId, value, fromId, fromName) => this.onLootRollResult(rollId, value, fromId, fromName);
+    net.onLootRollWinner = (rollId, winnerId, winnerName, value, item) => this.applyLootRollWinner(rollId, winnerId, winnerName, value, item);
     net.connect(getServerUrl(), {
       name: p0?.def?.name ?? 'Adventurer',
       classId: p0?.classId ?? 'vanguard',
