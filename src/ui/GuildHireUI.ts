@@ -7,6 +7,7 @@ import { audio } from '../systems/AudioSystem';
 import { ALL_CLASSES, HEROES } from '../data/heroes';
 import type { Hero } from '../entities/Hero';
 import type { HeroClassId } from '../core/types';
+import { MenuNav } from './MenuNav';
 
 const PANEL_W = 470;
 const PANEL_H = 430;
@@ -30,6 +31,8 @@ export class GuildHireUI {
     return this.modal !== null;
   }
 
+  private nav = new MenuNav();
+
   open(buyer: Hero, playerClasses: HeroClassId[]): void {
     if (this.modal) this.close();
     this.buyer = buyer;
@@ -41,12 +44,14 @@ export class GuildHireUI {
       if (e.key === 'Escape') this.close();
     };
     this.scene.input.keyboard?.on('keydown', this.keyHandler);
+    this.nav.attach(this.scene, () => this.close());
     this.rebuild();
   }
 
   close(): void {
     if (this.keyHandler) this.scene.input.keyboard?.off('keydown', this.keyHandler);
     this.keyHandler = undefined;
+    this.nav.detach();
     this.content = null;
     this.modal?.destroy();
     this.modal = null;
@@ -76,6 +81,7 @@ export class GuildHireUI {
   private rebuild(): void {
     if (!this.content || !this.buyer) return;
     this.content.removeAll(true);
+    this.nav.begin();
     const buyer = this.buyer;
     const x0 = this.modal!.cx - PANEL_W / 2;
     const y0 = this.modal!.cy - PANEL_H / 2;
@@ -117,6 +123,7 @@ export class GuildHireUI {
     });
 
     this.content!.add(makeButton(this.scene, this.modal!.cx, y0 + PANEL_H - 28, 160, 30, 'DONE  (Esc)', () => this.close(), { fill: C.hudBorderDk, size: 12 }));
+    this.nav.end();
   }
 
   private hire(cls: HeroClassId): void {

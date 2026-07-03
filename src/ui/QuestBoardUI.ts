@@ -6,6 +6,7 @@ import { questLog } from '../systems/QuestSystem';
 import type { Quest } from '../systems/QuestSystem';
 import type { Hero } from '../entities/Hero';
 import { audio } from '../systems/AudioSystem';
+import { MenuNav } from './MenuNav';
 
 // sized to fit the NARROWEST play area (min window: 460px between HUD panels)
 const PANEL_W = 450;
@@ -23,6 +24,7 @@ export class QuestBoardUI {
   private onAccepted?: (q: Quest) => void;
   private onTurnedIn?: (q: Quest) => void;
   private keyHandler?: (e: KeyboardEvent) => void;
+  private nav = new MenuNav();
 
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
@@ -43,12 +45,14 @@ export class QuestBoardUI {
       if (e.key === 'Escape') this.close();
     };
     this.scene.input.keyboard?.on('keydown', this.keyHandler);
+    this.nav.attach(this.scene, () => this.close());
     this.render();
   }
 
   close(): void {
     if (this.keyHandler) this.scene.input.keyboard?.off('keydown', this.keyHandler);
     this.keyHandler = undefined;
+    this.nav.detach();
     this.modal?.destroy();
     this.modal = null;
     this.onClosed?.();
@@ -58,6 +62,7 @@ export class QuestBoardUI {
   private render(): void {
     this.modal?.destroy();
     this.modal = framedPanel(this.scene, PANEL_W, PANEL_H, 'HEARTHWATCH NOTICE BOARD');
+    this.nav.begin();
     const m = this.modal;
     const x0 = m.cx - PANEL_W / 2;
     const y0 = m.cy - PANEL_H / 2;
@@ -102,6 +107,7 @@ export class QuestBoardUI {
     }
 
     m.add(makeButton(this.scene, m.cx, y0 + PANEL_H - 26, 130, 26, 'CLOSE  (ESC)', () => this.close()));
+    this.nav.end();
   }
 
   private questRow(m: Modal, x: number, y: number, q: Quest, action: string, enabled: boolean, fn: () => void): void {

@@ -25,6 +25,7 @@ export class GameManualUI {
   private backdrop: Phaser.GameObjects.Rectangle | null = null;
   private page = 0;
   private keyHandler?: (e: KeyboardEvent) => void;
+  private padHandler?: (pad: Phaser.Input.Gamepad.Gamepad, button: Phaser.Input.Gamepad.Button, index: number) => void;
   private onClosed?: () => void;
 
   constructor(scene: Phaser.Scene) {
@@ -57,12 +58,24 @@ export class GameManualUI {
       else if (e.key === 'ArrowLeft') this.go(-1);
     };
     this.scene.input.keyboard?.on('keydown', this.keyHandler);
+    // gamepad: D-Pad / bumpers turn pages, B closes the manual
+    const gp = this.scene.input.gamepad;
+    if (gp) {
+      this.padHandler = (_p: Phaser.Input.Gamepad.Gamepad, _b: Phaser.Input.Gamepad.Button, index: number) => {
+        if (index === 15 || index === 5) this.go(1);
+        else if (index === 14 || index === 4) this.go(-1);
+        else if (index === 1) this.close();
+      };
+      gp.on('down', this.padHandler);
+    }
     this.render();
   }
 
   close(): void {
     if (this.keyHandler) this.scene.input.keyboard?.off('keydown', this.keyHandler);
     this.keyHandler = undefined;
+    if (this.padHandler) this.scene.input.gamepad?.off('down', this.padHandler);
+    this.padHandler = undefined;
     this.backdrop?.destroy();
     this.backdrop = null;
     this.container?.destroy();

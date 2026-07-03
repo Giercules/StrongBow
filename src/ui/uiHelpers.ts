@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { PLAY_AREA_WIDTH, GAME_HEIGHT, PLAY_AREA_UI_DEPTH } from '../core/constants';
 import { C } from '../rendering/Palette';
+import { navCollector } from './MenuNav';
 
 // Phaser container children do NOT inherit scrollFactor(0) from the parent, so
 // every overlay child living in a scrolling scene must be pinned individually.
@@ -107,5 +108,8 @@ export function makeButton(
   pinToCamera(g);
   pinToCamera(t);
   pinToCamera(zone);
+  // keyboard/gamepad menu navigation: any button built during a MenuNav
+  // collection pass becomes a focus target automatically
+  navCollector()?.register(x, y, w, h, onClick);
   return cont;
 }

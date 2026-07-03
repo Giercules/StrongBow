@@ -3,6 +3,7 @@ import { framedPanel, makeButton, addPinned } from './uiHelpers';
 import type { Modal } from './uiHelpers';
 import { C } from '../rendering/Palette';
 import { RARITY_COLOR } from '../data/items';
+import { MenuNav } from './MenuNav';
 import { describeItemStats } from '../data/pickupInfo';
 import { ItemTooltip } from './ItemTooltip';
 import { audio } from '../systems/AudioSystem';
@@ -52,12 +53,15 @@ export class InventoryUI {
     this.keyHandler = (e) => this.onKey(e);
     this.scene.input.keyboard?.on('keydown', this.keyHandler);
     this.tip = new ItemTooltip(this.scene);
+    // pad-only nav: the inventory has its own full keyboard scheme already
+    this.nav.attach(this.scene, () => this.close(), { keyboard: false });
     this.rebuild();
   }
 
   close(): void {
     if (this.keyHandler) this.scene.input.keyboard?.off('keydown', this.keyHandler);
     this.keyHandler = undefined;
+    this.nav.detach();
     this.tip?.destroy();
     this.content = null;
     this.modal?.destroy();
@@ -139,11 +143,14 @@ export class InventoryUI {
     addPinned(this.content!, this.scene.add.image(x, y, key).setScale(1.5).setOrigin(0, 0));
   }
 
+  private nav = new MenuNav();
+
   private rebuild(): void {
     if (!this.content || !this.hero) return;
     const hero = this.hero;
     this.tip?.hide();
     this.content.removeAll(true);
+    this.nav.begin();
     const x0 = this.modal!.cx - PANEL_W / 2;
     const y0 = this.modal!.cy - PANEL_H / 2;
     const leftX = x0 + 24;
@@ -206,6 +213,8 @@ export class InventoryUI {
       zone.on('pointerover', () => this.tip.show(item, rightX, gy, 'left'));
       zone.on('pointerout', () => this.tip.hide());
       addPinned(this.content!, zone);
+      // bag rows are pad-focusable too (A equips/uses the focused item)
+      this.nav.register(rightX + (PANEL_W / 2 - 40) / 2, gy + 10, PANEL_W / 2 - 40, 20, () => this.useItem(item));
     });
 
     if (pageCount > 1) {
@@ -214,6 +223,7 @@ export class InventoryUI {
     }
 
     this.content.add(makeButton(this.scene, this.modal!.cx + PANEL_W / 2 - 50, y0 + PANEL_H - 22, 80, 26, 'CLOSE', () => this.close()));
+    this.nav.end();
   }
 
   private useItem(item: ItemDefinition): void {

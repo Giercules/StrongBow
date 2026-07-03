@@ -6,6 +6,7 @@ import { describeItemStats } from '../data/pickupInfo';
 import { ItemTooltip } from './ItemTooltip';
 import { ARMOR_SETS, SET_COLOR, setTierLines } from '../data/setItems';
 import type { Hero } from '../entities/Hero';
+import { MenuNav } from './MenuNav';
 
 const PANEL_W = 480;
 const PANEL_H = 420;
@@ -56,6 +57,8 @@ export class CharacterSheetUI {
     return this.modal !== null;
   }
 
+  private nav = new MenuNav();
+
   open(hero: Hero): void {
     if (this.modal) this.close();
     this.hero = hero;
@@ -63,10 +66,12 @@ export class CharacterSheetUI {
     this.content = this.scene.add.container(0, 0).setDepth(this.modal.container.depth + 1);
     this.modal.add(this.content);
     this.tip = new ItemTooltip(this.scene);
+    this.nav.attach(this.scene, () => this.close());
     this.rebuild();
   }
 
   close(): void {
+    this.nav.detach();
     this.tip?.destroy();
     this.content = null;
     this.modal?.destroy();
@@ -92,6 +97,7 @@ export class CharacterSheetUI {
     const h = this.hero;
     this.tip?.hide();
     this.content.removeAll(true);
+    this.nav.begin();
     const x0 = this.modal!.cx - PANEL_W / 2;
     const y0 = this.modal!.cy - PANEL_H / 2;
     const left = x0 + 28;
@@ -217,5 +223,6 @@ export class CharacterSheetUI {
     this.content.add(
       makeButton(this.scene, this.modal!.cx + PANEL_W / 2 - 50, y0 + PANEL_H - 20, 80, 26, 'CLOSE', () => this.close())
     );
+    this.nav.end();
   }
 }

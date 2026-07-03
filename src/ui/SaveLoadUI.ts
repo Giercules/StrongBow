@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { MenuNav } from './MenuNav';
 import { PLAY_AREA_UI_DEPTH } from '../core/constants';
 import { C } from '../rendering/Palette';
 import { addPinned, makeButton } from './uiHelpers';
@@ -29,6 +30,7 @@ export class SaveLoadUI {
   private confirmDelete = false;
   private thumbKey?: string;
   private keyHandler?: (e: KeyboardEvent) => void;
+  private nav = new MenuNav();
 
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
@@ -46,12 +48,15 @@ export class SaveLoadUI {
     this.container = this.scene.add.container(0, 0).setDepth(PLAY_AREA_UI_DEPTH + 6).setScrollFactor(0);
     this.keyHandler = (e) => this.onKey(e);
     this.scene.input.keyboard?.on('keydown', this.keyHandler);
+    // pad-only nav (its own arrows already drive slot selection)
+    this.nav.attach(this.scene, () => this.close(), { keyboard: false });
     this.render();
   }
 
   close(): void {
     if (this.keyHandler) this.scene.input.keyboard?.off('keydown', this.keyHandler);
     this.keyHandler = undefined;
+    this.nav.detach();
     this.clearThumb();
     this.container?.destroy();
     this.container = null;
@@ -138,6 +143,7 @@ export class SaveLoadUI {
     if (!this.container) return;
     this.container.removeAll(true);
     this.clearThumb();
+    this.nav.begin();
     const cam = this.scene.cameras.main;
     const cx = cam.width / 2;
     const cy = cam.height / 2;
@@ -186,6 +192,12 @@ export class SaveLoadUI {
         this.render();
       });
       addPinned(this.container!, z);
+      // slot rows are pad-focusable: A selects the slot
+      this.nav.register(listX + rowW / 2, yy + (rowH - 6) / 2, rowW, rowH - 6, () => {
+        this.sel = i;
+        this.confirmDelete = false;
+        this.render();
+      });
     });
 
     // ---- right: selected slot detail ----
@@ -257,6 +269,7 @@ export class SaveLoadUI {
 
     // footer / close
     this.container.add(makeButton(this.scene, x0 + 60, by, 80, 26, 'CLOSE', () => this.close(), { fill: C.hudBorderDk, size: 12 }));
-    this.label(x0 + 20, y0 + PANEL_H - 56, '↑↓ select  ·  Enter load/save  ·  Esc close', C.inkDim, 9);
+    this.label(x0 + 20, y0 + PANEL_H - 56, '↑↓ select  ·  Enter load/save  ·  Esc close  ·  D-Pad + A on pad', C.inkDim, 9);
+    this.nav.end();
   }
 }

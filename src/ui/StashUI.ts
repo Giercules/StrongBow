@@ -10,6 +10,7 @@ import type { ItemDefinition } from '../core/types';
 import type { Hero } from '../entities/Hero';
 import { audio } from '../systems/AudioSystem';
 import { ItemTooltip } from './ItemTooltip';
+import { MenuNav } from './MenuNav';
 
 // ----------------------------------------------------------------------------
 // StashUI — the oaken chest in your Lodge. Its contents live in their own
@@ -55,6 +56,7 @@ export class StashUI {
   private tip?: ItemTooltip;
   private keyHandler?: (e: KeyboardEvent) => void;
   private onClosed?: () => void;
+  private nav = new MenuNav();
 
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
@@ -77,12 +79,14 @@ export class StashUI {
     };
     this.scene.input.keyboard?.on('keydown', this.keyHandler);
     audio.sfx('chest');
+    this.nav.attach(this.scene, () => this.close());
     this.render();
   }
 
   close(): void {
     if (this.keyHandler) this.scene.input.keyboard?.off('keydown', this.keyHandler);
     this.keyHandler = undefined;
+    this.nav.detach();
     saveStash(this.stash);
     this.tip?.destroy();
     this.modal?.destroy();
@@ -101,6 +105,7 @@ export class StashUI {
   private render(): void {
     this.modal?.destroy();
     this.modal = framedPanel(this.scene, PANEL_W, PANEL_H, 'LODGE STASH — SHARED ACROSS ALL HEROES');
+    this.nav.begin();
     const m = this.modal;
     const x0 = m.cx - PANEL_W / 2;
     const y0 = m.cy - PANEL_H / 2;
@@ -174,5 +179,6 @@ export class StashUI {
     }
 
     m.add(makeButton(this.scene, m.cx, y0 + PANEL_H - 26, 130, 26, 'CLOSE  (ESC)', () => this.close()));
+    this.nav.end();
   }
 }

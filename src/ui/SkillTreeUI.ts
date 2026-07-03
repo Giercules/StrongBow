@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { framedPanel, makeButton, addPinned } from './uiHelpers';
+import { MenuNav } from './MenuNav';
 import type { Modal } from './uiHelpers';
 import { C } from '../rendering/Palette';
 import { audio } from '../systems/AudioSystem';
@@ -32,6 +33,8 @@ export class SkillTreeUI {
     return this.modal !== null;
   }
 
+  private nav = new MenuNav();
+
   open(hero: Hero): void {
     if (this.modal) this.close();
     this.hero = hero;
@@ -40,12 +43,14 @@ export class SkillTreeUI {
     this.modal.add(this.content);
     this.keyHandler = (e) => this.onKey(e);
     this.scene.input.keyboard?.on('keydown', this.keyHandler);
+    this.nav.attach(this.scene, () => this.close());
     this.rebuild();
   }
 
   close(): void {
     if (this.keyHandler) this.scene.input.keyboard?.off('keydown', this.keyHandler);
     this.keyHandler = undefined;
+    this.nav.detach();
     this.content = null;
     this.modal?.destroy();
     this.modal = null;
@@ -112,6 +117,7 @@ export class SkillTreeUI {
     if (!this.content || !this.hero) return;
     const hero = this.hero;
     this.content.removeAll(true);
+    this.nav.begin();
     const x0 = this.modal!.cx - PANEL_W / 2;
     const y0 = this.modal!.cy - PANEL_H / 2;
     const left = x0 + 22;
@@ -154,5 +160,6 @@ export class SkillTreeUI {
       })
       .setOrigin(0, 0);
     addPinned(this.content!, blurb);
+    this.nav.end();
   }
 }

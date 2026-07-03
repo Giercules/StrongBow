@@ -3,6 +3,7 @@ import { framedPanel, makeButton } from './uiHelpers';
 import type { Modal } from './uiHelpers';
 import { C } from '../rendering/Palette';
 import type { ItemDefinition } from '../core/types';
+import { MenuNav } from './MenuNav';
 
 const PANEL_W = 360;
 const PANEL_H = 250;
@@ -18,6 +19,7 @@ export interface PickpocketLoot {
 export class PickpocketUI {
   private scene: Phaser.Scene;
   private modal: Modal | null = null;
+  private nav = new MenuNav();
 
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
@@ -45,6 +47,8 @@ export class PickpocketUI {
   open(loot: PickpocketLoot): void {
     if (this.modal) this.close();
     this.modal = framedPanel(this.scene, PANEL_W, PANEL_H, 'SLEIGHT OF HAND');
+    this.nav.attach(this.scene, () => this.close());
+    this.nav.begin();
     const cx = this.modal.cx;
     const y0 = this.modal.cy - PANEL_H / 2;
 
@@ -67,9 +71,11 @@ export class PickpocketUI {
     this.modal.add(
       makeButton(this.scene, cx, y0 + PANEL_H - 26, 130, 30, 'POCKET IT', () => this.close(), { fill: C.ivy, size: 13 })
     );
+    this.nav.end();
   }
 
   close(): void {
+    this.nav.detach();
     this.modal?.destroy();
     this.modal = null;
   }

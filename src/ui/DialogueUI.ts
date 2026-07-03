@@ -5,6 +5,7 @@ import { C } from '../rendering/Palette';
 import { questLog } from '../systems/QuestSystem';
 import type { Hero } from '../entities/Hero';
 import { audio } from '../systems/AudioSystem';
+import { MenuNav } from './MenuNav';
 
 const PANEL_W = 440;
 const PANEL_H = 240;
@@ -40,6 +41,7 @@ export class DialogueUI {
   private hero!: Hero;
   private textLine!: Phaser.GameObjects.Text;
   private onChat?: () => void;
+  private nav = new MenuNav();
 
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
@@ -64,6 +66,8 @@ export class DialogueUI {
 
     const m = framedPanel(this.scene, PANEL_W, PANEL_H, npcLabel.toUpperCase());
     this.modal = m;
+    this.nav.attach(this.scene, () => this.close());
+    this.nav.begin();
     const x0 = m.cx - PANEL_W / 2;
     const y0 = m.cy - PANEL_H / 2;
 
@@ -91,6 +95,7 @@ export class DialogueUI {
       this.say(RUMORS[Math.floor(Math.random() * RUMORS.length)]);
     }, { text: canRumor ? undefined : C.inkDim }));
     m.add(makeButton(this.scene, m.cx + 140, y0 + PANEL_H - 34, 120, 26, 'FAREWELL', () => this.close()));
+    this.nav.end();
   }
 
   /** Replace the spoken line (used by rumors and streamed Grok chat). */
@@ -101,6 +106,7 @@ export class DialogueUI {
   close(): void {
     if (this.keyHandler) this.scene.input.keyboard?.off('keydown', this.keyHandler);
     this.keyHandler = undefined;
+    this.nav.detach();
     this.modal?.destroy();
     this.modal = null;
     this.onClosed?.();

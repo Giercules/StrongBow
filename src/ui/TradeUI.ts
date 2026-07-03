@@ -8,6 +8,7 @@ import type { Hero } from '../entities/Hero';
 import { net } from '../net/NetClient';
 import { audio } from '../systems/AudioSystem';
 import { ItemTooltip } from './ItemTooltip';
+import { MenuNav } from './MenuNav';
 
 // ----------------------------------------------------------------------------
 // TradeUI — a live trade window between two players on the same map, relayed
@@ -39,6 +40,7 @@ export class TradeUI {
   private keyHandler?: (e: KeyboardEvent) => void;
   private onClosed?: () => void;
   private onComplete?: (gave: number, got: number) => void;
+  private nav = new MenuNav();
 
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
@@ -72,6 +74,7 @@ export class TradeUI {
     };
     this.scene.input.keyboard?.on('keydown', this.keyHandler);
     audio.sfx('ui_select');
+    this.nav.attach(this.scene, () => this.cancel());
     this.render();
   }
 
@@ -141,6 +144,7 @@ export class TradeUI {
   private teardown(): void {
     if (this.keyHandler) this.scene.input.keyboard?.off('keydown', this.keyHandler);
     this.keyHandler = undefined;
+    this.nav.detach();
     this.tip?.destroy();
     this.modal?.destroy();
     this.modal = null;
@@ -152,6 +156,7 @@ export class TradeUI {
   private render(): void {
     this.modal?.destroy();
     this.modal = framedPanel(this.scene, PANEL_W, PANEL_H, `TRADING WITH ${this.partnerName.toUpperCase()}`);
+    this.nav.begin();
     const m = this.modal;
     const x0 = m.cx - PANEL_W / 2;
     const y0 = m.cy - PANEL_H / 2;
@@ -211,5 +216,6 @@ export class TradeUI {
 
     m.add(makeButton(this.scene, m.cx - 80, y0 + PANEL_H - 26, 130, 26, this.myReady ? 'READY ✓' : 'READY', () => this.ready(), { text: this.myReady ? '#8affa0' : undefined }));
     m.add(makeButton(this.scene, m.cx + 80, y0 + PANEL_H - 26, 130, 26, 'CANCEL (ESC)', () => this.cancel()));
+    this.nav.end();
   }
 }

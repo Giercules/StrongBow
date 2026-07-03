@@ -7,6 +7,7 @@ import type { Hero } from '../entities/Hero';
 import { ItemTooltip } from './ItemTooltip';
 import { questLog } from '../systems/QuestSystem';
 import { salvageYield, reforgeCost, ascendCost, canAfford, pay, grant, fmtCost, reforge, ascend, gradeTag } from '../systems/CraftSystem';
+import { MenuNav } from './MenuNav';
 
 const SERIF = 'MedievalSharp, Georgia, serif';
 const TITLE = 'Cinzel, Georgia, serif';
@@ -88,6 +89,7 @@ export class ShopUI {
   private mode: 'buy' | 'sell' | 'craft' = 'buy';
   private haggled = false;
   private haggleDiscount = 0;
+  private nav = new MenuNav();
 
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
@@ -122,12 +124,14 @@ export class ShopUI {
     this.scene.input.keyboard?.on('keydown', this.keyHandler);
     audio.sfx('ui_select');
     this.tip = new ItemTooltip(this.scene);
+    this.nav.attach(this.scene, () => this.close());
     this.render();
   }
 
   close(): void {
     if (this.keyHandler) this.scene.input.keyboard?.off('keydown', this.keyHandler);
     this.keyHandler = undefined;
+    this.nav.detach();
     this.tip?.destroy();
     this.backdrop?.destroy();
     this.backdrop = null;
@@ -220,6 +224,7 @@ export class ShopUI {
     if (!this.container) return;
     this.container.removeAll(true);
     this.tip?.hide();
+    this.nav.begin();
     const cam = this.scene.cameras.main;
     const cx = cam.width / 2;
     const cy = cam.height / 2;
@@ -297,6 +302,7 @@ export class ShopUI {
 
     if (this.status) this.text(cx, y0 + PANEL_H - 50, this.status, HEAD, 12).setOrigin(0.5, 0);
     this.button(cx, y0 + PANEL_H - 24, 132, 28, 'LEAVE', true, () => this.close());
+    this.nav.end();
   }
 
   private itemRow(x0: number, ry: number, rowH: number, def: ItemDefinition, name: string, priceLabel: string, can: boolean, fn: () => void): void {
@@ -447,6 +453,7 @@ export class ShopUI {
       const z = this.scene.add.zone(0, 0, w, h).setScrollFactor(0).setInteractive({ useHandCursor: true });
       z.on('pointerdown', fn);
       cont.add(z);
+      this.nav.register(x, y, w, h, fn); // keyboard/pad focus target
     }
     this.container!.add(cont);
   }

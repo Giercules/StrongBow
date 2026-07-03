@@ -2,11 +2,13 @@ import Phaser from 'phaser';
 import { framedPanel, makeButton } from './uiHelpers';
 import type { Modal } from './uiHelpers';
 import { C } from '../rendering/Palette';
+import { MenuNav } from './MenuNav';
 
 export class GameOverUI {
   private scene: Phaser.Scene;
   private modal: Modal | null = null;
   private narration: Phaser.GameObjects.Text | null = null;
+  private nav = new MenuNav();
 
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
@@ -20,6 +22,9 @@ export class GameOverUI {
     if (this.modal) return;
     const m = framedPanel(this.scene, 380, 300, 'THE CRYPT CLAIMS YOU');
     this.modal = m;
+    // B deliberately does nothing here — death should be answered on purpose
+    this.nav.attach(this.scene, () => undefined);
+    this.nav.begin();
 
     const title = this.scene.add
       .text(m.cx, m.cy - 96, 'YOU DIED', {
@@ -66,6 +71,7 @@ export class GameOverUI {
         onMenu();
       })
     );
+    this.nav.end();
   }
 
   /** Set the Dungeon Master's epitaph (resolves after the panel opens). */
@@ -74,6 +80,7 @@ export class GameOverUI {
   }
 
   close(): void {
+    this.nav.detach();
     this.narration = null;
     this.modal?.destroy();
     this.modal = null;
