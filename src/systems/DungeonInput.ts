@@ -16,12 +16,13 @@ const CODE_TO_NAME: Record<number, string> = (() => {
 })();
 
 // Gamepad face/shoulder buttons mapped to the rebindable actions that have one.
-type PadName = 'A' | 'B' | 'X' | 'Y' | 'L1' | 'R1' | 'R2';
+type PadName = 'A' | 'B' | 'X' | 'Y' | 'L1' | 'L2' | 'R1' | 'R2';
 const PAD_FOR_ACTION: Partial<Record<PlayerAction, PadName>> = {
   attack: 'A',
   use: 'B',
   magic: 'X',
   inventory: 'L1',
+  secondary: 'L2',
 };
 
 // Human-readable controller button per action, for the Settings display.
@@ -35,6 +36,9 @@ const PAD_LABEL: Record<PlayerAction, string> = {
   use: 'B',
   dodge: 'Y',
   ability: 'RB',
+  secondary: 'LT',
+  tertiary: '—',
+  ultimate: '—',
   steal: 'RT',
   inventory: 'LB',
   sheet: '—',
@@ -96,6 +100,7 @@ export class DungeonInput {
       case 'X': return pad.X;
       case 'Y': return pad.Y;
       case 'L1': return pad.L1 > 0;
+      case 'L2': return pad.L2 > 0;
       case 'R1': return pad.R1 > 0;
       case 'R2': return pad.R2 > 0;
     }

@@ -6,6 +6,7 @@ import {
   GAME_HEIGHT,
   DEPTH,
   Tile,
+  WALKABLE_TILES,
   HUD_REGISTRY_KEY,
   LOG_REGISTRY_KEY,
   GENERATORS_TO_DESTROY,
@@ -49,6 +50,9 @@ import { Hero } from '../entities/Hero';
 import { Companion } from '../entities/Companion';
 import { LanternWisp } from '../entities/LanternWisp';
 import { Monster } from '../entities/Monster';
+import type { MonsterStatus } from '../entities/Monster';
+import { activeFor } from '../data/abilities';
+import type { ActiveSlot } from '../data/abilities';
 import { Generator } from '../entities/Generator';
 import { ShadowSystem } from '../systems/ShadowSystem';
 import { DungeonInput } from '../systems/DungeonInput';
@@ -109,6 +113,7 @@ import { SkillTreeUI } from '../ui/SkillTreeUI';
 import { SettingsUI } from '../ui/SettingsUI';
 import { GameOverUI } from '../ui/GameOverUI';
 import { CharacterSheetUI } from '../ui/CharacterSheetUI';
+import { AbilityTreeUI } from '../ui/AbilityTreeUI';
 import { GameManualUI } from '../ui/GameManualUI';
 import { PickpocketUI, type PickpocketLoot } from '../ui/PickpocketUI';
 import { net, type CoopEnemy, type CoopLoot } from '../net/NetClient';
@@ -120,6 +125,28 @@ interface Pickup { sprite: Phaser.GameObjects.Image | Phaser.GameObjects.Sprite;
 interface LockedDoor { rect: Phaser.GameObjects.Rectangle; sprite: Phaser.GameObjects.Image; x: number; y: number; open: boolean; }
 interface Projectile { spr: Phaser.GameObjects.Sprite; vx: number; vy: number; dmg: number; crit: boolean; bornAt: number; ttl: number; owner: Hero; pierce?: number; hit?: Set<Monster>; }
 interface EnemyProjectile { spr: Phaser.GameObjects.Sprite; vx: number; vy: number; dmg: number; bornAt: number; ttl: number; }
+
+/** A persistent ability zone on the ground (fissure, crater, consecration,
+ *  smoke, ice field, nature root) that ticks damage/heal/status over time. */
+interface GroundZone {
+  x: number;
+  y: number;
+  radius: number;
+  owner: Hero;
+  expireAt: number;
+  nextTickAt: number;
+  tickEvery: number;
+  dmg: number;
+  status?: MonsterStatus;
+  statusDur: number;
+  statusMag: number;
+  slow: boolean;
+  healAllies: number;
+  gfx: Phaser.GameObjects.Image;
+}
+
+/** A slain foe's remains — raw material for Corpse Explosion / Army of the Dead. */
+interface Corpse { x: number; y: number; bornAt: number; }
 
 // Per-theme mood: the colour of the party/ambient light and the drifting motes
 // (embers rise, snow/sparks fall, spores/dust drift) that fill the play area.
@@ -250,6 +277,10 @@ export class DungeonScene extends Phaser.Scene {
   private radialNodes: { t: string; dx: number; dy: number; a0: number; a1: number; g: Phaser.GameObjects.Graphics; icon?: Phaser.GameObjects.Image; txt: Phaser.GameObjects.Text }[] = [];
   private radialCenterId: string | null = null;
   private abilityDownAt = 0;
+  /** Class Ability Expansion: persistent ground zones + tracked corpses. */
+  private groundZones: GroundZone[] = [];
+  private corpses: Corpse[] = [];
+  private masteryHealAt = 0;
   private monsters: Monster[] = [];
   private generators: Generator[] = [];
   private foundGens = new Set<Generator>(); // generators revealed on the minimap once explored near
@@ -296,6 +327,7 @@ export class DungeonScene extends Phaser.Scene {
   private settingsUI!: SettingsUI;
   private gameOverUI!: GameOverUI;
   private sheetUI!: CharacterSheetUI;
+  private abilityUI!: AbilityTreeUI;
   private manualUI!: GameManualUI;
   private saveLoadUI!: SaveLoadUI;
   private pickpocketUI!: PickpocketUI;
@@ -554,6 +586,7 @@ export class DungeonScene extends Phaser.Scene {
     this.inventoryUI = new InventoryUI(this);
     this.skillsUI = new SkillTreeUI(this);
     this.sheetUI = new CharacterSheetUI(this);
+    this.abilityUI = new AbilityTreeUI(this);
     this.manualUI = new GameManualUI(this);
     this.gameOverUI = new GameOverUI(this);
     this.saveLoadUI = new SaveLoadUI(this);
@@ -660,6 +693,9 @@ export class DungeonScene extends Phaser.Scene {
     this.radialNodes = [];
     this.radialCenterId = null;
     this.radialMode = 'necro';
+    this.groundZones.forEach((z) => z.gfx.destroy());
+    this.groundZones = [];
+    this.corpses = [];
     this.blockers = [];
     this.lockedDoors = [];
     this.chests = [];
@@ -1042,30 +1078,29 @@ export class DungeonScene extends Phaser.Scene {
         // only genuinely floaty arcana (crystals, orbs, cogs) hover.
         if (!GROUNDED_GLOW.has(d.key)) this.floatBob(s);
       } else if (d.key === 'fountain') {
-        // cement foundation + stone pool rim, framing the animated pool water
-        this.add.image(dc.x, dc.y, 'fountain-base').setDepth(DEPTH.FLOOR + 2);
-        // lively water: expanding ripple rings spreading across the pool
+        // Anchor on the pool-water centroid (lower basin), not the sprite bbox centre.
+        const FOUNTAIN_ORIGIN_Y = 61 / 80;
+        const FOUNTAIN_BASE_ORIGIN_Y = 84 / 164;
+        const poolY = dc.y;
+        this.add.image(dc.x, poolY, 'fountain-base').setOrigin(0.5, FOUNTAIN_BASE_ORIGIN_Y).setDepth(DEPTH.FLOOR + 2);
         for (let i = 0; i < 3; i++) {
           const ring = this.add
-            .image(dc.x, dc.y + 4, 'fx-ripple')
+            .image(dc.x, poolY, 'fx-ripple')
             .setScale(0.35).setAlpha(0).setDepth(DEPTH.FLOOR + 3)
             .setBlendMode(Phaser.BlendModes.ADD).setTint(0xbfe9ff);
           this.tweens.add({ targets: ring, scale: { from: 0.35, to: 1.5 }, alpha: { from: 0.55, to: 0 }, duration: 2600, delay: i * 860, repeat: -1, ease: 'Sine.easeOut' });
         }
-        // drifting sparkle glints on the surface
         for (let i = 0; i < 5; i++) {
           const gx = dc.x + (Math.random() * 2 - 1) * 64;
-          const gy = dc.y + 6 + (Math.random() * 2 - 1) * 34;
+          const gy = poolY + (Math.random() * 2 - 1) * 34;
           const gl = this.add
             .image(gx, gy, 'fx-glow-white')
             .setScale(0.45).setAlpha(0).setDepth(DEPTH.FLOOR + 3)
             .setBlendMode(Phaser.BlendModes.ADD).setTint(0xcdeeff);
           this.tweens.add({ targets: gl, alpha: { from: 0, to: 0.75 }, duration: 700 + Math.random() * 600, delay: Math.random() * 1800, yoyo: true, repeat: -1, repeatDelay: 700 + Math.random() * 1500, ease: 'Sine.easeInOut' });
         }
-        // the ornate fountain standing in the middle of the pool
-        this.add.image(dc.x, dc.y, 'fountain').setDepth(dc.y);
-        // jetting spray from the top spout
-        const spray = this.add.image(dc.x, dc.y - 30, 'fx-glow-white').setScale(1.7).setAlpha(0.25).setBlendMode(Phaser.BlendModes.ADD).setDepth(dc.y + 1).setTint(0x9fd0ff);
+        this.add.image(dc.x, poolY, 'fountain').setOrigin(0.5, FOUNTAIN_ORIGIN_Y).setDepth(dc.y);
+        const spray = this.add.image(dc.x, poolY - 52, 'fx-glow-white').setScale(1.7).setAlpha(0.25).setBlendMode(Phaser.BlendModes.ADD).setDepth(dc.y + 1).setTint(0x9fd0ff);
         this.tweens.add({ targets: spray, alpha: { from: 0.16, to: 0.42 }, scaleY: { from: 1.3, to: 2 }, duration: 1100, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
       } else if (swayDecor.has(d.key)) {
         const s = this.add.image(dc.x, dc.y, d.key).setDepth(dc.y - 2).setScale(US);
@@ -1333,6 +1368,8 @@ export class DungeonScene extends Phaser.Scene {
         this.updateWardenRegen(delta);
         this.updateProjectiles(time, delta);
         this.updateEnemyProjectiles(time, delta);
+        this.updateGroundZones(time);
+        this.updateCorpses(time);
         this.updateAuras(time);
         this.handleHazards(time);
         this.handlePickups();
@@ -1368,6 +1405,7 @@ export class DungeonScene extends Phaser.Scene {
       this.settingsUI.isOpen() ||
       this.gameOverUI.isOpen() ||
       this.sheetUI.isOpen() ||
+      this.abilityUI.isOpen() ||
       this.manualUI.isOpen() ||
       this.pickpocketUI.isOpen() ||
       this.saveLoadUI.isOpen() ||
@@ -1389,6 +1427,7 @@ export class DungeonScene extends Phaser.Scene {
     if (this.skillsUI.isOpen()) this.skillsUI.close();
     if (this.settingsUI.isOpen()) this.settingsUI.close();
     if (this.sheetUI.isOpen()) this.sheetUI.close();
+    if (this.abilityUI.isOpen()) this.abilityUI.close();
     if (this.manualUI.isOpen()) this.manualUI.close();
     if (this.pickpocketUI.isOpen()) this.pickpocketUI.close();
     if (this.saveLoadUI.isOpen()) this.saveLoadUI.close();
@@ -1456,6 +1495,11 @@ export class DungeonScene extends Phaser.Scene {
     this.closeAllOverlays();
     this.sheetUI.open(p);
   }
+  /** Open the Echoes & Sigils screen for a hero (from the character-sheet button). */
+  openAbilities(hero: Hero): void {
+    this.closeAllOverlays();
+    this.abilityUI.open(hero);
+  }
   private toggleSettings(): void {
     if (this.settingsUI.isOpen()) return this.settingsUI.close();
     this.closeAllOverlays();
@@ -1517,6 +1561,7 @@ export class DungeonScene extends Phaser.Scene {
       if (this.input2.justDown('p1', 'use')) this.interact(p1);
       if ((this.input2.justDown('p1', 'dodge') || this.input2.padJustDown('p1', 'dodge')) && p1.tryDodge(time)) { this.spawnDodgeFx(p1); this.dodgePowers(p1, time); }
       this.handleAbilityInput(p1, time);
+      this.handleActiveInput(p1, time);
       this.checkLowHealth(p1);
     }
     if (p1) p1.tick(time, delta);
@@ -1531,6 +1576,7 @@ export class DungeonScene extends Phaser.Scene {
       if (this.input2.justDown('p2', 'use')) this.interact(p2);
       if ((this.input2.justDown('p2', 'dodge') || this.input2.padJustDown('p2', 'dodge')) && p2.tryDodge(time)) { this.spawnDodgeFx(p2); this.dodgePowers(p2, time); }
       this.handleAbilityInputP2(p2, time);
+      this.handleActiveInput(p2, time);
     }
     if (p2) p2.tick(time, delta);
   }
@@ -2029,16 +2075,21 @@ export class DungeonScene extends Phaser.Scene {
     return this.ownedSummons(comp) < this.arcaneCap(comp) && (free || comp.mana >= ARCANE_COST);
   }
 
-  private summonSkeleton(necro: Hero, quiet = false, type?: SkeletonType): void {
+  private summonSkeleton(
+    necro: Hero,
+    quiet = false,
+    type?: SkeletonType,
+    opts: { force?: boolean; lifespan?: number; free?: boolean } = {}
+  ): void {
     const time = this.time.now;
     this.summons = this.summons.filter((s) => s.active && s.alive);
     const cap = necro.maxSummons();
-    if (this.ownedSummons(necro) >= cap) {
+    if (!opts.force && this.ownedSummons(necro) >= cap) {
       if (!quiet) this.showBark(`Your servants already crowd the dark (max ${cap}).`, 2400, 'system');
       return;
     }
     const cost = 20;
-    const free = settings.get('gameplay').infiniteMana;
+    const free = settings.get('gameplay').infiniteMana || opts.free;
     if (!free && necro.mana < cost) {
       if (!quiet) this.showBark('Not enough mana to raise the dead.', 2400, 'system');
       return;
@@ -2068,12 +2119,21 @@ export class DungeonScene extends Phaser.Scene {
     const lvlMult = 1 + necro.level * 0.08;
     sk.stats.maxHealth = Math.round(sk.stats.maxHealth * lvlMult);
     sk.stats.damage = Math.round(sk.stats.damage * lvlMult);
+    // Legion Command sigil: servants march faster, endure longer, hit harder
+    const nsig = this.heroSig(necro);
+    if (nsig.has('nec_sig_command')) {
+      sk.stats.damage = Math.round(sk.stats.damage * 1.25);
+      sk.stats.maxHealth = Math.round(sk.stats.maxHealth * 1.2);
+      sk.stats.speed = Math.round(sk.stats.speed * 1.15);
+    }
+    // Bone Armor sigil: each raising wraps the necromancer in a bone shield
+    if (nsig.has('nec_sig_bonearmor')) necro.grantShield(Math.round(necro.stats.maxHealth * 0.12), 8000, time);
     sk.health = sk.stats.maxHealth;
     // Servants linger longer the mightier the necromancer grows.
     // Servants are permanent: they fight until slain, and are released when
     // the party leaves the level (portal, teleport, or exit).
     sk.lifeStart = time;
-    sk.expireAt = 0;
+    sk.expireAt = opts.lifespan ? time + opts.lifespan : 0;
     this.companions.push(sk);
     this.allies.push(sk);
     this.summons.push(sk);
@@ -2154,6 +2214,19 @@ export class DungeonScene extends Phaser.Scene {
     if (p2.canAbility(time)) {
       this.useAbility(p2, time);
       p2.markAbilityUsed(time);
+    }
+  }
+
+  /** Poll the new secondary / tertiary / ultimate keys for a player hero. */
+  private handleActiveInput(h: Hero, time: number): void {
+    if (!h.isPlayer || !h.alive) return;
+    const p: 'p1' | 'p2' = h.playerNum === 2 ? 'p2' : 'p1';
+    const slots: ActiveSlot[] = ['secondary', 'tertiary', 'ultimate'];
+    for (const slot of slots) {
+      // justDown resolves keyboard binds plus the gamepad mapping (secondary=L2)
+      if (this.input2.justDown(p, slot) && h.canActive(slot, time)) {
+        if (this.useActive(h, slot, time)) h.markActive(slot, time);
+      }
     }
   }
 
@@ -2494,6 +2567,11 @@ export class DungeonScene extends Phaser.Scene {
   /** Bard: strike up (or change) a song — a persistent party aura. */
   private bardSing(bard: Hero, song: SongId): void {
     if (bard.song === song) return;
+    // Echoes sigil: the outgoing song lingers faintly for a few seconds
+    if (bard.song) {
+      bard.prevSong = bard.song;
+      bard.prevSongUntil = this.time.now + 5000;
+    }
     bard.song = song;
     const info = SONG_INFO[song];
     const fx = this.add.sprite(bard.x, bard.y - 8, 'fx-magic').setDepth(bard.y + 16).setScale(1.6).setTint(info.tint);
@@ -2552,6 +2630,14 @@ export class DungeonScene extends Phaser.Scene {
     }
     audio.sfx('magic');
     this.showBark(d.bearForm ? `${d.def.name} shifts into a great bear!` : `${d.def.name} returns to human form.`, 2200, 'event', '#b6ff8a');
+    // Apex Predator sigil: shifting INTO bear crashes down a shockwave
+    if (d.bearForm && this.heroSig(d).has('dru_sig_apex')) {
+      const time = this.time.now;
+      this.spawnRing(d.x, d.y, 120, 0x8fce5a);
+      this.cameras.main.shake(160, 0.006);
+      const hit = this.aoeHit(d, d.x, d.y, 120, Math.round(d.attackDamage().dmg * 1.3), time, 'stun', 200, 900);
+      for (const m of hit) m.applyStatus('bleed', 2600, time, Math.max(4, Math.round(d.attackDamage().dmg * 0.12)));
+    }
   }
 
   /** Per-class active ability (key F), gated by Hero cooldown. */
@@ -2566,12 +2652,16 @@ export class DungeonScene extends Phaser.Scene {
     }
     const cx = h.x;
     const cy = h.y;
+    // sigils the hero has chosen (reshapes the signature below)
+    const sig = this.heroSig(h);
     if (h.classId === 'bard') {
       // Encore — a ringing power chord that staggers everything around the skald
-      const radius = 100 + h.skillSet.rank('brd_reach') * 12;
-      const ring = this.add.sprite(cx, cy, 'fx-magic').setDepth(cy + 20).setScale((radius * 2) / 32).setTint(0xffd98a);
-      ring.play('fx-magic');
-      ring.once('animationcomplete', () => ring.destroy());
+      let radius = 100 + h.skillSet.rank('brd_reach') * 12;
+      let dmgMult = 1.7;
+      let stun = 0;
+      if (sig.has('brd_sig_crescendo')) { dmgMult += 0.7; stun = 900; }
+      if (sig.has('brd_sig_resonance')) radius += 44;
+      this.spawnRing(cx, cy, radius, 0xffd98a);
       for (let i = 0; i < 4; i++) {
         const note = this.add
           .text(cx + Phaser.Math.Between(-radius / 2, radius / 2), cy - 10, i % 2 ? '♪' : '♫', { fontSize: '14px', color: '#ffe9a8', stroke: '#000', strokeThickness: 2 })
@@ -2579,8 +2669,26 @@ export class DungeonScene extends Phaser.Scene {
           .setDepth(cy + 22);
         this.tweens.add({ targets: note, y: note.y - 30, alpha: 0, duration: 800 + i * 120, onComplete: () => note.destroy() });
       }
-      this.aoeHit(h, cx, cy, radius, Math.round(h.attackDamage().dmg * 1.7), time, 'shock', 180);
+      const chord = this.aoeHit(h, cx, cy, radius, Math.round(h.attackDamage().dmg * dmgMult), time, stun > 0 ? 'stun' : 'shock', 180, stun > 0 ? stun : 1500);
+      if (sig.has('brd_sig_dissonance')) {
+        const bleed = Math.max(4, Math.round(h.attackDamage().dmg * 0.12));
+        for (const m of chord) {
+          m.applyStatus('fear', 1600, time);
+          m.applyStatus('bleed', 3200, time, bleed);
+        }
+      }
+      // Finale: spend the ringing song for a burst of its own element
+      if (sig.has('brd_sig_finale') && h.song) {
+        const s = h.song;
+        if (s === 'war') this.aoeHit(h, cx, cy, radius * 1.15, Math.round(h.attackDamage().dmg * 1.5), time, 'shock', 140, 1600);
+        else if (s === 'dirge') this.aoeHit(h, cx, cy, radius * 1.15, Math.round(h.attackDamage().dmg * 1.2), time, 'vuln', 120, 2000, 1.3);
+        else if (s === 'hymn') this.eachAllyInRange(h, radius, (a) => a.heal(Math.round(a.stats.maxHealth * 0.2)));
+        else this.eachAllyInRange(h, radius, (a) => a.grantBuff(3500, time, { speed: 30 }));
+        h.song = null;
+      }
+      if (sig.has('brd_sig_resonance')) this.songPulseAt = time; // an immediate song pulse
       audio.sfx('shrine');
+      this.spawnBurst(cx, cy, 0xffd98a);
       if (announce) this.showBark(`${h.def.name} unleashes ${this.abilityName(h.classId)}!`);
       return;
     }
@@ -2593,63 +2701,459 @@ export class DungeonScene extends Phaser.Scene {
       audio.sfx('swing');
     } else if (h.classId === 'warden') {
       // Sanctuary: burst heal/mana to the party (scales with Warden level) and
-      // RESURRECT one fallen ally within reach — the Warden's signature grace.
-      const healFrac = Math.min(0.6, 0.3 + h.level * 0.015);
+      // RESURRECT one/all fallen allies within reach — the Warden's grace.
+      const radiance = sig.has('war_sig_radiance');
+      const healFrac = Math.min(0.75, 0.3 + h.level * 0.015 + (radiance ? 0.2 : 0));
+      const reviveAll = sig.has('war_sig_martyr');
+      const radius = sig.has('war_sig_dawn') ? 220 : 130;
       let revived = false;
       for (const a of this.allies) {
         if (a.alive) {
           a.heal(Math.round(a.stats.maxHealth * healFrac));
-          a.restoreMana(Math.round(a.stats.maxMana * 0.3));
+          if (sig.has('war_sig_grace')) a.restoreMana(Math.round(a.stats.maxMana * 0.35));
+          else a.restoreMana(Math.round(a.stats.maxMana * 0.2));
+          if (sig.has('war_sig_aegis') || sig.has('war_sig_bastion')) {
+            const shield = Math.round(a.stats.maxHealth * (sig.has('war_sig_bastion') ? 0.22 : 0.14));
+            a.grantShield(shield, 6000, time);
+          }
           const fx = this.add.image(a.x, a.y - 6, 'fx-glow-green').setDepth(a.y + 8).setScale(1.3).setBlendMode(Phaser.BlendModes.ADD);
           this.tweens.add({ targets: fx, alpha: 0, scale: 2.2, duration: 520, onComplete: () => fx.destroy() });
-        } else if (a.active && !revived && Phaser.Math.Distance.Between(cx, cy, a.x, a.y) < 170) {
-          this.reviveAlly(a, Math.round(a.stats.maxHealth * Math.min(0.7, 0.4 + h.level * 0.01)));
+        } else if (a.active && (reviveAll || !revived) && Phaser.Math.Distance.Between(cx, cy, a.x, a.y) < radius + 40) {
+          this.reviveAlly(a, Math.round(a.stats.maxHealth * Math.min(0.75, 0.4 + h.level * 0.01)));
           revived = true;
         }
       }
+      if (radiance) this.spawnGroundZone({ x: cx, y: cy, radius, owner: h, duration: 5000, tickEvery: 1000, healAllies: Math.round(6 + h.level * 0.4), texture: 'fx-glow-green', tint: 0xbfffcf, alpha: 0.32 });
+      if (sig.has('war_sig_sanctified')) this.spawnGroundZone({ x: cx, y: cy, radius, owner: h, duration: 6000, tickEvery: 700, dmg: Math.round(h.magicDamage() * 0.35), status: 'shock', healAllies: 4, texture: 'fx-glow-warm', tint: 0xffe6a0, alpha: 0.3 });
       if (revived && announce) this.showBark(`${h.def.name} calls a fallen comrade back from the brink!`, 2800, 'event');
-      this.aoeHit(h, cx, cy, 120, Math.round(h.attackDamage().dmg * 1.2), time, 'shock', 140);
+      const smiteMult = sig.has('war_sig_wrath') ? 2.0 : 1.2;
+      const smiteStatus: MonsterStatus = sig.has('war_sig_condemn') ? 'stun' : 'shock';
+      const struck = this.aoeHit(h, cx, cy, radius, Math.round(h.attackDamage().dmg * smiteMult), time, smiteStatus, 140, sig.has('war_sig_condemn') ? 1400 : 1500);
+      if (sig.has('war_sig_wrath') || sig.has('war_sig_condemn')) for (const m of struck) m.applyStatus('vuln', 3000, time, 1.25);
       audio.sfx('shrine');
     } else if (h.classId === 'arcanist') {
       // Meteor — a fiery blast called down on the nearest cluster (or straight ahead).
       let tx = cx + h.attackDir.x * 150;
       let ty = cy + h.attackDir.y * 150;
-      let bestD = 320;
-      for (const m of this.monsters) {
-        if (!m.active || !m.alive) continue;
-        const d = Phaser.Math.Distance.Between(cx, cy, m.x, m.y);
-        if (d < bestD) {
-          bestD = d;
-          tx = m.x;
-          ty = m.y;
-        }
+      const near = this.nearestFoe(cx, cy, 320);
+      if (near) { tx = near.x; ty = near.y; }
+      const starfall = sig.has('arc_sig_starfall');
+      let radius = starfall ? 64 : 96;
+      let dmgMult = starfall ? 3.0 : 2.1;
+      if (sig.has('arc_sig_conflagration')) { radius = Math.round(radius * 1.3); dmgMult += 0.45; }
+      const burnDmg = Math.round(h.magicDamage() * (sig.has('arc_sig_incinerate') ? 0.28 : 0.18));
+      const burnDur = sig.has('arc_sig_incinerate') ? 8000 : 5500;
+      const drop = (dx: number, dy: number, rad: number, mult: number) => {
+        const meteor = this.add.sprite(dx, dy, 'fx-fire').setDepth(dy + 24).setScale((rad * 2) / 16).setTint(0xff7a2a);
+        meteor.play('fx-fire');
+        meteor.once('animationcomplete', () => meteor.destroy());
+        this.add.image(dx, dy, 'fx-glow-warm').setScale(rad / 30).setAlpha(0.85).setBlendMode(Phaser.BlendModes.ADD).setDepth(dy + 10);
+        if (sig.has('arc_sig_singularity')) this.aoeHit(h, dx, dy, rad * 1.4, 1, time, 'chill', -200, 200);
+        const hit = this.aoeHit(h, dx, dy, rad, Math.round(h.magicDamage() * mult), time, 'burn', 70, burnDur, burnDmg);
+        if (sig.has('arc_sig_frostmeteor')) for (const m of hit) { m.applyStatus('chill', 2200, time); m.applyStatus('root', 900, time); }
+      };
+      drop(tx, ty, radius, dmgMult);
+      if (sig.has('arc_sig_twinstar')) {
+        const near2 = this.nearestFoe(tx, ty, 220, new Set(near ? [near] : []));
+        const ax = near2 ? near2.x : tx + Phaser.Math.Between(-70, 70);
+        const ay = near2 ? near2.y : ty + Phaser.Math.Between(-70, 70);
+        this.time.delayedCall(120, () => { if (h.active) drop(ax, ay, radius * 0.85, dmgMult * 0.8); });
       }
-      const radius = 96;
-      const meteor = this.add.sprite(tx, ty, 'fx-fire').setDepth(ty + 24).setScale((radius * 2) / 16).setTint(0xff7a2a);
-      meteor.play('fx-fire');
-      meteor.once('animationcomplete', () => meteor.destroy());
-      this.add.image(tx, ty, 'fx-glow-warm').setScale(3.2).setAlpha(0.85).setBlendMode(Phaser.BlendModes.ADD).setDepth(ty + 10);
-      this.aoeHit(h, tx, ty, radius, Math.round(h.magicDamage() * 2.1), time, 'burn', 70);
+      if (sig.has('arc_sig_crater') || sig.has('arc_sig_firestorm')) {
+        this.spawnGroundZone({ x: tx, y: ty, radius, owner: h, duration: sig.has('arc_sig_firestorm') ? 5000 : 4000, tickEvery: 600, dmg: Math.round(h.magicDamage() * 0.4), status: 'burn', statusDur: 1600, statusMag: burnDmg, slow: sig.has('arc_sig_crater'), texture: 'fx-glow-warm', tint: 0xff7a2a, alpha: 0.38 });
+      }
       if (announce) this.cameras.main.shake(220, 0.008);
       audio.sfx('magic');
     } else {
-      // Vanguard — Seismic Slam: a shockwave that flings foes back and stuns, and steels the Vanguard.
-      const radius = 116;
-      const ring = this.add.sprite(cx, cy, 'fx-magic').setDepth(cy + 20).setScale((radius * 2) / 32).setTint(0x9fd0ff);
-      ring.play('fx-magic');
-      ring.once('animationcomplete', () => ring.destroy());
-      this.aoeHit(h, cx, cy, radius, Math.round(h.attackDamage().dmg * 1.9), time, 'shock', 320);
+      // Vanguard — Seismic Slam: a quaking shockwave that stuns, flings/pulls,
+      // and steels the Earthshaker (deepened by Rage and the chosen sigil).
+      const empowered = h.spendRage();
+      let radius = 116;
+      let dmgMult = 1.9;
+      let stunDur = 1100;
+      if (empowered) { radius += 28; dmgMult += 0.5; }
+      if (sig.has('van_sig_tremor')) { radius = Math.round(radius * 1.4); dmgMult += 0.4; }
+      if (sig.has('van_sig_concussion')) stunDur += 1300;
+      if (sig.has('van_sig_upheaval')) stunDur += 700;
+      const pull = sig.has('van_sig_irongrip');
+      const dmg = Math.round(h.attackDamage().dmg * dmgMult);
+      this.spawnRing(cx, cy, radius, 0x9fd0ff);
+      const hitFoes = this.aoeHit(h, cx, cy, radius, dmg, time, 'stun', pull ? -260 : 320, stunDur);
+      for (const m of hitFoes) {
+        m.applyStatus('shock', 1400, time);
+        if (pull) m.applyStatus('vuln', stunDur, time, 1.25);
+      }
+      if (sig.has('van_sig_aftershock')) {
+        this.spawnGroundZone({ x: cx, y: cy, radius: radius * 0.85, owner: h, duration: 7000, tickEvery: 900, dmg: Math.round(dmg * 0.45), status: 'chill', statusDur: 1400, slow: true, texture: 'fx-glow-warm', tint: 0xffb060, alpha: 0.32 });
+      }
+      if (sig.has('van_sig_fault')) {
+        const far = this.farthestFoe(cx, cy, radius * 3);
+        if (far) { this.spawnBeam(cx, cy, far.x, far.y, 0xffd090); this.aoeHit(h, far.x, far.y, 48, Math.round(dmg * 0.9), time, 'stun', 60, 900); }
+      }
+      // Steelskin: an absorb shield (+heal), broadened by defensive sigils
+      let shield = Math.round(h.stats.maxHealth * 0.16) + h.stats.armor;
+      if (sig.has('van_sig_adamant')) shield *= 2;
+      if (sig.has('van_sig_quakeheart')) { h.heal(hitFoes.length * 6); shield += hitFoes.length * 4; }
+      h.grantShield(shield, 6000, time);
+      h.heal(Math.round(h.stats.maxHealth * 0.1));
+      if (sig.has('van_sig_bulwark')) this.eachAllyInRange(h, 150, (a) => a.grantShield(Math.round(shield * 0.5), 6000, time), false);
+      if (sig.has('van_sig_upheaval')) {
+        this.time.delayedCall(600, () => {
+          if (!h.active) return;
+          const now = this.time.now;
+          this.spawnRing(cx, cy, radius * 0.9, 0xbfe0ff);
+          this.aoeHit(h, cx, cy, radius * 0.9, Math.round(dmg * 0.7), now, 'stun', 200, 800);
+        });
+      }
       if (announce) this.cameras.main.shake(240, 0.009);
-      h.heal(Math.round(h.stats.maxHealth * 0.12));
       audio.sfx('hit');
     }
-    const flash = this.add.image(cx, cy, 'fx-glow-warm').setScale(2.4).setAlpha(0.7).setBlendMode(Phaser.BlendModes.ADD).setDepth(cy + 10);
-    this.tweens.add({ targets: flash, alpha: 0, scale: 3.4, duration: 420, onComplete: () => flash.destroy() });
+    this.spawnBurst(cx, cy, 0xffd0a0);
     if (announce) this.showBark(`${h.def.name} unleashes ${this.abilityName(h.classId)}!`);
   }
 
-  /** Shared radial damage for abilities: hurts monsters + generators in range. */
-  private aoeHit(h: Hero, x: number, y: number, radius: number, dmg: number, time: number, status: 'burn' | 'chill' | 'shock', knockback: number): void {
+  private facingVec(h: Hero): { x: number; y: number } {
+    switch (h.facing) {
+      case 'up': return { x: 0, y: -1 };
+      case 'down': return { x: 0, y: 1 };
+      case 'left': return { x: -1, y: 0 };
+      default: return { x: 1, y: 0 };
+    }
+  }
+
+  /** Farthest walkable point along a direction, up to `dist` (dash clamp). */
+  private clampDash(x: number, y: number, dx: number, dy: number, dist: number): { x: number; y: number } {
+    const steps = Math.ceil(dist / 8);
+    let lx = x;
+    let ly = y;
+    for (let i = 1; i <= steps; i++) {
+      const nx = x + dx * (i * 8);
+      const ny = y + dy * (i * 8);
+      if (!WALKABLE_TILES.has(this.tileAt(nx, ny))) break;
+      lx = nx;
+      ly = ny;
+    }
+    return { x: lx, y: ly };
+  }
+
+  // ---- Secondary / Tertiary / Ultimate active abilities -------------------
+  /** Run the level-unlocked active for a slot. Returns false to abort (no
+   *  cooldown / mana is spent) when the ability has no valid target. */
+  private useActive(h: Hero, slot: ActiveSlot, time: number, announce = true): boolean {
+    const def = activeFor(h.classId, slot);
+    const cx = h.x;
+    const cy = h.y;
+    switch (def.id) {
+      // ---- Vanguard ----
+      case 'van_charge': {
+        const d = this.facingVec(h);
+        const dest = this.clampDash(cx, cy, d.x, d.y, 150);
+        h.grantIframes(time, 320);
+        this.spawnBeam(cx, cy, dest.x, dest.y, 0xbfe0ff);
+        this.aoeHit(h, cx, cy, 48, Math.round(h.attackDamage().dmg * 0.8), time, 'stun', 200, 700);
+        this.tweens.add({
+          targets: h, x: dest.x, y: dest.y, duration: 220, ease: 'Quad.easeOut',
+          onComplete: () => {
+            const now = this.time.now;
+            this.spawnRing(dest.x, dest.y, 82, 0x9fd0ff);
+            this.aoeHit(h, dest.x, dest.y, 82, Math.round(h.attackDamage().dmg * 1.1), now, 'stun', 260, 1000);
+            this.cameras.main.shake(160, 0.006);
+          },
+        });
+        audio.sfx('swing');
+        break;
+      }
+      case 'van_roar': {
+        this.spawnRing(cx, cy, 180, 0xffcf5a);
+        for (const m of this.monsters) if (m.active && m.alive && Phaser.Math.Distance.Between(cx, cy, m.x, m.y) < 200) m.taunt(h, 5000, time);
+        this.eachAllyInRange(h, 230, (a) => a.grantBuff(6000, time, { dr: 0.2, speed: 20 }));
+        audio.sfx('boss_roar');
+        break;
+      }
+      case 'van_cataclysm': {
+        const radius = 260;
+        this.spawnRing(cx, cy, radius, 0x9fd0ff);
+        this.spawnRing(cx, cy, radius * 0.6, 0xbfe0ff);
+        this.cameras.main.shake(500, 0.02);
+        const hit = this.aoeHit(h, cx, cy, radius, Math.round(h.attackDamage().dmg * 3.4), time, 'stun', 260, 3200);
+        for (const m of hit) m.applyStatus('vuln', 3200, time, 1.3);
+        this.spawnGroundZone({ x: cx, y: cy, radius: radius * 0.8, owner: h, duration: 6000, tickEvery: 800, dmg: Math.round(h.attackDamage().dmg * 0.7), status: 'chill', slow: true, texture: 'fx-glow-warm', tint: 0xffb060, alpha: 0.4 });
+        this.eachAllyInRange(h, radius, (a) => a.grantShield(Math.round(a.stats.maxHealth * 0.25), 8000, time));
+        break;
+      }
+      // ---- Thief ----
+      case 'str_shadowstep': {
+        const foe = this.nearestFoe(cx, cy, 360);
+        if (!foe) return false;
+        const ang = Math.atan2(foe.y - cy, foe.x - cx);
+        h.setPosition(foe.x - Math.cos(ang) * 20, foe.y - Math.sin(ang) * 20);
+        h.grantIframes(time, 260);
+        this.spawnBurst(h.x, h.y, 0x8f7bd0, 1.8);
+        const dmg = Math.round(h.attackDamage().dmg * 3.0);
+        if (foe.takeDamage(dmg, time)) this.onMonsterKilled(h, foe);
+        else foe.applyStatus('bleed', 3000, time, Math.max(4, Math.round(dmg * 0.1)));
+        this.floatDamage(foe.x, foe.y, dmg, true);
+        audio.sfx('swing');
+        break;
+      }
+      case 'str_smoke': {
+        const rad = 120;
+        this.spawnGroundZone({ x: cx, y: cy, radius: rad, owner: h, duration: 5000, tickEvery: 700, status: 'chill', statusDur: 900, slow: true, texture: 'fx-glow-white', tint: 0x66707e, alpha: 0.5 });
+        this.eachAllyInRange(h, rad, (a) => a.grantBuff(5000, time, { dr: 0.25 }));
+        audio.sfx('swing');
+        break;
+      }
+      case 'str_phantom': {
+        const mark: Monster | null = this.boss && this.boss.alive ? this.boss : this.nearestFoe(cx, cy, 520);
+        if (!mark) return false;
+        h.grantIframes(time, 900);
+        const strikes = 5;
+        for (let i = 0; i < strikes; i++) {
+          this.time.delayedCall(i * 120, () => {
+            if (!h.active || !mark.active || !mark.alive) return;
+            const now = this.time.now;
+            const ang = (i / strikes) * Math.PI * 2;
+            h.setPosition(mark.x - Math.cos(ang) * 22, mark.y - Math.sin(ang) * 22);
+            this.spawnBurst(h.x, h.y, 0x8f7bd0, 1.5);
+            const dmg = Math.round(h.attackDamage().dmg * 2.2);
+            if (mark.takeDamage(dmg, now)) this.onMonsterKilled(h, mark);
+            this.floatDamage(mark.x, mark.y, dmg, true);
+            audio.sfx('swing');
+          });
+        }
+        this.time.delayedCall(strikes * 120 + 40, () => {
+          if (!mark.active || !mark.alive) return;
+          const now = this.time.now;
+          mark.applyStatus('bleed', 4000, now, Math.max(6, Math.round(h.attackDamage().dmg * 0.2)));
+          mark.applyStatus('poison', 4000, now, Math.max(5, Math.round(h.attackDamage().dmg * 0.15)));
+        });
+        break;
+      }
+      // ---- Arcanist ----
+      case 'arc_frostnova': {
+        const rad = 130;
+        this.spawnRing(cx, cy, rad, 0x9fd0ff);
+        const hit = this.aoeHit(h, cx, cy, rad, Math.round(h.magicDamage() * 1.2), time, 'chill', 40, 2600);
+        for (const m of hit) m.applyStatus('root', 1100, time);
+        this.spawnGroundZone({ x: cx, y: cy, radius: rad, owner: h, duration: 4000, tickEvery: 600, status: 'chill', statusDur: 900, slow: true, texture: 'fx-glow-white', tint: 0x9fd0ff, alpha: 0.4 });
+        audio.sfx('magic');
+        break;
+      }
+      case 'arc_blink': {
+        const d = this.facingVec(h);
+        const dest = this.clampDash(cx, cy, d.x, d.y, 170);
+        this.spawnBurst(cx, cy, 0xc06bff);
+        h.setPosition(dest.x, dest.y);
+        h.grantIframes(time, 300);
+        this.spawnBurst(dest.x, dest.y, 0xc06bff);
+        audio.sfx('magic');
+        break;
+      }
+      case 'arc_armageddon': {
+        const near = this.nearestFoe(cx, cy, 520);
+        const tx = near ? near.x : cx + this.facingVec(h).x * 160;
+        const ty = near ? near.y : cy + this.facingVec(h).y * 160;
+        this.cameras.main.shake(600, 0.012);
+        for (let i = 0; i < 6; i++) {
+          const ox = tx + Phaser.Math.Between(-140, 140);
+          const oy = ty + Phaser.Math.Between(-140, 140);
+          this.time.delayedCall(i * 130, () => {
+            if (!h.active) return;
+            const now = this.time.now;
+            const meteor = this.add.sprite(ox, oy, 'fx-fire').setDepth(oy + 24).setScale(120 / 16).setTint(0xff7a2a);
+            meteor.play('fx-fire');
+            meteor.once('animationcomplete', () => meteor.destroy());
+            this.aoeHit(h, ox, oy, 90, Math.round(h.magicDamage() * 1.7), now, 'burn', 60, 6000, Math.round(h.magicDamage() * 0.2));
+          });
+        }
+        this.spawnGroundZone({ x: tx, y: ty, radius: 150, owner: h, duration: 5000, tickEvery: 600, dmg: Math.round(h.magicDamage() * 0.5), status: 'burn', statusMag: Math.round(h.magicDamage() * 0.18), texture: 'fx-glow-warm', tint: 0xff7a2a, alpha: 0.4 });
+        audio.sfx('magic');
+        break;
+      }
+      // ---- Warden ----
+      case 'war_smite': {
+        const foe = this.nearestFoe(cx, cy, 420);
+        if (!foe) return false;
+        this.spawnBeam(cx, cy - 4, foe.x, foe.y, 0xffe6a0);
+        const dmg = Math.round(h.magicDamage() * 2.4);
+        if (foe.takeDamage(dmg, time)) this.onMonsterKilled(h, foe);
+        else {
+          foe.applyStatus('shock', 2000, time);
+          if (Math.random() < 0.4) foe.applyStatus('fear', 1200, time);
+        }
+        this.floatDamage(foe.x, foe.y, dmg, true);
+        let low: Hero | null = null;
+        for (const a of this.allies) if (a.alive && (!low || a.healthRatio() < low.healthRatio())) low = a;
+        if (low) low.heal(Math.round(low.stats.maxHealth * 0.2));
+        audio.sfx('shrine');
+        break;
+      }
+      case 'war_consecration': {
+        const rad = 120;
+        this.spawnRing(cx, cy, rad, 0xffe6a0);
+        this.spawnGroundZone({ x: cx, y: cy, radius: rad, owner: h, duration: 7000, tickEvery: 600, dmg: Math.round(h.magicDamage() * 0.5), status: 'shock', statusDur: 900, healAllies: Math.round(5 + h.level * 0.4), texture: 'fx-glow-warm', tint: 0xffe6a0, alpha: 0.32 });
+        audio.sfx('shrine');
+        break;
+      }
+      case 'war_apocalypse': {
+        const rad = 320;
+        this.spawnRing(cx, cy, rad * 0.5, 0xffe6a0);
+        this.cameras.main.flash(300, 255, 240, 180);
+        for (const a of this.allies) {
+          if (a.alive) {
+            a.heal(Math.round(a.stats.maxHealth * 0.6));
+            a.restoreMana(Math.round(a.stats.maxMana * 0.4));
+            a.grantBuff(8000, time, { dmgMult: 1.2, dr: 0.15 });
+          } else if (a.active && Phaser.Math.Distance.Between(cx, cy, a.x, a.y) < rad) {
+            this.reviveAlly(a, Math.round(a.stats.maxHealth * 0.5));
+          }
+        }
+        const hit = this.aoeHit(h, cx, cy, rad, Math.round(h.magicDamage() * 2.6), time, 'stun', 120, 2600);
+        for (const m of hit) m.applyStatus('vuln', 4000, time, 1.3);
+        audio.sfx('shrine');
+        break;
+      }
+      // ---- Necromancer ----
+      case 'nec_corpseburst': {
+        const near = this.nearestFoe(cx, cy, 420);
+        const tx = near ? near.x : cx + this.facingVec(h).x * 130;
+        const ty = near ? near.y : cy + this.facingVec(h).y * 130;
+        const corpses = this.consumeCorpsesNear(tx, ty, 170, 6);
+        const points = corpses.length ? corpses : [{ x: tx, y: ty }];
+        for (const c of points) {
+          this.spawnBurst(c.x, c.y, 0x9b5bff, 2.0);
+          this.aoeHit(h, c.x, c.y, 74, Math.round(h.magicDamage() * 1.4), time, 'burn', 60, 3000, Math.round(h.magicDamage() * 0.15));
+        }
+        audio.sfx('magic');
+        break;
+      }
+      case 'nec_bonespear': {
+        const d = this.facingVec(h);
+        const spr = this.add.sprite(cx + d.x * 14, cy + d.y * 14, 'fx-bolt').setDepth(cy + 8).setRotation(Math.atan2(d.y, d.x)).setTint(0xeaeaea).setScale(1.4);
+        this.projectiles.push({ spr, vx: d.x * 430, vy: d.y * 430, dmg: Math.round(h.magicDamage() * 2.2), crit: false, bornAt: time, ttl: 900, owner: h, pierce: 6, hit: new Set() });
+        audio.sfx('magic');
+        break;
+      }
+      case 'nec_army': {
+        const roles: SkeletonType[] = ['tank', 'archer', 'mage', 'thief'];
+        for (let i = 0; i < 5; i++) {
+          this.time.delayedCall(i * 90, () => {
+            if (h.active && h.alive) this.summonSkeleton(h, true, roles[i % roles.length], { force: true, free: true, lifespan: 14000 });
+          });
+        }
+        for (const s of this.summons) if (s.alive && s.summoner === h) s.grantBuff(14000, time, { dmgMult: 1.5, speed: 40 });
+        this.spawnBurst(cx, cy, 0x9b5bff, 3.0);
+        this.cameras.main.shake(300, 0.008);
+        audio.sfx('magic');
+        break;
+      }
+      // ---- Bard ----
+      case 'brd_dance': {
+        const rad = 90;
+        this.spawnRing(cx, cy, rad, 0xff8a9a);
+        const fx = this.add.sprite(cx, cy, 'fx-slash').setDepth(cy + 8).setScale(2.4).setTint(0xffd0e0);
+        fx.play('fx-slash');
+        fx.once('animationcomplete', () => fx.destroy());
+        let mult = 1.6;
+        let status: MonsterStatus = 'shock';
+        if (h.song === 'war') mult += 0.5;
+        if (h.song === 'dirge') status = 'vuln';
+        const hit = this.aoeHit(h, cx, cy, rad, Math.round(h.attackDamage().dmg * mult), time, status, 120, 1400, status === 'vuln' ? 1.25 : 0);
+        if (h.song === 'hymn') this.eachAllyInRange(h, rad + 40, (a) => a.heal(Math.round(a.stats.maxHealth * 0.08)));
+        void hit;
+        audio.sfx('swing');
+        break;
+      }
+      case 'brd_rally': {
+        this.spawnRing(cx, cy, 220, 0xffe9a8);
+        this.eachAllyInRange(h, 260, (a) => {
+          a.grantBuff(8000, time, { dmgMult: 1.25, dr: 0.15, crit: 0.1 });
+          a.heal(Math.round(a.stats.maxHealth * 0.15));
+        });
+        audio.sfx('shrine');
+        break;
+      }
+      case 'brd_symphony': {
+        this.spawnRing(cx, cy, 240, 0xffe9a8);
+        this.eachAllyInRange(h, 280, (a) => a.grantBuff(10000, time, { dmgMult: 1.3, dr: 0.15, crit: 0.12, speed: 30 }));
+        // all four song motifs at once — a lingering healing + slowing field
+        this.spawnGroundZone({ x: cx, y: cy, radius: 200, owner: h, duration: 10000, tickEvery: 900, status: 'chill', statusDur: 700, healAllies: 5, texture: 'fx-glow-warm', tint: 0xffe9a8, alpha: 0.26 });
+        this.cameras.main.flash(220, 255, 233, 168);
+        audio.sfx('shrine');
+        break;
+      }
+      // ---- Druid ----
+      case 'dru_maul': {
+        if (h.bearForm) {
+          const d = this.facingVec(h);
+          const tx = cx + d.x * 30;
+          const ty = cy + d.y * 30;
+          const fx = this.add.sprite(tx, ty, 'fx-slash').setDepth(cy + 8).setScale(2.6).setRotation(Math.atan2(d.y, d.x)).setTint(0x8fce5a);
+          fx.play('fx-slash');
+          fx.once('animationcomplete', () => fx.destroy());
+          const hit = this.aoeHit(h, tx, ty, 74, Math.round(h.attackDamage().dmg * 1.8), time, 'shock', 200, 1400);
+          for (const m of hit) m.applyStatus('bleed', 3200, time, Math.max(5, Math.round(h.attackDamage().dmg * 0.14)));
+          audio.sfx('melee');
+        } else {
+          const foe = this.nearestFoe(cx, cy, 260);
+          if (!foe) return false;
+          foe.applyStatus('root', 2200, time);
+          foe.applyStatus('chill', 2600, time);
+          this.spawnBurst(foe.x, foe.y, 0x8fce5a, 1.4);
+          const dmg = Math.round(h.magicDamage() * 1.2);
+          if (foe.takeDamage(dmg, time)) this.onMonsterKilled(h, foe);
+          this.floatDamage(foe.x, foe.y, dmg, false);
+          audio.sfx('magic');
+        }
+        break;
+      }
+      case 'dru_moonfire': {
+        const near = this.nearestFoe(cx, cy, 380);
+        const tx = near ? near.x : cx + this.facingVec(h).x * 140;
+        const ty = near ? near.y : cy + this.facingVec(h).y * 140;
+        this.spawnBurst(tx, ty, 0xbfe0ff, 2.2);
+        const hit = this.aoeHit(h, tx, ty, 80, Math.round(h.magicDamage() * 1.7), time, 'burn', 60, 4000, Math.round(h.magicDamage() * 0.16));
+        for (const m of hit) m.applyStatus('chill', 2000, time);
+        audio.sfx('magic');
+        break;
+      }
+      case 'dru_avatar': {
+        if (!h.bearForm) {
+          h.shapeshift(time);
+          this.shiftFx(h);
+        }
+        h.grantBuff(12000, time, { dmgMult: 1.4, dr: 0.2 });
+        h.grantShield(Math.round(h.stats.maxHealth * 0.3), 12000, time);
+        const radius = 200;
+        this.spawnRing(cx, cy, radius, 0x8fce5a);
+        this.cameras.main.shake(360, 0.012);
+        const hit = this.aoeHit(h, cx, cy, radius, Math.round(h.attackDamage().dmg * 2.6), time, 'stun', 240, 2000);
+        for (const m of hit) m.applyStatus('bleed', 3500, time, Math.max(6, Math.round(h.attackDamage().dmg * 0.16)));
+        this.spawnGroundZone({ x: cx, y: cy, radius: radius * 0.8, owner: h, duration: 6000, tickEvery: 800, dmg: Math.round(h.attackDamage().dmg * 0.5), slow: true, status: 'chill', texture: 'fx-glow-green', tint: 0x8fce5a, alpha: 0.3 });
+        break;
+      }
+      default:
+        return false;
+    }
+    if (announce) this.showBark(`${h.def.name}: ${def.name}!`, 2000, 'event');
+    return true;
+  }
+
+  /** Shared radial damage for abilities: hurts monsters + generators in range.
+   *  Returns the still-living foes struck so callers can layer extra effects. */
+  private aoeHit(
+    h: Hero,
+    x: number,
+    y: number,
+    radius: number,
+    dmg: number,
+    time: number,
+    status: MonsterStatus,
+    knockback: number,
+    statusDur = 1700,
+    statusMag = 0
+  ): Monster[] {
+    const hitList: Monster[] = [];
     for (const m of this.monsters) {
       if (!m.active || !m.alive) continue;
       const dx = m.x - x;
@@ -2660,14 +3164,180 @@ export class DungeonScene extends Phaser.Scene {
         this.floatDamage(m.x, m.y, dmg, true);
         if (died) this.onMonsterKilled(h, m);
         else {
-          if (knockback > 0) m.knock((dx / l) * knockback, (dy / l) * knockback, time);
-          m.applyStatus(status, 1700, time);
+          // positive knockback shoves outward; negative pulls the foe inward
+          if (knockback !== 0) m.knock((dx / l) * knockback, (dy / l) * knockback, time);
+          m.applyStatus(status, statusDur, time, statusMag);
+          hitList.push(m);
         }
       }
     }
     for (const g of this.generators) {
       if (!g.alive) continue;
       if (Phaser.Math.Distance.Between(x, y, g.x, g.y) <= radius) g.takeDamage(dmg, time);
+    }
+    return hitList;
+  }
+
+  // ---- Class Ability Expansion: ground zones + corpses --------------------
+
+  /** Drop a persistent zone that ticks damage/heal/status until it expires. */
+  private spawnGroundZone(opts: {
+    x: number; y: number; radius: number; owner: Hero; duration: number;
+    tickEvery?: number; dmg?: number; status?: MonsterStatus; statusDur?: number; statusMag?: number;
+    slow?: boolean; healAllies?: number; texture?: string; tint?: number; alpha?: number;
+  }): void {
+    const time = this.time.now;
+    const alpha = opts.alpha ?? 0.5;
+    const gfx = this.add
+      .image(opts.x, opts.y, opts.texture ?? 'fx-glow-warm')
+      .setDepth(opts.y - 4)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setAlpha(alpha)
+      .setScale((opts.radius * 2) / 32);
+    if (opts.tint !== undefined) gfx.setTint(opts.tint);
+    this.tweens.add({ targets: gfx, alpha: alpha * 0.55, duration: 700, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+    this.groundZones.push({
+      x: opts.x,
+      y: opts.y,
+      radius: opts.radius,
+      owner: opts.owner,
+      expireAt: time + opts.duration,
+      nextTickAt: time + (opts.tickEvery ?? 500),
+      tickEvery: opts.tickEvery ?? 500,
+      dmg: opts.dmg ?? 0,
+      status: opts.status,
+      statusDur: opts.statusDur ?? 1200,
+      statusMag: opts.statusMag ?? 0,
+      slow: !!opts.slow,
+      healAllies: opts.healAllies ?? 0,
+      gfx,
+    });
+  }
+
+  private updateGroundZones(time: number): void {
+    for (let i = this.groundZones.length - 1; i >= 0; i--) {
+      const z = this.groundZones[i];
+      if (time >= z.expireAt) {
+        this.tweens.killTweensOf(z.gfx);
+        z.gfx.destroy();
+        this.groundZones.splice(i, 1);
+        continue;
+      }
+      if (time < z.nextTickAt) continue;
+      z.nextTickAt = time + z.tickEvery;
+      if (z.dmg > 0 || z.status || z.slow) {
+        for (const m of this.monsters) {
+          if (!m.active || !m.alive) continue;
+          if (Phaser.Math.Distance.Between(z.x, z.y, m.x, m.y) > z.radius) continue;
+          if (z.dmg > 0) {
+            const died = m.takeDamage(z.dmg, time);
+            this.floatDamage(m.x, m.y, z.dmg, false);
+            if (died) {
+              this.onMonsterKilled(z.owner, m);
+              continue;
+            }
+          }
+          if (z.status) m.applyStatus(z.status, z.statusDur, time, z.statusMag);
+          if (z.slow) m.applyStatus('chill', z.tickEvery + 200, time);
+        }
+      }
+      if (z.healAllies > 0) {
+        for (const a of this.allies) {
+          if (!a.alive || a.health >= a.stats.maxHealth) continue;
+          if (Phaser.Math.Distance.Between(z.x, z.y, a.x, a.y) > z.radius) continue;
+          a.heal(z.healAllies);
+        }
+      }
+    }
+  }
+
+  private addCorpse(x: number, y: number): void {
+    this.corpses.push({ x, y, bornAt: this.time.now });
+    if (this.corpses.length > 48) this.corpses.shift();
+  }
+
+  private updateCorpses(time: number): void {
+    for (let i = this.corpses.length - 1; i >= 0; i--) {
+      if (time - this.corpses[i].bornAt > 14000) this.corpses.splice(i, 1);
+    }
+  }
+
+  /** Pull up to `max` corpses near a point, removing them (they are consumed). */
+  private consumeCorpsesNear(x: number, y: number, radius: number, max: number): Corpse[] {
+    const out: Corpse[] = [];
+    for (let i = this.corpses.length - 1; i >= 0 && out.length < max; i--) {
+      const c = this.corpses[i];
+      if (Phaser.Math.Distance.Between(x, y, c.x, c.y) <= radius) {
+        out.push(c);
+        this.corpses.splice(i, 1);
+      }
+    }
+    return out;
+  }
+
+  /** The sigils a hero currently has active (level-gated choices). */
+  private heroSig(h: Hero): Set<string> {
+    return h.abilities.activeSigilSet(h.level);
+  }
+
+  private nearestFoe(x: number, y: number, maxDist: number, exclude?: Set<Monster>): Monster | null {
+    let best: Monster | null = null;
+    let bd = maxDist;
+    for (const m of this.monsters) {
+      if (!m.active || !m.alive || exclude?.has(m)) continue;
+      const d = Phaser.Math.Distance.Between(x, y, m.x, m.y);
+      if (d < bd) {
+        bd = d;
+        best = m;
+      }
+    }
+    return best;
+  }
+
+  private farthestFoe(x: number, y: number, maxDist: number): Monster | null {
+    let best: Monster | null = null;
+    let bd = 0;
+    for (const m of this.monsters) {
+      if (!m.active || !m.alive) continue;
+      const d = Phaser.Math.Distance.Between(x, y, m.x, m.y);
+      if (d <= maxDist && d > bd) {
+        bd = d;
+        best = m;
+      }
+    }
+    return best;
+  }
+
+  /** A quick fading energy line between two points (faultline, bone spear). */
+  private spawnBeam(x1: number, y1: number, x2: number, y2: number, color: number): void {
+    const g = this.add.graphics().setDepth(Math.max(y1, y2) + 12);
+    g.lineStyle(4, color, 0.9).lineBetween(x1, y1, x2, y2);
+    g.lineStyle(1.5, 0xffffff, 0.85).lineBetween(x1, y1, x2, y2);
+    this.tweens.add({ targets: g, alpha: 0, duration: 260, onComplete: () => g.destroy() });
+  }
+
+  /** A one-shot expanding glow burst (ability flourish). */
+  private spawnBurst(x: number, y: number, color: number, scale = 2.4): void {
+    const flash = this.add.image(x, y, 'fx-glow-warm').setScale(scale).setAlpha(0.72).setBlendMode(Phaser.BlendModes.ADD).setDepth(y + 10).setTint(color);
+    this.tweens.add({ targets: flash, alpha: 0, scale: scale * 1.5, duration: 420, onComplete: () => flash.destroy() });
+  }
+
+  /** An animated ring pulse centered on a point (slam / nova telegraph). */
+  private spawnRing(x: number, y: number, radius: number, tint: number): void {
+    const ring = this.add.sprite(x, y, 'fx-magic').setDepth(y + 20).setScale((radius * 2) / 32).setTint(tint);
+    ring.play('fx-magic');
+    ring.once('animationcomplete', () => ring.destroy());
+  }
+
+  /** Run a callback for each living ally within radius of a hero (self optional). */
+  private eachAllyInRange(center: Hero, radius: number, fn: (a: Hero) => void, includeSelf = true): void {
+    for (const a of this.allies) {
+      if (!a.alive) continue;
+      if (a === center) {
+        if (includeSelf) fn(a);
+        continue;
+      }
+      if (Phaser.Math.Distance.Between(center.x, center.y, a.x, a.y) <= radius) fn(a);
     }
   }
 
@@ -3007,6 +3677,7 @@ export class DungeonScene extends Phaser.Scene {
           sl.play('fx-slash');
           sl.once('animationcomplete', () => sl.destroy());
         }
+        const tsig = ally.classId === 'thief' ? this.heroSig(ally) : null;
         for (const m of this.monsters) {
           if (!m.active || !m.alive) continue;
           if (this.inArc(ally.x, ally.y, m.x, m.y, dir, reach + 8)) {
@@ -3014,20 +3685,44 @@ export class DungeonScene extends Phaser.Scene {
             // strike on cooldown still hits, just without the 2.4x bonus.
             const back = ally.classId === 'thief' && time >= ally.backstabReadyAt && this.isBackstab(ally, m);
             // Shadowmaster (thief 5-piece): backstabs strike for 3.2x instead of 2.4x
-            const d = back ? Math.round(dmg * (ally.hasSetPower() ? 3.2 : 2.4)) : dmg;
+            let backMult = ally.hasSetPower() ? 3.2 : 2.4;
+            if (back && tsig?.has('str_sig_nightstalker')) backMult += 0.7; // Night Stalker
+            let d = back ? Math.round(dmg * backMult) : dmg;
+            // Assassinate: a backstab finishes foes already near death
+            if (back && tsig?.has('str_sig_assassinate') && m.healthRatio() < 0.25) d = m.health + 999;
             const died = m.takeDamage(d, time);
             this.floatDamage(m.x, m.y, d, crit || back);
             if (back) {
               this.floatPickup(m.x, m.y - 18, 'BACKSTAB!', '#8affa0');
-              ally.backstabReadyAt = time + ally.backstabCooldown();
+              // Night Stalker refunds part of the recharge
+              ally.backstabReadyAt = time + Math.round(ally.backstabCooldown() * (tsig?.has('str_sig_nightstalker') ? 0.6 : 1));
+              if (!died) {
+                if (tsig?.has('str_sig_venomblade')) m.applyStatus('poison', 6000, time, Math.max(4, Math.round(dmg * 0.12)));
+                if (tsig?.has('str_sig_exposure')) m.applyStatus('vuln', 4000, time, 1.25);
+                if (tsig?.has('str_sig_deathmark')) m.applyStatus('bleed', 5000, time, Math.max(4, Math.round(dmg * 0.14)));
+                if (tsig?.has('str_sig_massacre')) {
+                  for (const o of this.monsters) {
+                    if (o === m || !o.active || !o.alive) continue;
+                    if (Phaser.Math.Distance.Between(m.x, m.y, o.x, o.y) > 60) continue;
+                    const sd = Math.round(dmg * 1.2);
+                    if (o.takeDamage(sd, time)) this.onMonsterKilled(ally, o);
+                    else this.floatDamage(o.x, o.y, sd, false);
+                  }
+                }
+              }
+              if (tsig?.has('str_sig_shadowdance')) ally.grantBuff(2500, time, { speed: 40 });
+              if (tsig?.has('str_sig_ghost')) ally.grantIframes(time, 260);
             }
             // striking from stealth reveals you only to the foe you struck
             if (ally.classId === 'thief' && ally.sneaking && !died) {
               m.spottedUntil = time + 2500;
               m.spottedAlly = ally;
             }
-            if (died) this.onMonsterKilled(ally, m);
-            else this.applyHitEffects(ally, m, dir.x, dir.y, crit, time);
+            if (died) {
+              // Umbral Return: slaying with a backstab drops you back into shadow
+              if (back && tsig?.has('str_sig_umbral')) { ally.sneaking = true; ally.spottedUntil = 0; }
+              this.onMonsterKilled(ally, m);
+            } else this.applyHitEffects(ally, m, dir.x, dir.y, crit, time);
             if (ally.isPlayer) this.meleeImpact(ally, m, crit || back);
           }
         }
@@ -3103,6 +3798,25 @@ export class DungeonScene extends Phaser.Scene {
     }
     // Starved Rootling familiar: its lashing vines chill (slow) whatever it strikes.
     if ((attacker as Companion).arcaneType === 'rootling') m.applyStatus('chill', 1600, time);
+
+    // ---- Class Ability Expansion: on-hit sigils ----
+    const sig = this.heroSig(attacker);
+    if (attacker.classId === 'druid' && !attacker.bearForm) {
+      if (sig.has('dru_sig_mooncaller')) m.applyStatus('chill', 1800, time); // Mooncaller
+      if (sig.has('dru_sig_lunar')) m.applyStatus('root', 900, time); // Lunar Tide
+      if (sig.has('dru_sig_eclipse')) { this.spawnBeam(m.x, m.y - 64, m.x, m.y, 0xbfe0ff); m.applyStatus('shock', 1600, time); } // Eclipse moonbeam
+    }
+    if (attacker.classId === 'thief' && crit && sig.has('str_sig_deathmark')) {
+      m.applyStatus('bleed', 4000, time, Math.max(4, Math.round(attacker.attackDamage().dmg * 0.12)));
+    }
+    // Necromancer servant soulfire / pestilence (read the summoner's chosen sigils)
+    const summoner = (attacker as Companion).summoner;
+    if (summoner && summoner.classId === 'necromancer') {
+      const nsig = this.heroSig(summoner);
+      if (nsig.has('nec_sig_soulflame')) { m.applyStatus('burn', 1500, time); m.applyStatus('chill', 1100, time); }
+      if (nsig.has('nec_sig_pestilence')) m.applyStatus('poison', 4000, time, 5);
+      if (nsig.has('nec_sig_unholy') && summoner.alive) summoner.heal(2); // servants drink the light
+    }
   }
 
   /** Bark + golden flare when the Undying Bulwark refuses a killing blow. */
@@ -3356,6 +4070,21 @@ export class DungeonScene extends Phaser.Scene {
   }
 
   private onMonsterKilled(killer: Hero, m: Monster): void {
+    // leave remains behind for the Necromancer's Corpse Explosion / Army of the Dead
+    if (!m.isBoss) this.addCorpse(m.x, m.y);
+    // ---- Class Ability Expansion: on-kill sigils (owner = summoner for pets) ----
+    const now = this.time.now;
+    const owner = (killer as Companion).summoner ?? killer;
+    if (owner.alive) {
+      if (owner.classId === 'arcanist' && m.isBurning(now) && this.heroSig(owner).has('arc_sig_meltdown')) {
+        this.spawnBurst(m.x, m.y, 0xff7a2a, 2.0);
+        this.aoeHit(owner, m.x, m.y, 70, Math.round(owner.magicDamage() * 0.9), now, 'burn', 40, 3000, Math.round(owner.magicDamage() * 0.15));
+      }
+      if (owner.classId === 'necromancer' && this.heroSig(owner).has('nec_sig_soulharvest')) {
+        owner.heal(Math.round(owner.stats.maxHealth * 0.04));
+        owner.restoreMana(6);
+      }
+    }
     const cheats = settings.get('gameplay');
     const mult = cheats.xpMultiplier;
     // Heartroot Plate: every kill mends the slayer
@@ -4865,29 +5594,65 @@ export class DungeonScene extends Phaser.Scene {
     // ---- bard songs: persistent party auras that ring until the song changes.
     // Anthem ranks strengthen them, Carrying Voice widens them, and the
     // Maestro set power makes them realm-wide and half again as strong.
+    const songPulse = time >= this.songPulseAt;
     for (const bard of this.allies) {
-      if (!bard.alive || bard.classId !== 'bard' || !bard.song) continue;
+      if (!bard.alive || bard.classId !== 'bard') continue;
+      const bsig = this.heroSig(bard);
       const maestro = bard.hasSetPower();
-      const power = (1 + bard.skillSet.rank('brd_anthem') * 0.12) * (maestro ? 1.5 : 1);
-      const radius = maestro ? Number.MAX_SAFE_INTEGER : 150 + bard.skillSet.rank('brd_reach') * 25;
+      const radius = maestro ? Number.MAX_SAFE_INTEGER : 150 + bard.skillSet.rank('brd_reach') * 25 + (bsig.has('brd_sig_echoes') ? 50 : 0);
       const inSong = (t: { x: number; y: number }) =>
         maestro || Phaser.Math.Distance.Between(bard.x, bard.y, t.x, t.y) <= radius;
-      if (bard.song === 'war') {
-        for (const a of this.allies) if (a.alive && inSong(a)) a.auraDamageMult = Math.max(a.auraDamageMult, 1 + 0.15 * power);
-      } else if (bard.song === 'march') {
-        for (const a of this.allies) if (a.alive && inSong(a)) a.auraSpeedBonus = Math.max(a.auraSpeedBonus, Math.round(28 * power));
+      let power = (1 + bard.skillSet.rank('brd_anthem') * 0.12) * (maestro ? 1.5 : 1);
+      if (bsig.has('brd_sig_anthemic')) power *= 1.5; // a commanding presence
+      if (bsig.has('brd_sig_harmony')) {
+        const listeners = this.allies.filter((a) => a.alive && inSong(a)).length;
+        power *= 1 + 0.08 * Math.min(4, listeners);
       }
-      if (time >= this.songPulseAt) {
-        if (bard.song === 'hymn') {
-          for (const a of this.allies) if (a.alive && inSong(a)) a.heal(Math.round(4 * power));
-        } else if (bard.song === 'dirge') {
-          for (const m of this.monsters) {
-            if (m.active && m.alive && inSong(m)) m.applyStatus('chill', 1300, time);
-          }
+      const applySong = (song: Hero['song'], pw: number): void => {
+        if (song === 'war') {
+          for (const a of this.allies) if (a.alive && inSong(a)) a.auraDamageMult = Math.max(a.auraDamageMult, 1 + 0.15 * pw);
+        } else if (song === 'march') {
+          for (const a of this.allies) if (a.alive && inSong(a)) a.auraSpeedBonus = Math.max(a.auraSpeedBonus, Math.round(28 * pw));
+        } else if (songPulse && song === 'hymn') {
+          for (const a of this.allies) if (a.alive && inSong(a)) a.heal(Math.round(4 * pw));
+        } else if (songPulse && song === 'dirge') {
+          for (const m of this.monsters) if (m.active && m.alive && inSong(m)) m.applyStatus('chill', 1300, time);
+        }
+      };
+      if (bard.song) applySong(bard.song, power);
+      // Echoes: the previous song still rings, faintly
+      if (bsig.has('brd_sig_echoes') && bard.prevSong && time < bard.prevSongUntil && bard.prevSong !== bard.song) applySong(bard.prevSong, power * 0.5);
+      if (!bard.song) continue;
+      // Ballad: the song also shelters listeners with a shield + regen
+      if (bsig.has('brd_sig_ballad') && songPulse) {
+        for (const a of this.allies) if (a.alive && inSong(a)) { a.heal(Math.round(3 * power)); a.grantShield(Math.round(a.stats.maxHealth * 0.06), 1600, time); }
+      }
+      // Discord: the melody frays enemy nerves in the aura
+      if (bsig.has('brd_sig_discord') && songPulse) {
+        for (const m of this.monsters) if (m.active && m.alive && inSong(m)) { m.applyStatus('vuln', 1400, time, 1.2); m.applyStatus('chill', 1000, time); }
+      }
+    }
+    // Necromancer Curse Weaver: the legion radiates a weakening curse
+    if (songPulse) {
+      for (const necro of this.allies) {
+        if (!necro.alive || necro.classId !== 'necromancer' || !this.heroSig(necro).has('nec_sig_curse')) continue;
+        for (const s of this.summons) {
+          if (!s.alive || s.summoner !== necro) continue;
+          for (const m of this.monsters) if (m.active && m.alive && Phaser.Math.Distance.Between(s.x, s.y, m.x, m.y) < 90) m.applyStatus('vuln', 1500, time, 1.2);
+        }
+      }
+      // Druid Thornhide: foes crowding the druid are torn by thorns
+      for (const dru of this.allies) {
+        if (!dru.alive || dru.classId !== 'druid' || !this.heroSig(dru).has('dru_sig_thornhide')) continue;
+        const td = 4 + Math.round(dru.level * 0.4);
+        for (const m of this.monsters) {
+          if (!m.active || !m.alive || Phaser.Math.Distance.Between(dru.x, dru.y, m.x, m.y) > 46) continue;
+          if (m.takeDamage(td, time)) this.onMonsterKilled(dru, m);
+          else this.floatDamage(m.x, m.y, td, false);
         }
       }
     }
-    if (time >= this.songPulseAt) this.songPulseAt = time + 1000;
+    if (songPulse) this.songPulseAt = time + 1000;
     const r2 = AURA_RADIUS * AURA_RADIUS;
     for (const src of this.allies) {
       if (!src.alive) continue;
@@ -4924,6 +5689,66 @@ export class DungeonScene extends Phaser.Scene {
           tgt.heal(heal);
           const fx = this.add.image(tgt.x, tgt.y - 6, 'fx-glow-green').setDepth(tgt.y + 8).setScale(0.6);
           this.tweens.add({ targets: fx, alpha: 0, y: tgt.y - 16, duration: 500, onComplete: () => fx.destroy() });
+        }
+      }
+    }
+    // ---- timed combat buffs (Battle Roar, Rally, Symphony, Cataclysm) ----
+    for (const a of this.allies) {
+      if (time < a.buffUntil) {
+        a.auraDamageMult = Math.max(a.auraDamageMult, a.buffDamageMult);
+        a.auraDamageReduction = Math.max(a.auraDamageReduction, a.buffDR);
+        a.auraCritBonus = Math.max(a.auraCritBonus, a.buffCrit);
+        a.auraSpeedBonus = Math.max(a.auraSpeedBonus, a.buffSpeed);
+      }
+    }
+    // ---- level-20 mastery auras ----
+    this.updateMasteryAuras(time);
+  }
+
+  /** Permanent level-20 mastery passives that read/write the transient aura
+   *  fields (so they must be re-applied every frame, after the zeroing pass). */
+  private updateMasteryAuras(time: number): void {
+    const r2 = AURA_RADIUS * AURA_RADIUS;
+    for (const src of this.allies) {
+      if (!src.alive || !src.masteryOn()) continue;
+      if (src.classId === 'vanguard') {
+        // Unbreakable — a steadfast aura of damage reduction for the party
+        for (const t of this.allies) {
+          if (!t.alive) continue;
+          const dx = src.x - t.x;
+          const dy = src.y - t.y;
+          if (dx * dx + dy * dy <= r2) t.auraDamageReduction = Math.max(t.auraDamageReduction, 0.1);
+        }
+      } else if (src.classId === 'thief') {
+        // Master of Shadows — lethal from the dark
+        if (src.sneaking) src.auraCritBonus = Math.max(src.auraCritBonus, 0.2);
+      } else if (src.classId === 'bard') {
+        // Maestro — grows with the size of the audience
+        let listeners = 0;
+        for (const t of this.allies) {
+          if (!t.alive || t === src) continue;
+          const dx = src.x - t.x;
+          const dy = src.y - t.y;
+          if (dx * dx + dy * dy <= r2) listeners++;
+        }
+        src.auraDamageMult = Math.max(src.auraDamageMult, 1 + Math.min(0.3, 0.08 * listeners));
+      } else if (src.classId === 'necromancer') {
+        // Lich Lord — your host fights with your fury
+        for (const s of this.summons) if (s.alive && s.summoner === src) s.auraDamageMult = Math.max(s.auraDamageMult, 1.3);
+      }
+    }
+    // Living Saint / Archdruid gentle regen auras (share a 1s cadence)
+    if (time >= this.masteryHealAt) {
+      this.masteryHealAt = time + 1000;
+      for (const src of this.allies) {
+        if (!src.alive || !src.masteryOn()) continue;
+        if (src.classId !== 'warden' && src.classId !== 'druid') continue;
+        const heal = src.classId === 'warden' ? 3 : 2;
+        for (const t of this.allies) {
+          if (!t.alive || t.health >= t.stats.maxHealth) continue;
+          const dx = src.x - t.x;
+          const dy = src.y - t.y;
+          if (dx * dx + dy * dy <= r2) t.heal(heal);
         }
       }
     }
@@ -5423,6 +6248,7 @@ export class DungeonScene extends Phaser.Scene {
       materials: { ...a.inventory.materials },
       song: a.song,
       bearForm: a.bearForm,
+      sigils: a.abilities.serialize(),
       equipped: Object.fromEntries(
         (Object.entries(a.inventory.equipped) as [string, ItemDefinition | undefined][])
           .filter(([, it]) => !!it)
@@ -5455,6 +6281,7 @@ export class DungeonScene extends Phaser.Scene {
       }
       // a bard's song keeps ringing and a druid stays shifted across levels
       a.song = (sv.song as Hero['song']) ?? null;
+      a.abilities.restore(sv.sigils);
       if (a.classId === 'druid') a.applyForm(!!sv.bearForm);
       a.recompute();
     }
@@ -5512,6 +6339,7 @@ export class DungeonScene extends Phaser.Scene {
         if (it) a.inventory.equipped[migrateEquipKey(slot)] = it;
       }
       a.song = (sv.song as Hero['song']) ?? null;
+      a.abilities.restore(sv.sigils);
       if (a.classId === 'druid') a.applyForm(!!sv.bearForm);
       a.recompute();
       a.setPosition(sv.x, sv.y);

@@ -12,7 +12,7 @@ import type { DungeonInput } from '../systems/DungeonInput';
 
 const PROVIDERS: AIProviderId[] = ['fallback', 'openai', 'anthropic', 'xai'];
 const PANEL_W = 480;
-const PANEL_H = 470;
+const PANEL_H = 512;
 type Tab = 'audio' | 'view' | 'ai' | 'companions' | 'controls' | 'cheats' | 'manual';
 const TABS: Tab[] = ['audio', 'view', 'ai', 'companions', 'controls', 'cheats', 'manual'];
 const TAB_LABELS: Record<Tab, string> = {

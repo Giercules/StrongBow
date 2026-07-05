@@ -4,9 +4,12 @@ import { HEROES } from '../data/heroes';
 import { settings } from '../core/GameSettings';
 import { SkillSet } from '../systems/SkillSystem';
 import { AttributeSet } from '../systems/AttributeSystem';
+import { AbilitySet } from '../systems/AbilitySystem';
 import { Inventory } from '../systems/InventorySystem';
 import { computeStats, xpToNext } from '../systems/StatsSystem';
 import { ARMOR_SETS, applySetBonuses, countSetPieces } from '../data/setItems';
+import { activeFor } from '../data/abilities';
+import type { ActiveSlot } from '../data/abilities';
 import { audio } from '../systems/AudioSystem';
 
 const MAGIC_COST = 15;
@@ -60,12 +63,33 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
 
   /** Bard: the song currently ringing (null = silent). */
   song: 'war' | 'march' | 'hymn' | 'dirge' | null = null;
+  /** Bard Echoes sigil: the previous song lingers faintly for a few seconds. */
+  prevSong: 'war' | 'march' | 'hymn' | 'dirge' | null = null;
+  prevSongUntil = 0;
   /** Druid: true while shifted into Bear form. */
   bearForm = false;
   /** Druid: earliest time the next shapeshift is allowed (short breath between). */
   nextShiftAt = 0;
   /** Necromancer: true while the full Pale King set morphs them into the Grave Warden. */
   deathlordForm = false;
+
+  // ---- Class Ability Expansion ("Echoes of the Undermaw") ----
+  /** Level-gated sigil choices; unlocks derive from level. */
+  abilities: AbilitySet;
+  /** Vanguard: Rage stacks built by dealing/taking hits, spent to empower slams. */
+  rageStacks = 0;
+  /** Absorb shield (Steelskin / Aegis / Bone Armor) — soaks damage before HP. */
+  shieldHp = 0;
+  shieldUntil = 0;
+  /** Timed self/party buff (Battle Roar, Inspiring Rally, Symphony, Cataclysm…)
+   *  merged into the aura fields each frame while active. */
+  buffUntil = 0;
+  buffDamageMult = 1;
+  buffDR = 0;
+  buffCrit = 0;
+  buffSpeed = 0;
+  /** Per-slot cooldown gates for the new secondary / tertiary / ultimate actives. */
+  private activeReadyAt: Record<ActiveSlot, number> = { secondary: 0, tertiary: 0, ultimate: 0 };
 
   /** Equipped pieces of this class's armor set (drives 2/4/5 tier bonuses). */
   setPieces = 0;
@@ -102,6 +126,7 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
     this.playerNum = playerNum;
     this.skillSet = new SkillSet(classId);
     this.attributes = new AttributeSet();
+    this.abilities = new AbilitySet(classId);
     this.inventory = new Inventory();
 
     scene.add.existing(this);
@@ -127,6 +152,8 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
   }
 
   recompute(): StatBlock {
+    // keep sigil choices in step with level (auto-picks a rune when a tier unlocks)
+    this.abilities?.applyDefaults(this.level);
     this.stats = computeStats(this.def.base, this.level, this.inventory.equippedList(), this.skillSet.ranks, this.attributes.ranks);
     // class armor set: count equipped pieces, then fold in the 2/4/5 tier bonuses
     this.setPieces = countSetPieces(this.inventory.equippedList(), ARMOR_SETS[this.classId].id);
@@ -140,7 +167,39 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
       this.stats.armor += 4;
       this.stats.speed = Math.round(this.stats.speed * 0.95);
     }
+    // Druid sigils fold their form bonuses in here (Primal Bear, Balance, etc.)
+    if (this.classId === 'druid') {
+      const dsig = this.abilities?.activeSigilSet(this.level) ?? new Set<string>();
+      if (this.bearForm) {
+        if (dsig.has('dru_sig_primalbear')) {
+          this.stats.maxHealth = Math.round(this.stats.maxHealth * 1.2);
+          this.stats.armor += 5;
+          this.stats.damage = Math.round(this.stats.damage * 1.15);
+        }
+        if (dsig.has('dru_sig_balance')) this.stats.fire += 3; // keep a caster's spark
+        if (dsig.has('dru_sig_thornhide')) this.stats.armor += 4;
+      } else {
+        if (dsig.has('dru_sig_balance')) this.stats.armor += 3; // keep a bear's hide
+        if (dsig.has('dru_sig_thornhide')) this.stats.armor += 3;
+      }
+      if (dsig.has('dru_sig_feral')) this.stats.regen += 0.6;
+    }
     if (this.classId === 'necromancer') this.syncDeathlordForm(this.hasSetPower());
+    // Level-20 masteries that are pure passive STAT boosts. Aura-style masteries
+    // (Living Saint, Lich Lord, Maestro, Master of Shadows) are applied each
+    // frame in DungeonScene.updateAuras / the ability combat layer instead.
+    if (this.abilities?.masteryUnlocked(this.level)) {
+      if (this.classId === 'arcanist') this.stats.fire += 5; // Archmage — hotter magic
+      else if (this.classId === 'vanguard') this.stats.armor += 4; // Unbreakable
+      else if (this.classId === 'druid') {
+        if (this.bearForm) {
+          this.stats.damage = Math.round(this.stats.damage * 1.1);
+          this.stats.armor += 3;
+        } else {
+          this.stats.fire += 3; // keener moonfire in human form
+        }
+      }
+    }
     if (this.health !== undefined) this.health = Math.min(this.health, this.stats.maxHealth);
     if (this.mana !== undefined) this.mana = Math.min(this.mana, this.stats.maxMana);
     return this.stats;
@@ -417,6 +476,13 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
     this.applyForm(!this.bearForm);
     this.health = Math.max(1, Math.round(this.stats.maxHealth * frac));
     if (this.hasSetPower()) this.heal(Math.round(this.stats.maxHealth * 0.25));
+    // Feral Guardian / Wild Blood sigils make each shift restorative
+    const dsig = this.abilities.activeSigilSet(this.level);
+    if (dsig.has('dru_sig_feral')) this.heal(Math.round(this.stats.maxHealth * 0.08));
+    if (dsig.has('dru_sig_wildblood')) {
+      this.heal(Math.round(this.stats.maxHealth * 0.15));
+      this.grantBuff(2500, time, { speed: 40 });
+    }
     audio.sfx('hit');
     return true;
   }
@@ -465,9 +531,13 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
     return Math.round(7000 * (1 - (this.stats.cdr ?? 0)));
   }
 
-  /** Necromancer servant cap: starts at 2, grows to 5 with level, + summon affixes. */
+  /** Necromancer servant cap: starts at 2, grows to 5 with level, + summon
+   *  affixes, + the Skeletal Horde / Grand Legion sigils. */
   maxSummons(): number {
-    return Math.min(5, 2 + Math.floor((this.level - 1) / 3)) + (this.stats.summonBonus ?? 0);
+    const base = Math.min(5, 2 + Math.floor((this.level - 1) / 3));
+    const sig = this.abilities.activeSigilSet(this.level);
+    const sigilBonus = (sig.has('nec_sig_skeletal') ? 1 : 0) + (sig.has('nec_sig_legion') ? 1 : 0);
+    return base + sigilBonus + (this.stats.summonBonus ?? 0);
   }
 
   /** Use-based progression — returns true on a level-up. */
@@ -507,11 +577,90 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
     return Phaser.Math.Clamp((this.nextAbilityAt - time) / this.abilityCooldown(), 0, 1);
   }
 
+  // ---- new active abilities (secondary / tertiary / ultimate) ----
+  /** True once the hero's level has unlocked the given active slot. */
+  activeUnlocked(slot: ActiveSlot): boolean {
+    return this.level >= activeFor(this.classId, slot).unlockLevel;
+  }
+  activeCooldown(slot: ActiveSlot): number {
+    return Math.round(activeFor(this.classId, slot).cooldown * (1 - (this.stats.cdr ?? 0)));
+  }
+  canActive(slot: ActiveSlot, time: number): boolean {
+    if (!this.alive || !this.activeUnlocked(slot) || time < this.activeReadyAt[slot]) return false;
+    const cost = activeFor(this.classId, slot).manaCost;
+    return this.cheats().infiniteMana || cost <= 0 || this.mana >= cost;
+  }
+  /** Spend the mana + start the cooldown for an active. Call after a successful cast. */
+  markActive(slot: ActiveSlot, time: number): void {
+    const cost = activeFor(this.classId, slot).manaCost;
+    if (cost > 0 && !this.cheats().infiniteMana) this.mana = Math.max(0, this.mana - cost);
+    this.activeReadyAt[slot] = time + this.activeCooldown(slot);
+  }
+  activeCooldownRatio(slot: ActiveSlot, time: number): number {
+    const cd = this.activeCooldown(slot);
+    return cd > 0 ? Phaser.Math.Clamp((this.activeReadyAt[slot] - time) / cd, 0, 1) : 0;
+  }
+
+  /** Grant / refresh an absorb shield (soaks damage before HP in takeDamage). */
+  grantShield(amount: number, dur: number, time: number): void {
+    if (amount <= 0) return;
+    this.shieldHp = time < this.shieldUntil ? Math.max(this.shieldHp, amount) : amount;
+    this.shieldUntil = Math.max(this.shieldUntil, time + dur);
+  }
+
+  /** Grant / refresh a timed combat buff (folded into auras by updateAuras). */
+  grantBuff(dur: number, time: number, b: { dmgMult?: number; dr?: number; crit?: number; speed?: number }): void {
+    if (time >= this.buffUntil) {
+      // previous buff lapsed — start fresh so stale magnitudes don't bleed through
+      this.buffDamageMult = 1;
+      this.buffDR = 0;
+      this.buffCrit = 0;
+      this.buffSpeed = 0;
+    }
+    this.buffUntil = Math.max(this.buffUntil, time + dur);
+    if (b.dmgMult) this.buffDamageMult = Math.max(this.buffDamageMult, b.dmgMult);
+    if (b.dr) this.buffDR = Math.max(this.buffDR, b.dr);
+    if (b.crit) this.buffCrit = Math.max(this.buffCrit, b.crit);
+    if (b.speed) this.buffSpeed = Math.max(this.buffSpeed, b.speed);
+  }
+
+  // ---- Vanguard Rage (built by hits, spent to empower slams) ----
+  maxRage(): number {
+    return 5 + this.skillSet.rank('van_rampart'); // small growth as they harden
+  }
+  addRage(n = 1): void {
+    if (this.classId !== 'vanguard') return;
+    this.rageStacks = Math.min(this.maxRage(), this.rageStacks + n);
+  }
+  rageReady(): boolean {
+    return this.classId === 'vanguard' && this.rageStacks >= this.maxRage();
+  }
+  spendRage(): boolean {
+    if (!this.rageReady()) return false;
+    this.rageStacks = 0;
+    return true;
+  }
+
+  /** True when this hero's level-20 mastery passive is online. */
+  masteryOn(): boolean {
+    return this.abilities.masteryUnlocked(this.level);
+  }
+
   takeDamage(raw: number, time: number): number {
     if (!this.alive || time < this.hurtUntil) return 0;
     if (this.cheats().godMode) return 0;
     let actual = Math.max(1, Math.round(raw - this.stats.armor * 0.5));
     actual = Math.max(1, Math.round(actual * (1 - this.auraDamageReduction)));
+    // absorb into an active shield first (Steelskin / Aegis / Bone Armor)
+    if (this.shieldHp > 0 && time < this.shieldUntil) {
+      const absorbed = Math.min(this.shieldHp, actual);
+      this.shieldHp -= absorbed;
+      actual -= absorbed;
+      if (actual <= 0) {
+        this.hurtUntil = time + 220;
+        return 0;
+      }
+    }
     this.health -= actual;
     this.hurtUntil = time + IFRAME_MS;
     this.setAlpha(0.5);

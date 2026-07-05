@@ -236,6 +236,14 @@ export class CharacterSheetUI {
       this.label(left, setY + 48 + i * 11, setTierPrefix(st) + tl, setTierColor(st), 8.5, false, leftColW);
     });
 
+    // Opens the Echoes & Sigils growth screen for this hero.
+    this.content.add(
+      makeButton(this.scene, this.modal!.cx + PANEL_W / 2 - 160, y0 + PANEL_H - 20, 96, 26, 'ECHOES', () => {
+        const scene = this.scene as unknown as { openAbilities?: (hero: Hero) => void };
+        this.close();
+        scene.openAbilities?.(h);
+      }, { fill: C.ivy, text: '#12140a' })
+    );
     this.content.add(
       makeButton(this.scene, this.modal!.cx + PANEL_W / 2 - 50, y0 + PANEL_H - 20, 80, 26, 'CLOSE', () => this.close())
     );

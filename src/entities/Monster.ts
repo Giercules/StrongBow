@@ -7,6 +7,10 @@ import { Hero } from './Hero';
 
 type ArcadeBody = Phaser.Physics.Arcade.Body;
 
+/** On-hit / ability statuses a monster can suffer. burn/chill/shock are the
+ *  originals; the rest arrive with the Class Ability Expansion. */
+export type MonsterStatus = 'burn' | 'chill' | 'shock' | 'stun' | 'root' | 'vuln' | 'bleed' | 'poison' | 'fear';
+
 export class Monster extends Phaser.Physics.Arcade.Sprite {
   def: EnemyDef;
   enemyId: EnemyId;
@@ -38,11 +42,36 @@ export class Monster extends Phaser.Physics.Arcade.Sprite {
   dmgMult = 1;
   private burnUntil = 0;
   private burnTickAt = 0;
+  private burnDmg = 5;
   private chillUntil = 0;
   private shockUntil = 0;
   private knockUntil = 0;
   private knockVx = 0;
   private knockVy = 0;
+  // expanded ability statuses (Class Ability Expansion)
+  private stunUntil = 0;
+  private rootUntil = 0;
+  private vulnUntil = 0;
+  private vulnMult = 1.25;
+  private bleedUntil = 0;
+  private bleedTickAt = 0;
+  private bleedDmg = 6;
+  private poisonUntil = 0;
+  private poisonTickAt = 0;
+  private poisonDmg = 5;
+  private fearUntil = 0;
+  private tauntUntil = 0;
+  private tauntBy: Hero | null = null;
+
+  /** True while any hard crowd-control locks this foe out of acting. */
+  isStunned(time: number): boolean {
+    return time < this.stunUntil;
+  }
+
+  /** True while a fire DoT is burning this foe (drives Meltdown detonations). */
+  isBurning(time: number): boolean {
+    return time < this.burnUntil;
+  }
 
   // special-attack state (ranged / charger / boss)
   private nextSpecialAt = 1500;
@@ -126,7 +155,7 @@ export class Monster extends Phaser.Physics.Arcade.Sprite {
     // burn damage-over-time
     if (time < this.burnUntil && time >= this.burnTickAt) {
       this.burnTickAt = time + 380;
-      this.health -= 5;
+      this.health -= this.burnDmg;
       const f = this.scene.add.image(this.x, this.y - 6, 'fx-glow-warm').setTint(0xff8a1e).setDepth(this.y + 9).setScale(0.7).setBlendMode(Phaser.BlendModes.ADD);
       this.scene.tweens.add({ targets: f, alpha: 0, y: this.y - 14, duration: 300, onComplete: () => f.destroy() });
       if (this.health <= 0) {
@@ -134,8 +163,30 @@ export class Monster extends Phaser.Physics.Arcade.Sprite {
         return;
       }
     }
+    // bleed damage-over-time (physical — dark red motes)
+    if (time < this.bleedUntil && time >= this.bleedTickAt) {
+      this.bleedTickAt = time + 500;
+      this.health -= this.bleedDmg;
+      const f = this.scene.add.image(this.x, this.y - 4, 'fx-hit').setTint(0xd11f2a).setDepth(this.y + 9).setScale(0.5);
+      this.scene.tweens.add({ targets: f, alpha: 0, y: this.y + 2, duration: 320, onComplete: () => f.destroy() });
+      if (this.health <= 0) {
+        this.die();
+        return;
+      }
+    }
+    // poison damage-over-time (corrosive green)
+    if (time < this.poisonUntil && time >= this.poisonTickAt) {
+      this.poisonTickAt = time + 440;
+      this.health -= this.poisonDmg;
+      const f = this.scene.add.image(this.x, this.y - 6, 'fx-glow-green').setTint(0x8ef06a).setDepth(this.y + 9).setScale(0.6).setBlendMode(Phaser.BlendModes.ADD);
+      this.scene.tweens.add({ targets: f, alpha: 0, y: this.y - 14, duration: 320, onComplete: () => f.destroy() });
+      if (this.health <= 0) {
+        this.die();
+        return;
+      }
+    }
 
-    // nearest alive hero
+    // nearest alive hero — unless a taunt drags this foe's gaze to one hero
     let target: Hero | null = null;
     let best = Infinity;
     for (const h of heroes) {
@@ -146,6 +197,10 @@ export class Monster extends Phaser.Physics.Arcade.Sprite {
         target = h;
       }
     }
+    if (time < this.tauntUntil && this.tauntBy && this.tauntBy.alive && this.tauntBy.active) {
+      target = this.tauntBy;
+      best = Phaser.Math.Distance.Between(this.x, this.y, target.x, target.y);
+    }
 
     if (this.attacking && time > this.attackUntil) {
       this.attacking = false;
@@ -153,7 +208,21 @@ export class Monster extends Phaser.Physics.Arcade.Sprite {
     }
 
     const beh: EnemyBehavior = this.def.behavior ?? 'melee';
-    if (target && best <= this.def.chaseRange) {
+    const stunned = time < this.stunUntil;
+    const feared = time < this.fearUntil;
+    if (stunned) {
+      // hard crowd control: frozen in place, cannot act
+      body.setVelocity(0, 0);
+      this.telegraphUntil = 0;
+      this.pendingSpecial = null;
+    } else if (feared && target) {
+      // panic: sprint directly away from the nearest hero, no attacks
+      const fx = this.x - target.x;
+      const fy = this.y - target.y;
+      const fl = Math.hypot(fx, fy) || 1;
+      body.setVelocity((fx / fl) * this.def.speed, (fy / fl) * this.def.speed);
+      this.setFlipX(target.x - this.x < 0);
+    } else if (target && best <= this.def.chaseRange) {
       if (!this.aggroed && this.isBoss) {
         this.aggroed = true;
         audio.sfx('boss_roar');
@@ -168,6 +237,8 @@ export class Monster extends Phaser.Physics.Arcade.Sprite {
       this.pendingSpecial = null;
     }
 
+    // root pins the foe in place but still lets it strike a hero within reach
+    if (!stunned && time < this.rootUntil) body.setVelocity(0, 0);
     // chill slows movement
     if (time < this.chillUntil) body.setVelocity(body.velocity.x * 0.5, body.velocity.y * 0.5);
 
@@ -184,8 +255,11 @@ export class Monster extends Phaser.Physics.Arcade.Sprite {
     else this.setAlpha(this.enemyId === 'ghost' ? 0.92 : 1);
 
     if (time < this.telegraphUntil) this.setTint(0xffa070);
+    else if (time < this.stunUntil) this.setTint(0xfff3b0);
+    else if (time < this.poisonUntil) this.setTint(0x9be36a);
     else if (time < this.burnUntil) this.setTint(0xff8a4a);
     else if (time < this.chillUntil) this.setTint(0x9fd0ff);
+    else if (time < this.fearUntil) this.setTint(0xc9a6ff);
     else if (this.isElite) this.setTint(0xffe08a);
     else if (this.isBoss) this.setTint(0xffffff);
     else this.clearTint();
@@ -336,11 +410,52 @@ export class Monster extends Phaser.Physics.Arcade.Sprite {
     if (this.isBoss && dealt > 0) this.health = Math.min(this.maxHealth, this.health + 6);
   }
 
-  /** Apply an on-hit status: burn (DoT), chill (slow), or shock (+damage taken). */
-  applyStatus(type: 'burn' | 'chill' | 'shock', dur: number, time: number): void {
-    if (type === 'burn') this.burnUntil = Math.max(this.burnUntil, time + dur);
-    else if (type === 'chill') this.chillUntil = Math.max(this.chillUntil, time + dur);
-    else this.shockUntil = Math.max(this.shockUntil, time + dur);
+  /** Apply an on-hit / ability status. `mag` tunes the scaling variants:
+   *  burn/bleed/poison = damage per tick, vuln = damage-taken multiplier.
+   *  Hard CC (stun/root/fear) is downgraded on bosses so they never lock. */
+  applyStatus(type: MonsterStatus, dur: number, time: number, mag = 0): void {
+    switch (type) {
+      case 'burn':
+        this.burnUntil = Math.max(this.burnUntil, time + dur);
+        if (mag > 0) this.burnDmg = mag;
+        break;
+      case 'chill':
+        this.chillUntil = Math.max(this.chillUntil, time + dur);
+        break;
+      case 'shock':
+        this.shockUntil = Math.max(this.shockUntil, time + dur);
+        break;
+      case 'stun':
+        // bosses shrug off a stun into a heavy chill instead of freezing
+        if (this.isBoss) this.chillUntil = Math.max(this.chillUntil, time + dur);
+        else this.stunUntil = Math.max(this.stunUntil, time + dur);
+        break;
+      case 'root':
+        if (!this.isBoss) this.rootUntil = Math.max(this.rootUntil, time + dur);
+        break;
+      case 'vuln':
+        this.vulnUntil = Math.max(this.vulnUntil, time + dur);
+        if (mag > 0) this.vulnMult = mag;
+        break;
+      case 'bleed':
+        this.bleedUntil = Math.max(this.bleedUntil, time + dur);
+        if (mag > 0) this.bleedDmg = mag;
+        break;
+      case 'poison':
+        this.poisonUntil = Math.max(this.poisonUntil, time + dur);
+        if (mag > 0) this.poisonDmg = mag;
+        break;
+      case 'fear':
+        if (!this.isBoss) this.fearUntil = Math.max(this.fearUntil, time + dur);
+        break;
+    }
+  }
+
+  /** Force this foe to fixate on one hero (Vanguard Battle Roar). Bosses ignore. */
+  taunt(by: Hero, dur: number, time: number): void {
+    if (this.isBoss) return;
+    this.tauntBy = by;
+    this.tauntUntil = Math.max(this.tauntUntil, time + dur);
   }
 
   /** Shove the monster with a brief, decaying impulse. */
@@ -354,6 +469,7 @@ export class Monster extends Phaser.Physics.Arcade.Sprite {
   takeDamage(raw: number, time: number): boolean {
     if (!this.alive) return false;
     if (time < this.shockUntil) raw *= 1.3; // shocked enemies take more
+    if (time < this.vulnUntil) raw *= this.vulnMult; // marked / vulnerable foes take even more
     const actual = Math.max(1, Math.round(raw - this.def.armor * 0.5));
     this.health -= actual;
     this.hurtUntil = time + 120;

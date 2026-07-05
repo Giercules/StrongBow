@@ -35,6 +35,8 @@ export interface SaveAlly {
   song?: string | null;
   /** Druid: true if travelling in Bear form. */
   bearForm?: boolean;
+  /** Class Ability Expansion: equipped sigils, keyed by tier ("1"|"2"|"3" -> id). */
+  sigils?: Record<string, string>;
   equipped: Record<string, string>; // slot -> itemId
   bag: string[]; // itemIds
 }

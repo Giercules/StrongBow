@@ -14,6 +14,9 @@ export type PlayerAction =
   | 'use'
   | 'dodge'
   | 'ability'
+  | 'secondary'
+  | 'tertiary'
+  | 'ultimate'
   | 'steal'
   | 'sheet'
   | 'inventory'
@@ -37,6 +40,9 @@ export const REBINDABLE_ACTIONS: PlayerAction[] = [
   'use',
   'dodge',
   'ability',
+  'secondary',
+  'tertiary',
+  'ultimate',
   'steal',
   'sheet',
   'inventory',
@@ -53,6 +59,9 @@ export const ACTION_LABELS: Record<PlayerAction, string> = {
   use: 'Use / Interact',
   dodge: 'Dodge Roll',
   ability: 'Class Ability',
+  secondary: 'Secondary Skill',
+  tertiary: 'Tertiary Skill',
+  ultimate: 'Ultimate',
   steal: 'Steal / Pickpocket',
   sheet: 'Character Sheet',
   inventory: 'Inventory',
@@ -71,6 +80,9 @@ export function defaultBindings(): GameBindings {
       use: 'E',
       dodge: 'SPACE',
       ability: 'F',
+      secondary: 'R',
+      tertiary: 'C',
+      ultimate: 'V',
       steal: 'T',
       sheet: 'P',
       inventory: 'I',
@@ -86,6 +98,9 @@ export function defaultBindings(): GameBindings {
       use: 'SHIFT',
       dodge: 'CTRL',
       ability: 'PERIOD',
+      secondary: 'U',
+      tertiary: 'J',
+      ultimate: 'N',
       steal: 'COMMA',
       sheet: 'SEMICOLON',
       inventory: 'M',
@@ -135,6 +150,7 @@ export function formatHudControls(b: GameBindings, twoPlayer: boolean): string[]
     `P1  ${keyLabel(p1.up)}${keyLabel(p1.left)}${keyLabel(p1.down)}${keyLabel(p1.right)} move`,
     `${keyLabel(p1.attack)} atk  ${keyLabel(p1.magic)} mag  ${keyLabel(p1.use)} use`,
     `${keyLabel(p1.dodge)} dodge  ·  ${keyLabel(p1.ability)} ability  ·  ${keyLabel(p1.steal)} steal`,
+    `${keyLabel(p1.secondary)}/${keyLabel(p1.tertiary)}/${keyLabel(p1.ultimate)} skills  ·  2nd/3rd/ult`,
     `${keyLabel(p1.sheet)} sheet  ${keyLabel(p1.inventory)} bag  ${keyLabel(p1.growth)} grow`,
     `${keyLabel(b.global.settings)} set  ${keyLabel(b.global.manual)} help  ${keyLabel(b.global.joinP2)} join P2`,
     'F2 save  ·  restore on title screen',
