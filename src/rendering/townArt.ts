@@ -98,44 +98,127 @@ export function drawTownGate(ctx: Ctx, ox: number, oy: number): void {
   PX(ctx, ox + 15, oy + 11, '#e0bd84');
 }
 
-// A pitched roof rendered across TWO stacked tiles: `ridge` (peak + upper
-// slope) on top, `eave` (lower slope + overhanging fascia) below it, so a
-// building reads as a real roofed structure instead of a flat wall with a hat.
-type RoofPart = 'ridge' | 'eave';
+// A steep pitched roof rendered across THREE stacked tiles: `ridge` (apex + cap)
+// on top, `mid` (main slope), then `eave` (lower slope + overhanging fascia).
+// Shingle courses run continuously through all three so a building reads as a
+// tall, properly-roofed structure instead of a flat wall with a thin hat.
+type RoofPart = 'ridge' | 'mid' | 'eave';
 function pitchedRoof(ctx: Ctx, ox: number, oy: number, base: string, hi: string, dk: string, part: RoofPart): void {
-  const grad = ctx.createLinearGradient(0, oy, 0, oy + 32);
-  grad.addColorStop(0, part === 'ridge' ? hi : base);
-  grad.addColorStop(part === 'ridge' ? 0.3 : 0.6, base);
-  grad.addColorStop(1, dk);
-  ctx.fillStyle = grad;
-  ctx.fillRect(ox, oy, 32, 32);
+  R(ctx, ox, oy, 32, 32, base);
+  let startY = 0;
   if (part === 'ridge') {
-    R(ctx, ox, oy, 32, 3, hi); // sunlit ridge cap along the peak
-    R(ctx, ox, oy + 3, 32, 1, dk);
+    R(ctx, ox, oy, 32, 7, dk); // shaded far slope glimpsed above the apex
+    R(ctx, ox, oy + 6, 32, 1, 'rgba(0,0,0,0.35)');
+    R(ctx, ox, oy + 7, 32, 3, hi); // sunlit ridge cap along the peak
+    R(ctx, ox, oy + 10, 32, 1, 'rgba(0,0,0,0.30)');
+    startY = 12;
   }
-  // shingle courses; ridge starts a little lower so the two tiles' rows align
-  for (let ry = part === 'ridge' ? 7 : 2; ry < 32; ry += 5) {
-    R(ctx, ox, oy + ry, 32, 1, dk); // course shadow
-    R(ctx, ox, oy + ry + 1, 32, 1, hi); // lit lip
-    const off = (((oy + ry) / 5) | 0) % 2 ? 4 : 0;
-    for (let sx = off; sx < 32; sx += 8) R(ctx, ox + sx, oy + ry, 1, 4, dk); // tab seams
+  // soft form-shadow so the slope reads as curving away toward the eaves
+  if (part === 'mid') R(ctx, ox, oy + 20, 32, 12, 'rgba(0,0,0,0.05)');
+  if (part === 'eave') R(ctx, ox, oy, 32, 26, 'rgba(0,0,0,0.09)');
+  // overlapping shingle courses (continuous down the whole roof) — each course
+  // shows a shaded overlap line, a sunlit lip, and staggered tab seams so the
+  // roof reads as individual tiles rather than flat horizontal stripes.
+  for (let ry = startY; ry < 32; ry += 5) {
+    R(ctx, ox, oy + ry, 32, 1, dk); // shadow where the course above overlaps
+    R(ctx, ox, oy + ry + 1, 32, 1, hi); // sunlit lip of this course
+    const off = ((ry / 5) | 0) % 2 ? 4 : 0; // running-bond stagger
+    for (let sx = -off; sx < 32; sx += 8) {
+      R(ctx, ox + sx + 7, oy + ry + 1, 1, 4, dk); // tab seam
+      if (sx + 8 < 32) R(ctx, ox + sx + 8, oy + ry + 2, 1, 3, hi); // catch-light on the next tab
+    }
   }
-  R(ctx, ox, oy, 2, 32, hi); // left gable (lit)
-  R(ctx, ox + 30, oy, 2, 32, dk); // right gable (shade)
+  R(ctx, ox, oy, 2, 32, hi); // left barge-board (lit)
+  R(ctx, ox + 30, oy, 2, 32, dk); // right barge-board (shade)
   if (part === 'eave') {
-    R(ctx, ox, oy + 26, 32, 3, dk); // overhanging fascia board
-    R(ctx, ox, oy + 26, 32, 1, hi);
-    R(ctx, ox, oy + 29, 32, 3, 'rgba(18,11,6,0.5)'); // shadow the overhang casts below
+    R(ctx, ox, oy + 24, 32, 3, dk); // overhanging fascia board
+    R(ctx, ox, oy + 24, 32, 1, hi);
+    for (let x = 3; x < 32; x += 6) R(ctx, ox + x, oy + 27, 2, 2, dk); // rafter tails
+    R(ctx, ox, oy + 29, 32, 3, 'rgba(16,10,6,0.5)'); // shadow the overhang casts below
   }
 }
+
+// Thatch: thick bundled straw in overlapping shaggy layers.
+function thatchRoof(ctx: Ctx, ox: number, oy: number, part: RoofPart): void {
+  const s0 = '#a3822f', s1 = '#c39a3f', s2 = '#7a5e22', s3 = '#e0c063';
+  R(ctx, ox, oy, 32, 32, s1);
+  for (let x = 0; x < 32; x += 2) R(ctx, ox + x, oy, 1, 32, (x % 6 === 0) ? s2 : (x % 4 === 0 ? s3 : s0)); // straw grain
+  let startY = 2;
+  if (part === 'ridge') {
+    R(ctx, ox, oy, 32, 8, s2); // shaded apex
+    R(ctx, ox, oy + 7, 32, 3, '#6e4a24'); R(ctx, ox, oy + 7, 32, 1, s3); // bound ridge withy
+    startY = 12;
+  }
+  if (part === 'eave') R(ctx, ox, oy, 32, 22, 'rgba(0,0,0,0.08)');
+  for (let ry = startY; ry < 32; ry += 7) { // overlapping thatch layers
+    R(ctx, ox, oy + ry, 32, 2, 'rgba(40,26,10,0.45)');
+    R(ctx, ox, oy + ry + 2, 32, 1, s3);
+  }
+  R(ctx, ox, oy, 2, 32, s3); R(ctx, ox + 30, oy, 2, 32, s2); // gable edges
+  if (part === 'eave') {
+    for (let x = 0; x < 32; x += 3) { const h = 4 + ((x * 7) % 4); R(ctx, ox + x, oy + 27 - h, 3, h, s0); R(ctx, ox + x, oy + 27 - h, 3, 1, s3); } // shaggy fringe
+    R(ctx, ox, oy + 29, 32, 3, 'rgba(16,10,6,0.5)');
+  }
+}
+
 export function drawHouseRoofRed(ctx: Ctx, ox: number, oy: number): void { pitchedRoof(ctx, ox, oy, '#9c3a2a', '#c85a3e', '#5a1e14', 'ridge'); }
 export function drawHouseRoofBlue(ctx: Ctx, ox: number, oy: number): void { pitchedRoof(ctx, ox, oy, '#34507a', '#4f72a8', '#1e2f4a', 'ridge'); }
 export function drawHouseRoofGreen(ctx: Ctx, ox: number, oy: number): void { pitchedRoof(ctx, ox, oy, '#3a6a3a', '#56965a', '#1e3a1e', 'ridge'); }
 export function drawHouseRoofTeak(ctx: Ctx, ox: number, oy: number): void { pitchedRoof(ctx, ox, oy, '#6e4a24', '#8a6132', '#3a2410', 'ridge'); }
+export function drawHouseRoofSlate(ctx: Ctx, ox: number, oy: number): void { pitchedRoof(ctx, ox, oy, '#4a545f', '#6b7784', '#2a323b', 'ridge'); }
+export function drawHouseRoofThatch(ctx: Ctx, ox: number, oy: number): void { thatchRoof(ctx, ox, oy, 'ridge'); }
+export function drawHouseMidRed(ctx: Ctx, ox: number, oy: number): void { pitchedRoof(ctx, ox, oy, '#9c3a2a', '#c85a3e', '#5a1e14', 'mid'); }
+export function drawHouseMidBlue(ctx: Ctx, ox: number, oy: number): void { pitchedRoof(ctx, ox, oy, '#34507a', '#4f72a8', '#1e2f4a', 'mid'); }
+export function drawHouseMidGreen(ctx: Ctx, ox: number, oy: number): void { pitchedRoof(ctx, ox, oy, '#3a6a3a', '#56965a', '#1e3a1e', 'mid'); }
+export function drawHouseMidTeak(ctx: Ctx, ox: number, oy: number): void { pitchedRoof(ctx, ox, oy, '#6e4a24', '#8a6132', '#3a2410', 'mid'); }
+export function drawHouseMidSlate(ctx: Ctx, ox: number, oy: number): void { pitchedRoof(ctx, ox, oy, '#4a545f', '#6b7784', '#2a323b', 'mid'); }
+export function drawHouseMidThatch(ctx: Ctx, ox: number, oy: number): void { thatchRoof(ctx, ox, oy, 'mid'); }
 export function drawHouseEaveRed(ctx: Ctx, ox: number, oy: number): void { pitchedRoof(ctx, ox, oy, '#9c3a2a', '#c85a3e', '#5a1e14', 'eave'); }
 export function drawHouseEaveBlue(ctx: Ctx, ox: number, oy: number): void { pitchedRoof(ctx, ox, oy, '#34507a', '#4f72a8', '#1e2f4a', 'eave'); }
 export function drawHouseEaveGreen(ctx: Ctx, ox: number, oy: number): void { pitchedRoof(ctx, ox, oy, '#3a6a3a', '#56965a', '#1e3a1e', 'eave'); }
 export function drawHouseEaveTeak(ctx: Ctx, ox: number, oy: number): void { pitchedRoof(ctx, ox, oy, '#6e4a24', '#8a6132', '#3a2410', 'eave'); }
+export function drawHouseEaveSlate(ctx: Ctx, ox: number, oy: number): void { pitchedRoof(ctx, ox, oy, '#4a545f', '#6b7784', '#2a323b', 'eave'); }
+export function drawHouseEaveThatch(ctx: Ctx, ox: number, oy: number): void { thatchRoof(ctx, ox, oy, 'eave'); }
+
+// A stone chimney with a clay pot and a curl of smoke — sits on the upper slope.
+export function drawChimney(ctx: Ctx, ox: number, oy: number): void {
+  const st = '#8a8276', stHi = '#aaa294', stDk = '#5f584e', mortar = '#635c52', pot = '#9c4a34', potHi = '#c05a40';
+  R(ctx, ox + 10, oy + 11, 12, 21, st); // stone stack
+  R(ctx, ox + 10, oy + 11, 2, 21, stHi);
+  R(ctx, ox + 20, oy + 11, 2, 21, stDk);
+  for (let by = 14; by < 32; by += 4) R(ctx, ox + 10, oy + by, 12, 1, mortar); // courses
+  R(ctx, ox + 15, oy + 12, 1, 20, mortar); // vertical joint
+  R(ctx, ox + 8, oy + 8, 16, 4, stDk); // flared cap
+  R(ctx, ox + 8, oy + 8, 16, 1, stHi);
+  R(ctx, ox + 13, oy + 4, 6, 5, pot); // clay chimney pot
+  R(ctx, ox + 13, oy + 4, 6, 1, potHi);
+  R(ctx, ox + 14, oy + 4, 4, 1, '#3a1c14'); // flue hole
+  R(ctx, ox + 15, oy + 1, 3, 3, 'rgba(214,208,202,0.45)'); // smoke
+  PX(ctx, ox + 17, oy, 'rgba(214,208,202,0.30)');
+}
+
+// Hanging shop sign board with a small painted trade glyph, hung from an iron
+// bracket. `glyph` selects the trade: anvil, vial, sword, tankard, coin, loaf.
+export function drawShopSign(ctx: Ctx, ox: number, oy: number, glyph: string): void {
+  const iron = '#2c2f3a', wood = '#6e4a24', woodHi = '#9a6c38', board = '#c9a86a', boardHi = '#e0c68a', boardDk = '#8a6a3a';
+  // wall bracket + hanging chains
+  R(ctx, ox + 2, oy + 4, 12, 2, iron); // bracket arm
+  R(ctx, ox + 2, oy + 4, 2, 8, iron); // wall mount
+  R(ctx, ox + 6, oy + 6, 1, 4, '#555b6e'); R(ctx, ox + 12, oy + 6, 1, 4, '#555b6e'); // chains
+  // board
+  R(ctx, ox + 3, oy + 10, 20, 15, wood);
+  R(ctx, ox + 4, oy + 11, 18, 13, board);
+  R(ctx, ox + 4, oy + 11, 18, 1, boardHi);
+  R(ctx, ox + 4, oy + 23, 18, 1, boardDk);
+  const gx = ox + 13, gy = oy + 17; // glyph centre
+  const g = '#3a2a18';
+  if (glyph === 'anvil') { R(ctx, gx - 5, gy, 10, 3, iron); R(ctx, gx - 7, gy, 4, 2, iron); R(ctx, gx - 2, gy + 3, 4, 4, iron); }
+  else if (glyph === 'vial') { R(ctx, gx - 2, gy - 5, 4, 4, '#7fd06a'); R(ctx, gx - 3, gy - 1, 6, 6, '#3a7a3a'); R(ctx, gx - 1, gy - 7, 2, 2, g); }
+  else if (glyph === 'sword') { R(ctx, gx - 1, gy - 6, 2, 10, '#c8ccd8'); R(ctx, gx - 3, gy + 3, 6, 2, g); R(ctx, gx - 1, gy + 4, 2, 3, wood); }
+  else if (glyph === 'tankard') { R(ctx, gx - 4, gy - 4, 8, 9, '#caa56a'); R(ctx, gx - 4, gy - 5, 8, 2, '#efe6c8'); R(ctx, gx + 4, gy - 2, 2, 4, '#8a6a3a'); }
+  else if (glyph === 'coin') { ctx.fillStyle = '#e0b24e'; ctx.beginPath(); ctx.arc(gx, gy, 5, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#8a6a2a'; ctx.fillRect(gx - 1, gy - 2, 2, 4); }
+  else { R(ctx, gx - 5, gy - 3, 10, 7, '#c98a4a'); R(ctx, gx - 5, gy - 3, 10, 2, '#e0b070'); PX(ctx, gx - 2, gy, g); PX(ctx, gx + 1, gy + 1, g); } // loaf
+}
 export function drawHouseDoor(ctx: Ctx, ox: number, oy: number): void {
   drawHouseWall(ctx, ox, oy);
   R(ctx, ox + 8, oy + 4, 16, 26, '#8a8276'); // stone arch surround
@@ -159,13 +242,18 @@ export function drawHouseDoor(ctx: Ctx, ox: number, oy: number): void {
 
 // ---- building facades (seamless plaster + timber framing only where needed) -
 export function drawHouseWall(ctx: Ctx, ox: number, oy: number): void {
-  // Plain plaster that tiles seamlessly (no edge bands) — framing/footing are
-  // applied as separate edge/base tiles by the town builder.
-  R(ctx, ox, oy, 32, 32, '#cdbb95');
+  // Lime-washed plaster in a half-timbered bay: it tiles seamlessly, with a
+  // slender oak stud down the centre so a run of wall reads as framed panels
+  // rather than one blank slab. Footing/beam/posts are separate edge tiles.
+  R(ctx, ox, oy, 32, 32, '#d3c19a');
   for (const [x, y, c] of [
-    [6, 5, '#c2af86'], [14, 11, '#d8c79e'], [23, 7, '#c2af86'], [10, 20, '#d8c79e'],
-    [19, 25, '#c2af86'], [27, 17, '#d8c79e'], [4, 28, '#c2af86'], [29, 3, '#c2af86'],
+    [6, 5, '#c4b088'], [23, 7, '#c4b088'], [10, 20, '#e0cfa4'], [19, 25, '#c4b088'],
+    [27, 17, '#e0cfa4'], [4, 28, '#c4b088'], [29, 3, '#c4b088'], [2, 13, '#c4b088'], [26, 27, '#e0cfa4'],
   ] as [number, number, string][]) PX(ctx, ox + x, oy + y, c);
+  // central oak stud (subtle) — pairs with the corner posts into framed bays
+  R(ctx, ox + 15, oy, 2, 32, '#6e4a24');
+  R(ctx, ox + 15, oy, 1, 32, 'rgba(138,97,50,0.7)');
+  R(ctx, ox + 16, oy, 1, 32, 'rgba(58,36,16,0.6)');
 }
 export function drawHousePost(ctx: Ctx, ox: number, oy: number): void {
   drawHouseWall(ctx, ox, oy);
@@ -813,4 +901,62 @@ export function drawStatue(ctx: Ctx, ox: number, oy: number): void {
   PX(ctx, ox + 9, oy + 26, '#5a7a3a');
   PX(ctx, ox + 22, oy + 27, '#5a7a3a');
   PX(ctx, ox + 14, oy + 12, stnDk);
+}
+
+/** A stack of split firewood — round log-ends piled into a pyramid. */
+export function drawWoodPile(ctx: Ctx, ox: number, oy: number): void {
+  const bark = '#6e4a24', ring = '#c9a86a', ringDk = '#8a6a3a';
+  R(ctx, ox + 4, oy + 25, 24, 2, 'rgba(0,0,0,0.28)'); // ground shadow
+  for (const [lx, ly] of [[9, 22], [16, 22], [23, 22], [12, 17], [19, 17], [16, 12]] as [number, number][]) {
+    ctx.fillStyle = bark; ctx.beginPath(); ctx.arc(ox + lx, oy + ly, 4, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = ring; ctx.beginPath(); ctx.arc(ox + lx, oy + ly, 2.4, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = ringDk; ctx.beginPath(); ctx.arc(ox + lx, oy + ly, 1, 0, Math.PI * 2); ctx.fill();
+    PX(ctx, ox + lx - 1, oy + ly - 1, '#e0c68a');
+  }
+}
+
+/** Tilled soil with sprouting green crop rows (flat, floor-level decor). */
+export function drawCropRow(ctx: Ctx, ox: number, oy: number): void {
+  R(ctx, ox + 2, oy + 7, 28, 21, '#4a3320'); // soil
+  R(ctx, ox + 2, oy + 7, 28, 2, '#5e442a');
+  for (let ry = 0; ry < 3; ry++) {
+    const y = oy + 10 + ry * 6;
+    R(ctx, ox + 2, y + 4, 28, 2, '#382717'); // furrow shadow
+    for (let cx3 = 4; cx3 < 30; cx3 += 4) { R(ctx, ox + cx3, y, 2, 4, '#4a8a3a'); PX(ctx, ox + cx3, y, '#7fc45a'); }
+  }
+}
+
+/** A mossy grey shore boulder for the water's edge. */
+export function drawShoreRock(ctx: Ctx, ox: number, oy: number): void {
+  const r = '#7c766c', rHi = '#9c968a', rDk = '#54504a', moss = '#5a7a3a';
+  ctx.fillStyle = r; ctx.beginPath(); ctx.ellipse(ox + 16, oy + 18, 10, 7, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = rHi; ctx.beginPath(); ctx.ellipse(ox + 13, oy + 15, 5, 3, 0, 0, Math.PI * 2); ctx.fill();
+  R(ctx, ox + 7, oy + 21, 18, 2, rDk);
+  PX(ctx, ox + 20, oy + 20, moss); PX(ctx, ox + 10, oy + 21, moss); R(ctx, ox + 14, oy + 22, 4, 1, moss);
+}
+
+/** A little mallard duck paddling, trailing a bright wake. */
+export function drawDuck(ctx: Ctx, ox: number, oy: number): void {
+  const body = '#5a4a34', bodyHi = '#7a6444', head = '#2f5a3a', headHi = '#3f7a4a', beak = '#e0a81e', wake = '#bfe9ff';
+  R(ctx, ox + 8, oy + 22, 15, 1, wake); // wake
+  PX(ctx, ox + 7, oy + 21, wake); PX(ctx, ox + 23, oy + 21, wake);
+  ctx.fillStyle = body; ctx.beginPath(); ctx.ellipse(ox + 15, oy + 18, 7, 4, 0, 0, Math.PI * 2); ctx.fill();
+  R(ctx, ox + 9, oy + 16, 4, 2, bodyHi); // wing highlight
+  R(ctx, ox + 20, oy + 15, 3, 2, body); // tail
+  R(ctx, ox + 19, oy + 11, 4, 5, head); // head
+  R(ctx, ox + 19, oy + 11, 4, 1, headHi);
+  R(ctx, ox + 22, oy + 13, 2, 1, beak); // beak
+  PX(ctx, ox + 21, oy + 12, '#000000');
+}
+
+/** A wooden mooring post with an iron ring at the water's edge. */
+export function drawMooringPost(ctx: Ctx, ox: number, oy: number): void {
+  const wood = '#6e4a24', woodHi = '#9a6c38', dk = '#3a2410';
+  R(ctx, ox + 4, oy + 26, 12, 2, 'rgba(0,0,0,0.28)'); // ground shadow
+  R(ctx, ox + 13, oy + 8, 5, 20, wood);
+  R(ctx, ox + 13, oy + 8, 2, 20, woodHi);
+  R(ctx, ox + 17, oy + 8, 1, 20, dk);
+  R(ctx, ox + 12, oy + 6, 7, 3, dk); // cap
+  R(ctx, ox + 12, oy + 6, 7, 1, woodHi);
+  ctx.strokeStyle = '#3a3f4a'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(ox + 18, oy + 14, 3, 0, Math.PI * 2); ctx.stroke(); // iron ring
 }

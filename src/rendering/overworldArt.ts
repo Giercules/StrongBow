@@ -167,13 +167,16 @@ export function drawBoulder(ctx: Ctx, ox: number, oy: number): void {
 }
 
 export function drawReeds(ctx: Ctx, ox: number, oy: number): void {
-  const g0 = '#5a6a36', g1 = '#46532a', g2 = '#7a8a4a';
-  for (const [x, h] of [[8, 16], [12, 20], [16, 14], [20, 18], [24, 12]] as [number, number][]) {
+  const g0 = '#5a6a36', g1 = '#46532a', g2 = '#7a8a4a', g3 = '#8fa356', head = '#6e4a24', headHi = '#8a6132';
+  // a dense clump of blades of varied height; the tallest carry cattail heads
+  for (const [x, h] of [[5, 17], [8, 23], [11, 14], [14, 21], [17, 16], [20, 25], [23, 13], [26, 19]] as [number, number][]) {
     R(ctx, ox + x, oy + 30 - h, 2, h, g0);
-    R(ctx, ox + x, oy + 30 - h, 1, h, g1);
-    R(ctx, ox + x, oy + 30 - h, 1, 3, g2); // seed head
+    R(ctx, ox + x, oy + 30 - h, 1, h, g1); // shaded side
+    R(ctx, ox + x, oy + 30 - h, 1, Math.min(4, h), g2); // sunlit tip
+    if (h >= 21) { R(ctx, ox + x - 1, oy + 30 - h, 3, 4, head); R(ctx, ox + x - 1, oy + 30 - h, 3, 1, headHi); } // cattail head
   }
-  R(ctx, ox + 6, oy + 28, 22, 2, '#3a4626');
+  R(ctx, ox + 4, oy + 28, 24, 2, '#3a4626'); // base clump
+  PX(ctx, ox + 7, oy + 13, g3); PX(ctx, ox + 19, oy + 11, g3); PX(ctx, ox + 25, oy + 15, g3);
 }
 
 export function drawWildflowers(ctx: Ctx, ox: number, oy: number): void {
