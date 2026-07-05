@@ -108,31 +108,80 @@ export function buildOverworld(): LevelData {
     }
   }
 
-  // ---- Hearthwatch exterior: a small fortified keep with a gate back inside --
-  const stampKeep = () => {
-    const x0 = TOWN_X - 7, y0 = TOWN_Y - 5, x1 = TOWN_X + 7, y1 = TOWN_Y + 4;
-    for (let y = y0; y <= y1; y++)
-      for (let x = x0; x <= x1; x++) {
-        occupied.add(key(x, y));
-        const edge = x === x0 || x === x1 || y === y0 || y === y1;
-        if (edge) decor.push({ x, y, key: 'house-wall' });
+  // ---- towns seen from the air: little walled clusters of rooftops the party
+  // walks straight up to and enters through the gate (not a lone grey keep). ----
+  const stampVillage = (
+    tcx: number,
+    tcy: number,
+    o: { roofs: string[]; hall: string; wall: string; gate: string; doorId: string; label: string; gateSide: 'north' | 'south'; surround?: string },
+  ) => {
+    const rx = 6, ry = 4;
+    const x0 = tcx - rx, x1 = tcx + rx, y0 = tcy - ry, y1 = tcy + ry;
+    for (let y = y0 - 1; y <= y1 + 1; y++) for (let x = x0 - 1; x <= x1 + 1; x++) occupied.add(key(x, y));
+    const gateY = o.gateSide === 'north' ? y0 : y1;
+    const doorY = o.gateSide === 'north' ? y0 - 1 : y1 + 1;
+    // curtain wall, with a gap for the gate on the entry side
+    for (let x = x0; x <= x1; x++) {
+      if (!(o.gateSide === 'north' && Math.abs(x - tcx) <= 1)) decor.push({ x, y: y0, key: o.wall });
+      if (!(o.gateSide === 'south' && Math.abs(x - tcx) <= 1)) decor.push({ x, y: y1, key: o.wall });
+    }
+    for (let y = y0 + 1; y < y1; y++) { decor.push({ x: x0, y, key: o.wall }); decor.push({ x: x1, y, key: o.wall }); }
+    // rooftops packed on a coarse grid, leaving alleys and a central landmark
+    let i = 0;
+    for (let y = y0 + 2; y <= y1 - 1; y += 2)
+      for (let x = x0 + 2; x <= x1 - 1; x += 2) {
+        if (Math.abs(x - tcx) <= 1 && Math.abs(y - tcy) <= 1) continue;
+        decor.push({ x, y, key: o.roofs[i % o.roofs.length] });
+        i++;
       }
-    for (let x = x0; x <= x1; x++) decor.push({ x, y: y0, key: 'house-roof-teak' });
-    decor.push({ x: x0, y: y0, key: 'town-gate' });
-    decor.push({ x: x1, y: y0, key: 'town-gate' });
-    decor.push({ x: TOWN_X - 4, y: y0, key: 'banner' });
-    decor.push({ x: TOWN_X + 4, y: y0, key: 'banner' });
-    // the gate back into town, on the south face
-    decor.push({ x: TOWN_X, y: y1, key: 'house-door' });
-    spawns.push({ kind: 'door', x: TOWN_X, y: y1 + 1, interiorId: 'town', label: 'Hearthwatch Gate' });
+    decor.push({ x: tcx, y: tcy, key: o.hall });        // central hall / temple
+    decor.push({ x: tcx, y: gateY, key: o.gate });      // the gatehouse
+    decor.push({ x: tcx, y: doorY, key: 'house-door' }); // the enterable gate
+    spawns.push({ kind: 'door', x: tcx, y: doorY, interiorId: o.doorId, label: o.label });
+    if (o.surround)
+      for (const [dx, dy] of [[-rx - 1, -1], [rx + 1, -1], [-rx - 1, ry], [rx + 1, ry], [-2, -ry - 1], [3, -ry - 1]] as [number, number][]) {
+        const px = tcx + dx, py = tcy + dy;
+        if (inB(px, py) && tiles[py][px] !== Tile.WATER && tiles[py][px] !== Tile.VOID) { decor.push({ x: px, y: py, key: o.surround }); occupied.add(key(px, py)); }
+      }
   };
-  stampKeep();
 
-  // party appears just south of the keep by default (overworldEntry overrides)
+  // Hearthwatch — a green-roofed market town in the central plains.
+  stampVillage(TOWN_X, TOWN_Y, {
+    roofs: ['aerial-cottage-red', 'aerial-cottage-blue', 'aerial-cottage-teak', 'aerial-cottage-green'],
+    hall: 'aerial-hall', wall: 'aerial-wall', gate: 'aerial-gate',
+    doorId: 'town', label: 'Hearthwatch Gate', gateSide: 'south', surround: 'gnarled-oak',
+  });
+  decor.push({ x: TOWN_X - 5, y: TOWN_Y - 5, key: 'banner' });
+  decor.push({ x: TOWN_X + 5, y: TOWN_Y - 5, key: 'banner' });
+
+  // Sunspire — the sandstone oasis-town far to the south-west (lower-left desert).
+  const SUN_X = 26, SUN_Y = 108;
+  stampVillage(SUN_X, SUN_Y, {
+    roofs: ['aerial-adobe-a', 'aerial-adobe-b', 'aerial-adobe-a', 'aerial-adobe-b'],
+    hall: 'aerial-temple', wall: 'aerial-sandwall', gate: 'aerial-sandgate',
+    doorId: 'desert_town', label: 'Sunspire — the Dune Gate', gateSide: 'north', surround: 'desert-tree',
+  });
+
+  // party appears just south of Hearthwatch by default (overworldEntry overrides)
   spawns.push({ kind: 'playerStart', x: TOWN_X, y: TOWN_Y + 11 });
 
-  // a road sign at the southern crossroads
+  // the caravan road running south-west from Hearthwatch out to Sunspire's gate
+  carveRoad(TOWN_X, TOWN_Y, SUN_X, TOWN_Y);       // west along the plains
+  carveRoad(SUN_X, TOWN_Y, SUN_X, SUN_Y - 5);     // then south through the dunes
+  // plank the caravan road where it fords the winding river (carveRoad skips
+  // water, which would otherwise leave a bare gap in the road across the ford):
+  // on each road row, bridge every water tile spanned between its road ends.
+  for (let y = TOWN_Y - 1; y <= TOWN_Y + 1; y++) {
+    let wx = -1, ex = -1;
+    for (let x = 2; x < W - 2; x++) if (road.has(key(x, y))) { if (wx < 0) wx = x; ex = x; }
+    if (wx < 0) continue;
+    for (let x = wx; x <= ex; x++)
+      if (inB(x, y) && tiles[y][x] === Tile.WATER) { decor.push({ x, y, key: 'bridge-plank' }); road.add(key(x, y)); }
+  }
+  // road signs pointing the way
   decor.push({ x: TOWN_X + 3, y: TOWN_Y + 12, key: 'signpost' });
+  decor.push({ x: SUN_X + 3, y: TOWN_Y + 2, key: 'signpost' });
+  decor.push({ x: SUN_X - 2, y: SUN_Y - 6, key: 'signpost' });
 
   // ---- landmark POIs (decorative; no combat yet) ----
   decor.push({ x: 150, y: 116, key: 'obelisk' }); // sunken obelisk, deep desert

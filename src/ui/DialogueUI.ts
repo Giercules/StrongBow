@@ -50,14 +50,27 @@ export class DialogueUI {
     return this.modal !== null;
   }
 
-  /** Open a hail with a townsperson. `onChat` lets the scene stream a Grok line. */
-  open(hero: Hero, npcLabel: string, npcRole: string, hooks: { onClosed?: () => void; onChat?: () => void } = {}): void {
+  /** Open a hail with a townsperson. `onChat` lets the scene stream a Grok line.
+   *  `quest`, when given, opens on a specific spoken line (a quest pitch, a
+   *  delivery reply, a thank-you) and can add a single action button (e.g.
+   *  ACCEPT ERRAND) in place of the rumours button. */
+  open(
+    hero: Hero,
+    npcLabel: string,
+    npcRole: string,
+    hooks: {
+      onClosed?: () => void;
+      onChat?: () => void;
+      quest?: { line: string; action?: { label: string; fn: () => void } };
+    } = {},
+  ): void {
     if (this.modal) return;
     this.hero = hero;
     this.npcLabel = npcLabel;
     this.npcRole = npcRole;
     this.onClosed = hooks.onClosed;
     this.onChat = hooks.onChat;
+    const quest = hooks.quest;
     // Esc handled centrally by the scene (closeAllOverlays)
 
     const m = framedPanel(this.scene, PANEL_W, PANEL_H, npcLabel.toUpperCase());
@@ -69,10 +82,15 @@ export class DialogueUI {
 
     m.add(this.scene.add.text(x0 + 20, y0 + 32, `${npcRole} · you are ${questLog.repTitle()}`, { fontFamily: 'MedievalSharp, "Trebuchet MS", cursive', fontSize: '10.5px', color: C.inkDim }));
 
-    let tier = GREETINGS[0];
-    for (const t of GREETINGS) if (questLog.reputation >= t.at) tier = t;
-    const greeting = tier.lines[Math.floor(Math.random() * tier.lines.length)];
-    this.textLine = this.scene.add.text(x0 + 20, y0 + 56, `"${greeting}"`, {
+    let line: string;
+    if (quest) {
+      line = quest.line;
+    } else {
+      let tier = GREETINGS[0];
+      for (const t of GREETINGS) if (questLog.reputation >= t.at) tier = t;
+      line = tier.lines[Math.floor(Math.random() * tier.lines.length)];
+    }
+    this.textLine = this.scene.add.text(x0 + 20, y0 + 56, `"${line}"`, {
       fontFamily: 'MedievalSharp, "Trebuchet MS", cursive', fontSize: '13px', color: '#ffe9a8', wordWrap: { width: PANEL_W - 40 }, lineSpacing: 4,
     });
     m.add(this.textLine);
@@ -82,14 +100,22 @@ export class DialogueUI {
       audio.sfx('ui_move');
       this.onChat?.();
     }));
-    m.add(makeButton(this.scene, m.cx, y0 + PANEL_H - 34, 120, 26, canRumor ? 'ASK FOR RUMORS' : 'RUMORS (locked)', () => {
-      if (!canRumor) {
-        this.say('Rumors are for friends and silver tongues. (Charisma 3 or reputation 10 opens ears.)');
-        return;
-      }
-      audio.sfx('ui_select');
-      this.say(RUMORS[Math.floor(Math.random() * RUMORS.length)]);
-    }, { text: canRumor ? undefined : C.inkDim }));
+    if (quest?.action) {
+      const act = quest.action;
+      m.add(makeButton(this.scene, m.cx, y0 + PANEL_H - 34, 120, 26, act.label, () => {
+        act.fn();
+        this.close();
+      }, { text: '#8affa0' }));
+    } else {
+      m.add(makeButton(this.scene, m.cx, y0 + PANEL_H - 34, 120, 26, canRumor ? 'ASK FOR RUMORS' : 'RUMORS (locked)', () => {
+        if (!canRumor) {
+          this.say('Rumors are for friends and silver tongues. (Charisma 3 or reputation 10 opens ears.)');
+          return;
+        }
+        audio.sfx('ui_select');
+        this.say(RUMORS[Math.floor(Math.random() * RUMORS.length)]);
+      }, { text: canRumor ? undefined : C.inkDim }));
+    }
     m.add(makeButton(this.scene, m.cx + 140, y0 + PANEL_H - 34, 120, 26, 'FAREWELL', () => this.close()));
     this.nav.end();
   }

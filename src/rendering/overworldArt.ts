@@ -324,3 +324,115 @@ export function drawCrow(ctx: Ctx, ox: number, oy: number): void {
   R(ctx, ox + 4, oy + 8, 2, 1, b); // tail
   PX(ctx, ox + 12, oy + 6, '#caa23a');
 }
+
+// ---- aerial village pieces: a small town seen from above -------------------
+// Stamped in clusters (see overworld.ts) so Hearthwatch and Sunspire read as
+// little towns nestled in the land that the party walks up to and enters,
+// rather than a lone grey keep. Transparent bg so the biome shows between roofs.
+
+/** A single cottage seen from above: a pitched roof with a lit and a shaded
+ *  slope split by a ridge, a chimney, and a soft drop-shadow. */
+function aerialPitchRoof(ctx: Ctx, ox: number, oy: number, base: string, hi: string, dk: string): void {
+  R(ctx, ox + 7, oy + 24, 20, 3, 'rgba(0,0,0,0.28)'); // ground shadow
+  R(ctx, ox + 5, oy + 8, 22, 17, dk); // roof mass / far slope
+  R(ctx, ox + 5, oy + 8, 22, 9, base); // near slope
+  R(ctx, ox + 5, oy + 8, 22, 1, hi); // sunlit upper eave
+  R(ctx, ox + 5, oy + 16, 22, 1, '#00000040'); // ridge line
+  for (let x = 7; x < 26; x += 3) { PX(ctx, ox + x, oy + 11, hi); PX(ctx, ox + x + 1, oy + 20, dk); } // shingle grain
+  R(ctx, ox + 5, oy + 8, 1, 17, hi); // gable edges
+  R(ctx, ox + 26, oy + 8, 1, 17, '#00000030');
+  R(ctx, ox + 20, oy + 4, 3, 5, '#4a3628'); // chimney
+  R(ctx, ox + 20, oy + 4, 3, 1, '#6a5038');
+}
+
+export function drawAerialCottageRed(ctx: Ctx, ox: number, oy: number): void { aerialPitchRoof(ctx, ox, oy, '#b0452f', '#d9694a', '#6e2418'); }
+export function drawAerialCottageBlue(ctx: Ctx, ox: number, oy: number): void { aerialPitchRoof(ctx, ox, oy, '#3d5b88', '#5f83bb', '#243a5c'); }
+export function drawAerialCottageTeak(ctx: Ctx, ox: number, oy: number): void { aerialPitchRoof(ctx, ox, oy, '#7a5228', '#a0743c', '#472c12'); }
+export function drawAerialCottageGreen(ctx: Ctx, ox: number, oy: number): void { aerialPitchRoof(ctx, ox, oy, '#3f6f3a', '#5fa055', '#254422'); }
+
+/** The town's moot-hall: a larger pitched roof flying a banner. */
+export function drawAerialHall(ctx: Ctx, ox: number, oy: number): void {
+  R(ctx, ox + 3, oy + 26, 26, 3, 'rgba(0,0,0,0.3)');
+  R(ctx, ox + 2, oy + 6, 28, 21, '#5a3e22'); // far slope
+  R(ctx, ox + 2, oy + 6, 28, 11, '#7a5230'); // near slope
+  R(ctx, ox + 2, oy + 6, 28, 1, '#9a6c40');
+  R(ctx, ox + 2, oy + 16, 28, 1, '#00000045'); // ridge
+  for (let x = 4; x < 29; x += 4) { PX(ctx, ox + x, oy + 10, '#9a6c40'); PX(ctx, ox + x + 1, oy + 21, '#472c12'); }
+  R(ctx, ox + 2, oy + 6, 1, 21, '#9a6c40'); R(ctx, ox + 29, oy + 6, 1, 21, '#00000030');
+  // banner on a mast at the ridge
+  R(ctx, ox + 15, oy - 1, 1, 8, '#3a2c1a');
+  R(ctx, ox + 16, oy, 6, 4, '#b0452f'); R(ctx, ox + 16, oy, 6, 1, '#d9694a');
+  PX(ctx, ox + 18, oy + 1, '#ffd24a');
+}
+
+/** A stretch of the town's outer wall with a parapet walkway (aerial). */
+export function drawAerialWall(ctx: Ctx, ox: number, oy: number, sand = false): void {
+  const s0 = sand ? '#b89a62' : '#7a7062', s1 = sand ? '#d4b878' : '#9a9082', s2 = sand ? '#8a6d3e' : '#524a40';
+  R(ctx, ox + 4, oy + 22, 26, 3, 'rgba(0,0,0,0.28)');
+  R(ctx, ox + 4, oy + 10, 24, 13, s0);
+  R(ctx, ox + 4, oy + 10, 24, 2, s1); // sunlit top
+  R(ctx, ox + 4, oy + 14, 24, 5, s2); // shaded inner walk
+  for (let x = 5; x < 27; x += 4) R(ctx, ox + x, oy + 10, 2, 2, s1); // merlons
+  R(ctx, ox + 4, oy + 21, 24, 2, s2);
+}
+export function drawAerialSandwall(ctx: Ctx, ox: number, oy: number): void { drawAerialWall(ctx, ox, oy, true); }
+
+/** A gatehouse: two towers flanking an open gateway you walk through to enter. */
+export function drawAerialGate(ctx: Ctx, ox: number, oy: number, sand = false): void {
+  const s0 = sand ? '#b89a62' : '#7a7062', s1 = sand ? '#d4b878' : '#9a9082', s2 = sand ? '#8a6d3e' : '#524a40';
+  R(ctx, ox + 2, oy + 24, 28, 3, 'rgba(0,0,0,0.3)');
+  // two towers
+  for (const tx of [2, 22]) {
+    R(ctx, ox + tx, oy + 6, 8, 19, s0);
+    R(ctx, ox + tx, oy + 6, 8, 2, s1);
+    for (let mx = 0; mx < 8; mx += 3) R(ctx, ox + tx + mx, oy + 6, 2, 2, s1);
+    R(ctx, ox + tx + 6, oy + 8, 2, 15, s2);
+  }
+  // gateway arch between them
+  R(ctx, ox + 10, oy + 12, 12, 13, s2);
+  R(ctx, ox + 12, oy + 14, 8, 11, '#1a140c'); // dark opening
+  R(ctx, ox + 10, oy + 11, 12, 2, s1);
+  // pennants
+  R(ctx, ox + 5, oy + 3, 3, 3, sand ? '#c58a1e' : '#b0452f'); R(ctx, ox + 24, oy + 3, 3, 3, sand ? '#c58a1e' : '#b0452f');
+}
+export function drawAerialSandgate(ctx: Ctx, ox: number, oy: number): void { drawAerialGate(ctx, ox, oy, true); }
+
+/** A flat-roofed adobe house from above: ochre deck within a low parapet. */
+function aerialFlatRoof(ctx: Ctx, ox: number, oy: number, dome: boolean): void {
+  const s0 = '#c9a86a', s1 = '#ddc084', s2 = '#a8814c', s3 = '#8a6638';
+  R(ctx, ox + 6, oy + 24, 22, 3, 'rgba(0,0,0,0.28)');
+  R(ctx, ox + 5, oy + 7, 23, 18, s2); // side wall in shadow
+  R(ctx, ox + 5, oy + 7, 23, 13, s0); // flat roof deck
+  R(ctx, ox + 5, oy + 7, 23, 2, s1); // sunlit parapet
+  R(ctx, ox + 5, oy + 7, 2, 13, s1);
+  R(ctx, ox + 26, oy + 7, 2, 13, s3);
+  for (let x = 8; x < 26; x += 4) PX(ctx, ox + x, oy + 12, s2); // roof cracks
+  R(ctx, ox + 20, oy + 9, 4, 4, s3); // roof hatch / stair box
+  if (dome) {
+    R(ctx, ox + 10, oy + 4, 9, 7, s0); // small dome
+    R(ctx, ox + 11, oy + 3, 7, 3, s1);
+    R(ctx, ox + 13, oy + 1, 2, 3, '#b6791e'); // gilt finial
+  }
+}
+export function drawAerialAdobeA(ctx: Ctx, ox: number, oy: number): void { aerialFlatRoof(ctx, ox, oy, false); }
+export function drawAerialAdobeB(ctx: Ctx, ox: number, oy: number): void { aerialFlatRoof(ctx, ox, oy, true); }
+
+/** The Sun Temple from above: a stepped ziggurat crowned by the gilded disc —
+ *  Sunspire's landmark, visible across the dunes. */
+export function drawAerialTemple(ctx: Ctx, ox: number, oy: number): void {
+  const s0 = '#c9a86a', s1 = '#ddc084', s2 = '#a8814c', s3 = '#8a6638';
+  R(ctx, ox + 3, oy + 26, 26, 3, 'rgba(0,0,0,0.32)');
+  // three receding tiers
+  R(ctx, ox + 3, oy + 18, 26, 8, s2); R(ctx, ox + 3, oy + 18, 26, 2, s0);
+  R(ctx, ox + 7, oy + 12, 18, 7, s2); R(ctx, ox + 7, oy + 12, 18, 2, s0);
+  R(ctx, ox + 11, oy + 7, 10, 6, s2); R(ctx, ox + 11, oy + 7, 10, 2, s1);
+  for (let x = 5; x < 27; x += 4) PX(ctx, ox + x, oy + 22, s3);
+  R(ctx, ox + 3, oy + 18, 1, 8, s1); R(ctx, ox + 28, oy + 18, 1, 8, s3);
+  // gilded sun-disc at the apex
+  const g0 = '#e8a92a', g1 = '#ffd964', g2 = '#b6791e';
+  R(ctx, ox + 12, oy + 1, 8, 7, g0);
+  R(ctx, ox + 13, oy, 6, 8, g1);
+  R(ctx, ox + 12, oy + 6, 8, 1, g2);
+  PX(ctx, ox + 15, oy + 3, '#fff0b0');
+  for (const [rx, ry] of [[10, 3], [21, 3], [11, 0], [20, 0]] as [number, number][]) PX(ctx, ox + rx, oy + ry, g1);
+}

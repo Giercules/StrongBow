@@ -66,7 +66,7 @@ import { ShopUI } from '../ui/ShopUI';
 import { GuildHireUI } from '../ui/GuildHireUI';
 import { ENEMIES, ENEMY_IDS, BOSS_PHASE2 } from '../data/enemies';
 import { rollUniqueDrop, uniqueDropChance, UNIQUE_COLOR } from '../data/uniqueItems';
-import { questLog } from '../systems/QuestSystem';
+import { questLog, SUNSPIRE_ERRAND } from '../systems/QuestSystem';
 import { QuestBoardUI } from '../ui/QuestBoardUI';
 import { DialogueUI } from '../ui/DialogueUI';
 import { StashUI } from '../ui/StashUI';
@@ -184,6 +184,21 @@ function townsfolkVariant(role: string): number {
   if (r.includes('merchant')) return 6;
   let h = 0;
   for (let i = 0; i < r.length; i++) h = (h + r.charCodeAt(i)) % 7;
+  return h;
+}
+
+/** Robed-folk variant for Sunspire: keffiyeh / turban / fez-veil / sun-hat /
+ *  hooded burnous / veiled — chosen from the npcRole, hashed otherwise. */
+function desertfolkVariant(role: string): number {
+  const r = role.toLowerCase();
+  if (r.includes('water') || r.includes('carrier')) return 0;
+  if (r.includes('caravan') || r.includes('mistress') || r.includes('guard') || r.includes('warden')) return 1;
+  if (r.includes('priest') || r.includes('sun') || r.includes('hierophant')) return 2;
+  if (r.includes('boy') || r.includes('date') || r.includes('storyteller')) return 3;
+  if (r.includes('spice') || r.includes('apothecar') || r.includes('smith')) return 4;
+  if (r.includes('fortune') || r.includes('rug') || r.includes('veil')) return 5;
+  let h = 0;
+  for (let i = 0; i < r.length; i++) h = (h + r.charCodeAt(i)) % 6;
   return h;
 }
 
@@ -393,6 +408,7 @@ export class DungeonScene extends Phaser.Scene {
     nextTurn: number;
     label: string;
     role: string;
+    npcId?: string;
     pickpocketed?: boolean;
   }[] = [];
   private portals: { sprite: Phaser.GameObjects.Sprite; realmId: string; label: string; x: number; y: number }[] = [];
@@ -775,7 +791,11 @@ export class DungeonScene extends Phaser.Scene {
     // Hearthwatch (town square + shop interiors) uses faint candlelight, not
     // crypt torches. Combat realms keep their full torch wash.
     const townSquare = this.level.id === 'town';
-    const cozyLighting = townSquare || !!this.level.interior;
+    // Hearthwatch square, the desert field-towns (e.g. Sunspire) and building
+    // interiors all use warm, cozy lighting — no crypt torches or arcane murals
+    // grow on their walls, and glow props are dimmed for a lived-in daylight feel.
+    const fieldTown = !!this.level.town && !this.level.overworld && this.level.id !== 'town';
+    const cozyLighting = townSquare || fieldTown || !!this.level.interior;
     const scatterKeys = (getTheme(this.level.theme).decorKeys.length ? getTheme(this.level.theme).decorKeys : ['bones', 'rubble']).filter(
       (k) => !['pillar', 'idol', 'altar', 'weapon-rack', 'banner', 'frost-banner'].includes(k)
     );
@@ -1020,8 +1040,8 @@ export class DungeonScene extends Phaser.Scene {
     // Floor-level decor renders UNDER characters (DEPTH.FLOOR+1). Interior floor
     // coverings (wood-floor, rug) must be here or they clip anyone standing on
     // them — the "npcs/character vanish on the shop floor" bug.
-    const flatDecor = new Set(['blood-stain', 'lilypad', 'sanctum-glyph', 'void-rift', 'lava-crack', 'rune-circle', 'road', 'grass-tuft', 'bridge-plank', 'chain', 'wood-floor', 'rug', 'flower-bed', 'wildflowers', 'crop-row']);
-    const swayDecor = new Set(['banner', 'vines', 'frost-banner', 'cloth', 'cattail', 'toxic-mushroom', 'town-tree', 'town-bush']);
+    const flatDecor = new Set(['blood-stain', 'lilypad', 'sanctum-glyph', 'void-rift', 'lava-crack', 'rune-circle', 'road', 'grass-tuft', 'bridge-plank', 'chain', 'wood-floor', 'rug', 'flower-bed', 'wildflowers', 'crop-row', 'desert-road', 'market-mat', 'sand-dune']);
+    const swayDecor = new Set(['banner', 'vines', 'frost-banner', 'cloth', 'cattail', 'toxic-mushroom', 'town-tree', 'town-bush', 'palm', 'palm-small', 'papyrus', 'sun-banner']);
     const glowDecor: Record<string, string> = {
       crystal: 'fx-glow-magic',
       cog: 'fx-glow-warm',
@@ -1032,9 +1052,14 @@ export class DungeonScene extends Phaser.Scene {
       'storm-orb': 'fx-glow-magic',
       'gauge': 'fx-glow-warm',
       'lamp-post': 'fx-glow-warm',
+      'sun-idol': 'fx-glow-warm',
+      'sun-spire': 'fx-glow-warm',
+      'hanging-lantern': 'fx-glow-warm',
+      'fire-bowl': 'fx-glow-warm',
+      'clay-oven': 'fx-glow-warm',
     };
     // Glowing props that are heavy and planted on the ground — they must not bob.
-    const GROUNDED_GLOW = new Set(['brazier', 'idol', 'lamp-post', 'gauge']);
+    const GROUNDED_GLOW = new Set(['brazier', 'idol', 'lamp-post', 'gauge', 'sun-idol', 'sun-spire', 'fire-bowl', 'clay-oven', 'hanging-lantern']);
     const US = 0.75; // upright decor scale (HD decor is 2x res; halved to keep size)
     const FS = 0.65; // flat (floor) decor scale (HD decor is 2x res)
     // Building facade tiles are authored at the native 32px tile size, so they
@@ -1044,6 +1069,8 @@ export class DungeonScene extends Phaser.Scene {
       'house-wall', 'house-post', 'house-beam', 'house-base', 'house-window', 'house-door',
       'house-gable', 'house-timber', 'chimney',
       'shop-sign-anvil', 'shop-sign-vial', 'shop-sign-sword', 'shop-sign-tankard', 'shop-sign-coin', 'shop-sign-loaf',
+      // Sunspire sandstone facades (native 32px — draw 1:1 so they tile seamlessly)
+      'adobe-wall', 'adobe-roof', 'adobe-eave', 'adobe-base', 'adobe-window', 'adobe-door', 'adobe-post', 'rampart',
     ]);
     for (const col of ['red', 'blue', 'green', 'teak', 'slate', 'thatch'])
       for (const part of ['roof', 'mid', 'eave']) buildingTiles.add(`house-${part}-${col}`);
@@ -1129,12 +1156,15 @@ export class DungeonScene extends Phaser.Scene {
           break;
         case 'npc': {
           if (this.level.town) {
+            const sheet = this.level.id === 'desert_town'
+              ? `desertfolk-${desertfolkVariant(sp.npcRole ?? '')}`
+              : `townsfolk-${townsfolkVariant(sp.npcRole ?? '')}`;
             const spr = this.add
-              .sprite(c.x, c.y, `townsfolk-${townsfolkVariant(sp.npcRole ?? '')}`)
+              .sprite(c.x, c.y, sheet)
               .setScale(0.62 * settings.spriteScale())
               .setDepth(c.y);
             this.shadows.add(spr);
-            this.townNpcs.push({ sprite: spr, homeX: c.x, homeY: c.y, vx: 0, vy: 0, nextTurn: 0, label: sp.label ?? 'Townsfolk', role: sp.npcRole ?? 'a townsperson' });
+            this.townNpcs.push({ sprite: spr, homeX: c.x, homeY: c.y, vx: 0, vy: 0, nextTurn: 0, label: sp.label ?? 'Townsfolk', role: sp.npcRole ?? 'a townsperson', npcId: sp.npcId });
           } else {
             const npc = this.add.sprite(c.x, c.y, 'npc-elder').setDepth(c.y);
             this.shadows.add(npc);
@@ -5298,28 +5328,41 @@ export class DungeonScene extends Phaser.Scene {
     if (this.won) return;
     this.won = true;
     audio.sfx('portal');
+    const target = Content.getLevel(door.interiorId);
     const leaving = door.interiorId === 'town';
     const toOverworld = door.interiorId === 'overworld';
     const enteringCave = door.interiorId.startsWith('cave_');
     const leavingCave = toOverworld && !!this.level.cave;
-    if (enteringCave) {
-      // remember this overworld mouth so the cave's exit returns us right here
+    // A "field town" (e.g. Sunspire) is a peaceful hub reached straight off the
+    // overworld that is NOT Hearthwatch. Hearthwatch sits at the central keep and
+    // maps its four gates to fixed OVERWORLD_ENTRIES; a field town instead
+    // remembers the exact overworld tile it was entered from (like a cave mouth),
+    // so leaving it drops the party right back where they went in.
+    const enteringFieldTown = !!target.town && !target.overworld && !target.interior && door.interiorId !== 'town';
+    const leavingFieldTown = toOverworld && !!this.level.town && !this.level.overworld && !this.level.interior && this.level.id !== 'town';
+    if (enteringCave || enteringFieldTown) {
+      // remember this overworld mouth/gate so the sublocation's exit returns here
       this.registry.set('overworldReturn', { x: door.x, y: door.y });
     }
+    // NB: entering a field town never sets townReturn (it spawns at its own
+    // playerStart and never consumes townReturn), so Hearthwatch's remembered
+    // gate-return is left intact for when the party heads back there.
     if (toOverworld) {
       // remember which town edge so we emerge there in the overworld and return
       // to this same gate when we come back inside.
       this.registry.set('overworldEntry', door.dir ?? 'south');
-      const W = this.level.width, H = this.level.height;
-      const back =
-        door.dir === 'north' ? { x: door.x, y: 3 } :
-        door.dir === 'south' ? { x: door.x, y: H - 4 } :
-        door.dir === 'west' ? { x: 3, y: door.y } :
-        { x: W - 4, y: door.y };
-      this.registry.set('townReturn', back);
-      // a fresh trip out through a town gate clears any stale cave-mouth return
-      if (!leavingCave) this.registry.remove('overworldReturn');
-    } else if (!leaving && !enteringCave) {
+      if (this.level.id === 'town') {
+        const W = this.level.width, H = this.level.height;
+        const back =
+          door.dir === 'north' ? { x: door.x, y: 3 } :
+          door.dir === 'south' ? { x: door.x, y: H - 4 } :
+          door.dir === 'west' ? { x: 3, y: door.y } :
+          { x: W - 4, y: door.y };
+        this.registry.set('townReturn', back);
+      }
+      // a fresh trip out to the overworld clears any stale cave/field-town return
+      if (!(leavingCave || leavingFieldTown)) this.registry.remove('overworldReturn');
+    } else if (!leaving && !enteringCave && !enteringFieldTown) {
       // remember the street tile in front of the door so we step back out there
       this.registry.set('townReturn', { x: door.x, y: door.y + 1 });
     }
@@ -5491,6 +5534,87 @@ export class DungeonScene extends Phaser.Scene {
     return true;
   }
 
+  /** Interact with a town NPC: resolve any cross-town errand they give or
+   *  receive, otherwise open the standard rep-tiered hail. */
+  private talkToNpc(player: Hero, who: (typeof this.townNpcs)[number]): void {
+    const errand = SUNSPIRE_ERRAND;
+    // The target: reaching Amira in Sunspire while the errand is out delivers it.
+    if (who.npcId === errand.targetId && this.level.id === errand.targetLevelId) {
+      const paid = questLog.deliverErrand(errand.targetId, this.level.id);
+      if (paid) {
+        player.inventory.gold += paid.gold;
+        player.gainXP(paid.xp);
+        audio.sfx('coin');
+        this.floatPickup(player.x, player.y - 18, `+${paid.gold}g`, '#ffe08a');
+        this.showBark(`Errand complete — ${paid.title}: +${paid.gold}g, +${paid.xp} XP, +${paid.rep} reputation.`, 5200, 'loot', '#8affa0');
+        this.syncHudData();
+        this.hailNpc(player, who, { line: errand.deliverLine });
+        return;
+      }
+    }
+    // The giver: Tomas offers the errand, then thanks you on your return.
+    if (who.npcId === errand.giverId) {
+      const st = questLog.errandStatus(errand.id);
+      if (st === 'none') {
+        this.hailNpc(player, who, {
+          line: errand.offerLine,
+          action: {
+            label: 'ACCEPT',
+            fn: () => {
+              questLog.acceptErrand(errand);
+              audio.sfx('ui_select');
+              this.showBark(`Errand accepted — ${errand.title}. ${errand.acceptLine}`, 5600, 'event', '#8ad0ff');
+              this.syncHudData();
+            },
+          },
+        });
+        return;
+      }
+      if (st === 'active') {
+        this.hailNpc(player, who, { line: errand.waitingLine });
+        return;
+      }
+      if (st === 'done') {
+        if (questLog.closeErrand(errand.id)) {
+          player.inventory.gold += errand.giverBonus;
+          audio.sfx('coin');
+          this.floatPickup(player.x, player.y - 18, `+${errand.giverBonus}g`, '#ffe08a');
+          this.showBark(`${errand.giverName} presses coin into your hands with his thanks. +${errand.giverBonus}g.`, 4200, 'loot', '#8affa0');
+          this.syncHudData();
+        }
+        this.hailNpc(player, who, { line: errand.doneLine });
+        return;
+      }
+      // 'closed' → falls through to a normal chat
+    }
+    this.hailNpc(player, who);
+  }
+
+  /** The standard town hail: rep-tiered greeting, live AI chat, rumours — plus an
+   *  optional scripted line / action button for quest givers and targets. */
+  private hailNpc(
+    player: Hero,
+    who: (typeof this.townNpcs)[number],
+    quest?: { line: string; action?: { label: string; fn: () => void } },
+  ): void {
+    audio.sfx('ui_move');
+    this.closeAllOverlays();
+    this.dialogueUI.open(player, who.label, who.role, {
+      quest,
+      onChat: () => {
+        this.setGrokStatus('thinking');
+        this.dialogueUI.say(this.townLine(who.role));
+        void aiService
+          .generateBark(`${who.role} named ${who.label} chatting with a ${questLog.repTitle()} adventurer in the town of ${this.level.name}`)
+          .then(({ text }) => {
+            this.setGrokStatus('connected');
+            if (text) this.dialogueUI.say(text);
+          })
+          .catch(() => this.setGrokStatus('connected'));
+      },
+    });
+  }
+
   /** Look at the nearest feature/NPC/tile and report DnD-flavored lore (AI-augmented). */
   private examine(player: Hero): void {
     if (this.level.town) {
@@ -5504,23 +5628,7 @@ export class DungeonScene extends Phaser.Scene {
         }
       }
       if (nearN) {
-        const who = nearN;
-        audio.sfx('ui_move');
-        this.closeAllOverlays();
-        // a proper hail: rep-tiered greeting + chat + rumors for silver tongues
-        this.dialogueUI.open(player, who.label, who.role, {
-          onChat: () => {
-            this.setGrokStatus('thinking');
-            this.dialogueUI.say(this.townLine(who.role));
-            void aiService
-              .generateBark(`${who.role} named ${who.label} chatting with a ${questLog.repTitle()} adventurer in the town of Hearthwatch above the Undermaw`)
-              .then(({ text }) => {
-                this.setGrokStatus('connected');
-                if (text) this.dialogueUI.say(text);
-              })
-              .catch(() => this.setGrokStatus('connected'));
-          },
-        });
+        this.talkToNpc(player, nearN);
         return;
       }
     }

@@ -206,6 +206,8 @@ export interface SpawnDef {
   label?: string;
   /** npc: role word used for examine flavour + AI barks. */
   npcRole?: string;
+  /** npc: stable id used to wire hand-authored quests (giver / target). */
+  npcId?: string;
   /** door: level id this entrance leads to ('town' to step back outside). */
   interiorId?: string;
   /** door to the overworld: which edge of town this gate is, used to pick the

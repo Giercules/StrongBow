@@ -13,7 +13,7 @@ import { ENEMIES } from '../data/enemies';
 // The log is a session singleton (like settings/audio) persisted via SaveData.
 // ----------------------------------------------------------------------------
 
-export type QuestKind = 'bounty' | 'gather' | 'rescue';
+export type QuestKind = 'bounty' | 'gather' | 'rescue' | 'errand';
 
 export interface Quest {
   id: string;
@@ -30,13 +30,77 @@ export interface Quest {
   rep: number;
   done: boolean;
   turnedIn: boolean;
+  /** errand: the npcId + level of the person to seek out, and who sent you. */
+  targetNpc?: string;
+  targetNpcName?: string;
+  targetLevelId?: string;
+  targetTownName?: string;
+  giverName?: string;
 }
+
+/** Lifecycle of a hand-authored story errand:
+ *   active — accepted, seek the target;  done — delivered, reward paid;
+ *   closed — the giver has been thanked (their one-time bonus given). */
+export type ErrandState = 'active' | 'done' | 'closed';
 
 export interface QuestLogState {
   reputation: number;
   offers: Quest[];
   active: Quest[];
+  errands?: Record<string, ErrandState>;
 }
+
+/** A hand-authored "carry word between towns" errand. Unlike board contracts,
+ *  these are given by a specific NPC and completed by talking to another. */
+export interface ErrandSpec {
+  id: string;
+  giverId: string;
+  giverName: string;
+  targetId: string;
+  targetName: string;
+  targetLevelId: string;
+  targetTownName: string;
+  title: string;
+  desc: string;
+  offerLine: string;   // the giver's pitch when offering
+  acceptLine: string;  // the giver, on accepting
+  waitingLine: string; // the giver, while the errand is out
+  doneLine: string;    // the giver, on your return (with a one-time bonus)
+  deliverLine: string; // the target, when you find them
+  giverBonus: number;  // gold the giver presses on you when you report back
+  gold: number;
+  xp: number;
+  rep: number;
+}
+
+/** "Word to Sunspire" — Tomas of Hearthwatch fears for his sister Amira, the
+ *  Caravan-Mistress of the desert town, whose wagons have gone quiet. Carry word
+ *  to her; her thanks (and her brother's) draw new adventurers south to Sunspire. */
+export const SUNSPIRE_ERRAND: ErrandSpec = {
+  id: 'errand_sunspire_amira',
+  giverId: 'tomas',
+  giverName: 'Tomas',
+  targetId: 'amira',
+  targetName: 'Amira',
+  targetLevelId: 'desert_town',
+  targetTownName: 'Sunspire',
+  title: 'Word to Sunspire',
+  desc: 'Tomas fears for his sister Amira, whose caravans out of the desert town of Sunspire have gone silent. Cross the Wilds to the south-west desert, find her at the caravanserai, and tell her that her brother still waits.',
+  offerLine:
+    "You have the road-look about you. Then — a favour, if your heart's soft? My sister Amira runs the caravans out of Sunspire, the oasis-town away south-west across the dunes. Not one wagon's come north in a season, and I fear the worst. Find her. Tell her Tomas still waits. Please — I've no coin for a courier, but I'll not forget it.",
+  acceptLine:
+    "Bless you, stranger. South-west, past the deep desert's edge — you'll see the gilded spire long before the walls. Tell Amira her brother hasn't forgotten her.",
+  waitingLine:
+    "Still bound for Sunspire? Look for Amira at the caravanserai, among the tents. Tell her Tomas waits by the market, same as ever.",
+  doneLine:
+    "You found her? She's — she's well? ...Gods be thanked, and you with them. Here — it's little enough beside what you've given me. You're a friend of my whole house now, wherever the road takes you.",
+  deliverLine:
+    "Tomas sent you? All the way across the dunes for a worrier like him? ...The roads south are cut — bandits hold the Ochre Pass, and no wagon's braved it in weeks. But tell my brother Amira Sunspire does not scare so easily. Here, for your trouble — and my thanks. Now I know someone still watches the northern road.",
+  giverBonus: 60,
+  gold: 150,
+  xp: 170,
+  rep: 8,
+};
 
 /** Foes worth a bounty in each realm (non-boss regulars of its theme). */
 const REALM_ENEMIES: Record<string, EnemyId[]> = {
@@ -81,6 +145,8 @@ export class QuestLog {
   reputation = 0;
   offers: Quest[] = [];
   active: Quest[] = [];
+  /** Lifecycle state of each hand-authored story errand, keyed by errand id. */
+  errands: Record<string, ErrandState> = {};
 
   repTitle(): string {
     let title = REP_TIERS[0].title;
@@ -154,9 +220,15 @@ export class QuestLog {
     };
   }
 
+  /** Board contracts held (excludes hand-authored story errands, which do not
+   *  count against — or block — the 3-contract notice-board cap). */
+  boardContracts(): Quest[] {
+    return this.active.filter((q) => q.kind !== 'errand');
+  }
+
   accept(id: string): Quest | null {
     const idx = this.offers.findIndex((q) => q.id === id);
-    if (idx < 0 || this.active.length >= 3) return null;
+    if (idx < 0 || this.boardContracts().length >= 3) return null;
     const q = this.offers.splice(idx, 1)[0];
     this.active.push(q);
     return q;
@@ -210,8 +282,71 @@ export class QuestLog {
     return q;
   }
 
+  // ---- hand-authored cross-town errands ----------------------------------
+
+  /** Current lifecycle of a story errand ('none' if never taken). */
+  errandStatus(id: string): 'none' | ErrandState {
+    return this.errands[id] ?? 'none';
+  }
+
+  /** Accept an errand from its giver. Pushes a tracked entry into the active log
+   *  (bypassing the 3-contract board cap — story errands are never blocked). */
+  acceptErrand(spec: ErrandSpec): Quest | null {
+    if (this.errands[spec.id]) return null; // already active/done/closed
+    this.errands[spec.id] = 'active';
+    const q: Quest = {
+      id: spec.id,
+      kind: 'errand',
+      title: spec.title,
+      desc: spec.desc,
+      realmId: spec.targetLevelId,
+      realmName: spec.targetTownName,
+      need: 1,
+      progress: 0,
+      gold: spec.gold,
+      xp: spec.xp,
+      rep: spec.rep,
+      done: false,
+      turnedIn: false,
+      targetNpc: spec.targetId,
+      targetNpcName: spec.targetName,
+      targetLevelId: spec.targetLevelId,
+      targetTownName: spec.targetTownName,
+      giverName: spec.giverName,
+    };
+    this.active.push(q);
+    return q;
+  }
+
+  /** Complete an errand by reaching its target NPC in the target town. Marks it
+   *  delivered, awards reputation, and returns the quest so the scene can pay
+   *  gold/XP. The giver still owes a one-time thank-you (see closeErrand). */
+  deliverErrand(npcId: string, levelId: string): Quest | null {
+    const q = this.active.find(
+      (qq) => qq.kind === 'errand' && !qq.done && qq.targetNpc === npcId && qq.targetLevelId === levelId,
+    );
+    if (!q) return null;
+    q.progress = q.need;
+    q.done = true;
+    q.turnedIn = true;
+    this.errands[q.id] = 'done';
+    this.active = this.active.filter((qq) => qq !== q);
+    this.reputation += q.rep;
+    return q;
+  }
+
+  /** The giver's one-time thank-you after a delivered errand. Returns true the
+   *  first time (bonus due), then leaves the errand 'closed'. */
+  closeErrand(id: string): boolean {
+    if (this.errands[id] === 'done') {
+      this.errands[id] = 'closed';
+      return true;
+    }
+    return false;
+  }
+
   serialize(): QuestLogState {
-    return { reputation: this.reputation, offers: this.offers, active: this.active };
+    return { reputation: this.reputation, offers: this.offers, active: this.active, errands: this.errands };
   }
 
   restore(state?: QuestLogState): void {
@@ -219,6 +354,7 @@ export class QuestLog {
     this.reputation = state.reputation ?? 0;
     this.offers = state.offers ?? [];
     this.active = state.active ?? [];
+    this.errands = state.errands ?? {};
   }
 }
 
