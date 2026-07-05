@@ -153,10 +153,23 @@ export class TextureFactory {
     img('house-roof-blue', 32, 32, (c) => townArt.drawHouseRoofBlue(c, 0, 0), true);
     img('house-roof-green', 32, 32, (c) => townArt.drawHouseRoofGreen(c, 0, 0), true);
     img('house-roof-teak', 32, 32, (c) => townArt.drawHouseRoofTeak(c, 0, 0), true);
+    img('house-roof-slate', 32, 32, (c) => townArt.drawHouseRoofSlate(c, 0, 0), true);
+    img('house-roof-thatch', 32, 32, (c) => townArt.drawHouseRoofThatch(c, 0, 0), true);
+    img('house-mid-red', 32, 32, (c) => townArt.drawHouseMidRed(c, 0, 0), true);
+    img('house-mid-blue', 32, 32, (c) => townArt.drawHouseMidBlue(c, 0, 0), true);
+    img('house-mid-green', 32, 32, (c) => townArt.drawHouseMidGreen(c, 0, 0), true);
+    img('house-mid-teak', 32, 32, (c) => townArt.drawHouseMidTeak(c, 0, 0), true);
+    img('house-mid-slate', 32, 32, (c) => townArt.drawHouseMidSlate(c, 0, 0), true);
+    img('house-mid-thatch', 32, 32, (c) => townArt.drawHouseMidThatch(c, 0, 0), true);
     img('house-eave-red', 32, 32, (c) => townArt.drawHouseEaveRed(c, 0, 0), true);
     img('house-eave-blue', 32, 32, (c) => townArt.drawHouseEaveBlue(c, 0, 0), true);
     img('house-eave-green', 32, 32, (c) => townArt.drawHouseEaveGreen(c, 0, 0), true);
     img('house-eave-teak', 32, 32, (c) => townArt.drawHouseEaveTeak(c, 0, 0), true);
+    img('house-eave-slate', 32, 32, (c) => townArt.drawHouseEaveSlate(c, 0, 0), true);
+    img('house-eave-thatch', 32, 32, (c) => townArt.drawHouseEaveThatch(c, 0, 0), true);
+    img('chimney', 32, 32, (c) => townArt.drawChimney(c, 0, 0), true);
+    for (const gl of ['anvil', 'vial', 'sword', 'tankard', 'coin', 'loaf'])
+      img(`shop-sign-${gl}`, 32, 32, (c) => townArt.drawShopSign(c, 0, 0, gl), true);
     img('house-door', 32, 32, (c) => townArt.drawHouseDoor(c, 0, 0), true);
     img('house-wall', 32, 32, (c) => townArt.drawHouseWall(c, 0, 0));
     img('house-post', 32, 32, (c) => townArt.drawHousePost(c, 0, 0));
@@ -187,6 +200,11 @@ export class TextureFactory {
     img('cart', 32, 32, (c) => townArt.drawCart(c, 0, 0), true);
     img('hay-bale', 32, 32, (c) => townArt.drawHayBale(c, 0, 0), true);
     img('flower-bed', 32, 32, (c) => townArt.drawFlowerBed(c, 0, 0));
+    img('wood-pile', 32, 32, (c) => townArt.drawWoodPile(c, 0, 0), true);
+    img('crop-row', 32, 32, (c) => townArt.drawCropRow(c, 0, 0));
+    img('shore-rock', 32, 32, (c) => townArt.drawShoreRock(c, 0, 0), true);
+    img('duck', 32, 32, (c) => townArt.drawDuck(c, 0, 0), true);
+    img('mooring-post', 32, 32, (c) => townArt.drawMooringPost(c, 0, 0), true);
     img('statue', 32, 32, (c) => townArt.drawStatue(c, 0, 0), true);
     img('quest-board', 32, 32, (c) => townArt.drawQuestBoard(c, 0, 0), true);
     img('fountain', 64, 80, (c) => townArt.drawFountain(c, 0, 0), true);
@@ -262,6 +280,8 @@ export class TextureFactory {
 
     // the Druid's bear form: a monster-style 4-frame sheet (walk 0-2, attack 3)
     sheet('druid-bear-sheet', MON_FW, MON_FH, 4, (c, ox, f) => art.drawDruidBear(c, ox, f), true);
+    // Necromancer Deathlord form (full 5-piece set): compact Grave Warden silhouette
+    sheet('necro-warden-sheet', MON_FW, MON_FH, 4, (c, ox, f) => art.drawNecroWardenForm(c, ox, f, MONSTER_RAMPS.grave_warden), true);
 
     // ---- heroes (outlined) ----
     for (const cls of ['vanguard', 'thief', 'arcanist', 'warden', 'necromancer', 'bard', 'druid']) {

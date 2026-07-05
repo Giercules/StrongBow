@@ -297,16 +297,16 @@ export const HERO_RAMPS: Record<string, HeroRamp> = {
     trimHi: '#fff4c0',
     hair: '#7a6a4a',
   },
-  // Necromancer — shrouded grave-binder: ashen skin, black-violet robes.
+  // Necromancer — arcade lich: bone-white skull, electric violet robes, cyan soul-fire.
   necromancer: {
-    skin: '#b9c0c8',
-    skinHi: '#dde3e8',
-    cloth0: '#181226',
-    cloth1: '#332750',
-    cloth2: '#594380',
-    trim: '#9a86c4',
-    trimHi: '#d8cdf0',
-    hair: '#0e0a16',
+    skin: '#d8e0ea',
+    skinHi: '#f4f8ff',
+    cloth0: '#120818',
+    cloth1: '#5a28a0',
+    cloth2: '#8a48e8',
+    trim: '#40e8ff',
+    trimHi: '#b0ffff',
+    hair: '#080410',
   },
   // Bard — swashbuckling skald: wine-red doublet, gold trim, chestnut hair.
   bard: {
@@ -383,10 +383,10 @@ export const MONSTER_RAMPS: Record<string, MonsterRamp> = {
     eye: '#ff5a3a',
     detail: '#4a4636',
   },
-  skel_tank: { body0: '#8a8470', body1: '#d2ccb2', body2: '#efe9cf', accent: '#8fb4d8', eye: '#bfe0ff', detail: '#5a5648' },
-  skel_archer: { body0: '#8a8470', body1: '#d2ccb2', body2: '#efe9cf', accent: '#86f0d0', eye: '#bafff0', detail: '#5a5648' },
-  skel_mage: { body0: '#8a8470', body1: '#d2ccb2', body2: '#efe9cf', accent: '#c89bff', eye: '#e6ccff', detail: '#5a5648' },
-  skel_thief: { body0: '#8a8470', body1: '#d2ccb2', body2: '#efe9cf', accent: '#8affa0', eye: '#d6ffdc', detail: '#5a5648' },
+  skel_tank: { body0: '#4a4658', body1: '#c8c0d8', body2: '#f0ecff', accent: '#5ab0ff', eye: '#80e8ff', detail: '#2a2438' },
+  skel_archer: { body0: '#4a4658', body1: '#c8c0d8', body2: '#f0ecff', accent: '#48ffb8', eye: '#a0ffe0', detail: '#2a2438' },
+  skel_mage: { body0: '#4a4658', body1: '#c8c0d8', body2: '#f0ecff', accent: '#c060ff', eye: '#e8b0ff', detail: '#2a2438' },
+  skel_thief: { body0: '#4a4658', body1: '#c8c0d8', body2: '#f0ecff', accent: '#70ff70', eye: '#c0ffc0', detail: '#2a2438' },
   brute: {
     body0: '#3a2418',
     body1: '#6e4326',

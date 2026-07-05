@@ -713,10 +713,20 @@ export class DungeonScene extends Phaser.Scene {
   }
 
   /** Tile is steppable for pathfinding (open doors count, walls/closed doors don't). */
+  /** In Hearthwatch town, open water (moat, river, fountain pool) is deep — a
+   *  solid you skirt around and cross only by bridge, never wade through. The
+   *  open Wilds (overworld) and combat realms keep water wade-able, so this is
+   *  the walled town square only. */
+  private waterSolid(): boolean {
+    return !!this.level.town && !this.level.overworld;
+  }
+
   private isWalkable(tx: number, ty: number): boolean {
     if (ty < 0 || ty >= this.level.height || tx < 0 || tx >= this.level.width) return false;
     const t = this.level.tiles[ty][tx];
-    return t !== Tile.WALL && t !== Tile.LOCKED_DOOR && t !== Tile.VOID;
+    if (t === Tile.WALL || t === Tile.LOCKED_DOOR || t === Tile.VOID) return false;
+    if (t === Tile.WATER && this.waterSolid()) return false; // deep water blocks pathing off the bridges
+    return true;
   }
 
   private renderLevel(): void {
@@ -725,6 +735,10 @@ export class DungeonScene extends Phaser.Scene {
     const H = this.level.height;
     const ta = getThemeArt(this.level.theme);
     const atmo = ATMOSPHERE[this.level.theme ?? 'crypt'] ?? ATMOSPHERE.crypt;
+    // The open-air Hearthwatch town square gets gentle dusk lighting (candle
+    // glow cut ~75%); cosy interiors, the wilds, and combat realms keep their
+    // original warm fixtures.
+    const townSquare = this.level.id === 'town';
     const scatterKeys = (getTheme(this.level.theme).decorKeys.length ? getTheme(this.level.theme).decorKeys : ['bones', 'rubble']).filter(
       (k) => !['pillar', 'idol', 'altar', 'weapon-rack', 'banner', 'frost-banner'].includes(k)
     );
@@ -879,12 +893,15 @@ export class DungeonScene extends Phaser.Scene {
     // Walls/floors are now fully themed via per-theme palettes (THEME_ART), so the
     // old flat multiply-tint is no longer applied — colours come from the bake.
 
+    const solidWater = this.waterSolid();
     for (let y = 0; y < H; y++) {
       let runStart = -1;
       for (let x = 0; x <= W; x++) {
-        const wall = x < W && t[y][x] === Tile.WALL;
-        if (wall && runStart < 0) runStart = x;
-        if (!wall && runStart >= 0) {
+        // Walls always block; in the hub, deep water blocks too so you cross the
+        // moat/river/pool only by the bridges (which are FLOOR, not WATER).
+        const solid = x < W && (t[y][x] === Tile.WALL || (solidWater && t[y][x] === Tile.WATER));
+        if (solid && runStart < 0) runStart = x;
+        if (!solid && runStart >= 0) {
           const len = x - runStart;
           this.addBlocker(runStart * TILE_SIZE + (len * TILE_SIZE) / 2, y * TILE_SIZE + TILE_SIZE / 2, len * TILE_SIZE, TILE_SIZE);
           runStart = -1;
@@ -922,7 +939,17 @@ export class DungeonScene extends Phaser.Scene {
         // walls (on a short ledge they would float in the air above nothing).
         if (tile === Tile.WALL && y + 1 < H && t[y + 1][x] === Tile.FLOOR && wallHasSolidBack(x, y)) {
           const faceBase = c.y + 8; // where the wall meets the floor (south edge)
-          if ((x * 5 + y) % 5 === 0) {
+          if (townSquare) {
+            // Town-square buildings get cozy candlelight from their windows, NOT
+            // crypt torches. A faint warm bloom every few bays — ~75% softer than
+            // the old torch wash, and with no floor-flooding point lights.
+            if (x % 3 === 1) {
+              const cg = this.add.image(c.x, faceBase - 14, 'fx-glow-warm')
+                .setScale(0.85).setAlpha(0.1).setBlendMode(Phaser.BlendModes.ADD)
+                .setDepth(c.y).setTint(0xffca70);
+              this.tweens.add({ targets: cg, alpha: { from: 0.055, to: 0.13 }, duration: 1300 + Math.random() * 800, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+            }
+          } else if ((x * 5 + y) % 5 === 0) {
             this.add.sprite(c.x, faceBase - Math.round(F * 0.55), 'torch-sheet').play('torch').setDepth(c.y + 2).setTint(atmo.flameTint);
             const light = this.add
               .image(c.x, faceBase - 6, 'fx-light')
@@ -938,8 +965,8 @@ export class DungeonScene extends Phaser.Scene {
               this.torchLightSrcs.push(this.lights.addLight(c.x, faceBase - 10, 175, atmo.flameTint, 1.0));
             }
           }
-          // pulsing arcane glow centered on the mid-face mural
-          if ((x * 3 + y * 7) % 5 === 0 && y % 5 !== 0) {
+          // pulsing arcane glow centered on the mid-face mural (not the town square)
+          if (!townSquare && (x * 3 + y * 7) % 5 === 0 && y % 5 !== 0) {
             const gl = this.add.image(c.x, faceBase - Math.round(F / 2), 'fx-glow-white').setScale(1.2).setAlpha(0.3).setBlendMode(Phaser.BlendModes.ADD).setDepth(c.y).setTint(atmo.particleTint);
             this.tweens.add({ targets: gl, alpha: { from: 0.14, to: 0.4 }, duration: 1500 + Math.random() * 900, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
           }
@@ -958,7 +985,7 @@ export class DungeonScene extends Phaser.Scene {
     // Floor-level decor renders UNDER characters (DEPTH.FLOOR+1). Interior floor
     // coverings (wood-floor, rug) must be here or they clip anyone standing on
     // them — the "npcs/character vanish on the shop floor" bug.
-    const flatDecor = new Set(['blood-stain', 'lilypad', 'sanctum-glyph', 'void-rift', 'lava-crack', 'rune-circle', 'road', 'grass-tuft', 'bridge-plank', 'chain', 'wood-floor', 'rug', 'flower-bed', 'wildflowers']);
+    const flatDecor = new Set(['blood-stain', 'lilypad', 'sanctum-glyph', 'void-rift', 'lava-crack', 'rune-circle', 'road', 'grass-tuft', 'bridge-plank', 'chain', 'wood-floor', 'rug', 'flower-bed', 'wildflowers', 'crop-row']);
     const swayDecor = new Set(['banner', 'vines', 'frost-banner', 'cloth', 'cattail', 'toxic-mushroom', 'town-tree', 'town-bush']);
     const glowDecor: Record<string, string> = {
       crystal: 'fx-glow-magic',
@@ -971,6 +998,8 @@ export class DungeonScene extends Phaser.Scene {
       'gauge': 'fx-glow-warm',
       'lamp-post': 'fx-glow-warm',
     };
+    // Glowing props that are heavy and planted on the ground — they must not bob.
+    const GROUNDED_GLOW = new Set(['brazier', 'idol', 'lamp-post', 'gauge']);
     const US = 0.75; // upright decor scale (HD decor is 2x res; halved to keep size)
     const FS = 0.65; // flat (floor) decor scale (HD decor is 2x res)
     // Building facade tiles are authored at the native 32px tile size, so they
@@ -978,9 +1007,11 @@ export class DungeonScene extends Phaser.Scene {
     // made the houses look like a broken grid. These tile seamlessly into walls.
     const buildingTiles = new Set([
       'house-wall', 'house-post', 'house-beam', 'house-base', 'house-window', 'house-door',
-      'house-roof-red', 'house-roof-blue', 'house-roof-green', 'house-roof-teak',
-      'house-eave-red', 'house-eave-blue', 'house-eave-green', 'house-eave-teak',
+      'house-gable', 'house-timber', 'chimney',
+      'shop-sign-anvil', 'shop-sign-vial', 'shop-sign-sword', 'shop-sign-tankard', 'shop-sign-coin', 'shop-sign-loaf',
     ]);
+    for (const col of ['red', 'blue', 'green', 'teak', 'slate', 'thatch'])
+      for (const part of ['roof', 'mid', 'eave']) buildingTiles.add(`house-${part}-${col}`);
     for (const d of this.level.decor ?? []) {
       const dc = this.tileCenter(d.x, d.y);
       if (flatDecor.has(d.key)) {
@@ -1003,9 +1034,16 @@ export class DungeonScene extends Phaser.Scene {
         }
       } else if (glowDecor[d.key]) {
         const s = this.add.image(dc.x, dc.y, d.key).setDepth(dc.y - 2).setScale(US);
-        const glow = this.add.image(dc.x, dc.y, glowDecor[d.key]).setScale(1.7).setAlpha(0.3).setBlendMode(Phaser.BlendModes.ADD).setDepth(dc.y - 3);
-        this.tweens.add({ targets: glow, alpha: { from: 0.18, to: 0.42 }, scale: { from: 1.4, to: 2 }, duration: 1100 + Math.random() * 600, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
-        this.floatBob(s);
+        // Town-square braziers/lamp-posts/idols glow 75% softer than crypt
+        // fixtures so the open square reads as gentle dusk, not a bonfire-lit
+        // dungeon. Interiors and combat realms keep their full warmth.
+        const gw = townSquare ? 0.25 : 1;
+        const gScale = townSquare ? 1.2 : 1.7;
+        const glow = this.add.image(dc.x, dc.y, glowDecor[d.key]).setScale(gScale).setAlpha(0.3 * gw).setBlendMode(Phaser.BlendModes.ADD).setDepth(dc.y - 3);
+        this.tweens.add({ targets: glow, alpha: { from: 0.18 * gw, to: 0.42 * gw }, scale: { from: gScale * 0.82, to: gScale * 1.18 }, duration: 1100 + Math.random() * 600, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+        // Heavy ground-fixed props (braziers, lamp-posts, idols) stay planted;
+        // only genuinely floaty arcana (crystals, orbs, cogs) hover.
+        if (!GROUNDED_GLOW.has(d.key)) this.floatBob(s);
       } else if (d.key === 'fountain') {
         // cement foundation + stone pool rim, framing the animated pool water
         this.add.image(dc.x, dc.y, 'fountain-base').setDepth(DEPTH.FLOOR + 2);
@@ -1228,12 +1266,14 @@ export class DungeonScene extends Phaser.Scene {
     const c = this.tileCenter(this.startTile.x, this.startTile.y);
     const p1 = (this.registry.get('p1Class') as HeroClassId) ?? 'vanguard';
     const h1 = new Hero(this, c.x, c.y, p1, true, 1);
+    h1.onDeathlordShift = (hero, active) => this.deathlordFx(hero, active);
     this.players.push(h1);
     this.allyGroup.add(h1);
     this.shadows.add(h1, 3);
     if (this.twoPlayer) {
       const p2 = (this.registry.get('p2Class') as HeroClassId) ?? 'thief';
       const h2 = new Hero(this, c.x + 14, c.y, p2, true, 2);
+      h2.onDeathlordShift = (hero, active) => this.deathlordFx(hero, active);
       this.players.push(h2);
       this.allyGroup.add(h2);
       this.shadows.add(h2, 3);
@@ -2471,6 +2511,36 @@ export class DungeonScene extends Phaser.Scene {
     }
     audio.sfx('shrine');
     this.showBark(`${bard.def.name} strikes up ${info.name} — ${info.line}.`, 2600, 'event', '#ffe9a8');
+  }
+
+  /** Necromancer Deathlord morph when the full Pale King set is equipped/removed. */
+  private deathlordFx(d: Hero, active: boolean): void {
+    const fx = this.add.sprite(d.x, d.y, 'fx-magic').setDepth(d.y + 16).setScale(2.2).setTint(0x8a48e8);
+    fx.play('fx-magic');
+    fx.once('animationcomplete', () => fx.destroy());
+    for (let i = 0; i < 6; i++) {
+      const mote = this.add
+        .image(d.x + Phaser.Math.Between(-14, 14), d.y - 8, 'fx-glow-magic')
+        .setScale(0.55)
+        .setAlpha(0.85)
+        .setBlendMode(Phaser.BlendModes.ADD)
+        .setDepth(d.y + 18);
+      this.tweens.add({
+        targets: mote,
+        y: mote.y - 22 - i * 3,
+        x: mote.x + Phaser.Math.Between(-10, 10),
+        alpha: 0,
+        duration: 650 + i * 80,
+        onComplete: () => mote.destroy(),
+      });
+    }
+    audio.sfx('magic');
+    this.showBark(
+      active ? `${d.def.name} ascends as the Grave Warden!` : `${d.def.name} sheds the warden's shroud.`,
+      2400,
+      'event',
+      '#b58aff'
+    );
   }
 
   /** Druid shapeshift flourish (the Hero handles the actual form change). */
@@ -4706,6 +4776,7 @@ export class DungeonScene extends Phaser.Scene {
     }
     this.twoPlayer = true;
     const h2 = new Hero(this, x, y, cls, true, 2);
+    h2.onDeathlordShift = (hero, active) => this.deathlordFx(hero, active);
     this.players.push(h2);
     this.allyGroup.add(h2);
     this.shadows.add(h2, 3);

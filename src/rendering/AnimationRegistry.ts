@@ -77,6 +77,10 @@ export class AnimationRegistry {
     add(scene, 'druid_bear-walk', 'druid-bear-sheet', [0, 1, 2, 1], 6, -1);
     add(scene, 'druid_bear-attack', 'druid-bear-sheet', [3], 1, 0);
 
+    // Necromancer Deathlord form (full Pale King set worn)
+    add(scene, 'necro_warden-walk', 'necro-warden-sheet', [0, 1, 2, 1], 5, -1);
+    add(scene, 'necro_warden-attack', 'necro-warden-sheet', [3], 1, 0);
+
     // ---- animated tiles ----
     add(scene, 'water', 'water-sheet', [0, 1, 2, 3], 4, -1);
     add(scene, 'lava', 'lava-sheet', [0, 1, 2, 3], 6, -1);

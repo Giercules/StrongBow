@@ -145,6 +145,7 @@ export class CharacterSheetUI {
     if (h.classId === 'necromancer') stats.push(['Max summons', `${h.maxSummons()}`]);
     if (h.classId === 'bard') stats.push(['Song', h.song ? SONG_NAMES[h.song] : 'silent']);
     if (h.classId === 'druid') stats.push(['Form', h.bearForm ? 'Bear' : 'Human']);
+    if (h.classId === 'necromancer') stats.push(['Form', h.deathlordForm ? 'Grave Warden' : 'Lich']);
     stats.push(['Charisma', `${h.charisma}`]);
     if (h.classId === 'thief') {
       stats.push(['Sneak', `${h.sneakLevel}`]);

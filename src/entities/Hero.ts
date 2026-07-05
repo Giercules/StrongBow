@@ -64,6 +64,8 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
   bearForm = false;
   /** Druid: earliest time the next shapeshift is allowed (short breath between). */
   nextShiftAt = 0;
+  /** Necromancer: true while the full Pale King set morphs them into the Grave Warden. */
+  deathlordForm = false;
 
   /** Equipped pieces of this class's armor set (drives 2/4/5 tier bonuses). */
   setPieces = 0;
@@ -73,6 +75,8 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
   onUndying?: (h: Hero) => void;
   /** Scene hook fired whenever this hero takes real damage (unique powers). */
   onDamaged?: (h: Hero, dmg: number) => void;
+  /** Scene hook fired when the Necromancer Deathlord form toggles (full set on/off). */
+  onDeathlordShift?: (h: Hero, active: boolean) => void;
 
   attacking = false;
   attackUntil = 0;
@@ -136,6 +140,7 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
       this.stats.armor += 4;
       this.stats.speed = Math.round(this.stats.speed * 0.95);
     }
+    if (this.classId === 'necromancer') this.syncDeathlordForm(this.hasSetPower());
     if (this.health !== undefined) this.health = Math.min(this.health, this.stats.maxHealth);
     if (this.mana !== undefined) this.mana = Math.min(this.mana, this.stats.maxMana);
     return this.stats;
@@ -267,6 +272,7 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
     const base: Record<HeroClassId, number> = { vanguard: 24, thief: 30, arcanist: 24, warden: 26, necromancer: 40, bard: 30, druid: 24 };
     const cleave = this.classId === 'vanguard' ? this.skillSet.rank('van_cleave') * 4 : 0;
     if (this.classId === 'druid' && this.bearForm) return 34; // a bear's mauling sweep
+    if (this.classId === 'necromancer' && this.deathlordForm) return 36; // Grave Warden scythe sweep
     return base[this.classId] + cleave;
   }
 
@@ -358,6 +364,7 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
 
   weaponStyle(): 'melee' | 'ranged' {
     if (this.classId === 'druid') return this.bearForm ? 'melee' : 'ranged';
+    if (this.classId === 'necromancer' && this.deathlordForm) return 'melee';
     return this.classId === 'arcanist' || this.classId === 'necromancer' ? 'ranged' : 'melee';
   }
 
@@ -425,8 +432,32 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
     } else {
       this.skin = undefined;
       this.setTexture('hero-druid-sheet', 0);
+      this.setScale(0.58 * settings.spriteScale());
     }
     this.recompute();
+  }
+
+  /** Necromancer: auto-morph into the Grave Warden when all 5 set pieces are worn. */
+  private syncDeathlordForm(active: boolean): void {
+    if (this.classId !== 'necromancer' || this.deathlordForm === active) return;
+    const was = this.deathlordForm;
+    this.applyDeathlordForm(active);
+    if (was !== active) this.onDeathlordShift?.(this, active);
+  }
+
+  /** Apply Deathlord visuals directly (equip/unequip, save load) — no sfx. */
+  applyDeathlordForm(active: boolean): void {
+    if (this.classId !== 'necromancer') return;
+    this.deathlordForm = active;
+    if (active) {
+      this.skin = { walk: 'necro_warden-walk', attack: 'necro_warden-attack' };
+      this.setTexture('necro-warden-sheet', 0);
+      this.setScale(0.64 * settings.spriteScale());
+    } else {
+      this.skin = undefined;
+      this.setTexture('hero-necromancer-sheet', 0);
+      this.setScale(0.58 * settings.spriteScale());
+    }
   }
 
   // ---- active class ability ----
