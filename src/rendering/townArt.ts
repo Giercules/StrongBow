@@ -131,10 +131,9 @@ function pitchedRoof(ctx: Ctx, ox: number, oy: number, base: string, hi: string,
   R(ctx, ox, oy, 2, 32, hi); // left barge-board (lit)
   R(ctx, ox + 30, oy, 2, 32, dk); // right barge-board (shade)
   if (part === 'eave') {
-    R(ctx, ox, oy + 24, 32, 3, dk); // overhanging fascia board
-    R(ctx, ox, oy + 24, 32, 1, hi);
-    for (let x = 3; x < 32; x += 6) R(ctx, ox + x, oy + 27, 2, 2, dk); // rafter tails
-    R(ctx, ox, oy + 29, 32, 3, 'rgba(16,10,6,0.5)'); // shadow the overhang casts below
+    R(ctx, ox, oy + 26, 32, 2, dk); // overhanging fascia board
+    R(ctx, ox, oy + 26, 32, 1, hi);
+    R(ctx, ox, oy + 29, 32, 2, 'rgba(16,10,6,0.35)'); // soft shadow onto the wall below
   }
 }
 
@@ -180,26 +179,26 @@ export function drawHouseEaveTeak(ctx: Ctx, ox: number, oy: number): void { pitc
 export function drawHouseEaveSlate(ctx: Ctx, ox: number, oy: number): void { pitchedRoof(ctx, ox, oy, '#4a545f', '#6b7784', '#2a323b', 'eave'); }
 export function drawHouseEaveThatch(ctx: Ctx, ox: number, oy: number): void { thatchRoof(ctx, ox, oy, 'eave'); }
 
-// A stone chimney with a clay pot and a curl of smoke — sits on the upper slope.
+// Compact chimney for the ridge tile — short stack + pot, no tall slab down the slope.
 export function drawChimney(ctx: Ctx, ox: number, oy: number): void {
   const st = '#8a8276', stHi = '#aaa294', stDk = '#5f584e', mortar = '#635c52', pot = '#9c4a34', potHi = '#c05a40';
-  R(ctx, ox + 10, oy + 11, 12, 21, st); // stone stack
-  R(ctx, ox + 10, oy + 11, 2, 21, stHi);
-  R(ctx, ox + 20, oy + 11, 2, 21, stDk);
-  for (let by = 14; by < 32; by += 4) R(ctx, ox + 10, oy + by, 12, 1, mortar); // courses
-  R(ctx, ox + 15, oy + 12, 1, 20, mortar); // vertical joint
-  R(ctx, ox + 8, oy + 8, 16, 4, stDk); // flared cap
-  R(ctx, ox + 8, oy + 8, 16, 1, stHi);
-  R(ctx, ox + 13, oy + 4, 6, 5, pot); // clay chimney pot
-  R(ctx, ox + 13, oy + 4, 6, 1, potHi);
-  R(ctx, ox + 14, oy + 4, 4, 1, '#3a1c14'); // flue hole
-  R(ctx, ox + 15, oy + 1, 3, 3, 'rgba(214,208,202,0.45)'); // smoke
-  PX(ctx, ox + 17, oy, 'rgba(214,208,202,0.30)');
+  R(ctx, ox + 12, oy + 14, 8, 10, st);
+  R(ctx, ox + 12, oy + 14, 2, 10, stHi);
+  R(ctx, ox + 18, oy + 14, 2, 10, stDk);
+  for (let by = 16; by < 24; by += 3) R(ctx, ox + 12, oy + by, 8, 1, mortar);
+  R(ctx, ox + 11, oy + 12, 10, 3, stDk);
+  R(ctx, ox + 11, oy + 12, 10, 1, stHi);
+  R(ctx, ox + 13, oy + 8, 6, 5, pot);
+  R(ctx, ox + 13, oy + 8, 6, 1, potHi);
+  R(ctx, ox + 14, oy + 8, 4, 1, '#3a1c14');
+  R(ctx, ox + 15, oy + 4, 3, 4, 'rgba(214,208,202,0.45)');
+  PX(ctx, ox + 17, oy + 3, 'rgba(214,208,202,0.30)');
 }
 
 // Hanging shop sign board with a small painted trade glyph, hung from an iron
 // bracket. `glyph` selects the trade: anvil, vial, sword, tankard, coin, loaf.
 export function drawShopSign(ctx: Ctx, ox: number, oy: number, glyph: string): void {
+  drawHouseWall(ctx, ox, oy);
   const iron = '#2c2f3a', wood = '#6e4a24', woodHi = '#9a6c38', board = '#c9a86a', boardHi = '#e0c68a', boardDk = '#8a6a3a';
   // wall bracket + hanging chains
   R(ctx, ox + 2, oy + 4, 12, 2, iron); // bracket arm
@@ -220,24 +219,22 @@ export function drawShopSign(ctx: Ctx, ox: number, oy: number, glyph: string): v
   else { R(ctx, gx - 5, gy - 3, 10, 7, '#c98a4a'); R(ctx, gx - 5, gy - 3, 10, 2, '#e0b070'); PX(ctx, gx - 2, gy, g); PX(ctx, gx + 1, gy + 1, g); } // loaf
 }
 export function drawHouseDoor(ctx: Ctx, ox: number, oy: number): void {
-  drawHouseWall(ctx, ox, oy);
-  R(ctx, ox + 8, oy + 4, 16, 26, '#8a8276'); // stone arch surround
-  R(ctx, ox + 8, oy + 4, 16, 2, '#a8a092');
-  R(ctx, ox + 8, oy + 4, 2, 26, '#9a9286');
-  R(ctx, ox + 22, oy + 4, 2, 26, '#5f584e');
-  R(ctx, ox + 10, oy + 7, 12, 23, '#241a0e'); // recess
-  R(ctx, ox + 11, oy + 8, 10, 22, '#5a3a1c'); // planks
-  R(ctx, ox + 11, oy + 8, 3, 22, '#6e4a24'); // lit left plank
-  for (const px of [13, 16, 19]) R(ctx, ox + px, oy + 8, 1, 22, '#3a2410'); // seams
-  R(ctx, ox + 11, oy + 8, 10, 1, '#7a5128'); // top rail
-  R(ctx, ox + 11, oy + 12, 10, 2, '#3a3f4a'); // iron bands
-  R(ctx, ox + 11, oy + 23, 10, 2, '#3a3f4a');
-  R(ctx, ox + 11, oy + 12, 10, 1, '#5a626e');
-  ctx.strokeStyle = '#cfa64e';
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.arc(ox + 18, oy + 20, 2, 0, Math.PI * 2);
-  ctx.stroke();
+  // Ground-floor tile: lintel sits above the opening only (not a full-width top cap).
+  drawHouseBase(ctx, ox, oy);
+  const st = '#8a8276', stHi = '#a8a092', stDk = '#5f584e', recess = '#241a0e';
+  const wood = '#5a3a1c', woodHi = '#6e4a24', woodDk = '#3a2410';
+  R(ctx, ox + 5, oy + 10, 6, 3, st);
+  R(ctx, ox + 21, oy + 10, 6, 3, st);
+  R(ctx, ox + 8, oy + 8, 16, 4, stHi);
+  R(ctx, ox + 4, oy + 12, 24, 20, recess);
+  R(ctx, ox + 5, oy + 13, 22, 18, wood);
+  R(ctx, ox + 5, oy + 13, 5, 18, woodHi);
+  for (const px of [10, 14, 18, 22]) R(ctx, ox + px, oy + 13, 1, 18, woodDk);
+  R(ctx, ox + 5, oy + 13, 22, 2, '#7a5128');
+  R(ctx, ox + 5, oy + 20, 22, 3, '#3a3f4a');
+  R(ctx, ox + 5, oy + 27, 22, 3, '#3a3f4a');
+  R(ctx, ox + 5, oy + 20, 22, 1, '#5a626e');
+  PX(ctx, ox + 23, oy + 24, '#cfa64e');
 }
 
 // ---- building facades (seamless plaster + timber framing only where needed) -
@@ -265,43 +262,45 @@ export function drawHousePost(ctx: Ctx, ox: number, oy: number): void {
 }
 export function drawHouseBeam(ctx: Ctx, ox: number, oy: number): void {
   drawHouseWall(ctx, ox, oy);
-  R(ctx, ox, oy, 32, 1, 'rgba(18,11,6,0.5)'); // continues the roof-overhang shadow onto the wall
-  R(ctx, ox, oy + 1, 32, 6, '#6e4a24'); // horizontal header beam under the eaves
+  R(ctx, ox, oy, 32, 1, 'rgba(18,11,6,0.35)'); // roof shadow
+  R(ctx, ox, oy + 1, 32, 3, '#6e4a24'); // slim header beam under the eaves
   R(ctx, ox, oy + 1, 32, 1, '#8a6132');
-  R(ctx, ox, oy + 6, 32, 1, '#42301a');
+  R(ctx, ox, oy + 3, 32, 1, '#42301a');
 }
 export function drawHouseBase(ctx: Ctx, ox: number, oy: number): void {
   drawHouseWall(ctx, ox, oy);
-  R(ctx, ox, oy + 18, 32, 14, '#8a8276'); // stone ground-floor foundation
-  R(ctx, ox, oy + 18, 32, 1, '#a8a092');
-  for (let i = 0; i < 32; i += 8) R(ctx, ox + i, oy + 18, 1, 14, '#5f584e');
-  R(ctx, ox, oy + 25, 32, 1, '#5f584e');
-  R(ctx, ox + 4, oy + 21, 5, 3, '#7a7268');
-  R(ctx, ox + 20, oy + 27, 6, 3, '#7a7268');
+  R(ctx, ox, oy + 20, 32, 12, '#8a8276'); // stone footing — bottom third of tile
+  R(ctx, ox, oy + 20, 32, 1, '#a8a092');
+  for (let i = 0; i < 32; i += 8) R(ctx, ox + i, oy + 20, 1, 12, '#5f584e');
+  R(ctx, ox, oy + 27, 32, 1, '#5f584e');
+  R(ctx, ox + 3, oy + 23, 4, 2, '#7a7268');
+  R(ctx, ox + 24, oy + 25, 5, 2, '#7a7268');
 }
 export function drawHouseWindow(ctx: Ctx, ox: number, oy: number): void {
   drawHouseWall(ctx, ox, oy);
   const fr = '#3a2712', wood = '#6e4a24', glassHi = '#6a90b8';
-  R(ctx, ox + 3, oy + 6, 3, 16, wood); // open shutters
-  R(ctx, ox + 26, oy + 6, 3, 16, wood);
-  R(ctx, ox + 3, oy + 6, 1, 16, '#8a6132');
-  R(ctx, ox + 26, oy + 6, 1, 16, '#8a6132');
-  R(ctx, ox + 6, oy + 5, 20, 17, fr); // frame
-  const g = ctx.createLinearGradient(0, oy + 7, 0, oy + 20);
+  // casement at 1.75× prior size (~28×21 glass)
+  R(ctx, ox + 1, oy + 2, 4, 22, wood);
+  R(ctx, ox + 27, oy + 2, 4, 22, wood);
+  R(ctx, ox + 1, oy + 2, 1, 22, '#8a6132');
+  R(ctx, ox + 27, oy + 2, 1, 22, '#8a6132');
+  R(ctx, ox + 1, oy + 1, 30, 25, fr);
+  const g = ctx.createLinearGradient(0, oy + 3, 0, oy + 24);
   g.addColorStop(0, '#3a5a7a');
   g.addColorStop(1, '#b89058');
   ctx.fillStyle = g;
-  ctx.fillRect(ox + 8, oy + 7, 16, 13);
-  R(ctx, ox + 8, oy + 7, 7, 5, glassHi); // sheen
-  R(ctx, ox + 15, oy + 7, 2, 13, fr); // leaded mullions
-  R(ctx, ox + 8, oy + 12, 16, 2, fr);
-  R(ctx, ox + 4, oy + 21, 24, 2, '#8a6132'); // sill
-  R(ctx, ox + 4, oy + 21, 24, 1, '#a8843e');
-  R(ctx, ox + 5, oy + 23, 22, 3, '#5a3a1c'); // flower box
-  R(ctx, ox + 7, oy + 22, 3, 2, '#c8506a');
-  R(ctx, ox + 13, oy + 22, 3, 2, '#e0b24e');
-  R(ctx, ox + 19, oy + 22, 3, 2, '#6aa0e0');
-  PX(ctx, ox + 10, oy + 9, '#c8d8e8');
+  ctx.fillRect(ox + 2, oy + 3, 28, 21);
+  R(ctx, ox + 2, oy + 3, 14, 8, glassHi);
+  R(ctx, ox + 14, oy + 3, 2, 21, fr);
+  R(ctx, ox + 2, oy + 12, 28, 3, fr);
+  R(ctx, ox + 1, oy + 23, 30, 2, '#8a6132');
+  R(ctx, ox + 1, oy + 23, 30, 1, '#a8843e');
+  R(ctx, ox + 2, oy + 25, 28, 4, '#5a3a1c');
+  PX(ctx, ox + 6, oy + 25, '#c8506a');
+  PX(ctx, ox + 14, oy + 25, '#e0b24e');
+  PX(ctx, ox + 22, oy + 25, '#6aa0e0');
+  PX(ctx, ox + 8, oy + 6, '#c8d8e8');
+  PX(ctx, ox + 20, oy + 9, '#c8d8e8');
 }
 
 // ---- tavern / interior furniture (32x32 decor) -----------------------------

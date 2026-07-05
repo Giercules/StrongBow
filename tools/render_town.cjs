@@ -67,7 +67,10 @@ const DRAWERS = {
   'house-eave-blue': () => sprite('house-eave-blue', 32, 32, (c) => townArt.drawHouseEaveBlue(c, 0, 0)),
   'house-eave-green': () => sprite('house-eave-green', 32, 32, (c) => townArt.drawHouseEaveGreen(c, 0, 0)),
   'house-eave-teak': () => sprite('house-eave-teak', 32, 32, (c) => townArt.drawHouseEaveTeak(c, 0, 0)),
+  chimney: () => sprite('chimney', 32, 32, (c) => townArt.drawChimney(c, 0, 0), true),
 };
+for (const gl of ['anvil', 'vial', 'sword', 'tankard', 'coin', 'loaf'])
+  DRAWERS[`shop-sign-${gl}`] = () => sprite(`shop-sign-${gl}`, 32, 32, (c) => townArt.drawShopSign(c, 0, 0, gl), true);
 // new-decor drawers are looked up dynamically so this tool keeps working as
 // townArt grows: any decor key 'foo-bar' tries townArt.drawFooBar first.
 function drawerFor(key) {
@@ -97,16 +100,19 @@ for (let y = 0; y < H; y++) {
 
 // ---- decor (flat first, then upright sorted by y so overlap reads correctly) ----
 const FLAT = new Set(['road', 'grass-tuft', 'bridge-plank', 'chain', 'wood-floor', 'rug', 'flower-bed', 'wildflowers']);
-const BUILDING = new Set(Object.keys(DRAWERS).filter((k) => k.startsWith('house-')));
+const BUILDING = new Set(Object.keys(DRAWERS).filter((k) => k.startsWith('house-') || k === 'chimney' || k.startsWith('shop-sign-')));
 const flat = [], build = [], upright = [];
 for (const d of decor) (FLAT.has(d.key) ? flat : BUILDING.has(d.key) ? build : upright).push(d);
 upright.sort((a, b) => a.y - b.y);
+const FOUNTAIN_ORIGIN_Y = 61 / 80;
+const FOUNTAIN_BASE_ORIGIN_Y = 84 / 164;
 const put = (d, scale) => {
   const cv = drawerFor(d.key);
   if (!cv) { console.warn('no drawer for', d.key); return; }
   const w = cv.width * scale, h = cv.height * scale;
   const cxp = d.x * T + T / 2, cyp = d.y * T + T / 2;
-  if (d.key === 'fountain-base') g.drawImage(cv, Math.round(cxp - w / 2), Math.round(cyp - h / 2), w, h);
+  if (d.key === 'fountain-base') g.drawImage(cv, Math.round(cxp - w / 2), Math.round(cyp - h * FOUNTAIN_BASE_ORIGIN_Y), w, h);
+  else if (d.key === 'fountain') g.drawImage(cv, Math.round(cxp - w / 2), Math.round(cyp - h * FOUNTAIN_ORIGIN_Y), w, h);
   else g.drawImage(cv, Math.round(cxp - w / 2), Math.round(cyp - h / 2), w, h);
 };
 for (const d of flat) put(d, 0.65);

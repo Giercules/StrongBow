@@ -111,23 +111,28 @@ export function buildTown(): LevelData {
 
   // ---- buildings ----
   // `roof` is a colour short-name: red | blue | green | teak | slate | thatch.
-  // A steep THREE-course pitched roof (ridge + mid slope + overhanging eave)
-  // sits on top; below it a header beam, timber corner posts, glazed windows on
-  // the middle courses, and a stone ground-floor base — so the house reads as a
-  // tall, properly-roofed building instead of a flat wall with a thin hat. A
-  // brick chimney rises from the ridge; an optional hanging trade sign marks a
-  // shopfront.
-  const house = (x0: number, y0: number, x1: number, y1: number, roof: string, signGlyph?: string) => {
+  // Three-course pitched roof + timber-framed walls; window rows scale with height.
+  type HouseOpts = { signGlyph?: string; chimneyAt?: 'left' | 'right' };
+  const house = (x0: number, y0: number, x1: number, y1: number, roof: string, opts?: HouseOpts | string) => {
+    const o: HouseOpts = typeof opts === 'string' ? { signGlyph: opts } : (opts ?? {});
     rect(x0, y0, x1, y1, Tile.WALL);
     const doorX = Math.floor((x0 + x1) / 2);
     const w = x1 - x0 + 1;
-    // three-course steep roof
+    const wallTop = y0 + 3;
+    const wallBot = y1 - 1;
+    const wallRows = Math.max(0, wallBot - wallTop);
+    const windowRows = new Set<number>();
+    if (wallRows >= 5) {
+      windowRows.add(wallTop + Math.max(1, Math.floor(wallRows * 0.38)));
+      windowRows.add(wallTop + Math.floor(wallRows * 0.72));
+    } else if (wallRows >= 2) {
+      windowRows.add(wallTop + 1);
+    }
     for (let x = x0; x <= x1; x++) {
       decor.push({ x, y: y0, key: `house-roof-${roof}` });
       decor.push({ x, y: y0 + 1, key: `house-mid-${roof}` });
       decor.push({ x, y: y0 + 2, key: `house-eave-${roof}` });
     }
-    // timber-framed walls under the eaves
     for (let y = y0 + 3; y <= y1; y++) {
       for (let x = x0; x <= x1; x++) {
         const edge = x === x0 || x === x1;
@@ -135,63 +140,77 @@ export function buildTown(): LevelData {
         if (y === y1) key = 'house-base';
         else if (y === y0 + 3) key = 'house-beam';
         else if (edge) key = 'house-post';
-        else if ((y === y0 + 5 || y === y0 + 7) && y < y1 && Math.abs(x - doorX) > 1 && (x - x0) % 2 === 1) key = 'house-window';
+        else if (windowRows.has(y) && Math.abs(x - doorX) > 1 && (x - x0) % 2 === 1) key = 'house-window';
         decor.push({ x, y, key });
       }
     }
     decor.push({ x: doorX, y: y1, key: 'house-door' });
-    // a stone chimney set to one side of the upper slope, breathing smoke
-    decor.push({ x: x0 + (w >= 8 ? 2 : 1), y: y0 + 1, key: 'chimney' });
-    // a hanging trade sign high on the storefront, clear of the door bay
-    if (signGlyph) decor.push({ x: Math.min(x1 - 1, doorX + 2), y: y0 + 4, key: `shop-sign-${signGlyph}` });
+    const chimX = o.chimneyAt === 'right' ? x1 - (w >= 8 ? 2 : 1) : x0 + (w >= 8 ? 2 : 1);
+    decor.push({ x: chimX, y: y0, key: 'chimney' });
+    if (o.signGlyph) decor.push({ x: Math.min(x1 - 1, doorX + 2), y: y0 + 4, key: `shop-sign-${o.signGlyph}` });
     for (let y = y0 - 1; y <= y1 + 1; y++) for (let x = x0 - 1; x <= x1 + 1; x++) mark(noFoliage, x, y);
   };
 
   // ======================= UPPER HEARTHWATCH (civic) =======================
-  // Brunda's Forge — a stout slate-roofed smithy with a working yard.
-  house(16, 9, 26, 20, 'slate', 'anvil');
+  // Merchant's Row — five trade houses face a shared cobbled forecourt (y=21–22).
+  house(16, 9, 26, 20, 'slate', { signGlyph: 'anvil', chimneyAt: 'right' });
   spawns.push({ kind: 'door', x: 21, y: 20, interiorId: 'interior_forge', label: "Brunda's Forge" });
+  house(33, 10, 43, 20, 'green', { signGlyph: 'vial' });
+  spawns.push({ kind: 'door', x: 38, y: 20, interiorId: 'interior_apothecary', label: 'The Green Vial' });
+  house(48, 8, 60, 20, 'red', { signGlyph: 'sword', chimneyAt: 'right' });
+  decor.push({ x: 47, y: 16, key: 'weapon-rack' });
+  decor.push({ x: 61, y: 16, key: 'weapon-rack' });
+  spawns.push({ kind: 'door', x: 54, y: 20, interiorId: 'interior_guild', label: 'Fighters Guild' });
+  house(64, 10, 76, 20, 'teak', { signGlyph: 'tankard' });
+  spawns.push({ kind: 'door', x: 70, y: 20, interiorId: 'interior_tankard', label: 'The Gilded Tankard' });
+  house(82, 9, 92, 20, 'blue', { signGlyph: 'coin', chimneyAt: 'right' });
+  spawns.push({ kind: 'merchant', shop: 'home', x: 87, y: 21, label: 'Your Lodge' });
+
+  // Forge yard (west): fenced smithy compound with stock and a working anvil.
+  for (let fx = 14; fx <= 32; fx++) { if (fx < 27 || fx > 29) deco(fx, 25, 'fence-h'); }
+  for (let fy = 21; fy <= 24; fy++) deco(13, fy, 'fence-v');
   deco(28, 21, 'anvil');
   deco(30, 23, 'crate');
   deco(31, 21, 'barrel');
-  deco(29, 25, 'cart');
+  deco(29, 24, 'cart');
+  deco(15, 22, 'wood-pile');
+  deco(14, 24, 'brazier');
 
-  // The Green Vial — apothecary under a mossy green roof, herb beds out front.
-  house(33, 10, 43, 20, 'green', 'vial');
-  spawns.push({ kind: 'door', x: 38, y: 20, interiorId: 'interior_apothecary', label: 'The Green Vial' });
+  // Apothecary garden (herb beds + drying racks feel).
   deco(32, 22, 'flower-bed');
   deco(44, 22, 'flower-bed');
   deco(31, 24, 'town-bush');
   deco(45, 24, 'town-bush');
+  deco(32, 25, 'crop-row');
 
-  // The Fighters Guild — a grand red-tiled hall; training yard out front.
-  house(48, 8, 60, 20, 'red', 'sword');
-  decor.push({ x: 47, y: 16, key: 'weapon-rack' });
-  decor.push({ x: 61, y: 16, key: 'weapon-rack' });
-  spawns.push({ kind: 'door', x: 54, y: 20, interiorId: 'interior_guild', label: 'Fighters Guild' });
+  // Guild parade ground: hedged training yard south of the hall.
+  for (let hx = 46; hx <= 62; hx++) deco(hx, 21, 'hedge');
   deco(50, 23, 'training-dummy');
   deco(58, 23, 'training-dummy');
   deco(54, 24, 'weapon-rack');
+  deco(47, 23, 'weapon-rack');
+  deco(61, 23, 'weapon-rack');
 
-  // The Gilded Tankard — timber tavern; ale barrels stacked by the door.
-  house(64, 10, 76, 20, 'teak', 'tankard');
-  spawns.push({ kind: 'door', x: 70, y: 20, interiorId: 'interior_tankard', label: 'The Gilded Tankard' });
+  // Tankard forecourt: ale stock and a welcoming brazier.
   deco(63, 22, 'barrel');
   deco(77, 22, 'barrel');
   deco(65, 23, 'crate');
   deco(75, 23, 'barrel');
+  deco(64, 24, 'brazier');
+  deco(76, 24, 'hay-bale');
 
-  // Your Lodge — blue-roofed home holding the shared stash.
-  house(82, 9, 92, 20, 'blue', 'coin');
-  spawns.push({ kind: 'merchant', shop: 'home', x: 87, y: 21, label: 'Your Lodge' });
-  deco(90, 22, 'chest'); // the shared lodge stash
+  // Lodge garden: stash chest and a quiet sitting spot.
+  deco(90, 22, 'chest');
   deco(83, 23, 'flower-bed');
   deco(91, 23, 'flower-bed');
   deco(89, 24, 'town-bush');
+  deco(84, 24, 'tavern-stool');
+  deco(92, 24, 'tavern-stool');
 
-  // lamp-posts + a couple of braziers light the shop forecourt
+  // Merchant's Row lighting + district sign at the row entrance.
   for (const bx of [14, 30, 46, 62, 78, 94]) deco(bx, 22, 'lamp-post');
   for (const bx of [28, 44, 80]) deco(bx, 25, 'brazier');
+  deco(12, 22, 'signpost');
 
   // lived-in cottages tucked into the civic quarter's side lawns
   house(7, 23, 13, 30, 'blue');
@@ -205,28 +224,38 @@ export function buildTown(): LevelData {
   deco(97, 26, 'town-bush');
   deco(92, 31, 'town-bush');
 
-  // ---- fountain plaza ----
+  // ---- fountain plaza (civic heart) ----
   const fcx = cx;
   const fcy = 33;
+  let poolSumX = 0;
+  let poolSumY = 0;
+  let poolN = 0;
   for (let dy = -4; dy <= 4; dy++)
     for (let dx = -5; dx <= 5; dx++) {
       if ((dx * dx) / 27 + (dy * dy) / 17 <= 1) {
-        setT(fcx + dx, fcy + dy, Tile.WATER);
-        mark(noFoliage, fcx + dx, fcy + dy);
+        const px = fcx + dx;
+        const py = fcy + dy;
+        setT(px, py, Tile.WATER);
+        mark(noFoliage, px, py);
+        poolSumX += px;
+        poolSumY += py;
+        poolN++;
       }
     }
+  const poolCx = Math.round(poolSumX / poolN);
+  const poolCy = Math.round(poolSumY / poolN);
   for (const [px, py] of [
     [fcx - 6, fcy - 4],
     [fcx + 6, fcy - 4],
     [fcx - 6, fcy + 4],
     [fcx + 6, fcy + 4],
-  ] as [number, number][])
+  ] as [number, number][]) {
     deco(px, py, 'pillar');
-  decor.push({ x: fcx, y: fcy, key: 'fountain' });
-  // hero statues flank the high street at the plaza's north entrance
+    decor.push({ x: px, y: py - 1, key: 'banner' });
+  }
+  decor.push({ x: poolCx, y: poolCy, key: 'fountain' });
   deco(49, 26, 'statue');
   deco(56, 26, 'statue');
-  // trimmed hedges square the plaza off; lamp posts mark its corners
   for (const hx of [45, 46, 47, 48, 57, 58, 59, 60]) {
     deco(hx, 27, 'hedge');
     deco(hx, 39, 'hedge');
@@ -236,6 +265,11 @@ export function buildTown(): LevelData {
   deco(59, 30, 'flower-bed');
   deco(46, 37, 'flower-bed');
   deco(59, 37, 'flower-bed');
+  deco(48, 35, 'tavern-stool');
+  deco(56, 35, 'tavern-stool');
+  deco(44, 33, 'tavern-stool');
+  deco(60, 33, 'tavern-stool');
+  deco(52, 40, 'quest-board');
 
   // ---- roads (after buildings so pavement never runs through them) ----
   const roadTile = (x: number, y: number) => {
@@ -245,6 +279,10 @@ export function buildTown(): LevelData {
     roadSet.add(k);
     decor.push({ x, y, key: 'road' });
     mark(noFoliage, x, y);
+  };
+  const roadLine = (x0: number, y0: number, x1: number, y1: number) => {
+    if (x0 === x1) for (let y = Math.min(y0, y1); y <= Math.max(y0, y1); y++) roadTile(x0, y);
+    else for (let x = Math.min(x0, x1); x <= Math.max(x0, x1); x++) roadTile(x, y0);
   };
   // high street (N-S) and the two district avenues (E-W)
   for (let y = 5; y <= H - 6; y++) {
@@ -257,24 +295,30 @@ export function buildTown(): LevelData {
     roadTile(x, EGATE_Y - 1);
     roadTile(x, EGATE_Y);
   }
+  // Merchant's Row forecourt + side lanes into the shop fronts
+  for (let x = 14; x <= 94; x++) { roadTile(x, 21); roadTile(x, 22); }
+  for (const sx of [21, 38, 54, 70, 87]) roadLine(sx, 22, sx, 26);
   // plaza pavement around the fountain pool
   for (let y = 28; y <= 38; y++) for (let x = 44; x <= 61; x++) roadTile(x, y);
 
   // ---- descent gate courts (I–V in Upper, VI–X in Lower) ----
   const GATE_XS = [24, 39, 54, 69, 84];
   const court = (y: number, first: number) => {
+    for (let py = y - 3; py <= y + 2; py++) roadLine(GATE_XS[0] - 4, py, GATE_XS[4] + 4, py);
     for (let i = 0; i < 5; i++) {
       const x = GATE_XS[i];
       const r = REALMS[first + i];
-      // paved pad under each gate
       for (let py = y - 2; py <= y + 2; py++) for (let px = x - 3; px <= x + 3; px++) roadTile(px, py);
       spawns.push({ kind: 'portal', realmId: r.id, label: r.name, x, y });
       deco(x - 2, y - 1, 'brazier');
       deco(x + 2, y - 1, 'brazier');
+      if (i > 0) decor.push({ x: (GATE_XS[i - 1] + x) >> 1, y: y - 2, key: 'banner' });
       mark(noFoliage, x, y);
     }
     deco(GATE_XS[0] - 8, y, 'lamp-post');
     deco(GATE_XS[4] + 8, y, 'lamp-post');
+    deco(GATE_XS[0] - 6, y + 2, 'statue');
+    deco(GATE_XS[4] + 6, y + 2, 'statue');
   };
   court(45, 0); // the High Court (realms I–V)
   court(97, 5); // the Deep Court (realms VI–X)
@@ -282,11 +326,11 @@ export function buildTown(): LevelData {
   // ======================= LOWER HEARTHWATCH (commons) =====================
   spawns.push({ kind: 'playerStart', x: 54, y: 58 });
 
-  // ---- market square (west of the high street) ----
+  // ---- market square (west commons) ----
   for (let y = 62; y <= 70; y++) for (let x = 16; x <= 38; x++) roadTile(x, y);
-  // the notice board — contracts, payouts, reputation (one per district)
+  roadLine(27, 61, 27, 71); // market spine
+  roadLine(50, 61, 50, 62); // high-street spur into the square
   deco(24, 59, 'quest-board');
-  deco(40, 30, 'quest-board');
   deco(19, 61, 'stall-red');
   deco(26, 61, 'stall-blue');
   deco(33, 61, 'stall-red');
@@ -299,11 +343,15 @@ export function buildTown(): LevelData {
   deco(21, 71, 'barrel');
   deco(41, 62, 'lamp-post');
   deco(14, 62, 'lamp-post');
+  deco(17, 63, 'brazier');
+  deco(35, 63, 'brazier');
+  deco(22, 70, 'tavern-stool');
+  deco(30, 70, 'tavern-stool');
+  deco(12, 64, 'signpost');
 
-  // ---- cottages with fenced gardens (east of the high street) ----
-  house(62, 57, 72, 65, 'thatch'); // thatched cottage
-  house(78, 57, 88, 65, 'teak'); // timber-framed cottage
-  // shared garden runs behind a rail fence; a gap at x=74..76 forms the gate
+  // ---- cottage lane (east commons): two homes sharing a walled garden ----
+  house(62, 57, 72, 65, 'thatch', { chimneyAt: 'right' });
+  house(78, 57, 88, 65, 'teak');
   for (let fx = 62; fx <= 88; fx++) {
     if (fx >= 74 && fx <= 76) continue;
     deco(fx, 71, 'fence-h');
@@ -312,6 +360,7 @@ export function buildTown(): LevelData {
     deco(61, fy, 'fence-v');
     deco(89, fy, 'fence-v');
   }
+  for (let x = 62; x <= 88; x++) roadTile(x, 66);
   deco(64, 68, 'flower-bed');
   deco(68, 69, 'flower-bed');
   deco(82, 68, 'flower-bed');
@@ -323,11 +372,15 @@ export function buildTown(): LevelData {
   deco(75, 69, 'well');
   deco(72, 69, 'wood-pile');
   deco(78, 69, 'wood-pile');
+  deco(63, 66, 'lamp-post');
+  deco(87, 66, 'lamp-post');
 
-  // ---- farmstead (south-west): thatched barn + fenced field ----
-  house(14, 79, 24, 87, 'thatch');
+  // ---- farmstead (south-west): barn, paddock, and a track from the west avenue ----
+  house(14, 79, 24, 87, 'thatch', { chimneyAt: 'right' });
+  roadLine(19, EGATE_Y, 19, 78); // farm track off the west avenue
+  roadLine(19, 78, 26, 78);
   for (let fx = 28; fx <= 44; fx++) {
-    if (fx !== 36 && fx !== 37) deco(fx, 80, 'fence-h'); // gap = field gate
+    if (fx !== 36 && fx !== 37) deco(fx, 80, 'fence-h');
     deco(fx, 88, 'fence-h');
   }
   for (let fy = 81; fy <= 87; fy++) {
@@ -339,11 +392,14 @@ export function buildTown(): LevelData {
   deco(40, 87, 'cart');
   deco(26, 79, 'hay-bale');
   deco(25, 84, 'wood-pile');
+  deco(13, 80, 'signpost');
+  deco(36, 79, 'well');
 
-  // ---- a south hamlet: cottages of varied build flanking the high street ----
+  // ---- south hamlet: workers' cottages along a cobbled lane ----
   house(42, 78, 50, 85, 'red');
-  house(57, 78, 65, 85, 'thatch');
+  house(57, 78, 65, 85, 'thatch', { chimneyAt: 'right' });
   house(90, 78, 97, 85, 'slate');
+  for (let x = 40; x <= 98; x++) roadTile(x, 86);
   for (const [gx, gy] of [[41, 82], [51, 80], [56, 82], [66, 81], [89, 82], [98, 82]] as [number, number][]) deco(gx, gy, 'town-bush');
   deco(46, 87, 'flower-bed');
   deco(61, 87, 'flower-bed');
@@ -353,37 +409,46 @@ export function buildTown(): LevelData {
   deco(40, 86, 'barrel');
   deco(88, 86, 'cart');
   for (const lx of [45, 62, 94]) deco(lx, 88, 'lamp-post');
+  deco(55, 86, 'hay-bale');
 
-  // ---- wayside shrine (south-east): a paved circle with a glowing idol ----
+  // ---- wayside shrine (south-east): pilgrim's rest with votive light ----
   for (let py = 82; py <= 86; py++) for (let px = 79; px <= 85; px++) roadTile(px, py);
+  roadLine(82, 86, 82, 90);
   deco(79, 82, 'pillar');
   deco(85, 82, 'pillar');
   deco(79, 86, 'pillar');
   deco(85, 86, 'pillar');
   deco(82, 83, 'idol');
   decor.push({ x: 82, y: 81, key: 'banner' });
+  decor.push({ x: 80, y: 81, key: 'banner' });
   deco(80, 85, 'flower-bed');
   deco(84, 85, 'flower-bed');
+  deco(81, 84, 'candle');
+  deco(83, 84, 'candle');
   deco(77, 84, 'lamp-post');
   deco(87, 84, 'lamp-post');
+  deco(78, 87, 'altar');
 
-  // ---- riverbanks: rushes, reeds, lilypads, mooring posts, ducks + a signpost -
+  // ---- river Hearthrun: promenade, moorings, and wetland edge dressing ----
+  for (let x = 40; x <= 64; x++) roadTile(x, RIVER_Y1 + 1); // south-bank riverside walk
   const nearBridge = (x: number) => Math.abs(x - cx) <= 4 || Math.abs(x - 23) <= 3 || Math.abs(x - 81) <= 3;
   for (let x = 8; x <= W - 9; x += 4) {
     if (nearBridge(x)) continue;
-    decor.push({ x, y: RIVER_Y0 - 1, key: (x % 8 === 0) ? 'cattail' : 'reeds' }); // north bank
-    decor.push({ x: x + 2, y: RIVER_Y1 + 1, key: (x % 8 === 0) ? 'reeds' : 'cattail' }); // south bank
+    decor.push({ x, y: RIVER_Y0 - 1, key: (x % 8 === 0) ? 'cattail' : 'reeds' });
+    decor.push({ x: x + 2, y: RIVER_Y1 + 1, key: (x % 8 === 0) ? 'reeds' : 'cattail' });
   }
   for (const [lx, ly] of [[32, 53], [42, 54], [60, 54], [68, 53], [90, 53], [12, 54], [50, 53]] as [number, number][])
     decor.push({ x: lx, y: ly, key: 'lilypad' });
   for (const [rx, ry] of [[15, 51], [37, 51], [64, 51], [88, 51], [28, 56], [72, 56], [95, 56]] as [number, number][])
     deco(rx, ry, 'shore-rock');
-  for (const [dx, dy] of [[45, 53], [70, 54], [18, 54]] as [number, number][])
+  for (const [dx, dy] of [[45, 53], [70, 54], [18, 54], [58, 54]] as [number, number][])
     decor.push({ x: dx, y: dy, key: 'duck' });
-  deco(48, 50, 'mooring-post');
-  deco(57, 57, 'mooring-post');
+  for (const mx of [22, 48, 57, 81]) deco(mx, RIVER_Y0 - 1, 'mooring-post');
+  for (const mx of [23, 52, 80]) deco(mx, RIVER_Y1 + 2, 'mooring-post');
   deco(49, 50, 'signpost');
   deco(56, 57, 'signpost');
+  deco(42, 56, 'cart');
+  deco(63, 56, 'barrel');
 
   // ---- moat-side rushes so the town's water edges read as living wetland ----
   for (let y = 8; y <= H - 9; y += 6) {

@@ -86,6 +86,7 @@ function buildTown() {
   const noFoliage = /* @__PURE__ */ new Set();
   const mark = (set, x, y) => set.add(`${x},${y}`);
   const deco = (x, y, key) => {
+    if (inB(x, y) && tiles[y][x] === 2 /* WALL */) return;
     decor.push({ x, y, key });
     mark(noFoliage, x, y);
   };
@@ -151,77 +152,130 @@ function buildTown() {
   riverBridge(cx - 1);
   riverBridge(22);
   riverBridge(80);
-  const house = (x0, y0, x1, y1, roofKey) => {
+  const house = (x0, y0, x1, y1, roof, opts) => {
+    const o = typeof opts === "string" ? { signGlyph: opts } : opts ?? {};
     rect(x0, y0, x1, y1, 2 /* WALL */);
     const doorX = Math.floor((x0 + x1) / 2);
-    for (let y = y0 + 2; y <= y1; y++) {
+    const w = x1 - x0 + 1;
+    const wallTop = y0 + 3;
+    const wallBot = y1 - 1;
+    const wallRows = Math.max(0, wallBot - wallTop);
+    const windowRows = /* @__PURE__ */ new Set();
+    if (wallRows >= 5) {
+      windowRows.add(wallTop + Math.max(1, Math.floor(wallRows * 0.38)));
+      windowRows.add(wallTop + Math.floor(wallRows * 0.72));
+    } else if (wallRows >= 2) {
+      windowRows.add(wallTop + 1);
+    }
+    for (let x = x0; x <= x1; x++) {
+      decor.push({ x, y: y0, key: `house-roof-${roof}` });
+      decor.push({ x, y: y0 + 1, key: `house-mid-${roof}` });
+      decor.push({ x, y: y0 + 2, key: `house-eave-${roof}` });
+    }
+    for (let y = y0 + 3; y <= y1; y++) {
       for (let x = x0; x <= x1; x++) {
         const edge = x === x0 || x === x1;
         let key = "house-wall";
         if (y === y1) key = "house-base";
-        else if (y === y0 + 2) key = "house-beam";
+        else if (y === y0 + 3) key = "house-beam";
         else if (edge) key = "house-post";
-        if ((y === y0 + 4 || y === y0 + 6) && y < y1 && !edge && (x - x0) % 2 === 1) key = "house-window";
+        else if (windowRows.has(y) && Math.abs(x - doorX) > 1 && (x - x0) % 2 === 1) key = "house-window";
         decor.push({ x, y, key });
       }
     }
-    const eaveKey = roofKey.replace("roof", "eave");
-    for (let x = x0; x <= x1; x++) {
-      decor.push({ x, y: y0, key: roofKey });
-      decor.push({ x, y: y0 + 1, key: eaveKey });
-    }
     decor.push({ x: doorX, y: y1, key: "house-door" });
+    const chimX = o.chimneyAt === "right" ? x1 - (w >= 8 ? 2 : 1) : x0 + (w >= 8 ? 2 : 1);
+    decor.push({ x: chimX, y: y0, key: "chimney" });
+    if (o.signGlyph) decor.push({ x: Math.min(x1 - 1, doorX + 2), y: y0 + 4, key: `shop-sign-${o.signGlyph}` });
     for (let y = y0 - 1; y <= y1 + 1; y++) for (let x = x0 - 1; x <= x1 + 1; x++) mark(noFoliage, x, y);
   };
-  house(16, 11, 26, 18, "house-roof-teak");
-  decor.push({ x: 21, y: 14, key: "banner" });
-  spawns.push({ kind: "door", x: 21, y: 18, interiorId: "interior_forge", label: "Brunda's Forge" });
-  deco(28, 20, "crate");
-  deco(30, 20, "barrel");
-  deco(29, 22, "cart");
-  house(33, 11, 43, 18, "house-roof-green");
-  decor.push({ x: 38, y: 14, key: "banner" });
-  spawns.push({ kind: "door", x: 38, y: 18, interiorId: "interior_apothecary", label: "The Green Vial" });
-  deco(33, 20, "flower-bed");
-  deco(43, 20, "flower-bed");
-  house(48, 11, 60, 19, "house-roof-teak");
-  decor.push({ x: 54, y: 14, key: "banner" });
-  decor.push({ x: 50, y: 14, key: "weapon-rack" });
-  decor.push({ x: 58, y: 14, key: "weapon-rack" });
-  spawns.push({ kind: "door", x: 54, y: 19, interiorId: "interior_guild", label: "Fighters Guild" });
-  deco(57, 22, "training-dummy");
-  deco(61, 22, "training-dummy");
-  deco(59, 21, "weapon-rack");
-  house(64, 11, 76, 19, "house-roof-red");
-  decor.push({ x: 70, y: 14, key: "banner" });
-  spawns.push({ kind: "door", x: 70, y: 19, interiorId: "interior_tankard", label: "The Gilded Tankard" });
-  deco(63, 21, "barrel");
-  deco(77, 21, "barrel");
-  house(82, 11, 92, 19, "house-roof-blue");
-  decor.push({ x: 87, y: 14, key: "banner" });
+  house(16, 9, 26, 20, "slate", { signGlyph: "anvil", chimneyAt: "right" });
+  spawns.push({ kind: "door", x: 21, y: 20, interiorId: "interior_forge", label: "Brunda's Forge" });
+  house(33, 10, 43, 20, "green", { signGlyph: "vial" });
+  spawns.push({ kind: "door", x: 38, y: 20, interiorId: "interior_apothecary", label: "The Green Vial" });
+  house(48, 8, 60, 20, "red", { signGlyph: "sword", chimneyAt: "right" });
+  decor.push({ x: 47, y: 16, key: "weapon-rack" });
+  decor.push({ x: 61, y: 16, key: "weapon-rack" });
+  spawns.push({ kind: "door", x: 54, y: 20, interiorId: "interior_guild", label: "Fighters Guild" });
+  house(64, 10, 76, 20, "teak", { signGlyph: "tankard" });
+  spawns.push({ kind: "door", x: 70, y: 20, interiorId: "interior_tankard", label: "The Gilded Tankard" });
+  house(82, 9, 92, 20, "blue", { signGlyph: "coin", chimneyAt: "right" });
   spawns.push({ kind: "merchant", shop: "home", x: 87, y: 21, label: "Your Lodge" });
-  deco(90, 21, "chest");
-  deco(83, 22, "flower-bed");
-  deco(91, 22, "flower-bed");
-  deco(89, 23, "town-bush");
-  for (const bx of [15, 28, 32, 45, 63, 78, 81, 94]) deco(bx, 20, "brazier");
+  for (let fx = 14; fx <= 32; fx++) {
+    if (fx < 27 || fx > 29) deco(fx, 25, "fence-h");
+  }
+  for (let fy = 21; fy <= 24; fy++) deco(13, fy, "fence-v");
+  deco(28, 21, "anvil");
+  deco(30, 23, "crate");
+  deco(31, 21, "barrel");
+  deco(29, 24, "cart");
+  deco(15, 22, "wood-pile");
+  deco(14, 24, "brazier");
+  deco(32, 22, "flower-bed");
+  deco(44, 22, "flower-bed");
+  deco(31, 24, "town-bush");
+  deco(45, 24, "town-bush");
+  deco(32, 25, "crop-row");
+  for (let hx = 46; hx <= 62; hx++) deco(hx, 21, "hedge");
+  deco(50, 23, "training-dummy");
+  deco(58, 23, "training-dummy");
+  deco(54, 24, "weapon-rack");
+  deco(47, 23, "weapon-rack");
+  deco(61, 23, "weapon-rack");
+  deco(63, 22, "barrel");
+  deco(77, 22, "barrel");
+  deco(65, 23, "crate");
+  deco(75, 23, "barrel");
+  deco(64, 24, "brazier");
+  deco(76, 24, "hay-bale");
+  deco(90, 22, "chest");
+  deco(83, 23, "flower-bed");
+  deco(91, 23, "flower-bed");
+  deco(89, 24, "town-bush");
+  deco(84, 24, "tavern-stool");
+  deco(92, 24, "tavern-stool");
+  for (const bx of [14, 30, 46, 62, 78, 94]) deco(bx, 22, "lamp-post");
+  for (const bx of [28, 44, 80]) deco(bx, 25, "brazier");
+  deco(12, 22, "signpost");
+  house(7, 23, 13, 30, "blue");
+  deco(8, 32, "crop-row");
+  deco(11, 32, "crop-row");
+  deco(6, 26, "town-bush");
+  deco(9, 31, "flower-bed");
+  deco(14, 24, "wood-pile");
+  house(93, 23, 98, 30, "green");
+  deco(94, 32, "flower-bed");
+  deco(97, 26, "town-bush");
+  deco(92, 31, "town-bush");
   const fcx = cx;
   const fcy = 33;
+  let poolSumX = 0;
+  let poolSumY = 0;
+  let poolN = 0;
   for (let dy = -4; dy <= 4; dy++)
     for (let dx = -5; dx <= 5; dx++) {
       if (dx * dx / 27 + dy * dy / 17 <= 1) {
-        setT(fcx + dx, fcy + dy, 5 /* WATER */);
-        mark(noFoliage, fcx + dx, fcy + dy);
+        const px = fcx + dx;
+        const py = fcy + dy;
+        setT(px, py, 5 /* WATER */);
+        mark(noFoliage, px, py);
+        poolSumX += px;
+        poolSumY += py;
+        poolN++;
       }
     }
+  const poolCx = Math.round(poolSumX / poolN);
+  const poolCy = Math.round(poolSumY / poolN);
   for (const [px, py] of [
     [fcx - 6, fcy - 4],
     [fcx + 6, fcy - 4],
     [fcx - 6, fcy + 4],
     [fcx + 6, fcy + 4]
-  ])
+  ]) {
     deco(px, py, "pillar");
-  decor.push({ x: fcx, y: fcy, key: "fountain" });
+    decor.push({ x: px, y: py - 1, key: "banner" });
+  }
+  decor.push({ x: poolCx, y: poolCy, key: "fountain" });
   deco(49, 26, "statue");
   deco(56, 26, "statue");
   for (const hx of [45, 46, 47, 48, 57, 58, 59, 60]) {
@@ -233,6 +287,11 @@ function buildTown() {
   deco(59, 30, "flower-bed");
   deco(46, 37, "flower-bed");
   deco(59, 37, "flower-bed");
+  deco(48, 35, "tavern-stool");
+  deco(56, 35, "tavern-stool");
+  deco(44, 33, "tavern-stool");
+  deco(60, 33, "tavern-stool");
+  deco(52, 40, "quest-board");
   const roadTile = (x, y) => {
     if (!inB(x, y) || tiles[y][x] !== 1 /* FLOOR */) return;
     const k = `${x},${y}`;
@@ -240,6 +299,10 @@ function buildTown() {
     roadSet.add(k);
     decor.push({ x, y, key: "road" });
     mark(noFoliage, x, y);
+  };
+  const roadLine = (x0, y0, x1, y1) => {
+    if (x0 === x1) for (let y = Math.min(y0, y1); y <= Math.max(y0, y1); y++) roadTile(x0, y);
+    else for (let x = Math.min(x0, x1); x <= Math.max(x0, x1); x++) roadTile(x, y0);
   };
   for (let y = 5; y <= H - 6; y++) {
     roadTile(cx, y);
@@ -251,9 +314,15 @@ function buildTown() {
     roadTile(x, EGATE_Y - 1);
     roadTile(x, EGATE_Y);
   }
+  for (let x = 14; x <= 94; x++) {
+    roadTile(x, 21);
+    roadTile(x, 22);
+  }
+  for (const sx of [21, 38, 54, 70, 87]) roadLine(sx, 22, sx, 26);
   for (let y = 28; y <= 38; y++) for (let x = 44; x <= 61; x++) roadTile(x, y);
   const GATE_XS = [24, 39, 54, 69, 84];
   const court = (y, first) => {
+    for (let py = y - 3; py <= y + 2; py++) roadLine(GATE_XS[0] - 4, py, GATE_XS[4] + 4, py);
     for (let i = 0; i < 5; i++) {
       const x = GATE_XS[i];
       const r = REALMS[first + i];
@@ -261,17 +330,21 @@ function buildTown() {
       spawns.push({ kind: "portal", realmId: r.id, label: r.name, x, y });
       deco(x - 2, y - 1, "brazier");
       deco(x + 2, y - 1, "brazier");
+      if (i > 0) decor.push({ x: GATE_XS[i - 1] + x >> 1, y: y - 2, key: "banner" });
       mark(noFoliage, x, y);
     }
     deco(GATE_XS[0] - 8, y, "lamp-post");
     deco(GATE_XS[4] + 8, y, "lamp-post");
+    deco(GATE_XS[0] - 6, y + 2, "statue");
+    deco(GATE_XS[4] + 6, y + 2, "statue");
   };
   court(45, 0);
   court(97, 5);
   spawns.push({ kind: "playerStart", x: 54, y: 58 });
   for (let y = 62; y <= 70; y++) for (let x = 16; x <= 38; x++) roadTile(x, y);
+  roadLine(27, 61, 27, 71);
+  roadLine(50, 61, 50, 62);
   deco(24, 59, "quest-board");
-  deco(40, 30, "quest-board");
   deco(19, 61, "stall-red");
   deco(26, 61, "stall-blue");
   deco(33, 61, "stall-red");
@@ -284,8 +357,13 @@ function buildTown() {
   deco(21, 71, "barrel");
   deco(41, 62, "lamp-post");
   deco(14, 62, "lamp-post");
-  house(62, 58, 72, 65, "house-roof-green");
-  house(78, 58, 88, 65, "house-roof-blue");
+  deco(17, 63, "brazier");
+  deco(35, 63, "brazier");
+  deco(22, 70, "tavern-stool");
+  deco(30, 70, "tavern-stool");
+  deco(12, 64, "signpost");
+  house(62, 57, 72, 65, "thatch", { chimneyAt: "right" });
+  house(78, 57, 88, 65, "teak");
   for (let fx = 62; fx <= 88; fx++) {
     if (fx >= 74 && fx <= 76) continue;
     deco(fx, 71, "fence-h");
@@ -294,14 +372,23 @@ function buildTown() {
     deco(61, fy, "fence-v");
     deco(89, fy, "fence-v");
   }
+  for (let x = 62; x <= 88; x++) roadTile(x, 66);
   deco(64, 68, "flower-bed");
   deco(68, 69, "flower-bed");
   deco(82, 68, "flower-bed");
   deco(86, 69, "flower-bed");
   deco(66, 67, "town-bush");
+  deco(70, 68, "town-bush");
+  deco(80, 68, "town-bush");
   deco(84, 67, "town-bush");
   deco(75, 69, "well");
-  house(14, 80, 24, 87, "house-roof-teak");
+  deco(72, 69, "wood-pile");
+  deco(78, 69, "wood-pile");
+  deco(63, 66, "lamp-post");
+  deco(87, 66, "lamp-post");
+  house(14, 79, 24, 87, "thatch", { chimneyAt: "right" });
+  roadLine(19, EGATE_Y, 19, 78);
+  roadLine(19, 78, 26, 78);
   for (let fx = 28; fx <= 44; fx++) {
     if (fx !== 36 && fx !== 37) deco(fx, 80, "fence-h");
     deco(fx, 88, "fence-h");
@@ -311,30 +398,66 @@ function buildTown() {
     deco(45, fy, "fence-v");
   }
   for (const [hx, hy] of [[30, 83], [34, 85], [38, 82], [42, 85], [31, 87]]) deco(hx, hy, "hay-bale");
+  for (const [cx2, cy2] of [[32, 82], [39, 84], [35, 86], [43, 82]]) deco(cx2, cy2, "crop-row");
   deco(40, 87, "cart");
   deco(26, 79, "hay-bale");
+  deco(25, 84, "wood-pile");
+  deco(13, 80, "signpost");
+  deco(36, 79, "well");
+  house(42, 78, 50, 85, "red");
+  house(57, 78, 65, 85, "thatch", { chimneyAt: "right" });
+  house(90, 78, 97, 85, "slate");
+  for (let x = 40; x <= 98; x++) roadTile(x, 86);
+  for (const [gx, gy] of [[41, 82], [51, 80], [56, 82], [66, 81], [89, 82], [98, 82]]) deco(gx, gy, "town-bush");
+  deco(46, 87, "flower-bed");
+  deco(61, 87, "flower-bed");
+  deco(93, 87, "flower-bed");
+  deco(52, 82, "well");
+  deco(67, 84, "wood-pile");
+  deco(40, 86, "barrel");
+  deco(88, 86, "cart");
+  for (const lx of [45, 62, 94]) deco(lx, 88, "lamp-post");
+  deco(55, 86, "hay-bale");
   for (let py = 82; py <= 86; py++) for (let px = 79; px <= 85; px++) roadTile(px, py);
+  roadLine(82, 86, 82, 90);
   deco(79, 82, "pillar");
   deco(85, 82, "pillar");
   deco(79, 86, "pillar");
   deco(85, 86, "pillar");
   deco(82, 83, "idol");
   decor.push({ x: 82, y: 81, key: "banner" });
+  decor.push({ x: 80, y: 81, key: "banner" });
   deco(80, 85, "flower-bed");
   deco(84, 85, "flower-bed");
+  deco(81, 84, "candle");
+  deco(83, 84, "candle");
   deco(77, 84, "lamp-post");
   deco(87, 84, "lamp-post");
-  for (let x = 9; x <= W - 10; x += 7) {
-    if (Math.abs(x - cx) > 4 && Math.abs(x - 23) > 3 && Math.abs(x - 81) > 3) {
-      decor.push({ x, y: RIVER_Y0 - 1, key: "cattail" });
-      decor.push({ x: x + 3, y: RIVER_Y1 + 1, key: "reeds" });
-    }
+  deco(78, 87, "altar");
+  for (let x = 40; x <= 64; x++) roadTile(x, RIVER_Y1 + 1);
+  const nearBridge = (x) => Math.abs(x - cx) <= 4 || Math.abs(x - 23) <= 3 || Math.abs(x - 81) <= 3;
+  for (let x = 8; x <= W - 9; x += 4) {
+    if (nearBridge(x)) continue;
+    decor.push({ x, y: RIVER_Y0 - 1, key: x % 8 === 0 ? "cattail" : "reeds" });
+    decor.push({ x: x + 2, y: RIVER_Y1 + 1, key: x % 8 === 0 ? "reeds" : "cattail" });
   }
-  for (const [lx, ly] of [[32, 53], [60, 54], [90, 53], [12, 54]])
+  for (const [lx, ly] of [[32, 53], [42, 54], [60, 54], [68, 53], [90, 53], [12, 54], [50, 53]])
     decor.push({ x: lx, y: ly, key: "lilypad" });
+  for (const [rx, ry] of [[15, 51], [37, 51], [64, 51], [88, 51], [28, 56], [72, 56], [95, 56]])
+    deco(rx, ry, "shore-rock");
+  for (const [dx, dy] of [[45, 53], [70, 54], [18, 54], [58, 54]])
+    decor.push({ x: dx, y: dy, key: "duck" });
+  for (const mx of [22, 48, 57, 81]) deco(mx, RIVER_Y0 - 1, "mooring-post");
+  for (const mx of [23, 52, 80]) deco(mx, RIVER_Y1 + 2, "mooring-post");
   deco(49, 50, "signpost");
   deco(56, 57, "signpost");
-  for (const [lx, ly] of [[50, 8], [55, 22], [50, 48], [55, 60], [50, 80], [55, 92], [50, 104]])
+  deco(42, 56, "cart");
+  deco(63, 56, "barrel");
+  for (let y = 8; y <= H - 9; y += 6) {
+    decor.push({ x: 5, y, key: "reeds" });
+    decor.push({ x: W - 6, y: y + 3, key: "reeds" });
+  }
+  for (const [lx, ly] of [[50, 24], [55, 24], [50, 48], [55, 48], [50, 60], [55, 60], [50, 80], [55, 92], [50, 104]])
     deco(lx, ly, "lamp-post");
   const foliageOk = (x, y) => inB(x, y) && tiles[y][x] === 1 /* FLOOR */ && !roadSet.has(`${x},${y}`) && !noFoliage.has(`${x},${y}`);
   const tree = (x, y) => {
@@ -459,6 +582,8 @@ __export(spriteArt_exports, {
   MON_FW: () => MON_FW,
   PX: () => PX,
   R: () => R,
+  SMALL_MOB_FH: () => SMALL_MOB_FH,
+  SMALL_MOB_FW: () => SMALL_MOB_FW,
   drawAltar: () => drawAltar,
   drawArrow: () => drawArrow,
   drawAura: () => drawAura,
@@ -483,6 +608,7 @@ __export(spriteArt_exports, {
   drawDeadTree: () => drawDeadTree,
   drawDemon: () => drawDemon,
   drawDoor: () => drawDoor,
+  drawDruidBear: () => drawDruidBear,
   drawEdgeTint: () => drawEdgeTint,
   drawFire: () => drawFire,
   drawFloor: () => drawFloor,
@@ -520,6 +646,7 @@ __export(spriteArt_exports, {
   drawLavaCrack: () => drawLavaCrack,
   drawLilypad: () => drawLilypad,
   drawMagicBurst: () => drawMagicBurst,
+  drawNecroWardenForm: () => drawNecroWardenForm,
   drawObsidian: () => drawObsidian,
   drawOoze: () => drawOoze,
   drawPillar: () => drawPillar,
@@ -1508,9 +1635,9 @@ function drawCandle(ctx, ox, oy) {
   R(ctx, ox + 13, oy + 14, 2, 14, "#ffffff");
   R(ctx, ox + 18, oy + 14, 1, 14, "#b8b49a");
   R(ctx, ox + 11, oy + 26, 10, 2, "#5a3a1c");
-  R(ctx, ox + 14, oy + 8, 4, 6, C.fireMid);
-  R(ctx, ox + 15, oy + 5, 2, 4, C.fireCore);
-  PX(ctx, ox + 15, oy + 4, "#fff2b0");
+  R(ctx, ox + 14, oy + 8, 4, 6, "#c87828");
+  R(ctx, ox + 15, oy + 5, 2, 4, "#e8a040");
+  PX(ctx, ox + 15, oy + 4, "#ffd878");
 }
 function drawLavaCrack(ctx, ox, oy) {
   ctx.strokeStyle = "#ff8a1e";
@@ -2094,94 +2221,78 @@ function drawBoneArcher(ctx, ox, frame, r) {
     R(ctx, bx + 16, 24 + bob, 3, 3, r.eye);
   } else R(ctx, bx + 1, 25 + bob, 8, 2, "#e6dfba");
 }
+var SMALL_MOB_FW = 22;
+var SMALL_MOB_FH = 22;
+function drawBoneSkeletonBody(ctx, ox, frame, r) {
+  const cx = ox + 10;
+  const bob = frame === 1 || frame === 2 ? -1 : 0;
+  R(ctx, ox + 8, 15 + bob, 2, 5, r.body1);
+  R(ctx, ox + 12, 15 + bob, 2, 5, r.body1);
+  R(ctx, cx - 3, 9 + bob, 6, 7, r.body1);
+  for (let ry = 10; ry < 16; ry += 2) R(ctx, cx - 3, ry + bob, 6, 1, r.detail);
+  ctx.fillStyle = r.body2;
+  ctx.beginPath();
+  ctx.arc(cx, 6 + bob, 4, 0, Math.PI * 2);
+  ctx.fill();
+  PX(ctx, cx - 2, 5 + bob, r.detail);
+  PX(ctx, cx + 2, 5 + bob, r.detail);
+  R(ctx, cx - 1, 8 + bob, 3, 1, r.detail);
+  return { cx, bob };
+}
 function drawSkeletonServant(ctx, ox, frame, r, role) {
-  const cx = ox + MON_FW / 2;
-  const bob = frame === 1 || frame === 2 ? -2 : 0;
-  const atk = frame === 3;
-  const B = r.body2, BH = "#f6f1da", BD = r.body0, SH = "rgba(0,0,0,0.30)";
+  const { cx, bob } = drawBoneSkeletonBody(ctx, ox, frame, r);
   const ac = r.accent;
-  R(ctx, cx - 4, 32 + bob, 3, 8, B);
-  R(ctx, cx + 1, 32 + bob, 3, 8, B);
-  R(ctx, cx - 4, 32 + bob, 1, 8, BH);
-  R(ctx, cx - 5, 39 + bob, 4, 2, B);
-  R(ctx, cx + 1, 39 + bob, 4, 2, B);
-  R(ctx, cx - 5, 29 + bob, 10, 3, B);
-  R(ctx, cx - 5, 29 + bob, 10, 1, BH);
-  R(ctx, cx - 1, 18 + bob, 2, 12, B);
-  for (let i = 0; i < 4; i++) {
-    R(ctx, cx - 6, 19 + bob + i * 3, 5, 1, B);
-    R(ctx, cx + 1, 19 + bob + i * 3, 5, 1, B);
-  }
-  R(ctx, cx - 6, 18 + bob, 12, 1, BH);
-  R(ctx, cx - 8, 18 + bob, 3, 2, B);
-  R(ctx, cx + 5, 18 + bob, 3, 2, B);
-  R(ctx, cx - 5, 7 + bob, 10, 9, B);
-  R(ctx, cx - 5, 7 + bob, 10, 2, BH);
-  R(ctx, cx + 3, 8 + bob, 2, 8, SH);
-  R(ctx, cx - 4, 16 + bob, 8, 2, B);
-  R(ctx, cx - 3, 11 + bob, 3, 3, "#120e0a");
-  R(ctx, cx + 1, 11 + bob, 3, 3, "#120e0a");
-  PX(ctx, cx - 2, 12 + bob, r.eye);
-  PX(ctx, cx + 2, 12 + bob, r.eye);
-  R(ctx, cx - 1, 14 + bob, 2, 1, SH);
-  for (let i = 0; i < 3; i++) PX(ctx, cx - 3 + i * 3, 17 + bob, BD);
+  const atk = frame === 3;
+  PX(ctx, cx - 2, 5 + bob, r.eye);
+  PX(ctx, cx + 2, 5 + bob, r.eye);
   if (role === "tank") {
+    R(ctx, cx - 3, 3 + bob, 6, 2, ac);
     ctx.fillStyle = ac;
     ctx.beginPath();
-    ctx.arc(cx - 9, 26 + bob, 8, 0, Math.PI * 2);
+    ctx.arc(ox + 4, 12 + bob, 4, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillStyle = BH;
+    ctx.fillStyle = r.detail;
     ctx.beginPath();
-    ctx.arc(cx - 9, 26 + bob, 3, 0, Math.PI * 2);
+    ctx.arc(ox + 4, 12 + bob, 2, 0, Math.PI * 2);
     ctx.fill();
-    ctx.strokeStyle = r.detail;
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.arc(cx - 9, 26 + bob, 8, 0, Math.PI * 2);
-    ctx.stroke();
-    R(ctx, cx - 6, 5 + bob, 12, 4, ac);
-    R(ctx, cx - 6, 5 + bob, 12, 1, BH);
-    R(ctx, cx, 3 + bob, 1, 4, ac);
-    R(ctx, cx + 6, 20 + bob, 2, 9, B);
+    PX(ctx, ox + 3, 11 + bob, "#e8ffe8");
+    const sy = atk ? 5 + bob : 9 + bob;
+    R(ctx, ox + 17, sy, 1, 9, r.body2);
+    R(ctx, ox + 16, sy + 2, 2, 2, ac);
+    if (atk) R(ctx, ox + 18, sy - 1, 4, 1, r.body2);
   } else if (role === "archer") {
-    const bx = cx - 12;
-    ctx.strokeStyle = ac;
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.arc(bx + 4, 26 + bob, 12, 2, 4.28);
-    ctx.stroke();
-    R(ctx, bx + 1, 16 + bob, 1, 20, BH);
-    if (atk) {
-      R(ctx, bx + 1, 25 + bob, 16, 1, BH);
-      R(ctx, bx + 15, 24 + bob, 3, 3, r.eye);
-    }
-    R(ctx, cx + 6, 20 + bob, 2, 9, B);
+    const bx = ox + 16;
+    R(ctx, bx, 4 + bob, 1, 12, ac);
+    PX(ctx, bx - 1, 3 + bob, ac);
+    PX(ctx, bx - 1, 16 + bob, ac);
+    if (atk) R(ctx, cx + 3, 9 + bob, bx - cx - 2, 1, "#e8e8e8");
+    else PX(ctx, bx - 1, 9 + bob, "#e8e8e8");
   } else if (role === "mage") {
-    R(ctx, cx - 6, 5 + bob, 12, 6, ac);
-    R(ctx, cx - 6, 5 + bob, 12, 1, BH);
-    R(ctx, cx - 6, 8 + bob, 2, 4, ac);
-    R(ctx, cx + 4, 8 + bob, 2, 4, ac);
-    const sx = cx + 8;
-    R(ctx, sx, 8 + bob, 2, 28, "#3a3056");
-    R(ctx, sx, 8 + bob, 1, 28, "#5a4f7a");
-    const oc = atk ? "#eafff0" : ac;
-    ctx.fillStyle = "#16331f";
+    R(ctx, cx - 4, 2 + bob, 8, 4, "#2a1838");
+    R(ctx, cx - 4, 2 + bob, 8, 1, ac);
+    PX(ctx, cx - 4, 3 + bob, ac);
+    PX(ctx, cx + 3, 3 + bob, ac);
+    const sy = 3 + bob;
+    R(ctx, ox + 17, sy, 1, 13, "#2a1838");
+    PX(ctx, ox + 17, sy, ac);
+    const orb = atk ? "#e8ffe8" : ac;
+    ctx.fillStyle = orb;
     ctx.beginPath();
-    ctx.arc(sx + 1, 7 + bob, 5, 0, Math.PI * 2);
+    ctx.arc(ox + 18, sy - 1, 2, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillStyle = oc;
-    ctx.beginPath();
-    ctx.arc(sx + 1, 7 + bob, 3, 0, Math.PI * 2);
-    ctx.fill();
-    PX(ctx, sx, 6 + bob, "#ffffff");
+    if (atk) for (let i = 0; i < 3; i++) PX(ctx, ox + 19 + i, sy - 2, "#e8ffe8");
   } else {
-    R(ctx, cx - 6, 5 + bob, 12, 5, "#2a3328");
-    R(ctx, cx - 6, 5 + bob, 12, 1, ac);
-    const dx = cx + 7 + (atk ? 2 : 0);
-    R(ctx, dx, 16 + bob, 2, 7, "#dfe6ff");
-    R(ctx, dx - 1, 22 + bob, 4, 1, ac);
-    R(ctx, dx, 23 + bob, 2, 3, "#5a3a1c");
-    R(ctx, cx - 8, 20 + bob, 2, 8, B);
+    R(ctx, cx - 4, 3 + bob, 8, 3, "#2a2038");
+    R(ctx, cx - 4, 3 + bob, 8, 1, ac);
+    const lunge = atk ? 1 : 0;
+    R(ctx, ox + 16 + lunge, 11 + bob, 1, 5, r.body2);
+    PX(ctx, ox + 15 + lunge, 14 + bob, ac);
+    R(ctx, ox + 3 - lunge, 13 + bob, 1, 5, r.body2);
+    PX(ctx, ox + 3 - lunge, 16 + bob, ac);
+    if (atk) {
+      R(ctx, ox + 17 + lunge, 10 + bob, 3, 1, r.body2);
+      R(ctx, ox + 1 - lunge, 12 + bob, 3, 1, r.body2);
+    }
   }
 }
 function drawBrute(ctx, ox, frame, r) {
@@ -2475,32 +2586,29 @@ function drawWeapon(ctx, ox, cls, ramp, facing, pose) {
     }
   } else if (cls === "necromancer") {
     const hx = cx + (attack ? 12 : 10);
-    R(ctx, hx, 7, 3, 35, "#2a2440");
-    R(ctx, hx, 7, 1, 35, "#4a3f6a");
-    R(ctx, hx - 3, 6, 2, 6, "#3a3358");
-    R(ctx, hx + 4, 6, 2, 6, "#3a3358");
-    PX(ctx, hx - 3, 5, "#6a5f96");
-    PX(ctx, hx + 5, 5, "#6a5f96");
-    const orb = attack ? "#b6ffd0" : "#6ee0a0";
-    ctx.fillStyle = "#14331e";
+    R(ctx, hx, 12, 3, 30, "#2a1838");
+    R(ctx, hx, 12, 1, 30, "#5a3880");
+    PX(ctx, hx - 1, 18, "#120818");
+    PX(ctx, hx + 3, 26, "#120818");
+    const orb = attack ? "#b0ffff" : "#40e8ff";
+    ctx.fillStyle = "#120818";
     ctx.beginPath();
-    ctx.arc(hx + 1, 6, 5, 0, Math.PI * 2);
+    ctx.arc(hx + 1, 9, 5, 0, Math.PI * 2);
     ctx.fill();
     ctx.fillStyle = orb;
     ctx.beginPath();
-    ctx.arc(hx + 1, 6, 3.4, 0, Math.PI * 2);
+    ctx.arc(hx + 1, 9, 3.4, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillStyle = "#eafff0";
+    ctx.fillStyle = "#e0ffe8";
     ctx.beginPath();
-    ctx.arc(hx, 5, 1.5, 0, Math.PI * 2);
+    ctx.arc(hx, 8, 1.5, 0, Math.PI * 2);
     ctx.fill();
-    R(ctx, hx, 21, 3, 3, "#cfc9af");
-    PX(ctx, hx, 22, "#1a1410");
-    PX(ctx, hx + 2, 22, "#1a1410");
+    PX(ctx, hx - 3, 6, ramp.cloth2);
+    PX(ctx, hx + 5, 7, ramp.trim);
     if (attack) {
-      PX(ctx, hx - 4, 2, orb);
-      PX(ctx, hx + 6, 3, orb);
-      PX(ctx, hx + 1, 0, "#ffffff");
+      PX(ctx, hx - 3, 3, orb);
+      PX(ctx, hx + 5, 2, orb);
+      PX(ctx, hx + 1, 1, "#ffffff");
     }
   } else if (cls === "bard") {
     const hx = cx + (attack ? 12 : 10);
@@ -2580,12 +2688,11 @@ function drawHeroBack(ctx, ox, cls, ramp, facing, pose) {
     PX(ctx, cx - 9 + sway, tTop + 14 + sway, ramp.cloth0);
     PX(ctx, cx + 8 - sway, tTop + 13 - sway, ramp.cloth0);
   } else if (cls === "necromancer") {
-    R(ctx, cx - 11, tTop - 1, 22, 19, "rgba(24,18,42,0.9)");
-    R(ctx, cx - 11, tTop - 1, 22, 2, "rgba(89,67,128,0.8)");
-    for (let i = 0; i < 5; i++) {
-      const tx = cx - 10 + i * 5 + (i % 2 === 0 ? sway : -sway);
-      R(ctx, tx, tTop + 18, 2, 4 + i % 3, "rgba(24,18,42,0.85)");
-    }
+    R(ctx, cx - 12, tTop - 2, 24, 6, ramp.cloth0);
+    R(ctx, cx - 12, tTop - 2, 24, 1, "rgba(255,255,255,0.08)");
+    for (let i = 0; i < 8; i++) PX(ctx, cx - 11 + i * 3, tTop + 3 + i % 2, "rgba(64,232,255,0.38)");
+    PX(ctx, cx - 10 + sway, tTop + 5, ramp.trim);
+    PX(ctx, cx + 9 - sway, tTop + 5, ramp.cloth2);
   } else if (cls === "warden") {
     R(ctx, cx - 12, tTop - 2, 24, 6, ramp.cloth0);
     R(ctx, cx - 12, tTop - 2, 24, 1, "rgba(255,255,255,0.14)");
@@ -2654,17 +2761,16 @@ function drawHeroFlair(ctx, ox, cls, ramp, facing, pose) {
       PX(ctx, cx, tTop + 6, "#fffbe2");
     }
   } else if (cls === "necromancer") {
-    for (let i = 0; i < 4; i++) {
-      const bx = hx0 - 1 + i * 4;
-      R(ctx, bx, hTop - 5 - i % 2, 2, 3 + i % 2, "#cfc9af");
-      PX(ctx, bx, hTop - 6 - i % 2, "#efe9d2");
+    if (facing !== "up") {
+      for (let i = 0; i < 7; i++) PX(ctx, cx - 6 + i * 2, tTop + 11 + i % 2, ramp.cloth0);
+      PX(ctx, cx, tTop + 11, ramp.trim);
+      PX(ctx, cx + 1, tTop + 12, ramp.trimHi);
+      R(ctx, cx - 2, tTop + 5, 4, 4, ramp.cloth2);
+      PX(ctx, cx - 1, tTop + 6, ramp.trimHi);
     }
-    const wx = cx + (facing === "side" ? -11 : 10) + sway;
-    const wy = hTop + 2 - sway;
-    PX(ctx, wx, wy, "#8affd0");
-    PX(ctx, wx + 1, wy + 1, "rgba(138,255,208,0.55)");
-    PX(ctx, wx - 1, wy + 1, "rgba(138,255,208,0.35)");
-    if (facing !== "up") for (let i = 0; i < 3; i++) R(ctx, cx - 3, tTop + 4 + i * 3, 6, 1, "rgba(207,201,175,0.5)");
+    const wx = cx + (facing === "side" ? -10 : 10) - sway;
+    PX(ctx, wx, hTop + 3 + sway, ramp.trim);
+    PX(ctx, wx + 2, hTop + 6 - sway, "rgba(64,232,255,0.55)");
   } else if (cls === "bard") {
     if (facing !== "up") {
       for (let i = 0; i < 3; i++) PX(ctx, cx, tTop + 3 + i * 3, ramp.trimHi);
@@ -2922,25 +3028,38 @@ function drawHumanoid(ctx, ox, cls, ramp, facing, pose) {
     PX(ctx, hx0 + hw + 2, hTop - 6, "#d8cfb4");
     PX(ctx, cx, hTop - 3, "#7fce58");
     PX(ctx, cx + 1, hTop - 4, "#b6ff8a");
-  } else {
-    R(ctx, hx0 - 2, hTop - 3, hw + 4, 6, ramp.cloth0);
-    R(ctx, hx0 - 2, hTop - 3, hw + 4, 1, ramp.cloth2);
-    R(ctx, hx0 - 2, hTop - 2, hw + 4, 1, ramp.cloth1);
-    R(ctx, hx0 - 2, hTop, 2, 12, ramp.cloth0);
-    R(ctx, hx0 + hw, hTop, 2, 12, ramp.cloth0);
-    R(ctx, hx0, hTop + 1, 1, 9, ramp.cloth1);
-    R(ctx, hx0 + hw - 1, hTop + 1, 1, 9, ramp.cloth1);
-    R(ctx, hx0 + 1, hTop + 2, hw - 2, 8, "#0a0a12");
+  } else if (cls === "necromancer") {
+    R(ctx, hx0 - 1, hTop - 2, hw + 2, 5, ramp.cloth1);
+    R(ctx, hx0 - 1, hTop - 2, hw + 2, 1, ramp.cloth2);
+    R(ctx, hx0 - 2, hTop, 2, 9, ramp.cloth0);
+    R(ctx, hx0 + hw, hTop, 2, 9, ramp.cloth0);
+    PX(ctx, hx0 - 1, hTop - 4, ramp.skin);
+    PX(ctx, hx0 - 2, hTop - 5, ramp.skinHi);
+    PX(ctx, hx0 + hw, hTop - 4, ramp.skin);
+    PX(ctx, hx0 + hw + 1, hTop - 5, ramp.skinHi);
+    PX(ctx, cx, hTop - 3, ramp.trim);
+    PX(ctx, cx + 1, hTop - 4, ramp.trimHi);
+    R(ctx, hx0, hTop + 1, hw, 9, ramp.skin);
+    R(ctx, hx0, hTop + 1, hw, 2, ramp.skinHi);
+    R(ctx, hx0 + hw - 1, hTop + 2, 1, 8, SHd);
     if (facing === "side") {
-      R(ctx, hx0 + hw - 4, hTop + 5, 2, 2, "#8affd0");
-      PX(ctx, hx0 + hw - 4, hTop + 5, "#dfffe6");
-      R(ctx, hx0 + hw - 1, hTop + 6, 2, 2, ramp.skin);
-      R(ctx, hx0 + hw - 3, hTop + 9, 3, 1, SH);
+      R(ctx, hx0 + hw - 5, hTop + 3, 3, 3, "#120818");
+      PX(ctx, hx0 + hw - 4, hTop + 4, ramp.trim);
+      PX(ctx, hx0 + hw - 3, hTop + 5, "#e0ffe8");
+      R(ctx, hx0 + hw - 3, hTop + 8, 4, 2, ramp.skin);
+      for (let i = 0; i < 2; i++) PX(ctx, hx0 + hw - 2 + i, hTop + 9, "#120818");
     } else if (facing !== "up") {
-      R(ctx, hx0 + 2, hTop + 5, 2, 2, "#8affd0");
-      R(ctx, hx0 + hw - 4, hTop + 5, 2, 2, "#8affd0");
-      PX(ctx, hx0 + 2, hTop + 5, "#dfffe6");
-      PX(ctx, hx0 + hw - 4, hTop + 5, "#dfffe6");
+      R(ctx, hx0 + 2, hTop + 3, 3, 3, "#120818");
+      R(ctx, hx0 + hw - 5, hTop + 3, 3, 3, "#120818");
+      PX(ctx, hx0 + 3, hTop + 4, ramp.trim);
+      PX(ctx, hx0 + hw - 4, hTop + 4, ramp.trim);
+      PX(ctx, hx0 + 4, hTop + 5, "#e0ffe8");
+      PX(ctx, hx0 + hw - 3, hTop + 5, "#e0ffe8");
+      R(ctx, hx0 + 3, hTop + 8, 6, 1, "#120818");
+      for (let i = 0; i < 3; i++) PX(ctx, hx0 + 4 + i, hTop + 9, ramp.skinHi);
+    } else {
+      R(ctx, hx0 + 1, hTop + 2, hw - 2, 7, ramp.cloth1);
+      PX(ctx, cx, hTop + 4, ramp.trim);
     }
   }
   if (cls !== "arcanist" && cls !== "necromancer") {
@@ -2971,6 +3090,153 @@ function drawHumanoid(ctx, ox, cls, ramp, facing, pose) {
   }
   drawHeroFlair(ctx, ox, cls, ramp, facing, pose);
   if (facing !== "up") drawWeapon(ctx, ox, cls, ramp, facing, pose);
+}
+function drawNecroWardenForm(ctx, ox, frame, r) {
+  const cx = ox + MON_FW / 2;
+  const bob = [0, -2, -1, 0][frame % 4];
+  const cast = frame === 3;
+  const D = "rgba(0,0,0,0.34)";
+  R(ctx, cx - 14, 14 + bob, 28, 28, r.body0);
+  R(ctx, cx - 14, 14 + bob, 28, 3, r.body2);
+  R(ctx, cx - 12, 18 + bob, 24, 20, r.body1);
+  R(ctx, cx - 12, 18 + bob, 4, 20, r.body2);
+  R(ctx, cx + 8, 18 + bob, 4, 20, D);
+  for (let i = 0; i < 5; i++) {
+    const tx = cx - 12 + i * 5;
+    R(ctx, tx, 36 + bob + i % 2, 3, 5 + i % 2, r.body0);
+    PX(ctx, tx + 1, 35 + bob + i % 2, r.accent);
+  }
+  R(ctx, cx - 5, 24 + bob, 10, 10, r.accent);
+  R(ctx, cx - 3, 26 + bob, 6, 6, C.portalCore);
+  PX(ctx, cx - 1, 28 + bob, "#ffffff");
+  R(ctx, cx - 8, 4 + bob, 16, 14, "#d8dce8");
+  R(ctx, cx - 8, 4 + bob, 16, 2, "#ffffff");
+  R(ctx, cx + 6, 5 + bob, 2, 12, D);
+  R(ctx, cx - 6, 12 + bob, 12, 3, "#9aa0b4");
+  for (let i = 0; i < 5; i++) PX(ctx, cx - 5 + i * 3, 13 + bob, r.detail);
+  R(ctx, cx - 5, 8 + bob, 4, 4, "#120818");
+  R(ctx, cx + 1, 8 + bob, 4, 4, "#120818");
+  R(ctx, cx - 4, 9 + bob, 3, 2, r.eye);
+  R(ctx, cx + 1, 9 + bob, 3, 2, r.eye);
+  PX(ctx, cx - 3, 9 + bob, "#ffffff");
+  PX(ctx, cx + 2, 9 + bob, "#ffffff");
+  R(ctx, cx - 8, 1 + bob, 16, 3, C.coinMid);
+  PX(ctx, cx - 6, 0 + bob, C.coinHi);
+  PX(ctx, cx - 1, -1 + bob, C.gem);
+  PX(ctx, cx + 4, 0 + bob, C.coinHi);
+  const ay = cast ? 8 : 16;
+  R(ctx, cx + 12, ay + bob, 4, 24, r.body1);
+  R(ctx, cx + 10, ay - 6 + bob, 10, 3, "#aeb6cc");
+  R(ctx, cx + 18, ay - 10 + bob, 4, 8, "#dfe6ff");
+  if (cast) {
+    R(ctx, cx - 16, 20 + bob, 10, 10, r.accent);
+    R(ctx, cx - 14, 22 + bob, 6, 6, C.portalCore);
+    for (let i = 0; i < 4; i++) PX(ctx, cx - 12 + i * 2, 18 + bob, "#ffffff");
+  }
+  R(ctx, cx - 8, 38 + bob, 6, 4, r.body0);
+  R(ctx, cx + 2, 38 + bob, 6, 4, r.body0);
+}
+function drawDruidBear(ctx, ox, frame) {
+  const furDk = "#33220f";
+  const fur = "#57391c";
+  const furHi = "#7c5830";
+  const muzzle = "#a8845a";
+  const claw = "#e8e2cc";
+  const moss = "#6ab04a";
+  const mossDk = "#3f7a34";
+  const eye = "#8aff6a";
+  const bob = [0, -1, 0, -1][frame % 4];
+  const rear = frame === 3;
+  const blob = (x, y, w, h, c) => {
+    R(ctx, ox + x + 1, y, w - 2, h, c);
+    R(ctx, ox + x, y + 1, w, h - 2, c);
+  };
+  if (!rear) {
+    const by = 18 + bob;
+    const step = frame === 1 ? 2 : frame === 2 ? -2 : 0;
+    const legs = [
+      [8 + step, 30],
+      // hind pair
+      [15 - step, 31],
+      [26 + step, 31],
+      // fore pair
+      [33 - step, 30]
+    ];
+    for (const [lx, ly] of legs) {
+      blob(lx, ly, 6, 11, fur);
+      R(ctx, ox + lx, ly + 1, 1, 9, furHi);
+      R(ctx, ox + lx + 5, ly + 1, 1, 9, furDk);
+      R(ctx, ox + lx, ly + 9, 6, 2, furDk);
+      PX(ctx, ox + lx + 5, ly + 10, claw);
+      PX(ctx, ox + lx + 6, ly + 10, claw);
+    }
+    blob(5, by + 2, 14, 14, fur);
+    blob(8, by, 20, 15, fur);
+    blob(18, by - 4, 15, 18, fur);
+    R(ctx, ox + 20, by - 5, 10, 3, fur);
+    R(ctx, ox + 8, by + 1, 12, 2, furHi);
+    R(ctx, ox + 19, by - 3, 10, 2, furHi);
+    R(ctx, ox + 21, by - 5, 7, 1, furHi);
+    R(ctx, ox + 7, by + 13, 26, 3, furDk);
+    R(ctx, ox + 6, by + 4, 2, 8, furHi);
+    PX(ctx, ox + 4, by + 6, fur);
+    PX(ctx, ox + 4, by + 7, furHi);
+    blob(31, by + 1, 10, 9, fur);
+    R(ctx, ox + 32, by + 1, 8, 1, furHi);
+    R(ctx, ox + 33, by - 2, 4, 4, fur);
+    PX(ctx, ox + 34, by - 1, furDk);
+    R(ctx, ox + 39, by + 5, 4, 4, muzzle);
+    R(ctx, ox + 41, by + 7, 3, 3, muzzle);
+    PX(ctx, ox + 43, by + 8, furDk);
+    R(ctx, ox + 39, by + 9, 3, 1, furDk);
+    R(ctx, ox + 36, by + 4, 2, 2, eye);
+    PX(ctx, ox + 36, by + 4, "#eaffd0");
+    PX(ctx, ox + 11, by + 2, moss);
+    PX(ctx, ox + 16, by, mossDk);
+    PX(ctx, ox + 23, by - 4, moss);
+    PX(ctx, ox + 27, by - 3, mossDk);
+    PX(ctx, ox + 24, by - 7, moss);
+    PX(ctx, ox + 25, by - 8, "#b6ff8a");
+  } else {
+    const by = 5;
+    for (const lx of [11, 21]) {
+      blob(lx, 32, 7, 10, fur);
+      R(ctx, ox + lx, 33, 1, 8, furHi);
+      R(ctx, ox + lx, 41, 7, 2, furDk);
+      PX(ctx, ox + lx + 6, 42, claw);
+      PX(ctx, ox + lx + 7, 42, claw);
+    }
+    blob(9, by + 8, 20, 26, fur);
+    blob(12, by + 5, 17, 8, fur);
+    R(ctx, ox + 9, by + 10, 3, 22, furHi);
+    R(ctx, ox + 25, by + 12, 4, 20, furDk);
+    blob(21, by + 14, 6, 12, muzzle);
+    blob(19, by, 11, 10, fur);
+    R(ctx, ox + 21, by, 8, 1, furHi);
+    R(ctx, ox + 18, by - 3, 4, 4, fur);
+    PX(ctx, ox + 19, by - 2, furDk);
+    R(ctx, ox + 28, by + 3, 6, 3, muzzle);
+    R(ctx, ox + 30, by + 7, 5, 2, muzzle);
+    R(ctx, ox + 29, by + 6, 5, 1, "#5a1208");
+    PX(ctx, ox + 33, by + 3, furDk);
+    PX(ctx, ox + 29, by + 6, claw);
+    PX(ctx, ox + 32, by + 6, claw);
+    R(ctx, ox + 25, by + 2, 2, 2, eye);
+    PX(ctx, ox + 25, by + 2, "#eaffd0");
+    blob(27, by + 10, 11, 6, fur);
+    R(ctx, ox + 28, by + 10, 9, 1, furHi);
+    blob(36, by + 9, 5, 8, fur);
+    for (let i = 0; i < 3; i++) {
+      R(ctx, ox + 40, by + 10 + i * 2, 3, 1, claw);
+    }
+    blob(23, by + 24, 9, 5, fur);
+    R(ctx, ox + 30, by + 26, 3, 3, furDk);
+    PX(ctx, ox + 12, by + 12, moss);
+    PX(ctx, ox + 11, by + 18, mossDk);
+    PX(ctx, ox + 13, by + 24, moss);
+    PX(ctx, ox + 15, by - 2, moss);
+    PX(ctx, ox + 16, by - 3, "#b6ff8a");
+  }
 }
 function drawGrunt(ctx, ox, frame, r) {
   const cx = ox + MON_FW / 2;
@@ -3115,8 +3381,11 @@ __export(townArt_exports, {
   drawCart: () => drawCart,
   drawCauldron: () => drawCauldron,
   drawChain: () => drawChain,
+  drawChimney: () => drawChimney,
   drawCrate: () => drawCrate,
+  drawCropRow: () => drawCropRow,
   drawDog: () => drawDog,
+  drawDuck: () => drawDuck,
   drawFenceH: () => drawFenceH,
   drawFenceV: () => drawFenceV,
   drawFlowerBed: () => drawFlowerBed,
@@ -3133,20 +3402,33 @@ __export(townArt_exports, {
   drawHouseEaveBlue: () => drawHouseEaveBlue,
   drawHouseEaveGreen: () => drawHouseEaveGreen,
   drawHouseEaveRed: () => drawHouseEaveRed,
+  drawHouseEaveSlate: () => drawHouseEaveSlate,
   drawHouseEaveTeak: () => drawHouseEaveTeak,
+  drawHouseEaveThatch: () => drawHouseEaveThatch,
+  drawHouseMidBlue: () => drawHouseMidBlue,
+  drawHouseMidGreen: () => drawHouseMidGreen,
+  drawHouseMidRed: () => drawHouseMidRed,
+  drawHouseMidSlate: () => drawHouseMidSlate,
+  drawHouseMidTeak: () => drawHouseMidTeak,
+  drawHouseMidThatch: () => drawHouseMidThatch,
   drawHousePost: () => drawHousePost,
   drawHouseRoofBlue: () => drawHouseRoofBlue,
   drawHouseRoofGreen: () => drawHouseRoofGreen,
   drawHouseRoofRed: () => drawHouseRoofRed,
+  drawHouseRoofSlate: () => drawHouseRoofSlate,
   drawHouseRoofTeak: () => drawHouseRoofTeak,
+  drawHouseRoofThatch: () => drawHouseRoofThatch,
   drawHouseWall: () => drawHouseWall,
   drawHouseWindow: () => drawHouseWindow,
   drawLampPost: () => drawLampPost,
+  drawMooringPost: () => drawMooringPost,
   drawQuestBoard: () => drawQuestBoard,
   drawRipple: () => drawRipple,
   drawRoad: () => drawRoad,
   drawRug: () => drawRug,
   drawShelf: () => drawShelf,
+  drawShopSign: () => drawShopSign,
+  drawShoreRock: () => drawShoreRock,
   drawStallBlue: () => drawStallBlue,
   drawStallRed: () => drawStallRed,
   drawStatue: () => drawStatue,
@@ -3160,7 +3442,8 @@ __export(townArt_exports, {
   drawTownsfolk: () => drawTownsfolk,
   drawTrainingDummy: () => drawTrainingDummy,
   drawWell: () => drawWell,
-  drawWoodFloor: () => drawWoodFloor
+  drawWoodFloor: () => drawWoodFloor,
+  drawWoodPile: () => drawWoodPile
 });
 function R2(ctx, x, y, w, h, color) {
   ctx.fillStyle = color;
@@ -3251,28 +3534,59 @@ function drawTownGate(ctx, ox, oy) {
   PX2(ctx, ox + 15, oy + 11, "#e0bd84");
 }
 function pitchedRoof(ctx, ox, oy, base, hi, dk, part) {
-  const grad = ctx.createLinearGradient(0, oy, 0, oy + 32);
-  grad.addColorStop(0, part === "ridge" ? hi : base);
-  grad.addColorStop(part === "ridge" ? 0.3 : 0.6, base);
-  grad.addColorStop(1, dk);
-  ctx.fillStyle = grad;
-  ctx.fillRect(ox, oy, 32, 32);
+  R2(ctx, ox, oy, 32, 32, base);
+  let startY = 0;
   if (part === "ridge") {
-    R2(ctx, ox, oy, 32, 3, hi);
-    R2(ctx, ox, oy + 3, 32, 1, dk);
+    R2(ctx, ox, oy, 32, 7, dk);
+    R2(ctx, ox, oy + 6, 32, 1, "rgba(0,0,0,0.35)");
+    R2(ctx, ox, oy + 7, 32, 3, hi);
+    R2(ctx, ox, oy + 10, 32, 1, "rgba(0,0,0,0.30)");
+    startY = 12;
   }
-  for (let ry = part === "ridge" ? 7 : 2; ry < 32; ry += 5) {
+  if (part === "mid") R2(ctx, ox, oy + 20, 32, 12, "rgba(0,0,0,0.05)");
+  if (part === "eave") R2(ctx, ox, oy, 32, 26, "rgba(0,0,0,0.09)");
+  for (let ry = startY; ry < 32; ry += 5) {
     R2(ctx, ox, oy + ry, 32, 1, dk);
     R2(ctx, ox, oy + ry + 1, 32, 1, hi);
-    const off = ((oy + ry) / 5 | 0) % 2 ? 4 : 0;
-    for (let sx = off; sx < 32; sx += 8) R2(ctx, ox + sx, oy + ry, 1, 4, dk);
+    const off = (ry / 5 | 0) % 2 ? 4 : 0;
+    for (let sx = -off; sx < 32; sx += 8) {
+      R2(ctx, ox + sx + 7, oy + ry + 1, 1, 4, dk);
+      if (sx + 8 < 32) R2(ctx, ox + sx + 8, oy + ry + 2, 1, 3, hi);
+    }
   }
   R2(ctx, ox, oy, 2, 32, hi);
   R2(ctx, ox + 30, oy, 2, 32, dk);
   if (part === "eave") {
-    R2(ctx, ox, oy + 26, 32, 3, dk);
+    R2(ctx, ox, oy + 26, 32, 2, dk);
     R2(ctx, ox, oy + 26, 32, 1, hi);
-    R2(ctx, ox, oy + 29, 32, 3, "rgba(18,11,6,0.5)");
+    R2(ctx, ox, oy + 29, 32, 2, "rgba(16,10,6,0.35)");
+  }
+}
+function thatchRoof(ctx, ox, oy, part) {
+  const s0 = "#a3822f", s1 = "#c39a3f", s2 = "#7a5e22", s3 = "#e0c063";
+  R2(ctx, ox, oy, 32, 32, s1);
+  for (let x = 0; x < 32; x += 2) R2(ctx, ox + x, oy, 1, 32, x % 6 === 0 ? s2 : x % 4 === 0 ? s3 : s0);
+  let startY = 2;
+  if (part === "ridge") {
+    R2(ctx, ox, oy, 32, 8, s2);
+    R2(ctx, ox, oy + 7, 32, 3, "#6e4a24");
+    R2(ctx, ox, oy + 7, 32, 1, s3);
+    startY = 12;
+  }
+  if (part === "eave") R2(ctx, ox, oy, 32, 22, "rgba(0,0,0,0.08)");
+  for (let ry = startY; ry < 32; ry += 7) {
+    R2(ctx, ox, oy + ry, 32, 2, "rgba(40,26,10,0.45)");
+    R2(ctx, ox, oy + ry + 2, 32, 1, s3);
+  }
+  R2(ctx, ox, oy, 2, 32, s3);
+  R2(ctx, ox + 30, oy, 2, 32, s2);
+  if (part === "eave") {
+    for (let x = 0; x < 32; x += 3) {
+      const h = 4 + x * 7 % 4;
+      R2(ctx, ox + x, oy + 27 - h, 3, h, s0);
+      R2(ctx, ox + x, oy + 27 - h, 3, 1, s3);
+    }
+    R2(ctx, ox, oy + 29, 32, 3, "rgba(16,10,6,0.5)");
   }
 }
 function drawHouseRoofRed(ctx, ox, oy) {
@@ -3287,6 +3601,30 @@ function drawHouseRoofGreen(ctx, ox, oy) {
 function drawHouseRoofTeak(ctx, ox, oy) {
   pitchedRoof(ctx, ox, oy, "#6e4a24", "#8a6132", "#3a2410", "ridge");
 }
+function drawHouseRoofSlate(ctx, ox, oy) {
+  pitchedRoof(ctx, ox, oy, "#4a545f", "#6b7784", "#2a323b", "ridge");
+}
+function drawHouseRoofThatch(ctx, ox, oy) {
+  thatchRoof(ctx, ox, oy, "ridge");
+}
+function drawHouseMidRed(ctx, ox, oy) {
+  pitchedRoof(ctx, ox, oy, "#9c3a2a", "#c85a3e", "#5a1e14", "mid");
+}
+function drawHouseMidBlue(ctx, ox, oy) {
+  pitchedRoof(ctx, ox, oy, "#34507a", "#4f72a8", "#1e2f4a", "mid");
+}
+function drawHouseMidGreen(ctx, ox, oy) {
+  pitchedRoof(ctx, ox, oy, "#3a6a3a", "#56965a", "#1e3a1e", "mid");
+}
+function drawHouseMidTeak(ctx, ox, oy) {
+  pitchedRoof(ctx, ox, oy, "#6e4a24", "#8a6132", "#3a2410", "mid");
+}
+function drawHouseMidSlate(ctx, ox, oy) {
+  pitchedRoof(ctx, ox, oy, "#4a545f", "#6b7784", "#2a323b", "mid");
+}
+function drawHouseMidThatch(ctx, ox, oy) {
+  thatchRoof(ctx, ox, oy, "mid");
+}
 function drawHouseEaveRed(ctx, ox, oy) {
   pitchedRoof(ctx, ox, oy, "#9c3a2a", "#c85a3e", "#5a1e14", "eave");
 }
@@ -3299,38 +3637,102 @@ function drawHouseEaveGreen(ctx, ox, oy) {
 function drawHouseEaveTeak(ctx, ox, oy) {
   pitchedRoof(ctx, ox, oy, "#6e4a24", "#8a6132", "#3a2410", "eave");
 }
-function drawHouseDoor(ctx, ox, oy) {
+function drawHouseEaveSlate(ctx, ox, oy) {
+  pitchedRoof(ctx, ox, oy, "#4a545f", "#6b7784", "#2a323b", "eave");
+}
+function drawHouseEaveThatch(ctx, ox, oy) {
+  thatchRoof(ctx, ox, oy, "eave");
+}
+function drawChimney(ctx, ox, oy) {
+  const st = "#8a8276", stHi = "#aaa294", stDk = "#5f584e", mortar = "#635c52", pot = "#9c4a34", potHi = "#c05a40";
+  R2(ctx, ox + 12, oy + 14, 8, 10, st);
+  R2(ctx, ox + 12, oy + 14, 2, 10, stHi);
+  R2(ctx, ox + 18, oy + 14, 2, 10, stDk);
+  for (let by = 16; by < 24; by += 3) R2(ctx, ox + 12, oy + by, 8, 1, mortar);
+  R2(ctx, ox + 11, oy + 12, 10, 3, stDk);
+  R2(ctx, ox + 11, oy + 12, 10, 1, stHi);
+  R2(ctx, ox + 13, oy + 8, 6, 5, pot);
+  R2(ctx, ox + 13, oy + 8, 6, 1, potHi);
+  R2(ctx, ox + 14, oy + 8, 4, 1, "#3a1c14");
+  R2(ctx, ox + 15, oy + 4, 3, 4, "rgba(214,208,202,0.45)");
+  PX2(ctx, ox + 17, oy + 3, "rgba(214,208,202,0.30)");
+}
+function drawShopSign(ctx, ox, oy, glyph) {
   drawHouseWall(ctx, ox, oy);
-  R2(ctx, ox + 8, oy + 4, 16, 26, "#8a8276");
-  R2(ctx, ox + 8, oy + 4, 16, 2, "#a8a092");
-  R2(ctx, ox + 8, oy + 4, 2, 26, "#9a9286");
-  R2(ctx, ox + 22, oy + 4, 2, 26, "#5f584e");
-  R2(ctx, ox + 10, oy + 7, 12, 23, "#241a0e");
-  R2(ctx, ox + 11, oy + 8, 10, 22, "#5a3a1c");
-  R2(ctx, ox + 11, oy + 8, 3, 22, "#6e4a24");
-  for (const px of [13, 16, 19]) R2(ctx, ox + px, oy + 8, 1, 22, "#3a2410");
-  R2(ctx, ox + 11, oy + 8, 10, 1, "#7a5128");
-  R2(ctx, ox + 11, oy + 12, 10, 2, "#3a3f4a");
-  R2(ctx, ox + 11, oy + 23, 10, 2, "#3a3f4a");
-  R2(ctx, ox + 11, oy + 12, 10, 1, "#5a626e");
-  ctx.strokeStyle = "#cfa64e";
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.arc(ox + 18, oy + 20, 2, 0, Math.PI * 2);
-  ctx.stroke();
+  const iron = "#2c2f3a", wood = "#6e4a24", woodHi = "#9a6c38", board = "#c9a86a", boardHi = "#e0c68a", boardDk = "#8a6a3a";
+  R2(ctx, ox + 2, oy + 4, 12, 2, iron);
+  R2(ctx, ox + 2, oy + 4, 2, 8, iron);
+  R2(ctx, ox + 6, oy + 6, 1, 4, "#555b6e");
+  R2(ctx, ox + 12, oy + 6, 1, 4, "#555b6e");
+  R2(ctx, ox + 3, oy + 10, 20, 15, wood);
+  R2(ctx, ox + 4, oy + 11, 18, 13, board);
+  R2(ctx, ox + 4, oy + 11, 18, 1, boardHi);
+  R2(ctx, ox + 4, oy + 23, 18, 1, boardDk);
+  const gx = ox + 13, gy = oy + 17;
+  const g = "#3a2a18";
+  if (glyph === "anvil") {
+    R2(ctx, gx - 5, gy, 10, 3, iron);
+    R2(ctx, gx - 7, gy, 4, 2, iron);
+    R2(ctx, gx - 2, gy + 3, 4, 4, iron);
+  } else if (glyph === "vial") {
+    R2(ctx, gx - 2, gy - 5, 4, 4, "#7fd06a");
+    R2(ctx, gx - 3, gy - 1, 6, 6, "#3a7a3a");
+    R2(ctx, gx - 1, gy - 7, 2, 2, g);
+  } else if (glyph === "sword") {
+    R2(ctx, gx - 1, gy - 6, 2, 10, "#c8ccd8");
+    R2(ctx, gx - 3, gy + 3, 6, 2, g);
+    R2(ctx, gx - 1, gy + 4, 2, 3, wood);
+  } else if (glyph === "tankard") {
+    R2(ctx, gx - 4, gy - 4, 8, 9, "#caa56a");
+    R2(ctx, gx - 4, gy - 5, 8, 2, "#efe6c8");
+    R2(ctx, gx + 4, gy - 2, 2, 4, "#8a6a3a");
+  } else if (glyph === "coin") {
+    ctx.fillStyle = "#e0b24e";
+    ctx.beginPath();
+    ctx.arc(gx, gy, 5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#8a6a2a";
+    ctx.fillRect(gx - 1, gy - 2, 2, 4);
+  } else {
+    R2(ctx, gx - 5, gy - 3, 10, 7, "#c98a4a");
+    R2(ctx, gx - 5, gy - 3, 10, 2, "#e0b070");
+    PX2(ctx, gx - 2, gy, g);
+    PX2(ctx, gx + 1, gy + 1, g);
+  }
+}
+function drawHouseDoor(ctx, ox, oy) {
+  drawHouseBase(ctx, ox, oy);
+  const st = "#8a8276", stHi = "#a8a092", stDk = "#5f584e", recess = "#241a0e";
+  const wood = "#5a3a1c", woodHi = "#6e4a24", woodDk = "#3a2410";
+  R2(ctx, ox + 5, oy + 10, 6, 3, st);
+  R2(ctx, ox + 21, oy + 10, 6, 3, st);
+  R2(ctx, ox + 8, oy + 8, 16, 4, stHi);
+  R2(ctx, ox + 4, oy + 12, 24, 20, recess);
+  R2(ctx, ox + 5, oy + 13, 22, 18, wood);
+  R2(ctx, ox + 5, oy + 13, 5, 18, woodHi);
+  for (const px of [10, 14, 18, 22]) R2(ctx, ox + px, oy + 13, 1, 18, woodDk);
+  R2(ctx, ox + 5, oy + 13, 22, 2, "#7a5128");
+  R2(ctx, ox + 5, oy + 20, 22, 3, "#3a3f4a");
+  R2(ctx, ox + 5, oy + 27, 22, 3, "#3a3f4a");
+  R2(ctx, ox + 5, oy + 20, 22, 1, "#5a626e");
+  PX2(ctx, ox + 23, oy + 24, "#cfa64e");
 }
 function drawHouseWall(ctx, ox, oy) {
-  R2(ctx, ox, oy, 32, 32, "#cdbb95");
+  R2(ctx, ox, oy, 32, 32, "#d3c19a");
   for (const [x, y, c] of [
-    [6, 5, "#c2af86"],
-    [14, 11, "#d8c79e"],
-    [23, 7, "#c2af86"],
-    [10, 20, "#d8c79e"],
-    [19, 25, "#c2af86"],
-    [27, 17, "#d8c79e"],
-    [4, 28, "#c2af86"],
-    [29, 3, "#c2af86"]
+    [6, 5, "#c4b088"],
+    [23, 7, "#c4b088"],
+    [10, 20, "#e0cfa4"],
+    [19, 25, "#c4b088"],
+    [27, 17, "#e0cfa4"],
+    [4, 28, "#c4b088"],
+    [29, 3, "#c4b088"],
+    [2, 13, "#c4b088"],
+    [26, 27, "#e0cfa4"]
   ]) PX2(ctx, ox + x, oy + y, c);
+  R2(ctx, ox + 15, oy, 2, 32, "#6e4a24");
+  R2(ctx, ox + 15, oy, 1, 32, "rgba(138,97,50,0.7)");
+  R2(ctx, ox + 16, oy, 1, 32, "rgba(58,36,16,0.6)");
 }
 function drawHousePost(ctx, ox, oy) {
   drawHouseWall(ctx, ox, oy);
@@ -3342,43 +3744,44 @@ function drawHousePost(ctx, ox, oy) {
 }
 function drawHouseBeam(ctx, ox, oy) {
   drawHouseWall(ctx, ox, oy);
-  R2(ctx, ox, oy, 32, 1, "rgba(18,11,6,0.5)");
-  R2(ctx, ox, oy + 1, 32, 6, "#6e4a24");
+  R2(ctx, ox, oy, 32, 1, "rgba(18,11,6,0.35)");
+  R2(ctx, ox, oy + 1, 32, 3, "#6e4a24");
   R2(ctx, ox, oy + 1, 32, 1, "#8a6132");
-  R2(ctx, ox, oy + 6, 32, 1, "#42301a");
+  R2(ctx, ox, oy + 3, 32, 1, "#42301a");
 }
 function drawHouseBase(ctx, ox, oy) {
   drawHouseWall(ctx, ox, oy);
-  R2(ctx, ox, oy + 18, 32, 14, "#8a8276");
-  R2(ctx, ox, oy + 18, 32, 1, "#a8a092");
-  for (let i = 0; i < 32; i += 8) R2(ctx, ox + i, oy + 18, 1, 14, "#5f584e");
-  R2(ctx, ox, oy + 25, 32, 1, "#5f584e");
-  R2(ctx, ox + 4, oy + 21, 5, 3, "#7a7268");
-  R2(ctx, ox + 20, oy + 27, 6, 3, "#7a7268");
+  R2(ctx, ox, oy + 20, 32, 12, "#8a8276");
+  R2(ctx, ox, oy + 20, 32, 1, "#a8a092");
+  for (let i = 0; i < 32; i += 8) R2(ctx, ox + i, oy + 20, 1, 12, "#5f584e");
+  R2(ctx, ox, oy + 27, 32, 1, "#5f584e");
+  R2(ctx, ox + 3, oy + 23, 4, 2, "#7a7268");
+  R2(ctx, ox + 24, oy + 25, 5, 2, "#7a7268");
 }
 function drawHouseWindow(ctx, ox, oy) {
   drawHouseWall(ctx, ox, oy);
   const fr = "#3a2712", wood = "#6e4a24", glassHi = "#6a90b8";
-  R2(ctx, ox + 3, oy + 6, 3, 16, wood);
-  R2(ctx, ox + 26, oy + 6, 3, 16, wood);
-  R2(ctx, ox + 3, oy + 6, 1, 16, "#8a6132");
-  R2(ctx, ox + 26, oy + 6, 1, 16, "#8a6132");
-  R2(ctx, ox + 6, oy + 5, 20, 17, fr);
-  const g = ctx.createLinearGradient(0, oy + 7, 0, oy + 20);
+  R2(ctx, ox + 1, oy + 2, 4, 22, wood);
+  R2(ctx, ox + 27, oy + 2, 4, 22, wood);
+  R2(ctx, ox + 1, oy + 2, 1, 22, "#8a6132");
+  R2(ctx, ox + 27, oy + 2, 1, 22, "#8a6132");
+  R2(ctx, ox + 1, oy + 1, 30, 25, fr);
+  const g = ctx.createLinearGradient(0, oy + 3, 0, oy + 24);
   g.addColorStop(0, "#3a5a7a");
-  g.addColorStop(1, "#ffd98a");
+  g.addColorStop(1, "#b89058");
   ctx.fillStyle = g;
-  ctx.fillRect(ox + 8, oy + 7, 16, 13);
-  R2(ctx, ox + 8, oy + 7, 7, 5, glassHi);
-  R2(ctx, ox + 15, oy + 7, 2, 13, fr);
-  R2(ctx, ox + 8, oy + 12, 16, 2, fr);
-  R2(ctx, ox + 4, oy + 21, 24, 2, "#8a6132");
-  R2(ctx, ox + 4, oy + 21, 24, 1, "#a8843e");
-  R2(ctx, ox + 5, oy + 23, 22, 3, "#5a3a1c");
-  R2(ctx, ox + 7, oy + 22, 3, 2, "#c8506a");
-  R2(ctx, ox + 13, oy + 22, 3, 2, "#e0b24e");
-  R2(ctx, ox + 19, oy + 22, 3, 2, "#6aa0e0");
-  PX2(ctx, ox + 10, oy + 9, "#eaf4ff");
+  ctx.fillRect(ox + 2, oy + 3, 28, 21);
+  R2(ctx, ox + 2, oy + 3, 14, 8, glassHi);
+  R2(ctx, ox + 14, oy + 3, 2, 21, fr);
+  R2(ctx, ox + 2, oy + 12, 28, 3, fr);
+  R2(ctx, ox + 1, oy + 23, 30, 2, "#8a6132");
+  R2(ctx, ox + 1, oy + 23, 30, 1, "#a8843e");
+  R2(ctx, ox + 2, oy + 25, 28, 4, "#5a3a1c");
+  PX2(ctx, ox + 6, oy + 25, "#c8506a");
+  PX2(ctx, ox + 14, oy + 25, "#e0b24e");
+  PX2(ctx, ox + 22, oy + 25, "#6aa0e0");
+  PX2(ctx, ox + 8, oy + 6, "#c8d8e8");
+  PX2(ctx, ox + 20, oy + 9, "#c8d8e8");
 }
 function drawWoodFloor(ctx, ox, oy) {
   const tones = ["#6e4a28", "#754f2b", "#67451f", "#714c29"];
@@ -4001,6 +4404,82 @@ function drawStatue(ctx, ox, oy) {
   PX2(ctx, ox + 22, oy + 27, "#5a7a3a");
   PX2(ctx, ox + 14, oy + 12, stnDk);
 }
+function drawWoodPile(ctx, ox, oy) {
+  const bark = "#6e4a24", ring = "#c9a86a", ringDk = "#8a6a3a";
+  R2(ctx, ox + 4, oy + 25, 24, 2, "rgba(0,0,0,0.28)");
+  for (const [lx, ly] of [[9, 22], [16, 22], [23, 22], [12, 17], [19, 17], [16, 12]]) {
+    ctx.fillStyle = bark;
+    ctx.beginPath();
+    ctx.arc(ox + lx, oy + ly, 4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = ring;
+    ctx.beginPath();
+    ctx.arc(ox + lx, oy + ly, 2.4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = ringDk;
+    ctx.beginPath();
+    ctx.arc(ox + lx, oy + ly, 1, 0, Math.PI * 2);
+    ctx.fill();
+    PX2(ctx, ox + lx - 1, oy + ly - 1, "#e0c68a");
+  }
+}
+function drawCropRow(ctx, ox, oy) {
+  R2(ctx, ox + 2, oy + 7, 28, 21, "#4a3320");
+  R2(ctx, ox + 2, oy + 7, 28, 2, "#5e442a");
+  for (let ry = 0; ry < 3; ry++) {
+    const y = oy + 10 + ry * 6;
+    R2(ctx, ox + 2, y + 4, 28, 2, "#382717");
+    for (let cx3 = 4; cx3 < 30; cx3 += 4) {
+      R2(ctx, ox + cx3, y, 2, 4, "#4a8a3a");
+      PX2(ctx, ox + cx3, y, "#7fc45a");
+    }
+  }
+}
+function drawShoreRock(ctx, ox, oy) {
+  const r = "#7c766c", rHi = "#9c968a", rDk = "#54504a", moss = "#5a7a3a";
+  ctx.fillStyle = r;
+  ctx.beginPath();
+  ctx.ellipse(ox + 16, oy + 18, 10, 7, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = rHi;
+  ctx.beginPath();
+  ctx.ellipse(ox + 13, oy + 15, 5, 3, 0, 0, Math.PI * 2);
+  ctx.fill();
+  R2(ctx, ox + 7, oy + 21, 18, 2, rDk);
+  PX2(ctx, ox + 20, oy + 20, moss);
+  PX2(ctx, ox + 10, oy + 21, moss);
+  R2(ctx, ox + 14, oy + 22, 4, 1, moss);
+}
+function drawDuck(ctx, ox, oy) {
+  const body = "#5a4a34", bodyHi = "#7a6444", head = "#2f5a3a", headHi = "#3f7a4a", beak = "#e0a81e", wake = "#bfe9ff";
+  R2(ctx, ox + 8, oy + 22, 15, 1, wake);
+  PX2(ctx, ox + 7, oy + 21, wake);
+  PX2(ctx, ox + 23, oy + 21, wake);
+  ctx.fillStyle = body;
+  ctx.beginPath();
+  ctx.ellipse(ox + 15, oy + 18, 7, 4, 0, 0, Math.PI * 2);
+  ctx.fill();
+  R2(ctx, ox + 9, oy + 16, 4, 2, bodyHi);
+  R2(ctx, ox + 20, oy + 15, 3, 2, body);
+  R2(ctx, ox + 19, oy + 11, 4, 5, head);
+  R2(ctx, ox + 19, oy + 11, 4, 1, headHi);
+  R2(ctx, ox + 22, oy + 13, 2, 1, beak);
+  PX2(ctx, ox + 21, oy + 12, "#000000");
+}
+function drawMooringPost(ctx, ox, oy) {
+  const wood = "#6e4a24", woodHi = "#9a6c38", dk = "#3a2410";
+  R2(ctx, ox + 4, oy + 26, 12, 2, "rgba(0,0,0,0.28)");
+  R2(ctx, ox + 13, oy + 8, 5, 20, wood);
+  R2(ctx, ox + 13, oy + 8, 2, 20, woodHi);
+  R2(ctx, ox + 17, oy + 8, 1, 20, dk);
+  R2(ctx, ox + 12, oy + 6, 7, 3, dk);
+  R2(ctx, ox + 12, oy + 6, 7, 1, woodHi);
+  ctx.strokeStyle = "#3a3f4a";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.arc(ox + 18, oy + 14, 3, 0, Math.PI * 2);
+  ctx.stroke();
+}
 
 // src/rendering/overworldArt.ts
 var overworldArt_exports = {};
@@ -4161,13 +4640,20 @@ function drawBoulder(ctx, ox, oy) {
   R3(ctx, ox + 8, oy + 22, 5, 2, "#3f5a2e");
 }
 function drawReeds(ctx, ox, oy) {
-  const g0 = "#5a6a36", g1 = "#46532a", g2 = "#7a8a4a";
-  for (const [x, h] of [[8, 16], [12, 20], [16, 14], [20, 18], [24, 12]]) {
+  const g0 = "#5a6a36", g1 = "#46532a", g2 = "#7a8a4a", g3 = "#8fa356", head = "#6e4a24", headHi = "#8a6132";
+  for (const [x, h] of [[5, 17], [8, 23], [11, 14], [14, 21], [17, 16], [20, 25], [23, 13], [26, 19]]) {
     R3(ctx, ox + x, oy + 30 - h, 2, h, g0);
     R3(ctx, ox + x, oy + 30 - h, 1, h, g1);
-    R3(ctx, ox + x, oy + 30 - h, 1, 3, g2);
+    R3(ctx, ox + x, oy + 30 - h, 1, Math.min(4, h), g2);
+    if (h >= 21) {
+      R3(ctx, ox + x - 1, oy + 30 - h, 3, 4, head);
+      R3(ctx, ox + x - 1, oy + 30 - h, 3, 1, headHi);
+    }
   }
-  R3(ctx, ox + 6, oy + 28, 22, 2, "#3a4626");
+  R3(ctx, ox + 4, oy + 28, 24, 2, "#3a4626");
+  PX3(ctx, ox + 7, oy + 13, g3);
+  PX3(ctx, ox + 19, oy + 11, g3);
+  PX3(ctx, ox + 25, oy + 15, g3);
 }
 function drawWildflowers(ctx, ox, oy) {
   R3(ctx, ox + 6, oy + 12, 4, 4, "#436a32");

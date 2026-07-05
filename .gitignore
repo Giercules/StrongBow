@@ -10,3 +10,7 @@ dist-ssr
 
 # atlas generator build artifact
 tools/_artbundle.cjs
+
+# local agent / terminal scratch (not source)
+agent-tools/
+terminals/
