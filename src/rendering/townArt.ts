@@ -289,7 +289,7 @@ export function drawHouseWindow(ctx: Ctx, ox: number, oy: number): void {
   R(ctx, ox + 6, oy + 5, 20, 17, fr); // frame
   const g = ctx.createLinearGradient(0, oy + 7, 0, oy + 20);
   g.addColorStop(0, '#3a5a7a');
-  g.addColorStop(1, '#ffd98a');
+  g.addColorStop(1, '#b89058');
   ctx.fillStyle = g;
   ctx.fillRect(ox + 8, oy + 7, 16, 13);
   R(ctx, ox + 8, oy + 7, 7, 5, glassHi); // sheen
@@ -301,7 +301,7 @@ export function drawHouseWindow(ctx: Ctx, ox: number, oy: number): void {
   R(ctx, ox + 7, oy + 22, 3, 2, '#c8506a');
   R(ctx, ox + 13, oy + 22, 3, 2, '#e0b24e');
   R(ctx, ox + 19, oy + 22, 3, 2, '#6aa0e0');
-  PX(ctx, ox + 10, oy + 9, '#eaf4ff');
+  PX(ctx, ox + 10, oy + 9, '#c8d8e8');
 }
 
 // ---- tavern / interior furniture (32x32 decor) -----------------------------

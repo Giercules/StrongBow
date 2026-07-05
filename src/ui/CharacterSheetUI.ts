@@ -4,7 +4,8 @@ import type { Modal } from './uiHelpers';
 import { C } from '../rendering/Palette';
 import { describeItemStats } from '../data/pickupInfo';
 import { ItemTooltip } from './ItemTooltip';
-import { ARMOR_SETS, SET_COLOR, setTierLines } from '../data/setItems';
+import { ARMOR_SETS, SET_COLOR, SET_COLOR_NEXT, SET_PIECE_SLOTS, setTierColor, setTierLines, setTierPrefix, setTierStatus } from '../data/setItems';
+import type { SetPieceSlot } from '../data/setItems';
 import type { Hero } from '../entities/Hero';
 import { MenuNav } from './MenuNav';
 
@@ -186,25 +187,7 @@ export class CharacterSheetUI {
       addPinned(this.content!, gz);
     }
 
-    // class armor set progress — how many pieces worn + what the tiers unlock
     const set = ARMOR_SETS[h.classId];
-    const setY = growthY + 62;
-    const tierIdx = h.setPieces >= 5 ? 2 : h.setPieces >= 4 ? 1 : h.setPieces >= 2 ? 0 : -1;
-    this.label(right, setY, `SET: ${set.name}`, h.setPieces > 0 ? SET_COLOR : C.inkDim, 10, true);
-    this.label(right, setY + 14, h.setPieces >= 5 ? `${h.setPieces}/5 — ${set.powerName} ACTIVE` : `${h.setPieces}/5 pieces worn`, h.setPieces >= 5 ? SET_COLOR : C.ink, 9.5);
-    const sz = this.scene.add.zone(right, setY - 2, statColW, 30).setOrigin(0, 0).setInteractive({ useHandCursor: true });
-    sz.on('pointerover', () =>
-      this.tip.showText(
-        set.name,
-        setTierLines(h.classId).map((l, i) => (i === tierIdx ? '► ' : '') + l).join('\n') + '\nPieces drop in bright green.',
-        right + 116,
-        setY,
-        'right'
-      )
-    );
-    sz.on('pointerout', () => this.tip.hide());
-    addPinned(this.content!, sz);
-
     // equipped gear — flows below the XP block; the left column's height
     // depends on how many lines the signature wrapped to.
     this.label(left, ly, 'EQUIPPED', C.hudBorder, 12, true);
@@ -216,9 +199,41 @@ export class CharacterSheetUI {
       addPinned(this.content!, this.scene.add.image(left + 8, yy + 1, it.icon).setScale(0.85).setOrigin(0, 0));
       this.label(left + 26, yy, it.name, it.setId ? SET_COLOR : C.ink, 9.5, true);
       const cz = this.scene.add.zone(left, yy, PANEL_W / 2 - 30, 14).setOrigin(0, 0).setInteractive({ useHandCursor: true });
-      cz.on('pointerover', () => this.tip.show(it, left + PANEL_W / 2 - 30, yy, 'right'));
+      const setCount = it.setId === set.id ? h.setPieces : undefined;
+      cz.on('pointerover', () => this.tip.show(it, left + PANEL_W / 2 - 30, yy, 'right', setCount));
       cz.on('pointerout', () => this.tip.hide());
       addPinned(this.content!, cz);
+    });
+
+    // class armor set — piece slots + tier bonuses (active vs locked)
+    const setY = eqTop + Math.max(eq.length, 1) * 15 + 10;
+    const wornSlots = new Set(
+      h.inventory.equippedList().filter((i) => i.setId === set.id).map((i) => i.slot as SetPieceSlot)
+    );
+    this.label(left, setY, `SET: ${set.name}`, h.setPieces > 0 ? SET_COLOR : C.inkDim, 10, true);
+    const progCol = h.setPieces >= 5 ? SET_COLOR : h.setPieces > 0 ? SET_COLOR_NEXT : C.inkDim;
+    const prog =
+      h.setPieces >= 5 ? `${h.setPieces}/5 — ${set.powerName} active` : `${h.setPieces}/5 pieces worn`;
+    this.label(left, setY + 13, prog, progCol, 9);
+    const SLOT_SHORT: Record<SetPieceSlot, string> = { head: 'Hd', body: 'Ch', legs: 'Lg', hands: 'Hn', feet: 'Ft' };
+    SET_PIECE_SLOTS.forEach((slot, i) => {
+      const px = left + i * 21;
+      const py = setY + 26;
+      const has = wornSlots.has(slot);
+      const box = this.scene.add.graphics();
+      box.fillStyle(has ? 0x1a3a28 : 0x12141c, has ? 0.9 : 0.55);
+      box.fillRoundedRect(px, py, 18, 18, 3);
+      box.lineStyle(1, has ? 0x39ff6a : 0x5a6270, has ? 1 : 0.7);
+      box.strokeRoundedRect(px, py, 18, 18, 3);
+      addPinned(this.content!, box);
+      const icon = this.scene.add.image(px + 9, py + 8, set.pieces[slot].icon).setScale(0.65);
+      if (!has) icon.setTint(0x6a7080).setAlpha(0.42);
+      addPinned(this.content!, icon);
+      this.label(px + 1, py + 19, SLOT_SHORT[slot], has ? SET_COLOR : C.inkDim, 7);
+    });
+    setTierLines(h.classId).forEach((tl, i) => {
+      const st = setTierStatus(h.setPieces, i);
+      this.label(left, setY + 48 + i * 11, setTierPrefix(st) + tl, setTierColor(st), 8.5, false, leftColW);
     });
 
     this.content.add(

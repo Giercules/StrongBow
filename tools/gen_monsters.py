@@ -84,19 +84,89 @@ def demon(fr,P):
         f.r(cx-8,9+bob,3,2,b2); f.r(cx+6,9+bob,3,2,b2)
     f.outline(); return f.im
 
-def bone_archer(fr,P):
-    f=F(22); cx=10; bob=[0,-1,0,-1][fr]; b2,b1,dt=Hx(P['b2']),Hx(P['b1']),Hx(P['dt'])
+def bone_body(f, fr, P):
+    """Bone Archer torso/legs/skull — shared base for enemy + necromancer pets."""
+    cx=10; bob=[0,-1,0,-1][fr]; b2,b1,dt=Hx(P['b2']),Hx(P['b1']),Hx(P['dt'])
     f.r(8,15+bob,2,5,b1); f.r(12,15+bob,2,5,b1)
     f.r(cx-3,9+bob,6,7,b1)                 # ribcage
     for ry in range(10,16,2): f.r(cx-3,ry+bob,6,1,dt)
     f.disc(cx,6+bob,4,b2)                  # skull
     f.px(cx-2,5+bob,dt); f.px(cx+2,5+bob,dt); f.r(cx-1,8+bob,3,1,dt)
-    # bow (right)
+    return cx, bob, b1, b2, dt
+
+def soul_eyes(f, cx, y, eye):
+    f.px(cx-2,y,eye); f.px(cx+2,y,eye)
+
+def bone_archer(fr,P):
+    f=F(22); cx,bob,_,_,_=bone_body(f,fr,P)
     bx=16
     f.r(bx,4+bob,1,12,Hx(P['ac'])); f.px(bx-1,3+bob,Hx(P['ac'])); f.px(bx-1,16+bob,Hx(P['ac']))
     if fr==3: f.r(cx+3,9+bob,bx-cx-2,1,Hx('#e8e8e8'))  # drawn arrow
-    else: f.r(bx-1,9+bob,1,1,Hx('#e8e8e8'))
+    else: f.px(bx-1,9+bob,Hx('#e8e8e8'))
     f.outline(); return f.im
+
+# Necromancer skeleton pets: bone_archer body + role gear (22×22, same scale as enemy)
+SKEL_ROLES = {
+    'tank':   dict(ac='#5ab0ff', eye='#80e8ff'),
+    'archer': dict(ac='#58e8a8', eye='#b8ffe0'),
+    'mage':   dict(ac='#c070ff', eye='#e8c0ff'),
+    'thief':  dict(ac='#78ff78', eye='#c8ffc8'),
+}
+
+def skel_tank(fr, role):
+    P=RAMP['bone_archer']; f=F(22); cx,bob,b1,b2,dt=bone_body(f,fr,P)
+    ac,eye=Hx(role['ac']),Hx(role['eye'])
+    soul_eyes(f,cx,5+bob,eye)
+    f.r(cx-3,3+bob,6,2,ac)                 # helm crest
+    f.disc(4,12+bob,4,ac)                  # shield
+    f.disc(4,12+bob,2,dt)
+    f.px(3,11+bob,Hx('#e8ffe8'))
+    sy=5+bob if fr==3 else 9+bob
+    f.r(17,sy,1,9,b2); f.r(16,sy+2,2,2,ac) # sword
+    if fr==3: f.r(18,sy-1,4,1,b2)
+    f.outline(); return f.im
+
+def skel_archer(fr, role):
+    P=RAMP['bone_archer']; f=F(22); cx,bob,_,_,_=bone_body(f,fr,P)
+    ac,eye=Hx(role['ac']),Hx(role['eye'])
+    soul_eyes(f,cx,5+bob,eye)
+    bx=16
+    f.r(bx,4+bob,1,12,ac); f.px(bx-1,3+bob,ac); f.px(bx-1,16+bob,ac)
+    if fr==3: f.r(cx+3,9+bob,bx-cx-2,1,Hx('#e8e8e8'))
+    else: f.px(bx-1,9+bob,Hx('#e8e8e8'))
+    f.outline(); return f.im
+
+def skel_mage(fr, role):
+    P=RAMP['bone_archer']; f=F(22); cx,bob,b1,b2,dt=bone_body(f,fr,P)
+    ac,eye=Hx(role['ac']),Hx(role['eye'])
+    soul_eyes(f,cx,5+bob,eye)
+    f.r(cx-4,2+bob,8,4,Hx('#2a1838'))      # hood
+    f.r(cx-4,2+bob,8,1,ac)
+    f.px(cx-4,3+bob,ac); f.px(cx+3,3+bob,ac)
+    sy=3+bob
+    f.r(17,sy,1,13,Hx('#2a1838'))
+    f.px(17,sy,ac)
+    orb=Hx('#e8ffe8') if fr==3 else ac
+    f.disc(18,sy-1,2,orb)
+    if fr==3:
+        for i in range(3): f.px(19+i,sy-2,Hx('#e8ffe8'))
+    f.outline(); return f.im
+
+def skel_thief(fr, role):
+    P=RAMP['bone_archer']; f=F(22); cx,bob,b1,b2,dt=bone_body(f,fr,P)
+    ac,eye=Hx(role['ac']),Hx(role['eye'])
+    soul_eyes(f,cx,5+bob,eye)
+    f.r(cx-4,3+bob,8,3,Hx('#2a2038'))      # cowl
+    f.r(cx-4,3+bob,8,1,ac)
+    lunge=1 if fr==3 else 0
+    f.r(16+lunge,11+bob,1,5,b2); f.px(15+lunge,14+bob,ac)
+    f.r(3-lunge,13+bob,1,5,b2); f.px(3-lunge,16+bob,ac)
+    if fr==3:
+        f.r(17+lunge,10+bob,3,1,b2)
+        f.r(1-lunge,12+bob,3,1,b2)
+    f.outline(); return f.im
+
+SKEL_DRAW = {'tank':skel_tank,'archer':skel_archer,'mage':skel_mage,'thief':skel_thief}
 
 def brute(fr,P):
     f=F(22); cx=11; bob=[0,-1,0,-1][fr]; b1,b2,b0=Hx(P['b1']),Hx(P['b2']),Hx(P['b0'])
@@ -163,10 +233,22 @@ def molten_colossus(fr,P):
 
 MOBS = {'grunt':(grunt,22),'ghost':(ghost,22),'demon':(demon,22),'bone_archer':(bone_archer,22),
         'brute':(brute,22),'imp':(imp,22),'grave_warden':(grave_warden,40),'molten_colossus':(molten_colossus,40)}
-if __name__ == "__main__":
-    for name,(fn,S) in MOBS.items():
+def write_skels():
+    S=22
+    for role,draw in SKEL_DRAW.items():
         sheet=Image.new('RGBA',(S*4,S),(0,0,0,0))
-        for fr in range(4): sheet.alpha_composite(fn(fr,RAMP[name]),(fr*S,0))
-        fname='monster-'+name+'.png'
+        for fr in range(4): sheet.alpha_composite(draw(fr,SKEL_ROLES[role]),(fr*S,0))
+        fname=f'monster-skel_{role}-sheet.png'
         sheet.save(os.path.join(OUT,fname)); print('wrote',fname,sheet.size)
+
+if __name__ == "__main__":
+    import sys
+    skels_only='--skels-only' in sys.argv
+    if not skels_only:
+        for name,(fn,S) in MOBS.items():
+            sheet=Image.new('RGBA',(S*4,S),(0,0,0,0))
+            for fr in range(4): sheet.alpha_composite(fn(fr,RAMP[name]),(fr*S,0))
+            fname='monster-'+name+'.png'
+            sheet.save(os.path.join(OUT,fname)); print('wrote',fname,sheet.size)
+    write_skels()
     print('DONE')

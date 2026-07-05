@@ -176,6 +176,35 @@ export const ALL_SET_IDS = new Set(Object.values(ARMOR_SETS).map((s) => s.id));
 
 /** Bright-green presentation colour for set drops/lines (user-requested). */
 export const SET_COLOR = '#39ff6a';
+/** Tier thresholds for cumulative 2 / 4 / 5 piece bonuses. */
+export const SET_TIER_THRESHOLDS = [2, 4, 5] as const;
+/** Muted gray for set tiers not yet reachable. */
+export const SET_COLOR_LOCKED = '#5a6270';
+/** Soft highlight for the next tier the player is working toward. */
+export const SET_COLOR_NEXT = '#9ad878';
+
+export type SetTierStatus = 'active' | 'next' | 'locked';
+
+/** Whether a tier bonus is live, the next goal, or still locked. */
+export function setTierStatus(pieceCount: number, tierIndex: number): SetTierStatus {
+  const need = SET_TIER_THRESHOLDS[tierIndex];
+  if (pieceCount >= need) return 'active';
+  const prev = tierIndex > 0 ? SET_TIER_THRESHOLDS[tierIndex - 1] : 0;
+  if (pieceCount >= prev) return 'next';
+  return 'locked';
+}
+
+export function setTierColor(status: SetTierStatus): string {
+  if (status === 'active') return SET_COLOR;
+  if (status === 'next') return SET_COLOR_NEXT;
+  return SET_COLOR_LOCKED;
+}
+
+export function setTierPrefix(status: SetTierStatus): string {
+  if (status === 'active') return '● ';
+  if (status === 'next') return '○ ';
+  return '  ';
+}
 
 let setMintSeq = 0;
 

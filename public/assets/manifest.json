@@ -328,6 +328,62 @@
       "kind": "image"
     },
     {
+      "key": "hero-vanguard-sheet",
+      "path": "assets/sprites/hero-vanguard-sheet.png",
+      "kind": "spritesheet",
+      "frameWidth": 40,
+      "frameHeight": 48
+    },
+    {
+      "key": "hero-thief-sheet",
+      "path": "assets/sprites/hero-thief-sheet.png",
+      "kind": "spritesheet",
+      "frameWidth": 40,
+      "frameHeight": 48
+    },
+    {
+      "key": "hero-arcanist-sheet",
+      "path": "assets/sprites/hero-arcanist-sheet.png",
+      "kind": "spritesheet",
+      "frameWidth": 40,
+      "frameHeight": 48
+    },
+    {
+      "key": "hero-warden-sheet",
+      "path": "assets/sprites/hero-warden-sheet.png",
+      "kind": "spritesheet",
+      "frameWidth": 40,
+      "frameHeight": 48
+    },
+    {
+      "key": "hero-necromancer-sheet",
+      "path": "assets/sprites/hero-necromancer-sheet.png",
+      "kind": "spritesheet",
+      "frameWidth": 40,
+      "frameHeight": 48
+    },
+    {
+      "key": "hero-bard-sheet",
+      "path": "assets/sprites/hero-bard-sheet.png",
+      "kind": "spritesheet",
+      "frameWidth": 40,
+      "frameHeight": 48
+    },
+    {
+      "key": "hero-druid-sheet",
+      "path": "assets/sprites/hero-druid-sheet.png",
+      "kind": "spritesheet",
+      "frameWidth": 40,
+      "frameHeight": 48
+    },
+    {
+      "key": "necro-warden-sheet",
+      "path": "assets/sprites/necro-warden-sheet.png",
+      "kind": "spritesheet",
+      "frameWidth": 44,
+      "frameHeight": 44
+    },
+    {
       "key": "monster-grunt-sheet",
       "path": "assets/sprites/monster-grunt.png",
       "kind": "spritesheet",
@@ -382,6 +438,34 @@
       "kind": "spritesheet",
       "frameWidth": 40,
       "frameHeight": 40
+    },
+    {
+      "key": "monster-skel_tank-sheet",
+      "path": "assets/sprites/monster-skel_tank-sheet.png",
+      "kind": "spritesheet",
+      "frameWidth": 22,
+      "frameHeight": 22
+    },
+    {
+      "key": "monster-skel_archer-sheet",
+      "path": "assets/sprites/monster-skel_archer-sheet.png",
+      "kind": "spritesheet",
+      "frameWidth": 22,
+      "frameHeight": 22
+    },
+    {
+      "key": "monster-skel_mage-sheet",
+      "path": "assets/sprites/monster-skel_mage-sheet.png",
+      "kind": "spritesheet",
+      "frameWidth": 22,
+      "frameHeight": 22
+    },
+    {
+      "key": "monster-skel_thief-sheet",
+      "path": "assets/sprites/monster-skel_thief-sheet.png",
+      "kind": "spritesheet",
+      "frameWidth": 22,
+      "frameHeight": 22
     }
   ]
 }

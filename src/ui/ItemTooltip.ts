@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import type { ItemDefinition } from '../core/types';
 import { RARITY_COLOR } from '../data/items';
 import { itemStatLines } from '../data/pickupInfo';
-import { ARMOR_SETS, SET_COLOR, setTierLines } from '../data/setItems';
+import { ARMOR_SETS, SET_COLOR, setTierColor, setTierLines, setTierPrefix, setTierStatus } from '../data/setItems';
 
 const SERIF = 'MedievalSharp, "Trebuchet MS", cursive';
 const numHex = (n: number): string => '#' + n.toString(16).padStart(6, '0');
@@ -21,7 +21,7 @@ export class ItemTooltip {
     this.scene = scene;
   }
 
-  show(item: ItemDefinition, ax: number, ay: number, side: 'left' | 'right' = 'right'): void {
+  show(item: ItemDefinition, ax: number, ay: number, side: 'left' | 'right' = 'right', equippedSetCount?: number): void {
     this.hide();
     const made: { t: Phaser.GameObjects.Text; ly: number }[] = [];
     let y = PAD;
@@ -54,8 +54,12 @@ export class ItemTooltip {
     const set = item.setId ? Object.values(ARMOR_SETS).find((s) => s.id === item.setId) : undefined;
     if (set) {
       y += 2;
-      line(`${set.name} (${cap(set.classId)} set)`, SET_COLOR, 9.5, false, true);
-      for (const tl of setTierLines(set.classId)) line(tl, '#8fe0a8', 8.5, false, true);
+      const count = equippedSetCount ?? 0;
+      line(`${set.name} (${cap(set.classId)} set)  ${count}/5`, count > 0 ? SET_COLOR : '#8a93bd', 9.5, false, true);
+      setTierLines(set.classId).forEach((tl, i) => {
+        const st = setTierStatus(count, i);
+        line(setTierPrefix(st) + tl, setTierColor(st), 8.5, false, true);
+      });
     }
     if (item.flavor) {
       y += 2;

@@ -72,7 +72,7 @@ async function build() {
   for (const [n,r,d] of MOBROWS) MOBS.push([n, await sheetSprite(`monster-${r}-sheet`, 44, 44, monDraw(d,r), true)]);
 
   const SKELS = [['Tank','skel_tank','tank'],['Archer','skel_archer','archer'],['Mage','skel_mage','mage'],['Thief','skel_thief','thief']]
-    .map(([n,r,role]) => [n, proc(44,44, skelDraw(r,role), true)]);
+    .map(([n,r,role]) => [n, proc(22,22, skelDraw(r,role), true)]);
 
   // items: PNG override where present, else procedural
   const icon = async (label, key, procFn, w=16, h=16) =>

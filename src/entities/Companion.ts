@@ -24,6 +24,8 @@ export class Companion extends Hero {
   /** What this companion is CALLED (HUD, barks). Summons borrow a hero class
    *  for stats, so without this a skeleton knight would read as "Vanguard". */
   displayName?: string;
+  /** Raised skeleton archetype — drives weapon style and projectile art. */
+  skeletonRole?: 'tank' | 'archer' | 'mage' | 'thief';
 
   constructor(scene: Phaser.Scene, x: number, y: number, classId: HeroClassId) {
     super(scene, x, y, classId, false, 0);
@@ -55,7 +57,20 @@ export class Companion extends Hero {
     this.setTexture(sheet, 0);
     this.skin = { walk, attack };
     this.play(walk, true);
+    // Match dungeon mob scale — pets share the 22×22 Bone Archer sprite size.
+    this.setScale(0.56 * settings.spriteScale());
+    const body = this.body as Phaser.Physics.Arcade.Body;
+    const bw = this.width * 0.42;
+    const bh = this.height * 0.4;
+    body.setSize(bw, bh);
+    body.setOffset((this.width - bw) / 2, this.height * 0.42);
     if (this.aura) this.aura.setTint(auraTint).setAlpha(0.6);
+  }
+
+  weaponStyle(): 'melee' | 'ranged' {
+    if (this.skeletonRole === 'archer' || this.skeletonRole === 'mage') return 'ranged';
+    if (this.skeletonRole === 'tank' || this.skeletonRole === 'thief') return 'melee';
+    return super.weaponStyle();
   }
 
   aiTick<M extends MonsterLike>(

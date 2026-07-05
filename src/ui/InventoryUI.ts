@@ -10,7 +10,7 @@ import { audio } from '../systems/AudioSystem';
 import type { Hero } from '../entities/Hero';
 import type { ItemDefinition, EquipSlot } from '../core/types';
 import { EQUIP_SLOTS, EQUIP_SLOT_LABEL } from '../core/equipment';
-import { SET_COLOR } from '../data/setItems';
+import { ARMOR_SETS, SET_COLOR } from '../data/setItems';
 
 /** One display row in the backpack: consumables stack into a single row. */
 interface BagRow {
@@ -172,7 +172,8 @@ export class InventoryUI {
         const nm = item.name.length > 19 ? item.name.slice(0, 18) + '…' : item.name;
         this.label(leftX + 70, yy + 5, nm, item.setId ? SET_COLOR : numHex(RARITY_COLOR[item.rarity]), 9.5, true);
         const ez = this.scene.add.zone(leftX, yy, 200, 19).setOrigin(0, 0).setInteractive({ useHandCursor: true });
-        ez.on('pointerover', () => this.tip.show(item, leftX + 200, yy, 'right'));
+        const setCount = item.setId === ARMOR_SETS[hero.classId].id ? hero.setPieces : undefined;
+        ez.on('pointerover', () => this.tip.show(item, leftX + 200, yy, 'right', setCount));
         ez.on('pointerout', () => this.tip.hide());
         addPinned(this.content!, ez);
       } else {
@@ -210,7 +211,8 @@ export class InventoryUI {
       if (row.count > 1) this.label(rightX + 38 + t.width, gy + 1, `x${row.count}`, C.coinHi, 10, true);
       const zone = this.scene.add.zone(rightX, gy, PANEL_W / 2 - 40, 20).setOrigin(0, 0).setInteractive({ useHandCursor: true });
       zone.on('pointerdown', () => this.useItem(item));
-      zone.on('pointerover', () => this.tip.show(item, rightX, gy, 'left'));
+      const setCount = item.setId === ARMOR_SETS[hero.classId].id ? hero.setPieces : undefined;
+      zone.on('pointerover', () => this.tip.show(item, rightX, gy, 'left', setCount));
       zone.on('pointerout', () => this.tip.hide());
       addPinned(this.content!, zone);
       // bag rows are pad-focusable too (A equips/uses the focused item)

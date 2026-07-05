@@ -841,9 +841,9 @@ export function drawCandle(ctx: Ctx, ox: number, oy: number): void {
   R(ctx, ox + 13, oy + 14, 2, 14, '#ffffff'); // lit side
   R(ctx, ox + 18, oy + 14, 1, 14, '#b8b49a'); // shade
   R(ctx, ox + 11, oy + 26, 10, 2, '#5a3a1c'); // holder
-  R(ctx, ox + 14, oy + 8, 4, 6, C.fireMid); // flame
-  R(ctx, ox + 15, oy + 5, 2, 4, C.fireCore);
-  PX(ctx, ox + 15, oy + 4, '#fff2b0');
+  R(ctx, ox + 14, oy + 8, 4, 6, '#c87828'); // flame
+  R(ctx, ox + 15, oy + 5, 2, 4, '#e8a040');
+  PX(ctx, ox + 15, oy + 4, '#ffd878');
 }
 
 export function drawLavaCrack(ctx: Ctx, ox: number, oy: number): void {
@@ -1372,110 +1372,81 @@ export function drawBoneArcher(ctx: Ctx, ox: number, frame: number, r: MonsterRa
   else R(ctx, bx + 1, 25 + bob, 8, 2, '#e6dfba');
 }
 
+/** Small-mob frame size — matches dungeon Bone Archer PNGs (gen_monsters.py). */
+export const SMALL_MOB_FW = 22;
+export const SMALL_MOB_FH = 22;
+
+/** Bone Archer body shared by enemy + necromancer skeleton pets (22×22 layout). */
+function drawBoneSkeletonBody(ctx: Ctx, ox: number, frame: number, r: MonsterRamp): { cx: number; bob: number } {
+  const cx = ox + 10;
+  const bob = frame === 1 || frame === 2 ? -1 : 0;
+  R(ctx, ox + 8, 15 + bob, 2, 5, r.body1);
+  R(ctx, ox + 12, 15 + bob, 2, 5, r.body1);
+  R(ctx, cx - 3, 9 + bob, 6, 7, r.body1);
+  for (let ry = 10; ry < 16; ry += 2) R(ctx, cx - 3, ry + bob, 6, 1, r.detail);
+  ctx.fillStyle = r.body2;
+  ctx.beginPath();
+  ctx.arc(cx, 6 + bob, 4, 0, Math.PI * 2);
+  ctx.fill();
+  PX(ctx, cx - 2, 5 + bob, r.detail);
+  PX(ctx, cx + 2, 5 + bob, r.detail);
+  R(ctx, cx - 1, 8 + bob, 3, 1, r.detail);
+  return { cx, bob };
+}
+
 export function drawSkeletonServant(ctx: Ctx, ox: number, frame: number, r: MonsterRamp, role: 'tank' | 'archer' | 'mage' | 'thief'): void {
-  const cx = ox + MON_FW / 2;
-  const bob = frame === 1 || frame === 2 ? -2 : 0;
-  const atk = frame === 3;
-  const lunge = atk ? 3 : 0;
-  const B = r.body2;
-  const BH = '#f6f1ff';
-  const BD = r.body0;
-  const SH = 'rgba(0,0,0,0.32)';
+  const { cx, bob } = drawBoneSkeletonBody(ctx, ox, frame, r);
   const ac = r.accent;
-  const blob = (x: number, y: number, w: number, h: number, c: string) => {
-    R(ctx, x + 1, y, w - 2, h, c);
-    R(ctx, x, y + 1, w, h - 2, c);
-  };
-  // chunky arcade legs
-  blob(cx - 6, 30 + bob, 5, 10, B);
-  blob(cx + 1, 30 + bob, 5, 10, B);
-  R(ctx, cx - 6, 30 + bob, 1, 10, BH);
-  R(ctx, cx + 5, 30 + bob, 1, 10, SH);
-  R(ctx, cx - 7, 39 + bob, 6, 2, BD);
-  R(ctx, cx + 1, 39 + bob, 6, 2, BD);
-  // torso block + glowing rib cage
-  blob(cx - 7, 20 + bob, 14, 11, B);
-  R(ctx, cx - 7, 20 + bob, 14, 2, BH);
-  for (let i = 0; i < 3; i++) {
-    R(ctx, cx - 5, 23 + bob + i * 3, 10, 1, ac);
-    PX(ctx, cx - 6 + i * 5, 24 + bob + i * 3, BH);
-  }
-  // oversized arcade skull
-  blob(cx - 6, 8 + bob, 12, 11, B);
-  R(ctx, cx - 6, 8 + bob, 12, 2, BH);
-  R(ctx, cx + 4, 9 + bob, 2, 9, SH);
-  R(ctx, cx - 5, 18 + bob, 10, 2, B);
-  for (let i = 0; i < 4; i++) PX(ctx, cx - 4 + i * 3, 19 + bob, BD);
-  R(ctx, cx - 4, 12 + bob, 3, 3, '#120818');
-  R(ctx, cx + 1, 12 + bob, 3, 3, '#120818');
-  PX(ctx, cx - 3, 13 + bob, r.eye);
-  PX(ctx, cx + 2, 13 + bob, r.eye);
-  PX(ctx, cx - 2, 13 + bob, '#ffffff');
-  PX(ctx, cx + 3, 13 + bob, '#ffffff');
-  // role silhouette gear
+  const atk = frame === 3;
+  PX(ctx, cx - 2, 5 + bob, r.eye);
+  PX(ctx, cx + 2, 5 + bob, r.eye);
   if (role === 'tank') {
+    R(ctx, cx - 3, 3 + bob, 6, 2, ac);
     ctx.fillStyle = ac;
     ctx.beginPath();
-    ctx.arc(cx - 11, 26 + bob, 9, 0, Math.PI * 2);
+    ctx.arc(ox + 4, 12 + bob, 4, 0, Math.PI * 2);
     ctx.fill();
-    R(ctx, cx - 11, 26 + bob, 9, 2, BH);
-    ctx.fillStyle = '#2a2438';
+    ctx.fillStyle = r.detail;
     ctx.beginPath();
-    ctx.arc(cx - 11, 26 + bob, 4, 0, Math.PI * 2);
+    ctx.arc(ox + 4, 12 + bob, 2, 0, Math.PI * 2);
     ctx.fill();
-    PX(ctx, cx - 12, 25 + bob, '#ffffff');
-    blob(cx - 5, 5 + bob, 12, 5, ac);
-    R(ctx, cx - 1, 3 + bob, 4, 3, B);
-    R(ctx, cx + 7 + lunge, 18 + bob, 3, 12, B);
-    R(ctx, cx + 8 + lunge, 16 + bob, 2, 4, ac);
-    if (atk) R(ctx, cx + 10 + lunge, 14 + bob, 6, 2, BH);
+    PX(ctx, ox + 3, 11 + bob, '#e8ffe8');
+    const sy = atk ? 5 + bob : 9 + bob;
+    R(ctx, ox + 17, sy, 1, 9, r.body2);
+    R(ctx, ox + 16, sy + 2, 2, 2, ac);
+    if (atk) R(ctx, ox + 18, sy - 1, 4, 1, r.body2);
   } else if (role === 'archer') {
-    blob(cx - 4, 5 + bob, 10, 4, ac);
-    const bx = cx - 14;
-    ctx.strokeStyle = ac;
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.arc(bx + 5, 26 + bob, 13, 2.1, 4.2);
-    ctx.stroke();
-    R(ctx, bx + 2, 14 + bob, 2, 22, BH);
-    R(ctx, bx + 2, 14 + bob, 1, 22, ac);
-    if (atk) {
-      R(ctx, bx + 2, 24 + bob, 18, 1, BH);
-      R(ctx, bx + 18, 23 + bob, 4, 3, r.eye);
-      PX(ctx, bx + 20, 24 + bob, '#ffffff');
-    }
-    R(ctx, cx + 6, 19 + bob, 3, 10, B);
+    const bx = ox + 16;
+    R(ctx, bx, 4 + bob, 1, 12, ac);
+    PX(ctx, bx - 1, 3 + bob, ac);
+    PX(ctx, bx - 1, 16 + bob, ac);
+    if (atk) R(ctx, cx + 3, 9 + bob, bx - cx - 2, 1, '#e8e8e8');
+    else PX(ctx, bx - 1, 9 + bob, '#e8e8e8');
   } else if (role === 'mage') {
-    R(ctx, cx - 7, 4 + bob, 14, 7, ac);
-    R(ctx, cx - 7, 4 + bob, 14, 2, BH);
-    R(ctx, cx - 8, 6 + bob, 2, 5, ac);
-    R(ctx, cx + 6, 6 + bob, 2, 5, ac);
-    const sx = cx + 9 + lunge;
-    R(ctx, sx, 6 + bob, 3, 30, '#2a1838');
-    R(ctx, sx, 6 + bob, 1, 30, '#5a3880');
-    const oc = atk ? '#ffffff' : ac;
-    ctx.fillStyle = '#5a28a0';
+    R(ctx, cx - 4, 2 + bob, 8, 4, '#2a1838');
+    R(ctx, cx - 4, 2 + bob, 8, 1, ac);
+    PX(ctx, cx - 4, 3 + bob, ac);
+    PX(ctx, cx + 3, 3 + bob, ac);
+    const sy = 3 + bob;
+    R(ctx, ox + 17, sy, 1, 13, '#2a1838');
+    PX(ctx, ox + 17, sy, ac);
+    const orb = atk ? '#e8ffe8' : ac;
+    ctx.fillStyle = orb;
     ctx.beginPath();
-    ctx.arc(sx + 1, 5 + bob, 6, 0, Math.PI * 2);
+    ctx.arc(ox + 18, sy - 1, 2, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillStyle = oc;
-    ctx.beginPath();
-    ctx.arc(sx + 1, 5 + bob, 4, 0, Math.PI * 2);
-    ctx.fill();
-    PX(ctx, sx, 4 + bob, '#ffffff');
-    if (atk) for (let i = 0; i < 3; i++) PX(ctx, sx + 4 + i * 2, 3 + bob, oc);
+    if (atk) for (let i = 0; i < 3; i++) PX(ctx, ox + 19 + i, sy - 2, '#e8ffe8');
   } else {
-    R(ctx, cx - 7, 4 + bob, 14, 6, '#2a2438');
-    R(ctx, cx - 7, 4 + bob, 14, 1, ac);
-    const dx = cx + 8 + lunge;
-    R(ctx, dx, 15 + bob, 2, 9, BH);
-    R(ctx, dx - 1, 22 + bob, 4, 1, ac);
-    R(ctx, dx, 23 + bob, 2, 3, '#5a3a1c');
-    R(ctx, cx - 10, 18 + bob, 2, 9, B);
-    R(ctx, cx - 11, 16 + bob, 2, 4, ac);
+    R(ctx, cx - 4, 3 + bob, 8, 3, '#2a2038');
+    R(ctx, cx - 4, 3 + bob, 8, 1, ac);
+    const lunge = atk ? 1 : 0;
+    R(ctx, ox + 16 + lunge, 11 + bob, 1, 5, r.body2);
+    PX(ctx, ox + 15 + lunge, 14 + bob, ac);
+    R(ctx, ox + 3 - lunge, 13 + bob, 1, 5, r.body2);
+    PX(ctx, ox + 3 - lunge, 16 + bob, ac);
     if (atk) {
-      R(ctx, cx - 12, 14 + bob, 4, 2, BH);
-      PX(ctx, cx - 10, 13 + bob, r.eye);
+      R(ctx, ox + 17 + lunge, 10 + bob, 3, 1, r.body2);
+      R(ctx, ox + 1 - lunge, 12 + bob, 3, 1, r.body2);
     }
   }
 }
@@ -1779,29 +1750,22 @@ export function drawWeapon(
       PX(ctx, hx + 1, 2, '#ffffff');
     }
   } else if (cls === 'necromancer') {
-    // arcade bone-staff: chunky haft, crescent hook, blazing soul-skull finial
-    const hx = cx + (attack ? 13 : 10);
-    const top = attack ? 4 : 8;
-    R(ctx, hx, top + 4, 4, 30, '#2a1838');
-    R(ctx, hx, top + 4, 1, 30, '#5a3880');
-    R(ctx, hx + 3, top + 4, 1, 30, '#120818');
-    R(ctx, hx - 2, top + 2, 2, 8, '#d8e0ea');
-    R(ctx, hx + 4, top + 2, 2, 8, '#d8e0ea');
-    R(ctx, hx - 1, top, 6, 5, '#d8e0ea');
-    R(ctx, hx, top + 1, 4, 3, '#120818');
+    // gnarled deadwood staff + soul orb (druid staff layout, necromantic palette)
+    const hx = cx + (attack ? 12 : 10);
+    R(ctx, hx, 12, 3, 30, '#2a1838');
+    R(ctx, hx, 12, 1, 30, '#5a3880');
+    PX(ctx, hx - 1, 18, '#120818');
+    PX(ctx, hx + 3, 26, '#120818');
     const orb = attack ? '#b0ffff' : '#40e8ff';
-    ctx.fillStyle = '#5a28a0';
-    ctx.beginPath(); ctx.arc(hx + 2, top - 1, 6, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#120818';
+    ctx.beginPath(); ctx.arc(hx + 1, 9, 5, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = orb;
-    ctx.beginPath(); ctx.arc(hx + 2, top - 1, 4, 0, Math.PI * 2); ctx.fill();
-    PX(ctx, hx + 1, top - 2, '#ffffff');
-    R(ctx, hx - 4, top + 1, 3, 2, ramp.trim);
-    R(ctx, hx + 5, top + 1, 3, 2, ramp.trim);
-    R(ctx, hx + 1, top + 32, 2, 4, '#8a48e8');
-    if (attack) {
-      for (let i = 0; i < 4; i++) PX(ctx, hx - 5 + i * 3, top - 4, orb);
-      PX(ctx, hx + 2, top - 5, '#ffffff');
-    }
+    ctx.beginPath(); ctx.arc(hx + 1, 9, 3.4, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#e0ffe8';
+    ctx.beginPath(); ctx.arc(hx, 8, 1.5, 0, Math.PI * 2); ctx.fill();
+    PX(ctx, hx - 3, 6, ramp.cloth2);
+    PX(ctx, hx + 5, 7, ramp.trim);
+    if (attack) { PX(ctx, hx - 3, 3, orb); PX(ctx, hx + 5, 2, orb); PX(ctx, hx + 1, 1, '#ffffff'); }
   } else if (cls === 'bard') {
     // slender rapier: needle blade, swept gold guard — lunges on the attack
     const hx = cx + (attack ? 12 : 10);
@@ -1875,16 +1839,12 @@ function drawHeroBack(ctx: Ctx, ox: number, cls: string, ramp: HeroRamp, facing:
     PX(ctx, cx - 9 + sway, tTop + 14 + sway, ramp.cloth0);
     PX(ctx, cx + 8 - sway, tTop + 13 - sway, ramp.cloth0);
   } else if (cls === 'necromancer') {
-    // jagged soul-cape: bold purple wedge with cyan inner glow + torn spikes
-    R(ctx, cx - 12, tTop - 2, 24, 20, ramp.cloth0);
-    R(ctx, cx - 12, tTop - 2, 24, 3, ramp.cloth2);
-    R(ctx, cx - 10, tTop + 1, 20, 14, ramp.cloth1);
-    R(ctx, cx - 8, tTop + 3, 16, 2, 'rgba(64,232,255,0.35)');
-    for (let i = 0; i < 6; i++) {
-      const tx = cx - 11 + i * 4 + (i % 2 === 0 ? sway : -sway);
-      R(ctx, tx, tTop + 17, 3, 5 + (i % 2), ramp.cloth0);
-      PX(ctx, tx + 1, tTop + 16 + (i % 2), ramp.trim);
-    }
+    // tattered shroud mantle — same silhouette as the druid's hide cloak
+    R(ctx, cx - 12, tTop - 2, 24, 6, ramp.cloth0);
+    R(ctx, cx - 12, tTop - 2, 24, 1, 'rgba(255,255,255,0.08)');
+    for (let i = 0; i < 8; i++) PX(ctx, cx - 11 + i * 3, tTop + 3 + (i % 2), 'rgba(64,232,255,0.38)');
+    PX(ctx, cx - 10 + sway, tTop + 5, ramp.trim);
+    PX(ctx, cx + 9 - sway, tTop + 5, ramp.cloth2);
   } else if (cls === 'warden') {
     // fur mantle draped over both shoulders
     R(ctx, cx - 12, tTop - 2, 24, 6, ramp.cloth0);
@@ -1966,23 +1926,17 @@ function drawHeroFlair(ctx: Ctx, ox: number, cls: string, ramp: HeroRamp, facing
       PX(ctx, cx, tTop + 6, '#fffbe2');
     }
   } else if (cls === 'necromancer') {
-    // skull pauldrons + orbiting soul motes (arcade legibility)
+    // bone-strap belt + drifting soul motes (mirrors druid vine clasp)
     if (facing !== 'up') {
-      R(ctx, cx - 10, tTop + 1, 5, 5, '#d8e0ea');
-      R(ctx, cx + 5, tTop + 1, 5, 5, '#d8e0ea');
-      PX(ctx, cx - 8, tTop + 2, '#120818');
-      PX(ctx, cx + 7, tTop + 2, '#120818');
-      PX(ctx, cx - 7, tTop + 3, ramp.trim);
-      PX(ctx, cx + 8, tTop + 3, ramp.trim);
-      R(ctx, cx - 2, tTop + 6, 4, 4, ramp.cloth2);
-      PX(ctx, cx - 1, tTop + 7, ramp.trimHi);
+      for (let i = 0; i < 7; i++) PX(ctx, cx - 6 + i * 2, tTop + 11 + (i % 2), ramp.cloth0);
+      PX(ctx, cx, tTop + 11, ramp.trim);
+      PX(ctx, cx + 1, tTop + 12, ramp.trimHi);
+      R(ctx, cx - 2, tTop + 5, 4, 4, ramp.cloth2);
+      PX(ctx, cx - 1, tTop + 6, ramp.trimHi);
     }
-    const wx = cx + (facing === 'side' ? -12 : 11) + sway;
-    const wy = hTop + 1 - sway;
-    PX(ctx, wx, wy, ramp.trim);
-    PX(ctx, wx + 1, wy, '#ffffff');
-    PX(ctx, wx - 1, wy + 1, ramp.trimHi);
-    PX(ctx, wx + 2, wy + 2, ramp.cloth2);
+    const wx = cx + (facing === 'side' ? -10 : 10) - sway;
+    PX(ctx, wx, hTop + 3 + sway, ramp.trim);
+    PX(ctx, wx + 2, hTop + 6 - sway, 'rgba(64,232,255,0.55)');
   } else if (cls === 'bard') {
     // gold doublet buttons + a sash that catches the light as he moves
     if (facing !== 'up') {
@@ -2273,28 +2227,36 @@ export function drawHumanoid(
     PX(ctx, hx0 + hw, hTop - 6, '#efe9d2'); PX(ctx, hx0 + hw + 2, hTop - 6, '#d8cfb4');
     PX(ctx, cx, hTop - 3, '#7fce58'); // sprig
     PX(ctx, cx + 1, hTop - 4, '#b6ff8a');
-  } else {
-    // necromancer — arcade lich skull: exposed bone face, huge cyan eyes, horned hood
-    R(ctx, hx0 - 1, hTop - 4, hw + 2, 5, ramp.cloth0);
-    R(ctx, hx0 - 1, hTop - 4, hw + 2, 1, ramp.cloth2);
-    PX(ctx, hx0 - 2, hTop - 5, ramp.cloth1);
-    PX(ctx, hx0 + hw + 1, hTop - 5, ramp.cloth1);
-    R(ctx, hx0, hTop - 1, hw, 11, ramp.skin);
-    R(ctx, hx0, hTop - 1, hw, 2, ramp.skinHi);
-    R(ctx, hx0 + hw - 1, hTop, 1, 10, SHd);
-    R(ctx, hx0 + 1, hTop + 8, hw - 2, 3, ramp.skin);
-    for (let i = 0; i < 4; i++) PX(ctx, hx0 + 1 + i * 3, hTop + 10, '#120818');
+  } else if (cls === 'necromancer') {
+    // druid hood silhouette — bone horns, pale skull, green soul eyes
+    R(ctx, hx0 - 1, hTop - 2, hw + 2, 5, ramp.cloth1);
+    R(ctx, hx0 - 1, hTop - 2, hw + 2, 1, ramp.cloth2);
+    R(ctx, hx0 - 2, hTop, 2, 9, ramp.cloth0);
+    R(ctx, hx0 + hw, hTop, 2, 9, ramp.cloth0);
+    PX(ctx, hx0 - 1, hTop - 4, ramp.skin);
+    PX(ctx, hx0 - 2, hTop - 5, ramp.skinHi);
+    PX(ctx, hx0 + hw, hTop - 4, ramp.skin);
+    PX(ctx, hx0 + hw + 1, hTop - 5, ramp.skinHi);
+    PX(ctx, cx, hTop - 3, ramp.trim);
+    PX(ctx, cx + 1, hTop - 4, ramp.trimHi);
+    R(ctx, hx0, hTop + 1, hw, 9, ramp.skin);
+    R(ctx, hx0, hTop + 1, hw, 2, ramp.skinHi);
+    R(ctx, hx0 + hw - 1, hTop + 2, 1, 8, SHd);
     if (facing === 'side') {
-      R(ctx, hx0 + hw - 5, hTop + 3, 3, 3, ramp.trim);
-      PX(ctx, hx0 + hw - 4, hTop + 4, '#ffffff');
-      R(ctx, hx0 + hw - 2, hTop + 6, 2, 2, '#120818');
-      R(ctx, hx0 + hw - 3, hTop + 9, 3, 1, SH);
+      R(ctx, hx0 + hw - 5, hTop + 3, 3, 3, '#120818');
+      PX(ctx, hx0 + hw - 4, hTop + 4, ramp.trim);
+      PX(ctx, hx0 + hw - 3, hTop + 5, '#e0ffe8');
+      R(ctx, hx0 + hw - 3, hTop + 8, 4, 2, ramp.skin);
+      for (let i = 0; i < 2; i++) PX(ctx, hx0 + hw - 2 + i, hTop + 9, '#120818');
     } else if (facing !== 'up') {
-      R(ctx, hx0 + 2, hTop + 3, 3, 3, ramp.trim);
-      R(ctx, hx0 + hw - 5, hTop + 3, 3, 3, ramp.trim);
-      PX(ctx, hx0 + 3, hTop + 4, '#ffffff');
-      PX(ctx, hx0 + hw - 4, hTop + 4, '#ffffff');
-      R(ctx, hx0 + 4, hTop + 7, 4, 1, '#120818');
+      R(ctx, hx0 + 2, hTop + 3, 3, 3, '#120818');
+      R(ctx, hx0 + hw - 5, hTop + 3, 3, 3, '#120818');
+      PX(ctx, hx0 + 3, hTop + 4, ramp.trim);
+      PX(ctx, hx0 + hw - 4, hTop + 4, ramp.trim);
+      PX(ctx, hx0 + 4, hTop + 5, '#e0ffe8');
+      PX(ctx, hx0 + hw - 3, hTop + 5, '#e0ffe8');
+      R(ctx, hx0 + 3, hTop + 8, 6, 1, '#120818');
+      for (let i = 0; i < 3; i++) PX(ctx, hx0 + 4 + i, hTop + 9, ramp.skinHi);
     } else {
       R(ctx, hx0 + 1, hTop + 2, hw - 2, 7, ramp.cloth1);
       PX(ctx, cx, hTop + 4, ramp.trim);

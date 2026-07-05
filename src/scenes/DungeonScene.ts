@@ -736,10 +736,10 @@ export class DungeonScene extends Phaser.Scene {
     const H = this.level.height;
     const ta = getThemeArt(this.level.theme);
     const atmo = ATMOSPHERE[this.level.theme ?? 'crypt'] ?? ATMOSPHERE.crypt;
-    // The open-air Hearthwatch town square gets gentle dusk lighting (candle
-    // glow cut ~75%); cosy interiors, the wilds, and combat realms keep their
-    // original warm fixtures.
+    // Hearthwatch (town square + shop interiors) uses faint candlelight, not
+    // crypt torches. Combat realms keep their full torch wash.
     const townSquare = this.level.id === 'town';
+    const cozyLighting = townSquare || !!this.level.interior;
     const scatterKeys = (getTheme(this.level.theme).decorKeys.length ? getTheme(this.level.theme).decorKeys : ['bones', 'rubble']).filter(
       (k) => !['pillar', 'idol', 'altar', 'weapon-rack', 'banner', 'frost-banner'].includes(k)
     );
@@ -940,15 +940,13 @@ export class DungeonScene extends Phaser.Scene {
         // walls (on a short ledge they would float in the air above nothing).
         if (tile === Tile.WALL && y + 1 < H && t[y + 1][x] === Tile.FLOOR && wallHasSolidBack(x, y)) {
           const faceBase = c.y + 8; // where the wall meets the floor (south edge)
-          if (townSquare) {
-            // Town-square buildings get cozy candlelight from their windows, NOT
-            // crypt torches. A faint warm bloom every few bays — ~75% softer than
-            // the old torch wash, and with no floor-flooding point lights.
-            if (x % 3 === 1) {
+          if (cozyLighting) {
+            // Faint window/candle bloom — no crypt torches, no floor-flooding lights.
+            if (x % 4 === 2) {
               const cg = this.add.image(c.x, faceBase - 14, 'fx-glow-warm')
-                .setScale(0.85).setAlpha(0.1).setBlendMode(Phaser.BlendModes.ADD)
-                .setDepth(c.y).setTint(0xffca70);
-              this.tweens.add({ targets: cg, alpha: { from: 0.055, to: 0.13 }, duration: 1300 + Math.random() * 800, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+                .setScale(0.55).setAlpha(0.03).setBlendMode(Phaser.BlendModes.ADD)
+                .setDepth(c.y).setTint(0xffb860);
+              this.tweens.add({ targets: cg, alpha: { from: 0.018, to: 0.045 }, duration: 1500 + Math.random() * 900, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
             }
           } else if ((x * 5 + y) % 5 === 0) {
             this.add.sprite(c.x, faceBase - Math.round(F * 0.55), 'torch-sheet').play('torch').setDepth(c.y + 2).setTint(atmo.flameTint);
@@ -967,7 +965,7 @@ export class DungeonScene extends Phaser.Scene {
             }
           }
           // pulsing arcane glow centered on the mid-face mural (not the town square)
-          if (!townSquare && (x * 3 + y * 7) % 5 === 0 && y % 5 !== 0) {
+          if (!cozyLighting && (x * 3 + y * 7) % 5 === 0 && y % 5 !== 0) {
             const gl = this.add.image(c.x, faceBase - Math.round(F / 2), 'fx-glow-white').setScale(1.2).setAlpha(0.3).setBlendMode(Phaser.BlendModes.ADD).setDepth(c.y).setTint(atmo.particleTint);
             this.tweens.add({ targets: gl, alpha: { from: 0.14, to: 0.4 }, duration: 1500 + Math.random() * 900, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
           }
@@ -1035,11 +1033,9 @@ export class DungeonScene extends Phaser.Scene {
         }
       } else if (glowDecor[d.key]) {
         const s = this.add.image(dc.x, dc.y, d.key).setDepth(dc.y - 2).setScale(US);
-        // Town-square braziers/lamp-posts/idols glow 75% softer than crypt
-        // fixtures so the open square reads as gentle dusk, not a bonfire-lit
-        // dungeon. Interiors and combat realms keep their full warmth.
-        const gw = townSquare ? 0.25 : 1;
-        const gScale = townSquare ? 1.2 : 1.7;
+        // Hearthwatch props glow much softer than crypt fixtures.
+        const gw = cozyLighting ? 0.1 : 1;
+        const gScale = cozyLighting ? 1.0 : 1.7;
         const glow = this.add.image(dc.x, dc.y, glowDecor[d.key]).setScale(gScale).setAlpha(0.3 * gw).setBlendMode(Phaser.BlendModes.ADD).setDepth(dc.y - 3);
         this.tweens.add({ targets: glow, alpha: { from: 0.18 * gw, to: 0.42 * gw }, scale: { from: gScale * 0.82, to: gScale * 1.18 }, duration: 1100 + Math.random() * 600, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
         // Heavy ground-fixed props (braziers, lamp-posts, idols) stay planted;
@@ -2052,6 +2048,7 @@ export class DungeonScene extends Phaser.Scene {
     const info = SKELETON_INFO[t];
     const sk = new Companion(this, necro.x + Phaser.Math.Between(-16, 16), necro.y + Phaser.Math.Between(-8, 18), info.cls);
     sk.makeSkeleton(info.sheet, info.walk, info.attack);
+    sk.skeletonRole = t;
     sk.summoner = necro;
     sk.displayName = info.name.replace(/\b\w/g, (c) => c.toUpperCase());
     if (t === 'tank') {
@@ -3134,7 +3131,8 @@ export class DungeonScene extends Phaser.Scene {
   }
 
   private fireProjectile(owner: Hero, dir: { x: number; y: number }, time: number): void {
-    const arrow = owner.classId === 'thief';
+    const skRole = owner instanceof Companion ? owner.skeletonRole : undefined;
+    const arrow = owner.classId === 'thief' || skRole === 'archer';
     const tex = arrow ? 'fx-arrow' : 'fx-bolt';
     const speed = arrow ? 320 : 260;
     const spr = this.add
@@ -3142,14 +3140,17 @@ export class DungeonScene extends Phaser.Scene {
       .setDepth(owner.y + 6)
       .setScale(arrow ? 1 : 1.4);
     if (arrow) spr.setRotation(Math.atan2(dir.y, dir.x));
-    if (owner.classId === 'druid') spr.setTint(0x9aff6a); // moonlit nature bolt
+    if (skRole === 'mage') spr.setTint(0xb070ff);
+    else if (owner.classId === 'necromancer') spr.setTint(0x70e8a0);
+    else if (owner.classId === 'druid') spr.setTint(0x9aff6a);
     // weapon flourish: bow twang flash / arcane cast burst at the hands
+    const boltTint = skRole === 'mage' ? 0xc080ff : owner.classId === 'necromancer' ? 0x70e8a0 : 0xb98cff;
     const flash = this.add
       .image(owner.x + dir.x * 10, owner.y + dir.y * 10 - 4, arrow ? 'fx-glow-white' : 'fx-glow-magic')
       .setBlendMode(Phaser.BlendModes.ADD)
       .setScale(arrow ? 0.5 : 0.75)
       .setDepth(owner.y + 7)
-      .setTint(arrow ? 0xffffff : 0xb98cff);
+      .setTint(arrow ? 0xffffff : boltTint);
     this.tweens.add({ targets: flash, alpha: 0, scale: arrow ? 0.95 : 1.5, duration: 170, onComplete: () => flash.destroy() });
     const { dmg, crit } = owner.attackDamage();
     // Whisperwind Bow: shots pass through what they strike and keep flying
@@ -3905,32 +3906,51 @@ export class DungeonScene extends Phaser.Scene {
     return this.level.tiles[ty][tx];
   }
 
+  /** Tiles under the ally's feet — samples the physics body's bottom row so
+   *  hazards register when the sprite anchor sits above the molten tile. */
+  private footingTiles(ally: Hero): number[] {
+    const body = ally.body as Phaser.Physics.Arcade.Body | null;
+    if (!body) {
+      const footY = ally.y + ally.displayHeight * (1 - ally.originY);
+      return [this.tileAt(ally.x, footY)];
+    }
+    const footY = body.bottom - 0.5;
+    const leftTx = Math.floor(body.left / TILE_SIZE);
+    const rightTx = Math.floor(body.right / TILE_SIZE);
+    const tiles: number[] = [];
+    for (let tx = leftTx; tx <= rightTx; tx++) tiles.push(this.tileAt(tx * TILE_SIZE + TILE_SIZE / 2, footY));
+    return tiles;
+  }
+
   private handleHazards(time: number): void {
     for (const ally of this.allies) {
       if (!ally.alive) continue;
-      const tile = this.tileAt(ally.x, ally.y);
+      const tiles = this.footingTiles(ally);
+      const tile = tiles[0];
 
-      // --- footing (speed + slip) ---
+      // --- footing (speed + slip) — any foot tile on a hazard counts ---
       ally.slip = 0;
-      if (tile === Tile.WATER) ally.speedMult = WATER_SPEED_MULT;
-      else if (tile === Tile.POISON) ally.speedMult = POISON_SPEED_MULT;
-      else if (tile === Tile.ICE) {
+      if (tiles.some((t) => t === Tile.WATER)) ally.speedMult = WATER_SPEED_MULT;
+      else if (tiles.some((t) => t === Tile.POISON)) ally.speedMult = POISON_SPEED_MULT;
+      else if (tiles.some((t) => t === Tile.ICE)) {
         ally.speedMult = ICE_SPEED_MULT;
         ally.slip = ICE_SLIP;
       } else ally.speedMult = 1;
 
       // --- damage-over-time hazards & traps ---
-      const isDamaging = tile === Tile.LAVA || tile === Tile.POISON || tile === Tile.SPIKES;
-      if (isDamaging) {
-        const cadence = tile === Tile.SPIKES ? SPIKE_TICK_MS : 500;
+      const dmgTile = tiles.find((t) => t === Tile.LAVA || t === Tile.POISON || t === Tile.SPIKES);
+      if (dmgTile !== undefined) {
+        const cadence = dmgTile === Tile.SPIKES ? SPIKE_TICK_MS : 500;
         const next = this.lavaTick.get(ally) ?? 0;
         if (time >= next) {
           this.lavaTick.set(ally, time + cadence);
           const raw =
-            tile === Tile.SPIKES ? SPIKE_DAMAGE : (tile === Tile.POISON ? POISON_DPS : LAVA_DPS) * 0.5;
+            dmgTile === Tile.SPIKES ? SPIKE_DAMAGE : (dmgTile === Tile.POISON ? POISON_DPS : LAVA_DPS) * 0.5;
           const dealt = ally.takeEnvironmentalDamage(raw);
-          this.floatDamage(ally.x, ally.y, dealt, false);
+          if (dealt > 0) this.floatDamage(ally.x, ally.y, dealt, false);
         }
+      } else {
+        this.lavaTick.delete(ally);
       }
     }
   }
