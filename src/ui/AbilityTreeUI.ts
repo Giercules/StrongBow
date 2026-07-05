@@ -63,6 +63,8 @@ export class AbilityTreeUI {
     };
     if (wrapW > 0) style.wordWrap = { width: wrapW, useAdvancedWrap: true };
     const t = this.scene.add.text(x, y, str, style).setOrigin(0, 0);
+    // subtle drop shadow lifts small MedievalSharp text off the busy backdrop
+    t.setShadow(0, 1, '#05070d', 2, false, true);
     addPinned(this.content!, t);
     return t;
   }
@@ -95,7 +97,7 @@ export class AbilityTreeUI {
       const chipW = (innerW - 16) / 3;
       choices.forEach((s, i) => {
         const cx = left + i * (chipW + 8) + chipW / 2;
-        const cy = y + 18;
+        const cy = y + 30; // sit below the tier header so chips don't overlap it
         const isEq = unlocked && equipped === s.id;
         const fill = !unlocked ? C.hudPanel : isEq ? C.ivy : C.hudPanel2;
         const btn = makeButton(this.scene, cx, cy, chipW, 24, s.name, () => {
@@ -116,8 +118,8 @@ export class AbilityTreeUI {
         : eqDef
           ? `◆ ${eqDef.name}: ${eqDef.description}`
           : 'Choose a rune above.';
-      this.label(left, y + 33, desc, unlocked ? C.ink : C.inkDim, 9, false, innerW);
-      y += 62;
+      this.label(left, y + 47, desc, unlocked ? C.ink : C.inkDim, 9, false, innerW);
+      y += 64;
     }
 
     // ---- ABILITIES ----

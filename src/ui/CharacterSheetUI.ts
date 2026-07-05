@@ -89,6 +89,9 @@ export class CharacterSheetUI {
     };
     if (wrapW > 0) style.wordWrap = { width: wrapW, useAdvancedWrap: true };
     const t = this.scene.add.text(x, y, str, style).setOrigin(0, 0);
+    // A soft near-black drop shadow lifts the decorative MedievalSharp face off
+    // the busy background — small/dim text stays crisp without changing the font.
+    t.setShadow(0, 1, '#05070d', 2, false, true);
     addPinned(this.content!, t);
     return t;
   }
@@ -231,9 +234,11 @@ export class CharacterSheetUI {
       addPinned(this.content!, icon);
       this.label(px + 1, py + 19, SLOT_SHORT[slot], has ? SET_COLOR : C.inkDim, 7);
     });
+    // tier-bonus lines sit below the slot boxes AND their Hd/Ch/… captions
+    // (captions end ~setY+54), so start a little lower to avoid overlapping them
     setTierLines(h.classId).forEach((tl, i) => {
       const st = setTierStatus(h.setPieces, i);
-      this.label(left, setY + 48 + i * 11, setTierPrefix(st) + tl, setTierColor(st), 8.5, false, leftColW);
+      this.label(left, setY + 58 + i * 12, setTierPrefix(st) + tl, setTierColor(st), 8.5, false, leftColW);
     });
 
     // Opens the Echoes & Sigils growth screen for this hero.
