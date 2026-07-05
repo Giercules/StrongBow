@@ -1,3 +1,4 @@
+import type { ServerResponse } from 'http';
 import { defineConfig, loadEnv } from 'vite';
 
 // StrongBow dev/build config.
@@ -16,6 +17,33 @@ export default defineConfig(({ mode }) => {
         '/api': {
           target: `http://localhost:${proxyPort}`,
           changeOrigin: true,
+          // When the AI proxy isn't running (e.g. `dev:client` only), answer with
+          // safe fallbacks instead of spamming ECONNREFUSED in the Vite console.
+          configure: (proxy) => {
+            proxy.on('error', (err, req, res) => {
+              const out = res as ServerResponse;
+              if (!out?.writeHead || out.headersSent) return;
+              const url = req.url ?? '';
+              if (url.includes('/api/health')) {
+                out.writeHead(200, { 'Content-Type': 'application/json' });
+                out.end(
+                  JSON.stringify({
+                    ok: false,
+                    offline: true,
+                    providers: { openai: false, anthropic: false, xai: false },
+                  })
+                );
+                return;
+              }
+              if (url.includes('/api/ai/complete')) {
+                out.writeHead(200, { 'Content-Type': 'application/json' });
+                out.end(JSON.stringify({ text: 'The torches flicker low.', live: false }));
+                return;
+              }
+              out.writeHead(503, { 'Content-Type': 'application/json' });
+              out.end(JSON.stringify({ ok: false, offline: true, error: String(err) }));
+            });
+          },
         },
       },
     },

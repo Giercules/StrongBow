@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import { spawn, execSync, type ChildProcess } from 'child_process';
 import { readFileSync } from 'fs';
+import { networkInterfaces } from 'os';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
@@ -29,6 +30,17 @@ const GAME_PORT = Number(process.env.GAME_SERVER_PORT) || 8080;
 const HOST = process.env.LAUNCHER_HOST || '127.0.0.1';
 
 const GAME_API = `http://127.0.0.1:${GAME_PORT}`;
+const GAME_CLIENT_PORT = Number(process.env.VITE_PORT) || 5173;
+
+/** Best guess at this machine's LAN IPv4 for sharing with friends on the same network. */
+function lanIpv4(): string | null {
+  for (const ifaces of Object.values(networkInterfaces())) {
+    for (const i of ifaces ?? []) {
+      if (i.family === 'IPv4' && !i.internal) return i.address;
+    }
+  }
+  return null;
+}
 
 let child: ChildProcess | null = null;
 let startedAt = 0;
@@ -103,6 +115,7 @@ app.use(express.json());
 app.get('/api/status', async (_req, res) => {
   const managed = childAlive();
   const up = managed || (await serverUp());
+  const lan = lanIpv4();
   res.json({
     running: up,
     managed,
@@ -110,6 +123,11 @@ app.get('/api/status', async (_req, res) => {
     pid: child?.pid ?? null,
     uptime: managed ? Date.now() - startedAt : 0,
     gamePort: GAME_PORT,
+    gameClientPort: GAME_CLIENT_PORT,
+    gameUrl: `http://localhost:${GAME_CLIENT_PORT}`,
+    wsUrl: `ws://localhost:${GAME_PORT}`,
+    lanIp: lan,
+    lanWsUrl: lan ? `ws://${lan}:${GAME_PORT}` : null,
     logs,
   });
 });
@@ -133,6 +151,7 @@ async function proxy(res: express.Response, path: string, init?: Parameters<type
 }
 const jsonPost = (body: unknown): Parameters<typeof fetch>[1] => ({ method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
 app.get('/api/server/state', (_req, res) => proxy(res, '/api/state'));
+app.get('/api/server/catalog', (_req, res) => proxy(res, '/api/catalog'));
 app.post('/api/server/config', (req, res) => proxy(res, '/api/config', jsonPost(req.body)));
 app.post('/api/server/kick', (req, res) => proxy(res, '/api/kick', jsonPost(req.body)));
 app.post('/api/server/broadcast', (req, res) => proxy(res, '/api/broadcast', jsonPost(req.body)));

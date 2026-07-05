@@ -3,6 +3,7 @@ import cors from 'cors';
 import { createServer } from 'http';
 import { WebSocketServer, WebSocket } from 'ws';
 import { randomUUID } from 'crypto';
+import { buildItemCatalog } from './itemCatalog';
 
 // ----------------------------------------------------------------------------
 // StrongBow Game Server — a standalone, authoritative-lite hub that every game
@@ -143,6 +144,10 @@ app.get('/api/state', localOnly, (_req, res) => {
     players: [...players.values()].map(pub),
     config,
   });
+});
+
+app.get('/api/catalog', localOnly, (_req, res) => {
+  res.json({ ok: true, items: buildItemCatalog() });
 });
 
 app.post('/api/shutdown', localOnly, (_req, res) => {

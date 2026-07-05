@@ -9,7 +9,10 @@ cd /d "%~dp0\.."
 echo ============================================================
 echo   StrongBow Launcher (control panel)
 echo   Opening: http://localhost:8090 in your browser...
-echo   From there: Start / Stop / Restart the game server.
+echo.
+echo   NEW PLAYERS: use "Play StrongBow.bat" to play solo.
+echo   HOSTING: use "Host StrongBow.bat" (game + server together).
+echo   This panel: Start / Stop / Restart the game server.
 echo ============================================================
 echo.
 

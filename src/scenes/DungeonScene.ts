@@ -41,8 +41,9 @@ import { ALL_CLASSES } from '../data/heroes';
 import { ITEMS } from '../data/items';
 import { GRADES, GRADE_ORDER } from '../data/grades';
 import { rollDrop, mintItem, monsterDropChance, generatorDropChance, eliteDropChance } from '../systems/LootSystem';
-import { ARMOR_SETS, SET_COLOR, rollSetDrop, setDropChance } from '../data/setItems';
-import { THEME_BASES } from '../data/themedItems';
+import { ARMOR_SETS, SET_COLOR, rollSetDrop, setDropChance, mintSetPiece, SET_PIECE_SLOTS, type SetPieceSlot } from '../data/setItems';
+import { THEME_BASES, ALL_THEME_BASES } from '../data/themedItems';
+import { UNIQUES, mintUnique } from '../data/uniqueItems';
 import { describeItem } from '../data/pickupInfo';
 import { Hero } from '../entities/Hero';
 import { Companion } from '../entities/Companion';
@@ -3758,18 +3759,67 @@ export class DungeonScene extends Phaser.Scene {
     }
   }
 
+  /** Resolve a dashboard grant token into a real item (static id, gear roll, set, unique…). */
+  private resolveAdminItem(itemId: string, hero: Hero): ItemDefinition | undefined {
+    if (itemId === 'gear' || itemId.startsWith('gear:')) {
+      const floor = (itemId.split(':')[1] as Grade | undefined) ?? 'honed';
+      const grade = GRADE_ORDER.includes(floor as Grade) ? (floor as Grade) : 'honed';
+      return rollDrop(this.level.theme ?? 'crypt', hero.stats.luck ?? 0, { floor: grade });
+    }
+    if (itemId.startsWith('unique:')) {
+      const uid = itemId.slice(7);
+      const def = UNIQUES.find((u) => u.id === uid);
+      return def ? mintUnique(def) : undefined;
+    }
+    if (itemId.startsWith('set:')) {
+      const [, classId, slot] = itemId.split(':');
+      if (classId in ARMOR_SETS && SET_PIECE_SLOTS.includes(slot as SetPieceSlot)) {
+        return mintSetPiece(classId as HeroClassId, slot as SetPieceSlot);
+      }
+      return undefined;
+    }
+    if (itemId.startsWith('theme:')) {
+      const [, baseId, gradeRaw] = itemId.split(':');
+      const base = ALL_THEME_BASES.find((b) => b.id === baseId);
+      const grade = GRADE_ORDER.includes(gradeRaw as Grade) ? (gradeRaw as Grade) : 'honed';
+      return base ? mintItem(base, grade) : undefined;
+    }
+    return Content.item(itemId);
+  }
+
+  /** Admin starter bundle for new players testing on a hosted server. */
+  private grantStarterKit(hero: Hero): void {
+    hero.inventory.gold += 400;
+    this.floatPickup(hero.x, hero.y - 22, '+400g', '#ffae42');
+    const ids = [
+      'health_potion', 'health_potion', 'mana_potion', 'mana_potion',
+      'iron_sword', 'leather_jerkin', 'dungeon_key', 'dungeon_key', 'dungeon_key',
+      'town_portal_scroll',
+    ];
+    for (const id of ids) {
+      const def = Content.item(id);
+      if (def) hero.inventory.add({ ...def });
+    }
+    hero.refreshStats();
+    this.floatPickup(hero.x, hero.y - 34, 'Starter Kit!', '#5fe06a');
+  }
+
   /** Apply an admin grant (gold / item id / "gear") from the dashboard. */
   private applyAdminGrant(gold: number, itemId?: string): void {
-    const p = this.players[0];
+    const p = this.leader() ?? this.players.find((h) => h.alive) ?? this.players[0];
     if (!p) return;
+    if (itemId === 'kit:starter') {
+      this.grantStarterKit(p);
+      this.showBark('A starter kit arrives from the Server Admin.', 2800, 'event', '#5fe06a');
+      this.syncHudData();
+      return;
+    }
     if (gold > 0) {
       p.inventory.gold += gold;
       this.floatPickup(p.x, p.y - 22, `+${gold}g`, '#ffae42');
     }
     if (itemId) {
-      const item = itemId === 'gear'
-        ? rollDrop(this.level.theme ?? 'crypt', p.stats.luck ?? 0, { floor: 'honed' })
-        : Content.item(itemId);
+      const item = this.resolveAdminItem(itemId, p);
       if (item) {
         p.inventory.add(item);
         this.floatPickup(p.x, p.y - 22, item.name, '#ffae42');
