@@ -506,7 +506,7 @@ export function buildTown(): LevelData {
   }
 
   // ---- townsfolk (spread across both districts) ----
-  const folk: [number, number, string, string][] = [
+  const folk: [number, number, string, string, string?][] = [
     // Upper Hearthwatch
     [46, 33, 'Crier Bom', 'the booming town crier'],
     [58, 36, 'Pib', 'a wandering lute-player'],
@@ -514,13 +514,14 @@ export function buildTown(): LevelData {
     [70, 24, 'Sella', 'a chambermaid from the Tankard'],
     // Lower Hearthwatch
     [24, 64, 'Old Maren', 'a stooped flower-seller'],
-    [31, 68, 'Tomas', 'a nervous merchant down on his luck'],
+    // Tomas gives the cross-town errand to Sunspire (his sister Amira).
+    [31, 68, 'Tomas', 'a fretful merchant fearing for his sister in the desert', 'tomas'],
     [75, 67, 'Hesh', 'a hooded fortune-teller'],
     [82, 86, 'Sister Vael', 'a road-worn pilgrim of the light'],
     [30, 79, 'Farmer Wen', 'a sun-leathered farmhand'],
     [60, 97, 'Warden Ost', 'the keeper of the Deep Court gates'],
   ];
-  folk.forEach(([x, y, label, role]) => spawns.push({ kind: 'npc', x, y, label, npcRole: role }));
+  folk.forEach(([x, y, label, role, npcId]) => spawns.push({ kind: 'npc', x, y, label, npcRole: role, npcId }));
 
   for (const [x, y] of [
     [50, 58],

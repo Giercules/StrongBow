@@ -4,6 +4,7 @@ import type { HeroRamp, MonsterRamp } from './Palette';
 import * as art from './spriteArt';
 import * as townArt from './townArt';
 import * as overworldArt from './overworldArt';
+import * as desertArt from './desertTownArt';
 import { HERO_FW, HERO_FH, MON_FW, MON_FH, BOSS_FW, BOSS_FH, SMALL_MOB_FW, SMALL_MOB_FH } from './spriteArt';
 import type { Ctx, Facing } from './spriteArt';
 
@@ -215,6 +216,58 @@ export class TextureFactory {
     img('town-dog', 16, 16, (c) => townArt.drawDog(c), true);
     for (let v = 0; v < 7; v++) img(`townsfolk-${v}`, 28, 36, (c) => townArt.drawTownsfolk(c, 0, 0, v), true);
 
+    // ---- Sunspire desert-town art ----
+    // sandstone building facade (opaque, native 32px — drawn 1:1, see buildingTiles)
+    img('adobe-wall', 32, 32, (c) => desertArt.drawAdobeWall(c, 0, 0));
+    img('adobe-roof', 32, 32, (c) => desertArt.drawAdobeRoof(c, 0, 0));
+    img('adobe-eave', 32, 32, (c) => desertArt.drawAdobeEave(c, 0, 0));
+    img('adobe-base', 32, 32, (c) => desertArt.drawAdobeBase(c, 0, 0));
+    img('adobe-window', 32, 32, (c) => desertArt.drawAdobeWindow(c, 0, 0));
+    img('adobe-door', 32, 32, (c) => desertArt.drawAdobeDoor(c, 0, 0));
+    img('adobe-post', 32, 32, (c) => desertArt.drawAdobePost(c, 0, 0));
+    img('rampart', 32, 32, (c) => desertArt.drawRampart(c, 0, 0), true);
+    // temple + landmarks (outlined props)
+    img('temple-step', 32, 32, (c) => desertArt.drawTempleStep(c, 0, 0), true);
+    img('sun-spire', 32, 48, (c) => desertArt.drawSunSpire(c, 0, 0), true);
+    img('sun-idol', 32, 32, (c) => desertArt.drawSunIdol(c, 0, 0), true);
+    img('sphinx', 32, 32, (c) => desertArt.drawSphinx(c, 0, 0), true);
+    img('sundial', 32, 32, (c) => desertArt.drawSundial(c, 0, 0), true);
+    img('adobe-dome', 32, 40, (c) => desertArt.drawAdobeDome(c, 0, 0), true);
+    // grand bazaar / souk (outlined props)
+    img('awning-red', 32, 32, (c) => desertArt.drawAwningRed(c, 0, 0), true);
+    img('awning-blue', 32, 32, (c) => desertArt.drawAwningBlue(c, 0, 0), true);
+    img('awning-gold', 32, 32, (c) => desertArt.drawAwningGold(c, 0, 0), true);
+    img('spice-sacks', 32, 32, (c) => desertArt.drawSpiceSacks(c, 0, 0), true);
+    img('pottery', 32, 32, (c) => desertArt.drawPottery(c, 0, 0), true);
+    img('hanging-rug', 32, 32, (c) => desertArt.drawHangingRug(c, 0, 0), true);
+    img('basket', 32, 32, (c) => desertArt.drawBasket(c, 0, 0), true);
+    img('hanging-lantern', 32, 32, (c) => desertArt.drawHangingLantern(c, 0, 0), true);
+    // oasis + desert flora (outlined props)
+    img('palm', 32, 48, (c) => desertArt.drawPalm(c, 0, 0), true);
+    img('palm-small', 32, 32, (c) => desertArt.drawPalmSmall(c, 0, 0), true);
+    img('papyrus', 32, 32, (c) => desertArt.drawPapyrus(c, 0, 0), true);
+    img('cactus-tall', 32, 48, (c) => desertArt.drawCactusTall(c, 0, 0), true);
+    img('cactus-barrel', 32, 32, (c) => desertArt.drawCactusBarrel(c, 0, 0), true);
+    img('desert-shrub', 32, 32, (c) => desertArt.drawDesertShrub(c, 0, 0), true);
+    img('tumbleweed', 32, 32, (c) => desertArt.drawTumbleweed(c, 0, 0), true);
+    // caravanserai, furniture & ground
+    img('cistern', 32, 32, (c) => desertArt.drawCistern(c, 0, 0), true);
+    img('fire-bowl', 32, 32, (c) => desertArt.drawFireBowl(c, 0, 0), true);
+    img('clay-oven', 32, 32, (c) => desertArt.drawClayOven(c, 0, 0), true);
+    img('bedouin-tent', 32, 48, (c) => desertArt.drawBedouinTent(c, 0, 0), true);
+    img('camel', 32, 32, (c) => desertArt.drawCamel(c, 0, 0), true);
+    img('water-trough', 32, 32, (c) => desertArt.drawWaterTrough(c, 0, 0), true);
+    img('sun-bones', 32, 32, (c) => desertArt.drawSunBones(c, 0, 0), true);
+    img('palm-fence-h', 32, 32, (c) => desertArt.drawPalmFenceH(c, 0, 0), true);
+    img('palm-fence-v', 32, 32, (c) => desertArt.drawPalmFenceV(c, 0, 0), true);
+    img('sun-banner', 32, 32, (c) => desertArt.drawSunBanner(c, 0, 0), true);
+    // flat, floor-level ground decor (no outline)
+    img('desert-road', 32, 32, (c) => desertArt.drawDesertRoad(c, 0, 0));
+    img('market-mat', 32, 32, (c) => desertArt.drawMarketMat(c, 0, 0));
+    img('sand-dune', 32, 32, (c) => desertArt.drawSandDune(c, 0, 0));
+    // desert townsfolk (robed variants)
+    for (let v = 0; v < 6; v++) img(`desertfolk-${v}`, 28, 36, (c) => desertArt.drawDesertfolk(c, 0, 0, v), true);
+
     // ---- overworld decor + critters (outlined) ----
     img('pine', 32, 32, (c) => overworldArt.drawPine(c, 0, 0), true);
     img('gnarled-oak', 32, 32, (c) => overworldArt.drawGnarledOak(c, 0, 0), true);
@@ -228,6 +281,19 @@ export class TextureFactory {
     img('standing-stone', 32, 32, (c) => overworldArt.drawStandingStone(c, 0, 0), true);
     img('signpost', 32, 32, (c) => overworldArt.drawSignpost(c, 0, 0), true);
     img('cave-entrance', 32, 32, (c) => overworldArt.drawCaveEntrance(c, 0, 0), true);
+    // aerial village pieces — a small town seen from above (Hearthwatch + Sunspire)
+    img('aerial-cottage-red', 32, 32, (c) => overworldArt.drawAerialCottageRed(c, 0, 0), true);
+    img('aerial-cottage-blue', 32, 32, (c) => overworldArt.drawAerialCottageBlue(c, 0, 0), true);
+    img('aerial-cottage-teak', 32, 32, (c) => overworldArt.drawAerialCottageTeak(c, 0, 0), true);
+    img('aerial-cottage-green', 32, 32, (c) => overworldArt.drawAerialCottageGreen(c, 0, 0), true);
+    img('aerial-hall', 32, 32, (c) => overworldArt.drawAerialHall(c, 0, 0), true);
+    img('aerial-wall', 32, 32, (c) => overworldArt.drawAerialWall(c, 0, 0), true);
+    img('aerial-gate', 32, 32, (c) => overworldArt.drawAerialGate(c, 0, 0), true);
+    img('aerial-sandwall', 32, 32, (c) => overworldArt.drawAerialSandwall(c, 0, 0), true);
+    img('aerial-sandgate', 32, 32, (c) => overworldArt.drawAerialSandgate(c, 0, 0), true);
+    img('aerial-adobe-a', 32, 32, (c) => overworldArt.drawAerialAdobeA(c, 0, 0), true);
+    img('aerial-adobe-b', 32, 32, (c) => overworldArt.drawAerialAdobeB(c, 0, 0), true);
+    img('aerial-temple', 32, 32, (c) => overworldArt.drawAerialTemple(c, 0, 0), true);
     img('critter-deer', 20, 18, (c) => overworldArt.drawDeer(c, 0, 0), true);
     img('critter-rabbit', 16, 16, (c) => overworldArt.drawRabbit(c, 0, 0), true);
     img('critter-fox', 16, 16, (c) => overworldArt.drawFox(c, 0, 0), true);

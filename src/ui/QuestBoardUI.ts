@@ -12,8 +12,8 @@ import { MenuNav } from './MenuNav';
 const PANEL_W = 450;
 const PANEL_H = 430;
 
-const KIND_TAG: Record<string, string> = { bounty: 'BOUNTY', gather: 'RELICS', rescue: 'RESCUE' };
-const KIND_COLOR: Record<string, string> = { bounty: '#ff8a6a', gather: '#8ad0ff', rescue: '#8affa0' };
+const KIND_TAG: Record<string, string> = { bounty: 'BOUNTY', gather: 'RELICS', rescue: 'RESCUE', errand: 'ERRAND' };
+const KIND_COLOR: Record<string, string> = { bounty: '#ff8a6a', gather: '#8ad0ff', rescue: '#8affa0', errand: '#ffd479' };
 
 /** The Hearthwatch notice board: accept contracts, track them, claim payouts. */
 export class QuestBoardUI {
@@ -66,10 +66,16 @@ export class QuestBoardUI {
 
     label(x0 + 20, y0 + 32, `Standing: ${questLog.repTitle()}  ·  Reputation ${questLog.reputation}`, '#ffe9a8', 12, true);
 
+    // Board contracts and hand-authored story errands live in the same active
+    // list, but errands are NPC-driven (completed by seeking someone in another
+    // town) — they never occupy a board slot nor render as claimable rows here.
+    const board = questLog.boardContracts();
+    const errands = questLog.active.filter((q) => q.kind === 'errand');
+
     // ---- posted contracts ----
     label(x0 + 20, y0 + 54, 'POSTED CONTRACTS', C.inkDim, 11, true);
     let yy = y0 + 72;
-    const canAccept = questLog.active.length < 3;
+    const canAccept = board.length < 3;
     if (questLog.offers.length === 0) label(x0 + 24, yy, 'The board is bare — check back after your next descent.', C.inkDim, 11);
     for (const q of questLog.offers.slice(0, 3)) {
       this.questRow(m, x0 + 16, yy, q, canAccept ? 'ACCEPT' : 'LOG FULL', canAccept, () => {
@@ -84,9 +90,9 @@ export class QuestBoardUI {
 
     // ---- your log ----
     yy = Math.max(yy + 6, y0 + 262);
-    label(x0 + 20, yy - 18, `YOUR CONTRACTS  (${questLog.active.length}/3)`, C.inkDim, 11, true);
-    if (questLog.active.length === 0) label(x0 + 24, yy + 2, 'None yet. A little coin never hurt anyone.', C.inkDim, 11);
-    for (const q of questLog.active) {
+    label(x0 + 20, yy - 18, `YOUR CONTRACTS  (${board.length}/3)`, C.inkDim, 11, true);
+    if (board.length === 0) label(x0 + 24, yy + 2, 'None yet. A little coin never hurt anyone.', C.inkDim, 11);
+    for (const q of board) {
       const ready = q.done && !q.turnedIn;
       this.questRow(m, x0 + 16, yy, q, ready ? 'CLAIM' : `${q.progress}/${q.need}`, ready, () => {
         const paid = questLog.turnIn(q.id);
@@ -99,6 +105,12 @@ export class QuestBoardUI {
         }
       });
       yy += 46;
+    }
+
+    // ---- errands (a plain journal line; not a board contract) ----
+    for (const q of errands) {
+      label(x0 + 20, yy, `[ERRAND]  ${q.title} — seek ${q.targetNpcName ?? 'them'} in ${q.targetTownName ?? 'another town'}.`, KIND_COLOR.errand, 10.5);
+      yy += 18;
     }
 
     m.add(makeButton(this.scene, m.cx, y0 + PANEL_H - 26, 130, 26, 'CLOSE  (ESC)', () => this.close()));
