@@ -33,23 +33,64 @@ export class LevelSelectScene extends Phaser.Scene {
 
     const levels = Content.campaignLevels();
     const colX = [cx - 150, cx + 150];
-    const rowH = 66;
-    const startY = 74;
+    const rowH = 48;
+    const startY = 60;
     levels.forEach((lv, i) => {
       const x = colX[i % 2];
       const y = startY + Math.floor(i / 2) * rowH;
-      makeButton(this, x, y, 280, 32, lv.name.toUpperCase(), () => this.pick(lv.id), { size: 13 });
-      this.focus!.add({ x, y, w: 280, h: 32, activate: () => this.pick(lv.id) });
+      makeButton(this, x, y, 280, 30, lv.name.toUpperCase(), () => this.pick(lv.id), { size: 13 });
+      this.focus!.add({ x, y, w: 280, h: 30, activate: () => this.pick(lv.id) });
       const sub = lv.chapter ? `${lv.chapter} · ${lv.subtitle ?? ''}` : lv.subtitle ?? '';
       this.add
-        .text(x, y + 18, sub, {
+        .text(x, y + 16, sub, {
           fontFamily: 'MedievalSharp, "Trebuchet MS", cursive',
-          fontSize: '10px',
+          fontSize: '9px',
           color: C.inkDim,
           align: 'center',
           wordWrap: { width: 268 },
         })
         .setOrigin(0.5, 0);
+    });
+
+    // ---- announced-but-not-yet-built dungeons: locked "COMING SOON" cards ----
+    const csTop = startY + Math.ceil(levels.length / 2) * rowH + 6;
+    this.add
+      .text(cx, csTop, '◈  THE SUNDERED REACH · COMING SOON  ◈', {
+        fontFamily: 'MedievalSharp, "Trebuchet MS", cursive',
+        fontSize: '12px',
+        color: '#6f6a86',
+        fontStyle: 'bold',
+      })
+      .setOrigin(0.5)
+      .setShadow(0, 2, '#000', 4);
+    const csRowH = 22;
+    const csStartY = csTop + 20;
+    Content.comingSoon.forEach((lv, i) => {
+      const x = colX[i % 2];
+      const y = csStartY + Math.floor(i / 2) * csRowH;
+      // a dim, un-focusable chip (no click, no keyboard focus — it's sealed)
+      const chip = this.add.rectangle(x, y, 280, 18, 0x14121c, 0.72).setStrokeStyle(1, 0x2a2740);
+      chip.setDepth(0);
+      // a small drawn padlock (no emoji — avoids missing-glyph tofu in the game font)
+      const lock = this.add.graphics().setDepth(1);
+      lock.lineStyle(1.4, 0x6a6486, 1).beginPath();
+      lock.arc(x - 128, y - 2, 2.4, Math.PI, 0).strokePath();
+      lock.fillStyle(0x6a6486, 1).fillRoundedRect(x - 131.5, y - 2, 7, 6, 1);
+      this.add
+        .text(x - 120, y, `${lv.chapter} · ${lv.name}`, {
+          fontFamily: 'MedievalSharp, "Trebuchet MS", cursive',
+          fontSize: '11px',
+          color: '#7b7690',
+        })
+        .setOrigin(0, 0.5);
+      this.add
+        .text(x + 132, y, 'SOON', {
+          fontFamily: 'MedievalSharp, "Trebuchet MS", cursive',
+          fontSize: '9px',
+          color: '#565074',
+          fontStyle: 'bold',
+        })
+        .setOrigin(1, 0.5);
     });
 
     this.refreshPlayersButton();

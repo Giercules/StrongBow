@@ -26,6 +26,7 @@ const DEFAULT_GAMEPLAY: GameplaySettings = {
   lootMult: 1,
   goldMult: 1,
   wildMonsters: 1,
+  encounterRate: 1,
 };
 
 const DEFAULTS: GameSettingsData = {

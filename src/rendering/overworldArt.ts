@@ -202,6 +202,42 @@ export function drawObelisk(ctx: Ctx, ox: number, oy: number): void {
   R(ctx, ox + 8, oy + 44, 16, 4, '#2a2620'); // sandy base
 }
 
+/** The Wanderer's ward: a nomad barrier of two rune-cut standing stones bound by
+ *  a shimmering violet veil of warding. Unmistakably magical + impassable — it
+ *  seals the river bridge until her heirloom is returned (drawn in 32x48). */
+export function drawWardGate(ctx: Ctx, ox: number, oy: number): void {
+  const stone = '#4a4456', stoneLit = '#5f5870', stoneDk = '#2b2730';
+  // two flanking standing stones (rune-cut menhirs)
+  for (const sx of [3, 23]) {
+    R(ctx, ox + sx, oy + 8, 6, 34, stoneDk);
+    R(ctx, ox + sx + 1, oy + 8, 4, 34, stone);
+    R(ctx, ox + sx + 1, oy + 8, 2, 34, stoneLit);
+    // canted top
+    ctx.fillStyle = stoneDk;
+    ctx.beginPath();
+    ctx.moveTo(ox + sx, oy + 8); ctx.lineTo(ox + sx + 3, oy + 4); ctx.lineTo(ox + sx + 6, oy + 8); ctx.closePath(); ctx.fill();
+    // glowing carved runes
+    PX(ctx, ox + sx + 2, oy + 16, '#bb78ff'); PX(ctx, ox + sx + 3, oy + 22, '#a85cff'); PX(ctx, ox + sx + 2, oy + 30, '#cf9bff');
+  }
+  // the shimmering ward veil strung between the stones
+  for (let y = 10; y < 42; y += 1) {
+    const a = 0.16 + 0.14 * Math.sin(y * 0.9);
+    ctx.fillStyle = `rgba(168,92,255,${a.toFixed(3)})`;
+    ctx.fillRect(ox + 9, oy + y, 14, 1);
+  }
+  // brighter woven strands + a central warding sigil (an eye)
+  for (let y = 12; y < 40; y += 4) { PX(ctx, ox + 11, oy + y, '#d7b6ff'); PX(ctx, ox + 20, oy + y + 2, '#d7b6ff'); }
+  R(ctx, ox + 13, oy + 22, 6, 4, 'rgba(191,120,255,0.55)');
+  PX(ctx, ox + 15, oy + 23, '#f0e0ff'); PX(ctx, ox + 16, oy + 23, '#f0e0ff');
+  PX(ctx, ox + 15, oy + 24, '#8a4fd0'); PX(ctx, ox + 16, oy + 24, '#8a4fd0');
+  // heavy iron chain slung across the veil
+  for (let x = 10; x < 22; x += 2) { PX(ctx, ox + x, oy + 34, '#6a6270'); PX(ctx, ox + x + 1, oy + 35, '#454050'); }
+  // lintel binding the stones at the top
+  R(ctx, ox + 6, oy + 7, 20, 3, stoneDk);
+  R(ctx, ox + 6, oy + 7, 20, 1, stoneLit);
+  R(ctx, ox + 6, oy + 43, 20, 4, '#242029'); // shadowed base across the span
+}
+
 export function drawRuinPillar(ctx: Ctx, ox: number, oy: number): void {
   const a = '#9a8f76', b = '#7d735c', c = '#b6ab90';
   R(ctx, ox + 10, oy + 6, 12, 22, b);

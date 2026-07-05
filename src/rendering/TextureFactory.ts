@@ -277,6 +277,7 @@ export class TextureFactory {
     img('reeds', 32, 32, (c) => overworldArt.drawReeds(c, 0, 0), true);
     img('wildflowers', 32, 32, (c) => overworldArt.drawWildflowers(c, 0, 0));
     img('obelisk', 32, 48, (c) => overworldArt.drawObelisk(c, 0, 0), true);
+    img('ward-gate', 32, 48, (c) => overworldArt.drawWardGate(c, 0, 0), true);
     img('ruin-pillar', 32, 32, (c) => overworldArt.drawRuinPillar(c, 0, 0), true);
     img('standing-stone', 32, 32, (c) => overworldArt.drawStandingStone(c, 0, 0), true);
     img('signpost', 32, 32, (c) => overworldArt.drawSignpost(c, 0, 0), true);

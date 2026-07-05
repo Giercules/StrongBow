@@ -446,6 +446,8 @@ export class SettingsUI {
     this.stepper(right, y, g.goldMult.toFixed(1) + 'x', () => settings.setGameplay('goldMult', Math.max(0, +(g.goldMult - 0.5).toFixed(1))), () => settings.setGameplay('goldMult', Math.min(5, +(g.goldMult + 0.5).toFixed(1))));
     y = this.rowLabel('Wild monsters');
     this.stepper(right, y, g.wildMonsters.toFixed(2) + 'x', () => settings.setGameplay('wildMonsters', Math.max(0, +(g.wildMonsters - 0.25).toFixed(2))), () => settings.setGameplay('wildMonsters', Math.min(4, +(g.wildMonsters + 0.25).toFixed(2))));
+    y = this.rowLabel('Overworld encounters');
+    this.stepper(right, y, g.encounterRate <= 0 ? 'Off' : g.encounterRate.toFixed(2) + 'x', () => settings.setGameplay('encounterRate', Math.max(0, +(g.encounterRate - 0.25).toFixed(2))), () => settings.setGameplay('encounterRate', Math.min(3, +(g.encounterRate + 0.25).toFixed(2))));
     y = this.rowLabel('God mode');
     const toggleGod = () => settings.setGameplay('godMode', !g.godMode);
     this.btn(right - 45, y, 80, g.godMode ? 'ON' : 'OFF', toggleGod, g.godMode ? C.ivy : C.hudPanel2);

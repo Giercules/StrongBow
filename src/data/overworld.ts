@@ -23,9 +23,43 @@ export const OVERWORLD_ENTRIES: Record<OverworldDir, { x: number; y: number }> =
   west: { x: TOWN_X - 16, y: TOWN_Y },
 };
 
-type Biome = 'plains' | 'forest' | 'mountain' | 'desert' | 'swamp';
+// ----------------------------------------------------------------------------
+// The Wanderer's Gate — the warded river bridge. The great river splits the
+// eastern homelands (Hearthwatch) from the western wilds (Sunspire, the deep
+// forest). Its one bridge is held by Yara, a veiled nomad who lifts the ward
+// only for her lost family heirloom — recovered from a chest in the Molten Deep
+// (level 2 of the Undermaw). This ties the second dungeon descent to overworld
+// progression. `tiles` is filled in during buildOverworld(); DungeonScene reads
+// this record to block the bridge, place the barrier art, and run the quest.
+// ----------------------------------------------------------------------------
+export const NOMAD_GATE = {
+  /** Persistent world-flag id (QuestLog.flags): true once the bridge is opened. */
+  flag: 'nomad_river_gate_open',
+  npcId: 'wanderer',
+  npcName: 'Yara the Wanderer',
+  npcRole: 'a veiled nomad who keeps the river bridge',
+  itemId: 'lost_heirloom',
+  /** Ward tiles that block the bridge until the heirloom is handed over. */
+  tiles: [] as { x: number; y: number }[],
+  gold: 120,
+  xp: 160,
+  rep: 6,
+  hintLine:
+    'Turn back, traveler — this bridge is mine to keep, and the west road with it. I lift the ward for one thing only: my family’s heirloom, a silver locket lost when the ground tore open and swallowed the old road. It fell into the Molten Deep — the second wound of the Undermaw. Bring it to me, and the way west is yours.',
+  waitingHint:
+    'Still no locket? Seek it in the Molten Deep, the second descent below Hearthwatch. Until it is in my hands, the ward holds.',
+  giveLine:
+    'That locket — you carry it! After all these years… give it here. Bless you, stranger. The ward is lifted; the west road is open to you now, and my thanks ride with you.',
+  openedLine:
+    'The bridge is open to you, friend. Go careful on the west road — it is kinder than it was, but not kind.',
+  giveLabel: 'HAND OVER THE HEIRLOOM',
+};
 
-function biomeAt(x: number, y: number): Biome {
+export type Biome = 'plains' | 'forest' | 'mountain' | 'desert' | 'swamp';
+
+/** Which biome a given overworld tile sits in (used by the encounter system to
+ *  theme battles and weight danger). */
+export function biomeAt(x: number, y: number): Biome {
   if (y <= 24) return 'mountain';
   if (y >= 100) return 'desert';
   if (x >= 140 && y >= 38 && y <= 112) return 'swamp';
@@ -63,15 +97,26 @@ export function buildOverworld(): LevelData {
   for (let x = 0; x < W; x++) { setT(x, 0, Tile.VOID); setT(x, H - 1, Tile.VOID); }
   for (let y = 0; y < H; y++) { setT(0, y, Tile.VOID); setT(W - 1, y, Tile.VOID); }
 
-  // ---- a winding river from the north mountains to the south-east swamp ----
-  let rx = 70;
-  for (let y = 2; y < H - 2; y++) {
-    rx += [0, 1, 0, -1, 1, 1, 0][y % 7] + (y > 60 ? 1 : 0);
-    rx = Math.max(6, Math.min(W - 7, rx));
-    for (let w = 0; w < 3; w++) setT(rx + w, y, Tile.WATER);
+  // ---- the Hearthrun: one great river running the WHOLE height of the map,
+  // north frame to south frame, dividing the eastern homelands (Hearthwatch)
+  // from the western wilds (Sunspire, the deep forest). Solid water everywhere
+  // (see waterSolid() in DungeonScene) — the only crossing is the warded bridge.
+  const RIVER_X = 62;
+  const BRIDGE_Y = TOWN_Y; // the caravan road fords here
+  // A gentle meander, pinned dead-straight through the bridge band so the gate
+  // reads as a clean line and can never be slipped past.
+  const riverCenter = (yy: number): number =>
+    yy >= BRIDGE_Y - 4 && yy <= BRIDGE_Y + 4
+      ? RIVER_X
+      : RIVER_X + Math.round(2 * Math.sin(yy * 0.09) + 1.5 * Math.sin(yy * 0.031));
+  // Fill rows 1..H-2 so the water butts against the impassable VOID frame at the
+  // very top and bottom — no walking around the ends.
+  for (let y = 1; y < H - 1; y++) {
+    const c = riverCenter(y);
+    for (let w = -1; w <= 1; w++) setT(c + w, y, Tile.WATER);
   }
-  // a few swamp pools in the east
-  for (const [cx, cy, rxr, ryr] of [[158, 60, 7, 5], [170, 90, 6, 6], [150, 100, 8, 5]] as number[][]) {
+  // a few swamp tarns in the far east (now solid pools to skirt around)
+  for (const [cx, cy, rxr, ryr] of [[158, 62, 7, 5], [172, 90, 6, 6], [150, 104, 8, 5]] as number[][]) {
     for (let dy = -ryr; dy <= ryr; dy++)
       for (let dx = -rxr; dx <= rxr; dx++)
         if ((dx * dx) / (rxr * rxr) + (dy * dy) / (ryr * ryr) <= 1) setT(cx + dx, cy + dy, Tile.WATER);
@@ -94,26 +139,18 @@ export function buildOverworld(): LevelData {
       if (y < y1) y++; else if (y > y1) y--;
     }
   };
+  // Roads on the eastern homelands side (the west road is now the caravan road
+  // over the warded bridge — see below — so nothing else crosses the river).
   carveRoad(TOWN_X, TOWN_Y, TOWN_X, 4);          // north road
   carveRoad(TOWN_X, TOWN_Y, TOWN_X, H - 6);      // south road
-  carveRoad(TOWN_X, TOWN_Y, 6, TOWN_Y - 6);      // west road
   carveRoad(TOWN_X, TOWN_Y, W - 7, TOWN_Y + 8);  // east road
-
-  // bridges where the south road crosses the river
-  for (let y = 2; y < H - 2; y++) {
-    for (let x = TOWN_X - 2; x <= TOWN_X + 2; x++) {
-      if (inB(x, y) && tiles[y][x] === Tile.WATER && road.has(key(x, y))) {
-        decor.push({ x, y, key: 'bridge-plank' });
-      }
-    }
-  }
 
   // ---- towns seen from the air: little walled clusters of rooftops the party
   // walks straight up to and enters through the gate (not a lone grey keep). ----
   const stampVillage = (
     tcx: number,
     tcy: number,
-    o: { roofs: string[]; hall: string; wall: string; gate: string; doorId: string; label: string; gateSide: 'north' | 'south'; surround?: string },
+    o: { roofs: string[]; hall: string; wall: string; gate: string; doorId: string; label: string; gateSide: 'north' | 'south'; surround?: string; comingSoon?: boolean },
   ) => {
     const rx = 6, ry = 4;
     const x0 = tcx - rx, x1 = tcx + rx, y0 = tcy - ry, y1 = tcy + ry;
@@ -137,7 +174,7 @@ export function buildOverworld(): LevelData {
     decor.push({ x: tcx, y: tcy, key: o.hall });        // central hall / temple
     decor.push({ x: tcx, y: gateY, key: o.gate });      // the gatehouse
     decor.push({ x: tcx, y: doorY, key: 'house-door' }); // the enterable gate
-    spawns.push({ kind: 'door', x: tcx, y: doorY, interiorId: o.doorId, label: o.label });
+    spawns.push({ kind: 'door', x: tcx, y: doorY, interiorId: o.doorId, label: o.label, comingSoon: o.comingSoon });
     if (o.surround)
       for (const [dx, dy] of [[-rx - 1, -1], [rx + 1, -1], [-rx - 1, ry], [rx + 1, ry], [-2, -ry - 1], [3, -ry - 1]] as [number, number][]) {
         const px = tcx + dx, py = tcy + dy;
@@ -162,25 +199,70 @@ export function buildOverworld(): LevelData {
     doorId: 'desert_town', label: 'Sunspire — the Dune Gate', gateSide: 'north', surround: 'desert-tree',
   });
 
+  // ---- five frontier settlements, sighted across the wilds but not yet open to
+  // travelers. Each is a real rooftop cluster on the map; trying its gate tells
+  // you it isn't ready ("coming soon"). Scattered across the biomes. ----
+  stampVillage(118, 9, { // northern crags
+    roofs: ['aerial-cottage-teak', 'aerial-cottage-red', 'aerial-cottage-blue', 'aerial-cottage-teak'],
+    hall: 'aerial-hall', wall: 'aerial-wall', gate: 'aerial-gate',
+    doorId: 'comingsoon', label: 'Ravenfell — the Crag-Hold (coming soon)', gateSide: 'south', surround: 'pine', comingSoon: true,
+  });
+  stampVillage(22, 20, { // north-western pinewood
+    roofs: ['aerial-cottage-blue', 'aerial-cottage-green', 'aerial-cottage-blue', 'aerial-cottage-teak'],
+    hall: 'aerial-hall', wall: 'aerial-wall', gate: 'aerial-gate',
+    doorId: 'comingsoon', label: 'Frostmere — the Pale Vigil (coming soon)', gateSide: 'south', surround: 'pine', comingSoon: true,
+  });
+  stampVillage(24, 66, { // deep western forest (beyond the gate)
+    roofs: ['aerial-cottage-green', 'aerial-cottage-teak', 'aerial-cottage-green', 'aerial-cottage-red'],
+    hall: 'aerial-hall', wall: 'aerial-wall', gate: 'aerial-gate',
+    doorId: 'comingsoon', label: 'Thornhollow — the Deepwood Refuge (coming soon)', gateSide: 'north', surround: 'gnarled-oak', comingSoon: true,
+  });
+  stampVillage(168, 74, { // eastern mire
+    roofs: ['aerial-cottage-teak', 'aerial-cottage-green', 'aerial-cottage-teak', 'aerial-cottage-blue'],
+    hall: 'aerial-hall', wall: 'aerial-wall', gate: 'aerial-gate',
+    doorId: 'comingsoon', label: 'Mirefen Hold — the Bog-Wardens (coming soon)', gateSide: 'north', surround: 'swamp-cypress', comingSoon: true,
+  });
+  stampVillage(126, 116, { // south-eastern dunes
+    roofs: ['aerial-adobe-a', 'aerial-adobe-b', 'aerial-adobe-a', 'aerial-adobe-b'],
+    hall: 'aerial-temple', wall: 'aerial-sandwall', gate: 'aerial-sandgate',
+    doorId: 'comingsoon', label: 'Duskmoor — the Ember Bazaar (coming soon)', gateSide: 'north', surround: 'desert-tree', comingSoon: true,
+  });
+
   // party appears just south of Hearthwatch by default (overworldEntry overrides)
   spawns.push({ kind: 'playerStart', x: TOWN_X, y: TOWN_Y + 11 });
 
-  // the caravan road running south-west from Hearthwatch out to Sunspire's gate
-  carveRoad(TOWN_X, TOWN_Y, SUN_X, TOWN_Y);       // west along the plains
+  // the caravan road running west from Hearthwatch, over the warded bridge, then
+  // south-west to Sunspire's gate. The bridge is the ONLY crossing of the river.
+  carveRoad(TOWN_X, TOWN_Y, SUN_X, TOWN_Y);       // west along the plains to the ford
   carveRoad(SUN_X, TOWN_Y, SUN_X, SUN_Y - 5);     // then south through the dunes
-  // plank the caravan road where it fords the winding river (carveRoad skips
-  // water, which would otherwise leave a bare gap in the road across the ford):
-  // on each road row, bridge every water tile spanned between its road ends.
-  for (let y = TOWN_Y - 1; y <= TOWN_Y + 1; y++) {
-    let wx = -1, ex = -1;
-    for (let x = 2; x < W - 2; x++) if (road.has(key(x, y))) { if (wx < 0) wx = x; ex = x; }
-    if (wx < 0) continue;
-    for (let x = wx; x <= ex; x++)
-      if (inB(x, y) && tiles[y][x] === Tile.WATER) { decor.push({ x, y, key: 'bridge-plank' }); road.add(key(x, y)); }
+
+  // ---- the warded river bridge + the Wanderer's gate ----
+  // Plank every water tile the caravan road fords (rows BRIDGE_Y-1..+1), turning
+  // the ford into solid, walkable bridge. carveRoad has already laid road up to
+  // both banks; the planks fill the water gap between them.
+  const bridgeRows = [BRIDGE_Y - 1, BRIDGE_Y, BRIDGE_Y + 1];
+  for (const by of bridgeRows) {
+    for (let x = RIVER_X - 3; x <= RIVER_X + 3; x++) {
+      if (inB(x, by) && tiles[by][x] === Tile.WATER) {
+        setT(x, by, Tile.FLOOR);
+        decor.push({ x, y: by, key: 'bridge-plank' });
+        road.add(key(x, by));
+      }
+    }
   }
+  // bridge-rail chains along the north/south flanks
+  for (const by of [BRIDGE_Y - 2, BRIDGE_Y + 2])
+    for (let x = RIVER_X - 1; x <= RIVER_X + 1; x++) decor.push({ x, y: by, key: 'chain' });
+  // the ward: the easternmost planked column of each bridge row. Blocked until
+  // the heirloom is delivered (enforced at runtime in DungeonScene via NOMAD_GATE).
+  const GATE_X = RIVER_X + 1;
+  NOMAD_GATE.tiles = bridgeRows.map((by) => ({ x: GATE_X, y: by }));
+  // Yara keeps the bridge from the eastern bank, a step short of her ward.
+  spawns.push({ kind: 'npc', x: GATE_X + 2, y: BRIDGE_Y, label: NOMAD_GATE.npcName, npcRole: NOMAD_GATE.npcRole, npcId: NOMAD_GATE.npcId });
+
   // road signs pointing the way
   decor.push({ x: TOWN_X + 3, y: TOWN_Y + 12, key: 'signpost' });
-  decor.push({ x: SUN_X + 3, y: TOWN_Y + 2, key: 'signpost' });
+  decor.push({ x: GATE_X + 3, y: BRIDGE_Y - 2, key: 'signpost' });
   decor.push({ x: SUN_X - 2, y: SUN_Y - 6, key: 'signpost' });
 
   // ---- landmark POIs (decorative; no combat yet) ----

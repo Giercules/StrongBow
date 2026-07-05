@@ -28,7 +28,8 @@ import {
 } from '../core/constants';
 import * as art from '../rendering/spriteArt';
 import * as overworldArt from '../rendering/overworldArt';
-import { OVERWORLD_ENTRIES, type OverworldDir } from '../data/overworld';
+import { OVERWORLD_ENTRIES, NOMAD_GATE, biomeAt, type OverworldDir } from '../data/overworld';
+import { rollEncounter, buildArena, BIOME_DANGER } from '../data/encounters';
 import { getThemeArt, C } from '../rendering/Palette';
 import { framedPanel, makeButton } from '../ui/uiHelpers';
 import type { Modal } from '../ui/uiHelpers';
@@ -119,7 +120,7 @@ import { PickpocketUI, type PickpocketLoot } from '../ui/PickpocketUI';
 import { net, type CoopEnemy, type CoopLoot } from '../net/NetClient';
 import { getServerUrl, MULTIPLAYER_ENABLED } from '../net/serverConfig';
 
-interface Chest { sprite: Phaser.GameObjects.Image; itemId: string; opened: boolean; locked: boolean; x: number; y: number; }
+interface Chest { sprite: Phaser.GameObjects.Image; itemId: string; questItemId?: string; opened: boolean; locked: boolean; x: number; y: number; }
 interface Shrine { sprite: Phaser.GameObjects.Image; used: boolean; x: number; y: number; }
 interface Pickup { sprite: Phaser.GameObjects.Image | Phaser.GameObjects.Sprite; kind: 'coin' | 'food' | 'potion' | 'key' | 'item'; value: number; itemId?: string; id?: number; }
 interface LockedDoor { rect: Phaser.GameObjects.Rectangle; sprite: Phaser.GameObjects.Image; x: number; y: number; open: boolean; }
@@ -301,6 +302,24 @@ export class DungeonScene extends Phaser.Scene {
   private foundGens = new Set<Generator>(); // generators revealed on the minimap once explored near
   private blockers: Phaser.GameObjects.Rectangle[] = [];
   private lockedDoors: LockedDoor[] = [];
+  /** The Wanderer's warded river bridge: the tiles it seals (until its quest
+   *  flag is set) plus the barrier sprites/bodies to tear down when it opens. */
+  private worldGate?: {
+    blocked: Set<string>;
+    sprites: Phaser.GameObjects.GameObject[];
+    rects: Phaser.GameObjects.Rectangle[];
+  };
+  // ---- overworld combat encounters ----
+  private encounterDanger = 0;          // hidden danger meter, fills as you travel
+  private encounterGraceUntil = 0;      // no ambushes before this time (post-fight breather)
+  private lastLeaderTile = { x: -1, y: -1 };
+  private safeTiles = new Set<string>(); // roads + near town gates: no ambushes
+  private arenaStarted = false;          // arena foes spawned, victory watch armed
+  private arenaFoeCount = 0;             // pack size at the start (for the banner)
+  private arenaRetreatMs = 0;            // time held in the retreat zone toward a flee
+  private arenaResolved = false;         // victory/flee already fired
+  private arenaFleeUnlockAt = 0;         // retreat disabled until this time (ambush lock-in)
+  private arenaFleeHintShown = false;
   private chests: Chest[] = [];
   private shrines: Shrine[] = [];
   private pickups: Pickup[] = [];
@@ -412,7 +431,7 @@ export class DungeonScene extends Phaser.Scene {
     pickpocketed?: boolean;
   }[] = [];
   private portals: { sprite: Phaser.GameObjects.Sprite; realmId: string; label: string; x: number; y: number }[] = [];
-  private doors: { x: number; y: number; interiorId: string; label: string; dir?: 'north' | 'south' | 'east' | 'west' }[] = [];
+  private doors: { x: number; y: number; interiorId: string; label: string; dir?: 'north' | 'south' | 'east' | 'west'; comingSoon?: boolean }[] = [];
   private returnPortal: { x: number; y: number } | null = null;
   private sneakGfx?: Phaser.GameObjects.Graphics;
   private merchants: { sprite: Phaser.GameObjects.Sprite; shop: ShopKind; label: string; x: number; y: number }[] = [];
@@ -479,6 +498,7 @@ export class DungeonScene extends Phaser.Scene {
 
     this.renderLevel();
     this.spawnWorldEntities();
+    this.setupWorldGate();
     if (this.level.id === 'town') {
       const ret = this.registry.get('townReturn') as { x: number; y: number } | undefined;
       if (ret) {
@@ -541,8 +561,10 @@ export class DungeonScene extends Phaser.Scene {
     }
     if (this.level.id === 'town' && this.registry.get('cameByPortal')) this.spawnReturnPortal();
     this.setupColliders();
-    this.spawnAmbientMonsters();
+    if (this.level.arena) this.spawnArenaFoes();
+    else this.spawnAmbientMonsters();
     this.flow = new FlowField(this.level.width, this.level.height, (x, y) => this.isWalkable(x, y));
+    if (this.level.overworld) this.initOverworldEncounters();
 
     this.cameraTarget = this.add.rectangle(this.players[0].x, this.players[0].y, 2, 2, 0, 0);
     this.cameras.main.startFollow(this.cameraTarget, true, 0.12, 0.12);
@@ -729,6 +751,17 @@ export class DungeonScene extends Phaser.Scene {
     this.questBeat = '';
     this.paused = false;
     this.won = false;
+    // the warded gate's blocked tiles are overworld-only — clear any stale set so
+    // its coords can't wrongly block the same (x,y) on another level.
+    this.worldGate = undefined;
+    // per-level encounter state (arena watch + overworld danger meter)
+    this.arenaStarted = false;
+    this.arenaResolved = false;
+    this.arenaRetreatMs = 0;
+    this.arenaFleeHintShown = false;
+    this.arenaFoeCount = 0;
+    this.encounterDanger = 0;
+    this.lastLeaderTile = { x: -1, y: -1 };
     this.activeIdx = 0;
     this.lavaTick = new Map();
     this.collectedIds = new Set();
@@ -766,12 +799,11 @@ export class DungeonScene extends Phaser.Scene {
   }
 
   /** Tile is steppable for pathfinding (open doors count, walls/closed doors don't). */
-  /** In Hearthwatch town, open water (moat, river, fountain pool) is deep — a
-   *  solid you skirt around and cross only by bridge, never wade through. The
-   *  open Wilds (overworld) and combat realms keep water wade-able, so this is
-   *  the walled town square only. */
+  /** In the town hubs AND the overworld, open water (moat, river, oasis, the
+   *  great Hearthrun) is deep — a solid you skirt around and cross only by
+   *  bridge, never wade through. Only the combat realms keep water wade-able. */
   private waterSolid(): boolean {
-    return !!this.level.town && !this.level.overworld;
+    return !!this.level.town;
   }
 
   private isWalkable(tx: number, ty: number): boolean {
@@ -779,7 +811,14 @@ export class DungeonScene extends Phaser.Scene {
     const t = this.level.tiles[ty][tx];
     if (t === Tile.WALL || t === Tile.LOCKED_DOOR || t === Tile.VOID) return false;
     if (t === Tile.WATER && this.waterSolid()) return false; // deep water blocks pathing off the bridges
+    if (this.gateBlocks(tx, ty)) return false; // the Wanderer's ward seals the bridge until the heirloom is paid
     return true;
+  }
+
+  /** True while a warded world gate (e.g. the river bridge) still seals this
+   *  tile — before its quest flag is set. Governs both pathing and the player. */
+  private gateBlocks(tx: number, ty: number): boolean {
+    return this.worldGate ? this.worldGate.blocked.has(`${tx},${ty}`) : false;
   }
 
   private renderLevel(): void {
@@ -954,9 +993,11 @@ export class DungeonScene extends Phaser.Scene {
     for (let y = 0; y < H; y++) {
       let runStart = -1;
       for (let x = 0; x <= W; x++) {
-        // Walls always block; in the hub, deep water blocks too so you cross the
-        // moat/river/pool only by the bridges (which are FLOOR, not WATER).
-        const solid = x < W && (t[y][x] === Tile.WALL || (solidWater && t[y][x] === Tile.WATER));
+        // Walls always block; so does the VOID beyond the map (the invisible
+        // outer frame — without a body here the player slides off the edge). In
+        // the hub, deep water blocks too so you cross the moat/river/pool only by
+        // the bridges (which are FLOOR, not WATER).
+        const solid = x < W && (t[y][x] === Tile.WALL || t[y][x] === Tile.VOID || (solidWater && t[y][x] === Tile.WATER));
         if (solid && runStart < 0) runStart = x;
         if (!solid && runStart >= 0) {
           const len = x - runStart;
@@ -1147,6 +1188,259 @@ export class DungeonScene extends Phaser.Scene {
     return r;
   }
 
+  /** Raise the Wanderer's ward across the river bridge — unless her heirloom has
+   *  already been paid (persistent flag). Each warded tile gets a physics body
+   *  (so the player is stopped, not just pathing) and a distinctive barrier
+   *  sprite. Called after spawns so it can sit atop the planked bridge. */
+  private setupWorldGate(): void {
+    if (!this.level.overworld || !NOMAD_GATE.tiles.length) return;
+    if (questLog.getFlag(NOMAD_GATE.flag)) return; // already opened in a past visit
+    const gate = { blocked: new Set<string>(), sprites: [] as Phaser.GameObjects.GameObject[], rects: [] as Phaser.GameObjects.Rectangle[] };
+    for (const tl of NOMAD_GATE.tiles) {
+      gate.blocked.add(`${tl.x},${tl.y}`);
+      const c = this.tileCenter(tl.x, tl.y);
+      gate.rects.push(this.addBlocker(c.x, c.y, TILE_SIZE, TILE_SIZE));
+      const post = this.add.image(c.x, c.y + 6, 'ward-gate').setOrigin(0.5, 0.82).setScale(0.75).setDepth(c.y + 1);
+      gate.sprites.push(post);
+      const glow = this.add.image(c.x, c.y - 6, 'fx-glow-magic').setScale(1.5).setAlpha(0.3).setBlendMode(Phaser.BlendModes.ADD).setDepth(c.y);
+      this.tweens.add({ targets: glow, alpha: { from: 0.16, to: 0.44 }, duration: 1300, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+      gate.sprites.push(glow);
+    }
+    this.worldGate = gate;
+  }
+
+  /** Tear down the warded bridge: consume the heirloom's ward, remove barrier
+   *  bodies + sprites, set the persistent flag, and rebuild pathing so the way
+   *  west is truly open. */
+  private openWorldGate(): void {
+    const gate = this.worldGate;
+    questLog.setFlag(NOMAD_GATE.flag);
+    if (!gate) return;
+    for (const r of gate.rects) {
+      const i = this.blockers.indexOf(r);
+      if (i >= 0) this.blockers.splice(i, 1);
+      r.destroy();
+    }
+    for (const s of gate.sprites) {
+      this.tweens.killTweensOf(s); // stop the endless ward-glow pulse so the dissolve is clean
+      this.tweens.add({ targets: s, alpha: 0, duration: 600, onComplete: () => s.destroy() });
+    }
+    this.worldGate = undefined;
+    this.flow = new FlowField(this.level.width, this.level.height, (x, y) => this.isWalkable(x, y));
+    audio.sfx('portal');
+    this.spawnBlink(this.tileCenter(NOMAD_GATE.tiles[0].x, NOMAD_GATE.tiles[0].y).x, this.tileCenter(NOMAD_GATE.tiles[0].x, NOMAD_GATE.tiles[0].y).y);
+  }
+
+  // ======================= overworld combat encounters =======================
+
+  /** Precompute the "safe" overworld tiles (roads, bridges, and a ring around
+   *  every town gate) where no ambush springs, and set a post-arrival breather. */
+  private initOverworldEncounters(): void {
+    this.safeTiles.clear();
+    const roadKeys = new Set(['road', 'bridge-plank', 'desert-road', 'signpost']);
+    for (const d of this.level.decor ?? []) if (roadKeys.has(d.key)) this.safeTiles.add(`${d.x},${d.y}`);
+    for (const sp of this.level.spawns) {
+      if (sp.kind !== 'door') continue;
+      for (let dy = -4; dy <= 4; dy++) for (let dx = -4; dx <= 4; dx++) this.safeTiles.add(`${sp.x + dx},${sp.y + dy}`);
+    }
+    this.encounterDanger = 0;
+    this.lastLeaderTile = { x: -1, y: -1 };
+    const grace = (this.registry.get('encounterGrace') as number | undefined) ?? 1600;
+    this.registry.remove('encounterGrace');
+    this.encounterGraceUntil = this.time.now + grace;
+  }
+
+  /** Fill the hidden danger meter as the party crosses the Wilds; trip an
+   *  encounter when it overflows off the roads. Rate scales with biome,
+   *  difficulty and the encounter-rate setting. Standing still / hugging roads
+   *  and town gates is safe. */
+  private updateOverworldDanger(time: number): void {
+    if (this.won || time < this.encounterGraceUntil || this.anyOverlayOpen()) return;
+    const rate = settings.get('gameplay').encounterRate ?? 1;
+    if (rate <= 0) return;
+    const lead = this.players[0];
+    if (!lead || !lead.alive) return;
+    const tx = Math.floor(lead.x / TILE_SIZE), ty = Math.floor(lead.y / TILE_SIZE);
+    if (this.lastLeaderTile.x < 0) { this.lastLeaderTile = { x: tx, y: ty }; return; }
+    if (tx === this.lastLeaderTile.x && ty === this.lastLeaderTile.y) return; // no new tile → no danger
+    const stepped = Math.abs(tx - this.lastLeaderTile.x) + Math.abs(ty - this.lastLeaderTile.y);
+    this.lastLeaderTile = { x: tx, y: ty };
+    if (this.safeTiles.has(`${tx},${ty}`)) { this.encounterDanger = Math.max(0, this.encounterDanger - 5); return; }
+    const biome = biomeAt(tx, ty);
+    const diff = DIFFICULTY[settings.get('gameplay').difficulty].enemyMult;
+    this.encounterDanger += stepped * BIOME_DANGER[biome] * rate * diff * (1.9 + Math.random() * 1.3);
+    if (this.encounterDanger >= 80) this.triggerEncounter(biome, tx, ty);
+  }
+
+  /** Roll a pack, build its biome arena, and sweep the party into it. */
+  private triggerEncounter(biome: ReturnType<typeof biomeAt>, tx: number, ty: number): void {
+    if (this.won) return;
+    this.won = true; // freeze the overworld sim through the transition
+    this.encounterDanger = 0;
+    const diff = DIFFICULTY[settings.get('gameplay').difficulty].enemyMult;
+    const spec = rollEncounter(biome, diff, this.players[0]?.level ?? 1);
+    const seed = ((tx * 73856093) ^ (ty * 19349663) ^ (Math.floor(this.time.now) & 0xffff)) >>> 0;
+    const arena = buildArena(spec, seed);
+    Content.registerDynamic(arena);
+    this.registry.set('overworldReturn', { x: tx, y: ty }); // drop the party back here after
+    this.registry.set('encounterGrace', 2600);
+    this.registry.set('carryParty', this.carryList());
+    this.registry.set('levelId', arena.id);
+    this.registry.set('twoPlayer', this.twoPlayer);
+    this.registry.remove('loadSave');
+    this.encounterStinger(spec.ambush);
+    audio.sfx('portal');
+    this.cameras.main.shake(360, 0.012);
+    this.cameras.main.flash(200, 70, 18, 18);
+    this.cameras.main.fadeOut(680, 0, 0, 0);
+    this.time.delayedCall(1000, () => { this.scene.stop('HudScene'); this.scene.start('DungeonScene'); });
+  }
+
+  /** Lay out the encounter pack across the far side of the arena, scale it to the
+   *  party's level, crown a champion for elite packs, and open with the banner. */
+  private spawnArenaFoes(): void {
+    const foes = (this.level.arenaFoes ?? []) as EnemyId[];
+    const W = this.level.width;
+    const lvl = this.level.arenaLevel ?? 1;
+    const statScale = 1 + Math.max(0, lvl - 1) * 0.06;
+    const cx = Math.floor(W / 2);
+    const cols = Math.max(1, Math.min(foes.length, 5));
+    foes.forEach((id, i) => {
+      const col = i % cols, row = Math.floor(i / cols);
+      const gx = Math.max(4, Math.min(W - 5, Math.round(cx + (col - (cols - 1) / 2) * 5)));
+      const gy = 5 + row * 4;
+      const c = this.tileCenter(gx, gy);
+      const m = this.makeMonster(c.x, c.y, id);
+      if (statScale > 1) {
+        m.maxHealth = Math.round(m.maxHealth * statScale);
+        m.health = m.maxHealth;
+        m.dmgMult = (m.dmgMult ?? 1) * (1 + (statScale - 1) * 0.8);
+      }
+    });
+    if (this.level.arenaElite && this.monsters.length) this.eliteify(this.monsters[Math.floor(this.monsters.length / 2)]);
+    this.arenaFoeCount = this.monsters.length;
+    this.arenaStarted = true;
+    this.arenaResolved = false;
+    this.arenaRetreatMs = 0;
+    this.arenaFleeHintShown = false;
+    // ambushes lock the party in for a beat; a normal pack lets you break away sooner
+    this.arenaFleeUnlockAt = this.time.now + (this.level.arenaAmbush ? 3200 : 900);
+    this.encounterIntro();
+  }
+
+  /** Watch the arena for victory (all foes down) or a completed retreat. */
+  private updateArena(time: number, delta: number): void {
+    if (!this.arenaStarted || this.arenaResolved) return;
+    if (this.monsters.length === 0) { this.arenaVictory(); return; }
+    const lead = this.players[0];
+    if (!lead || !lead.alive) return;
+    const inZone = Math.floor(lead.y / TILE_SIZE) >= this.level.height - 4 && time >= this.arenaFleeUnlockAt;
+    if (!inZone) { this.arenaRetreatMs = 0; this.arenaFleeHintShown = false; return; }
+    this.arenaRetreatMs += delta;
+    if (!this.arenaFleeHintShown && this.arenaRetreatMs > 250) {
+      this.arenaFleeHintShown = true;
+      this.showBark('Slipping back toward the treeline… hold the line to break away.', 1800, 'event', '#8ad0ff');
+    }
+    if (this.arenaRetreatMs > 1300) {
+      this.arenaRetreatMs = 0;
+      const chance = Math.max(0.35, Math.min(0.9, 0.92 - this.monsters.length * 0.07));
+      if (Math.random() < chance) this.arenaFlee();
+      else { this.arenaFleeHintShown = false; this.showBark('They cut you off — you couldn’t break away!', 2200, 'system'); }
+    }
+  }
+
+  /** Cleared the pack: gather the spoils, bank the streak, head back out. */
+  private arenaVictory(): void {
+    if (this.arenaResolved) return;
+    this.arenaResolved = true;
+    this.won = true;
+    const lead = this.players[0];
+    if (lead) this.sweepArenaLoot(lead);
+    const streak = ((this.registry.get('encounterStreak') as number | undefined) ?? 0) + 1;
+    this.registry.set('encounterStreak', streak);
+    const bonus = Math.min(240, (streak - 1) * 20);
+    if (bonus > 0 && lead) { lead.inventory.addGold(bonus); lead.addScore(bonus); }
+    this.arenaBanner('VICTORY', bonus > 0 ? `The road is yours.   Rampage x${streak}  ·  +${bonus}g` : 'The road is yours again.', '#8affa0');
+    this.registry.set('encounterGrace', 2600);
+    this.returnToOverworld(1300);
+  }
+
+  /** Broke away from the fight: no spoils, streak reset, a longer breather. */
+  private arenaFlee(): void {
+    if (this.arenaResolved) return;
+    this.arenaResolved = true;
+    this.won = true;
+    this.registry.set('encounterStreak', 0);
+    this.registry.set('encounterGrace', 3400);
+    this.arenaBanner('RETREAT', 'You slip back into the wilds — no spoils, but your skin.', '#8ad0ff');
+    audio.sfx('portal');
+    this.returnToOverworld(1000);
+  }
+
+  /** Pull every ground drop still lying in the arena into the leader's pack so a
+   *  clean win never loses loot the party fought for. */
+  private sweepArenaLoot(hero: Hero): void {
+    let gold = 0, items = 0;
+    for (const p of this.pickups) {
+      if (p.kind === 'coin') { gold += p.value; hero.addScore(p.value); }
+      else if (p.kind === 'food') hero.heal(p.value);
+      else if ((p.kind === 'potion' || p.kind === 'item') && p.itemId) { const it = Content.item(p.itemId); if (it) { hero.inventory.add(it); items++; } }
+      else if (p.kind === 'key') hero.inventory.addKey(p.value);
+      p.sprite.destroy();
+    }
+    this.pickups = [];
+    if (gold) hero.inventory.addGold(gold);
+    hero.refreshStats();
+    if (gold || items) this.showBark(`Spoils gathered${gold ? ` — +${gold}g` : ''}${items ? `${gold ? ',' : ' —'} ${items} item${items > 1 ? 's' : ''}` : ''}.`, 3200, 'loot', '#ffd76a');
+  }
+
+  private returnToOverworld(delayMs: number): void {
+    this.registry.set('carryParty', this.carryList());
+    this.registry.set('levelId', 'overworld');
+    this.registry.set('twoPlayer', this.twoPlayer);
+    this.registry.remove('loadSave');
+    this.cameras.main.fadeOut(Math.max(300, delayMs - 120), 0, 0, 0);
+    this.time.delayedCall(delayMs, () => { this.scene.stop('HudScene'); this.scene.start('DungeonScene'); });
+  }
+
+  // ---- encounter cinematics (screen-space, survive the scene transition) ----
+
+  private encounterStinger(ambush: boolean): void {
+    const w = PLAY_AREA_WIDTH, h = GAME_HEIGHT;
+    const veil = this.add.rectangle(w / 2, h / 2, w, h, ambush ? 0x2a0806 : 0x1a0f04, 0).setScrollFactor(0).setDepth(DEPTH.OVERLAY);
+    this.tweens.add({ targets: veil, fillAlpha: 0.5, duration: 500 });
+    const t = this.add.text(w / 2, h / 2, ambush ? 'AMBUSH!' : 'ENCOUNTER!', {
+      fontFamily: 'MedievalSharp, "Trebuchet MS", cursive', fontSize: '58px', color: ambush ? '#ff5a44' : '#ffd27a', fontStyle: 'bold', stroke: '#000', strokeThickness: 7,
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(DEPTH.OVERLAY + 1).setScale(1.5).setAlpha(0);
+    this.tweens.add({ targets: t, alpha: 1, scale: 1, duration: 320, ease: 'Back.easeOut' });
+  }
+
+  private encounterIntro(): void {
+    const w = PLAY_AREA_WIDTH;
+    const y = 74;
+    const title = this.add.text(w / 2, y, this.level.name.toUpperCase(), {
+      fontFamily: 'MedievalSharp, "Trebuchet MS", cursive', fontSize: '30px', color: this.level.arenaAmbush ? '#ff6a54' : '#ffe1a0', fontStyle: 'bold', stroke: '#000', strokeThickness: 6,
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(DEPTH.OVERLAY + 1).setAlpha(0);
+    const foeword = this.arenaFoeCount === 1 ? 'a lone foe' : `${this.arenaFoeCount} foes`;
+    const sub = this.add.text(w / 2, y + 30, `${foeword}${this.level.arenaElite ? ' · a champion among them' : ''} · ${this.level.arenaBiomeName ?? ''}`, {
+      fontFamily: 'MedievalSharp, "Trebuchet MS", cursive', fontSize: '15px', color: '#e6dcc4', stroke: '#000', strokeThickness: 3,
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(DEPTH.OVERLAY + 1).setAlpha(0);
+    for (const o of [title, sub]) this.tweens.add({ targets: o, alpha: 1, duration: 400, yoyo: true, hold: 2200, delay: 250, onComplete: () => o.destroy() });
+    if (this.level.arenaAmbush) { this.cameras.main.shake(300, 0.01); audio.sfx('hit'); }
+  }
+
+  private arenaBanner(title: string, sub: string, color: string): void {
+    const w = PLAY_AREA_WIDTH, h = GAME_HEIGHT;
+    this.add.rectangle(w / 2, h / 2, w, h, 0x05060a, 0.55).setScrollFactor(0).setDepth(DEPTH.OVERLAY);
+    this.add.text(w / 2, h / 2 - 12, title, {
+      fontFamily: 'MedievalSharp, "Trebuchet MS", cursive', fontSize: '50px', color, fontStyle: 'bold', stroke: '#000', strokeThickness: 6,
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(DEPTH.OVERLAY + 1);
+    this.add.text(w / 2, h / 2 + 34, sub, {
+      fontFamily: 'MedievalSharp, "Trebuchet MS", cursive', fontSize: '15px', color: '#e6dcc4', align: 'center', wordWrap: { width: w - 100 }, stroke: '#000', strokeThickness: 3,
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(DEPTH.OVERLAY + 1);
+    audio.sfx('victory');
+  }
+
   private spawnWorldEntities(): void {
     for (const sp of this.level.spawns) {
       const c = this.tileCenter(sp.x, sp.y);
@@ -1156,9 +1450,11 @@ export class DungeonScene extends Phaser.Scene {
           break;
         case 'npc': {
           if (this.level.town) {
-            const sheet = this.level.id === 'desert_town'
-              ? `desertfolk-${desertfolkVariant(sp.npcRole ?? '')}`
-              : `townsfolk-${townsfolkVariant(sp.npcRole ?? '')}`;
+            const sheet = sp.npcId === NOMAD_GATE.npcId
+              ? 'desertfolk-4' // the veiled Wanderer reads as a robed nomad, not a plains townsperson
+              : this.level.id === 'desert_town'
+                ? `desertfolk-${desertfolkVariant(sp.npcRole ?? '')}`
+                : `townsfolk-${townsfolkVariant(sp.npcRole ?? '')}`;
             const spr = this.add
               .sprite(c.x, c.y, sheet)
               .setScale(0.62 * settings.spriteScale())
@@ -1228,7 +1524,7 @@ export class DungeonScene extends Phaser.Scene {
             .text(c.x, c.y - 22, sp.label ?? 'Enter', { fontFamily: 'MedievalSharp, "Trebuchet MS", cursive', fontSize: '10px', color: '#ffe9a8', align: 'center', stroke: '#000', strokeThickness: 3 })
             .setOrigin(0.5)
             .setDepth(c.y + 40);
-          this.doors.push({ x: sp.x, y: sp.y, interiorId: sp.interiorId ?? 'town', label: sp.label ?? 'Door', dir: sp.dir });
+          this.doors.push({ x: sp.x, y: sp.y, interiorId: sp.interiorId ?? 'town', label: sp.label ?? 'Door', dir: sp.dir, comingSoon: sp.comingSoon });
           break;
         }
         case 'generator':
@@ -1238,7 +1534,7 @@ export class DungeonScene extends Phaser.Scene {
           const spr = this.add.image(c.x, c.y, 'chest').setDepth(c.y);
           this.shadows.add(spr, 4);
           spr.setTint(0xbcd0e8); // locked chests read cooler/steely until opened
-          this.chests.push({ sprite: spr, itemId: sp.itemId ?? 'health_potion', opened: false, locked: true, x: sp.x, y: sp.y });
+          this.chests.push({ sprite: spr, itemId: sp.itemId ?? 'health_potion', questItemId: sp.questItemId, opened: false, locked: true, x: sp.x, y: sp.y });
           break;
         }
         case 'shrine': {
@@ -1386,6 +1682,7 @@ export class DungeonScene extends Phaser.Scene {
         this.updateWardenRegen(delta);
         this.updateAuras(time);
         this.handlePickups();
+        if (this.level.overworld) this.updateOverworldDanger(time);
       } else {
         // In co-op, a guest's enemies are owned by the host (see updateCoop);
         // solo and host both simulate locally as normal.
@@ -1405,6 +1702,7 @@ export class DungeonScene extends Phaser.Scene {
         this.handlePickups();
         this.handleAutoInteractions();
         this.updateBossMusic();
+        if (this.level.arena) this.updateArena(time, delta);
         this.checkExit();
         this.checkGameOver();
       }
@@ -5123,6 +5421,16 @@ export class DungeonScene extends Phaser.Scene {
   }
 
   private townInteract(player: Hero): boolean {
+    // The Wanderer at the river bridge is handled first: she stands on the bank
+    // beside open water, so without this the fishing prompt would hijack the
+    // interact before we ever reach her heirloom gate.
+    for (const n of this.townNpcs) {
+      if (n.npcId !== NOMAD_GATE.npcId) continue;
+      if (Phaser.Math.Distance.Between(player.x, player.y, n.sprite.x, n.sprite.y) < 34) {
+        this.talkToNpc(player, n);
+        return true;
+      }
+    }
     // the lodge stash chest: shared storage for every hero, every save
     for (const d of this.level.decor ?? []) {
       if (d.key !== 'chest') continue;
@@ -5324,8 +5632,14 @@ export class DungeonScene extends Phaser.Scene {
   }
 
   /** Step into a building interior (or back out to town). Peaceful, like town. */
-  private enterInterior(door: { x: number; y: number; interiorId: string; label: string; dir?: 'north' | 'south' | 'east' | 'west' }): void {
+  private enterInterior(door: { x: number; y: number; interiorId: string; label: string; dir?: 'north' | 'south' | 'east' | 'west'; comingSoon?: boolean }): void {
     if (this.won) return;
+    // Stubbed frontier settlements aren't built yet — sighted, but not enterable.
+    if (door.comingSoon) {
+      audio.sfx('ui_move');
+      this.showBark(`${door.label.replace(/\s*\(coming soon\)\s*$/i, '')} isn’t open to travelers yet — its gates are barred. Another time, perhaps.`, 4200, 'system');
+      return;
+    }
     this.won = true;
     audio.sfx('portal');
     const target = Content.getLevel(door.interiorId);
@@ -5471,6 +5785,17 @@ export class DungeonScene extends Phaser.Scene {
         }
         ch.opened = true;
         ch.sprite.setTexture('chest-open').clearTint();
+        const questItem = ch.questItemId ? Content.item(ch.questItemId) : undefined;
+        if (questItem) {
+          // A hand-authored story item (e.g. the Wanderer's lost heirloom): the
+          // exact item, not a random drop, and a flag so the world remembers.
+          player.inventory.add(questItem);
+          questLog.setFlag(`found_${questItem.id}`);
+          this.showBark(`You lift a ${questItem.name} from the chest — no mere loot, but something long grieved for.`, 5200, 'loot', '#ffd76a');
+          this.floatPickup(player.x, player.y, questItem.name, '#ffd76a');
+          audio.sfx('chest');
+          return;
+        }
         // Chests reward themed, graded gear (Honed floor) tuned by the opener's luck.
         const item = rollDrop(this.level.theme ?? 'crypt', player.stats.luck ?? 0, { floor: 'honed' });
         player.inventory.add(item);
@@ -5537,6 +5862,39 @@ export class DungeonScene extends Phaser.Scene {
   /** Interact with a town NPC: resolve any cross-town errand they give or
    *  receive, otherwise open the standard rep-tiered hail. */
   private talkToNpc(player: Hero, who: (typeof this.townNpcs)[number]): void {
+    // The Wanderer's river gate: hand over her lost heirloom to open the bridge.
+    if (who.npcId === NOMAD_GATE.npcId) {
+      if (questLog.getFlag(NOMAD_GATE.flag)) {
+        this.hailNpc(player, who, { line: NOMAD_GATE.openedLine });
+        return;
+      }
+      const holder = this.allies.find((a) => a.inventory.bag.some((it) => it.id === NOMAD_GATE.itemId));
+      if (holder) {
+        this.hailNpc(player, who, {
+          line: NOMAD_GATE.giveLine,
+          action: {
+            label: NOMAD_GATE.giveLabel,
+            fn: () => {
+              const item = holder.inventory.bag.find((it) => it.id === NOMAD_GATE.itemId);
+              if (item) holder.inventory.removeItem(item);
+              player.inventory.gold += NOMAD_GATE.gold;
+              player.gainXP(NOMAD_GATE.xp);
+              questLog.reputation += NOMAD_GATE.rep;
+              this.openWorldGate();
+              this.floatPickup(player.x, player.y - 18, `+${NOMAD_GATE.gold}g`, '#ffe08a');
+              this.showBark(
+                `The Wanderer cradles the locket and steps aside — the ward fades and the bridge is yours. +${NOMAD_GATE.gold}g, +${NOMAD_GATE.xp} XP, +${NOMAD_GATE.rep} reputation.`,
+                5600, 'loot', '#8affa0',
+              );
+              this.syncHudData();
+            },
+          },
+        });
+        return;
+      }
+      this.hailNpc(player, who, { line: questLog.getFlag(`found_${NOMAD_GATE.itemId}`) ? NOMAD_GATE.waitingHint : NOMAD_GATE.hintLine });
+      return;
+    }
     const errand = SUNSPIRE_ERRAND;
     // The target: reaching Amira in Sunspire while the errand is out delivers it.
     if (who.npcId === errand.targetId && this.level.id === errand.targetLevelId) {

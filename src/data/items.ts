@@ -199,6 +199,22 @@ export const ITEMS: Record<string, ItemDefinition> = {
     flavor: 'Opens one locked chest in the depths.',
   },
 
+  // ---- story / quest items ------------------------------------------------
+  // The Wanderer's lost heirloom: a nomad family locket carried down into the
+  // Undermaw and lost when the seals broke. Recovered from a chest in the
+  // Molten Deep, it buys passage across the river bridge she guards.
+  lost_heirloom: {
+    id: 'lost_heirloom',
+    name: 'Wanderer’s Heirloom',
+    slot: 'consumable',
+    rarity: 'epic',
+    icon: 'icon-amulet',
+    mods: {},
+    quest: true,
+    flavor:
+      'A tarnished silver locket on a broken chain, warm from the deep’s fire. Inside, a faded portrait of a desert family. Someone has been grieving this a long time.',
+  },
+
   // ---- catches from the river Hearthrun (eat for health, or sell) ----
   river_perch: {
     id: 'river_perch',

@@ -48,6 +48,9 @@ export interface QuestLogState {
   offers: Quest[];
   active: Quest[];
   errands?: Record<string, ErrandState>;
+  /** Arbitrary persistent world flags (e.g. an opened overworld gate, a claimed
+   *  heirloom). Keyed by a stable flag id; presence+true means "set". */
+  flags?: Record<string, boolean>;
 }
 
 /** A hand-authored "carry word between towns" errand. Unlike board contracts,
@@ -147,6 +150,19 @@ export class QuestLog {
   active: Quest[] = [];
   /** Lifecycle state of each hand-authored story errand, keyed by errand id. */
   errands: Record<string, ErrandState> = {};
+  /** Persistent world flags (opened gates, claimed heirlooms, …). */
+  flags: Record<string, boolean> = {};
+
+  /** Read a persistent world flag (false if never set). */
+  getFlag(id: string): boolean {
+    return !!this.flags[id];
+  }
+
+  /** Set (or clear) a persistent world flag. */
+  setFlag(id: string, value = true): void {
+    if (value) this.flags[id] = true;
+    else delete this.flags[id];
+  }
 
   repTitle(): string {
     let title = REP_TIERS[0].title;
@@ -346,7 +362,7 @@ export class QuestLog {
   }
 
   serialize(): QuestLogState {
-    return { reputation: this.reputation, offers: this.offers, active: this.active, errands: this.errands };
+    return { reputation: this.reputation, offers: this.offers, active: this.active, errands: this.errands, flags: this.flags };
   }
 
   restore(state?: QuestLogState): void {
@@ -355,6 +371,7 @@ export class QuestLog {
     this.offers = state.offers ?? [];
     this.active = state.active ?? [];
     this.errands = state.errands ?? {};
+    this.flags = state.flags ?? {};
   }
 }
 

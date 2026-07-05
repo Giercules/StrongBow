@@ -88,7 +88,9 @@ export class Inventory {
 
   consume(item: ItemDefinition): UseResult {
     const idx = this.bag.indexOf(item);
-    if (idx < 0 || item.slot !== 'consumable') return { heal: 0, mana: 0, consumed: false };
+    // Quest items (a lost heirloom, etc.) are never used up — they only leave
+    // the bag when a quest hands them over.
+    if (idx < 0 || item.slot !== 'consumable' || item.quest) return { heal: 0, mana: 0, consumed: false };
     this.bag.splice(idx, 1);
     return { heal: item.heal ?? 0, mana: item.mana ?? 0, consumed: true };
   }

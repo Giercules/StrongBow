@@ -15,6 +15,10 @@ export const LEVEL2 = buildDungeon({
   bossId: 'molten_colossus',
   hazard: 'lava',
   maxGenerators: 10,
+  // A nomad's lost family heirloom, carried down when the seals broke, waits in
+  // a chest here — recover it to buy passage across the river gate on the
+  // overworld (see NOMAD_GATE in data/overworld.ts).
+  heirloom: 'lost_heirloom',
   chapter: 'Chapter II',
   subtitle: 'Fire wells up from the world’s wound.',
   story:

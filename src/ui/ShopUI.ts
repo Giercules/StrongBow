@@ -208,6 +208,7 @@ export class ShopUI {
   }
 
   private sell(item: ItemDefinition): void {
+    if (item.quest) { this.status = 'That is not for sale.'; audio.sfx('ui_move'); this.render(); return; }
     const v = this.sellValue(item);
     const i = this.buyer.inventory.bag.indexOf(item);
     if (i < 0) return;
@@ -288,7 +289,8 @@ export class ShopUI {
       });
       this.pages(cx, x0, y0, totalPages);
     } else {
-      const bag = this.buyer.inventory.bag;
+      // Quest items (a lost heirloom, etc.) can never be sold — hide them.
+      const bag = this.buyer.inventory.bag.filter((it) => !it.quest);
       count = bag.length;
       if (count === 0) this.text(cx, top + 30, 'Your bag is empty.', INK, 13).setOrigin(0.5, 0);
       const totalPages = Math.max(1, Math.ceil(count / PAGE_SIZE));

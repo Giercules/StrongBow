@@ -154,6 +154,10 @@ export interface ItemDefinition {
   setId?: string;
   /** Unique-legendary power id (e.g. 'sunfall') — named, build-warping items. */
   unique?: string;
+  /** Story/quest item (e.g. a lost heirloom). Kept safe: never auto-equipped,
+   *  never consumed by "use", never salvaged — it only leaves the bag when a
+   *  quest hands it over. */
+  quest?: boolean;
 }
 
 export interface SkillDef {
@@ -195,6 +199,9 @@ export interface SpawnDef {
   y: number;
   enemyId?: EnemyId;
   itemId?: string;
+  /** chest: a guaranteed, hand-authored quest item this chest yields on opening
+   *  (overrides the usual random themed drop). */
+  questItemId?: string;
   interval?: number;
   maxAlive?: number;
   hp?: number;
@@ -210,6 +217,9 @@ export interface SpawnDef {
   npcId?: string;
   /** door: level id this entrance leads to ('town' to step back outside). */
   interiorId?: string;
+  /** door: a stubbed settlement not yet built — entering shows a "coming soon"
+   *  notice instead of loading a level. */
+  comingSoon?: boolean;
   /** door to the overworld: which edge of town this gate is, used to pick the
    *  overworld entry point and the town tile to return to. */
   dir?: 'north' | 'south' | 'east' | 'west';
@@ -273,6 +283,17 @@ export interface LevelData {
   overworld?: boolean;
   /** True for an overworld cave mini-dungeon (combat; a mouth door returns to the overworld). */
   cave?: boolean;
+  /** True for a one-off overworld combat encounter arena. Combat like any realm,
+   *  but victory = clearing every foe (no generators/boss/exit), then the party
+   *  is returned to the overworld tile the encounter sprang from. */
+  arena?: boolean;
+  /** arena: the pack to spawn, and its flavour (set by the encounter roll). */
+  arenaFoes?: EnemyId[];
+  arenaElite?: boolean;
+  arenaAmbush?: boolean;
+  arenaBiomeName?: string;
+  /** arena: party level at trigger time, used to scale the foes. */
+  arenaLevel?: number;
 }
 
 export interface HudHeroSlot {
@@ -336,6 +357,8 @@ export interface GameplaySettings {
   goldMult: number;
   /** Roaming wild monsters (not from altars) per level (cheat). 1 = normal, 0 = none. */
   wildMonsters: number;
+  /** How often overworld travel springs a combat encounter. 1 = moderate, 0 = off. */
+  encounterRate: number;
 }
 
 export interface GameSettingsData {

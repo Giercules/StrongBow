@@ -65,6 +65,23 @@ class Registry {
     'undermaw_sanctum',
   ];
 
+  /** Dungeons announced for a future update — the deep roads of the Sundered
+   *  Reach, beyond the Wanderer's bridge. Shown as locked "COMING SOON" cards in
+   *  the Level Select, but NOT registered as playable levels and never added to
+   *  levelOrder, so they can't be entered or unlocked yet. */
+  readonly comingSoon: { name: string; chapter: string; subtitle: string }[] = [
+    { name: 'Whisperwood Barrows', chapter: 'XI', subtitle: 'The forest remembers its dead.' },
+    { name: 'The Gilded Drownings', chapter: 'XII', subtitle: 'A sunken palace, still bright.' },
+    { name: 'Ashfall Warrens', chapter: 'XIII', subtitle: 'Tunnels choked with warm cinder.' },
+    { name: 'The Cinder Choir', chapter: 'XIV', subtitle: 'Something sings in the smoke.' },
+    { name: 'Hollow Meridian', chapter: 'XV', subtitle: 'A noon that casts no shadow.' },
+    { name: 'The Salt Cathedral', chapter: 'XVI', subtitle: 'Pillars of brine and bone.' },
+    { name: 'Verdant Rot', chapter: 'XVII', subtitle: 'Growth gone wrong, and hungry.' },
+    { name: 'The Clockwork Abyss', chapter: 'XVIII', subtitle: 'Gears turning in the dark below.' },
+    { name: 'Starless Vault', chapter: 'XIX', subtitle: 'A sky sealed under stone.' },
+    { name: 'The Undermaw’s Throat', chapter: 'XX', subtitle: 'The last road down.' },
+  ];
+
   /** Levels forged at runtime by the AI level forge (not part of the campaign). */
   private dynamic: Record<string, LevelData> = {};
 

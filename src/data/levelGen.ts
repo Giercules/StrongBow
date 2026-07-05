@@ -28,6 +28,9 @@ export interface DungeonOptions {
   bossId?: EnemyId;
   hazard?: HazardKind;
   chestItems?: string[];
+  /** A guaranteed story item planted in a chest somewhere in the middle of the
+   *  dungeon (seed-stable, so it lands in the same room each run). */
+  heirloom?: string;
   startWeapon?: string;
   // ---- theme-driven extras (all optional) ----
   theme?: ThemeId;
@@ -309,6 +312,13 @@ export function buildDungeon(opts: DungeonOptions): LevelData {
     const room = at(0.15 + (i / Math.max(1, chestItems.length)) * 0.7);
     spawns.push({ kind: 'chest', x: room.cx, y: room.cy, itemId });
   });
+
+  // A guaranteed quest chest holding a story item, dropped in a pseudo-random
+  // room in the dungeon's middle third (seed-stable, and never the start/boss).
+  if (opts.heirloom) {
+    const hRoom = at(0.3 + rng() * 0.4);
+    spawns.push({ kind: 'chest', x: hRoom.cx, y: hRoom.cy, questItemId: opts.heirloom });
+  }
 
   spawns.push({ kind: 'shrine', x: at(0.22).cx, y: at(0.22).cy });
   spawns.push({ kind: 'shrine', x: at(0.5).cx, y: at(0.5).cy });
