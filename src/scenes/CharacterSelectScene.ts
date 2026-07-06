@@ -35,6 +35,13 @@ export class CharacterSelectScene extends Phaser.Scene {
     this.cards = [];
     this.pad = new MenuPad(this);
 
+    // Carry the title anthem seamlessly into character select. playMusic('menu')
+    // is idempotent — if the menu slot is already sounding (the usual path in
+    // from the title) it returns without restarting, so the song continues from
+    // exactly where it was; if audio was stopped it (re)starts it here.
+    audio.unlock();
+    audio.playMusic('menu');
+
     this.cameras.main.fadeIn(220, 0, 0, 0);
     const g = this.add.graphics();
     g.fillGradientStyle(0x10131f, 0x10131f, 0x05060a, 0x05060a, 1);

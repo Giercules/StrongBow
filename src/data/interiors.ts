@@ -136,6 +136,7 @@ export function buildInterior(opts: InteriorOpts): LevelData {
     pickups: [],
     decor,
     theme: 'town',
+    music: 'tavern',
     ambientColor: opts.style === 'tavern' ? 0x2a1d12 : opts.style === 'apothecary' ? 0x18241a : 0x1f2230,
     town: true,
     interior: true,

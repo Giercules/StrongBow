@@ -261,6 +261,7 @@ export function buildDesertTown(): LevelData {
     pickups,
     decor,
     theme: 'town',
+    music: 'sunspire',
     ambientColor: 0x241a10,
     town: true,
     subtitle: 'Sunspire — the oasis-town of the deep desert.',

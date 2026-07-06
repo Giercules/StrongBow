@@ -1,251 +1,28 @@
 import { settings } from '../core/GameSettings';
-import type { ThemeId } from '../core/types';
+import {
+  COMPOSITIONS,
+  THEME_COMPOSITIONS,
+  MUSIC_TRACK_LIST,
+  compositionLabel,
+} from './music/compositions';
+import { playBass, playDrums, playLead, powerChord, stringPad, type VoiceCtx } from './music/instruments';
+import { mtof } from './music/theory';
+import type { Composition } from './music/types';
+import { resolveSection, totalSteps } from './music/types';
 
 // ----------------------------------------------------------------------------
-// AudioSystem — fully procedural, self-contained Web Audio engine.
-//   • Layered, multi-voice music (heroic dungeon theme + intense boss theme)
-//   • 20+ procedural SFX
-//   • Optional real-audio override: if /audio/theme.mp3|ogg (etc.) exist they
-//     are used instead of the synthesized music — no code changes needed.
+// AudioSystem — procedural Web Audio engine with multi-section epic songs.
+//   • Each realm / town / boss / menu has its own full composition (90–150 s)
+//   • Layered rock, ballad, folk, metal, and epic orchestral voices
+//   • Optional real-audio override: drop MP3/OGG in public/audio/ per track id
 // ----------------------------------------------------------------------------
 
-type SongId = 'dungeon' | 'boss' | 'menu';
+type SongSlot = 'dungeon' | 'boss' | 'menu';
 
-const A = 440;
-const mtof = (m: number): number => A * Math.pow(2, (m - 69) / 12);
-
-// ---- song definitions (MIDI note numbers) ----------------------------------
-interface Song {
-  bpm: number;
-  steps: number; // total 16th steps in the loop
-  chords: number[][]; // triad per bar
-  bass: number[]; // bass root per bar
-  lead: number[]; // melody, one entry per step (0 = rest)
-  swing: number;
-  intensity: number; // 0..1 drives drums / brightness
-}
-
-// ---- chord shapes (mid octave triads) -------------------------------------
-const Am = [57, 60, 64];
-const F = [53, 57, 60];
-const C = [60, 64, 67];
-const G = [55, 59, 62];
-const Dm = [50, 53, 57];
-const E = [52, 56, 59];
-const Bb = [58, 62, 65];
-// ---- bass roots (low octave) ----------------------------------------------
-const bA = 33, bF = 29, bC = 36, bG = 31, bD = 38, bE = 40, bBb = 34;
-
-// HEROIC — the main overworld march. A long 8-bar tune (Am F C G Am Dm E Am)
-// with a rising fanfare that develops, in the spirit of a classic adventure
-// overworld theme. This is the default dungeon song.
-// A long 12-bar heroic ballad in C major — an A / A' / B arc that soars and
-// resolves, in the spirit of a classic NES overworld theme.
-const HEROIC: Song = {
-  bpm: 116,
-  steps: 192,
-  chords: [C, G, Am, F, C, G, Dm, G, Am, F, G, C],
-  bass: [bC, bG, bA, bF, bC, bG, bD, bG, bA, bF, bG, bC],
-  lead: [
-    72, 0, 0, 0, 76, 0, 0, 0, 79, 0, 0, 0, 76, 0, 74, 0,
-    74, 0, 0, 0, 71, 0, 0, 0, 74, 0, 79, 0, 0, 0, 0, 0,
-    72, 0, 0, 0, 76, 0, 0, 0, 81, 0, 0, 0, 79, 0, 76, 0,
-    77, 0, 0, 0, 74, 0, 0, 0, 72, 0, 0, 0, 0, 0, 0, 0,
-    72, 0, 0, 0, 76, 0, 79, 0, 84, 0, 0, 0, 79, 0, 0, 0,
-    83, 0, 0, 0, 79, 0, 0, 0, 74, 0, 0, 0, 0, 0, 0, 0,
-    77, 0, 0, 0, 81, 0, 0, 0, 77, 0, 74, 0, 72, 0, 0, 0,
-    74, 0, 0, 0, 79, 0, 0, 0, 71, 0, 74, 0, 0, 0, 0, 0,
-    81, 0, 0, 0, 84, 0, 0, 0, 88, 0, 0, 0, 84, 0, 81, 0,
-    79, 0, 0, 0, 77, 0, 0, 0, 81, 0, 0, 0, 0, 0, 0, 0,
-    79, 0, 0, 0, 74, 0, 71, 0, 74, 0, 79, 0, 83, 0, 0, 0,
-    84, 0, 0, 0, 79, 0, 0, 0, 72, 0, 0, 0, 0, 0, 0, 0,
-  ],
-  swing: 0,
-  intensity: 0.62,
-};
-
-// DRIVING — energetic, busy eighths for molten / arena / clockwork.
-const DRIVING: Song = {
-  bpm: 138,
-  steps: 128,
-  chords: [Am, Am, F, G, C, G, Dm, E],
-  bass: [bA, bA, bF, bG, bC, bG, bD, bE],
-  lead: [
-    69, 0, 69, 0, 72, 0, 69, 0, 76, 0, 74, 0, 72, 71, 0, 0,
-    69, 0, 69, 0, 72, 0, 76, 0, 72, 0, 69, 0, 67, 0, 0, 0,
-    65, 0, 69, 0, 72, 0, 69, 0, 65, 0, 69, 0, 72, 0, 74, 0,
-    74, 0, 71, 0, 74, 0, 79, 0, 78, 0, 74, 0, 71, 0, 0, 0,
-    72, 0, 72, 0, 76, 0, 79, 0, 84, 0, 79, 0, 76, 0, 72, 0,
-    74, 0, 71, 0, 67, 0, 71, 0, 74, 0, 79, 0, 76, 0, 0, 0,
-    77, 0, 74, 0, 69, 0, 74, 0, 77, 0, 81, 0, 79, 0, 77, 0,
-    76, 0, 80, 0, 83, 0, 80, 0, 76, 75, 76, 0, 71, 0, 0, 0,
-  ],
-  swing: 0,
-  intensity: 0.85,
-};
-
-// ETHEREAL — sparse, airy, high register for frost / shadow.
-const ETHEREAL: Song = {
-  bpm: 98,
-  steps: 128,
-  chords: [Am, C, F, C, Dm, Am, E, Am],
-  bass: [bA, bC, bF, bC, bD, bA, bE, bA],
-  lead: [
-    81, 0, 0, 0, 0, 0, 76, 0, 0, 0, 0, 0, 79, 0, 0, 0,
-    84, 0, 0, 0, 0, 0, 79, 0, 0, 0, 76, 0, 0, 0, 0, 0,
-    77, 0, 0, 0, 0, 0, 72, 0, 0, 0, 0, 0, 76, 0, 0, 0,
-    79, 0, 0, 0, 0, 0, 0, 0, 76, 0, 74, 0, 0, 0, 0, 0,
-    81, 0, 0, 0, 84, 0, 0, 0, 0, 0, 79, 0, 0, 0, 0, 0,
-    77, 0, 0, 0, 0, 0, 81, 0, 0, 0, 0, 0, 79, 0, 0, 0,
-    76, 0, 0, 0, 75, 0, 0, 0, 0, 0, 71, 0, 0, 0, 0, 0,
-    72, 0, 0, 0, 0, 0, 0, 0, 69, 0, 0, 0, 0, 0, 0, 0,
-  ],
-  swing: 0.08,
-  intensity: 0.4,
-};
-
-// OMINOUS — low, brooding, chromatic for toxic / bog.
-const OMINOUS: Song = {
-  bpm: 104,
-  steps: 128,
-  chords: [Am, Am, Dm, Dm, Bb, F, E, E],
-  bass: [bA, bA, bD, bD, bBb, bF, bE, bE],
-  lead: [
-    57, 0, 0, 0, 60, 0, 0, 0, 59, 0, 57, 0, 0, 0, 0, 0,
-    57, 0, 0, 0, 58, 0, 0, 0, 60, 0, 0, 0, 59, 0, 0, 0,
-    62, 0, 0, 0, 65, 0, 0, 0, 62, 0, 60, 0, 62, 0, 0, 0,
-    58, 0, 0, 0, 57, 0, 0, 0, 56, 0, 0, 0, 0, 0, 0, 0,
-    57, 0, 60, 0, 64, 0, 60, 0, 0, 0, 59, 0, 57, 0, 0, 0,
-    53, 0, 0, 0, 57, 0, 0, 0, 60, 0, 0, 0, 59, 0, 0, 0,
-    56, 0, 0, 0, 59, 0, 0, 0, 63, 0, 59, 0, 56, 0, 0, 0,
-    57, 0, 0, 0, 56, 0, 57, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-  ],
-  swing: 0,
-  intensity: 0.55,
-};
-
-// FINALE — triumphant, major, grand for storm / sanctum.
-const FINALE: Song = {
-  bpm: 126,
-  steps: 128,
-  chords: [C, G, Am, F, C, G, F, G],
-  bass: [bC, bG, bA, bF, bC, bG, bF, bG],
-  lead: [
-    72, 0, 0, 0, 76, 0, 79, 0, 84, 0, 0, 0, 79, 0, 0, 0,
-    74, 0, 0, 0, 71, 0, 74, 0, 79, 0, 0, 0, 0, 0, 0, 0,
-    69, 0, 0, 0, 72, 0, 76, 0, 81, 0, 0, 0, 76, 0, 0, 0,
-    77, 0, 0, 0, 74, 0, 77, 0, 81, 0, 0, 0, 0, 0, 0, 0,
-    84, 0, 0, 0, 83, 0, 84, 0, 79, 0, 76, 0, 72, 0, 0, 0,
-    79, 0, 0, 0, 76, 0, 79, 0, 83, 0, 79, 0, 76, 0, 0, 0,
-    77, 0, 79, 0, 81, 0, 83, 0, 84, 0, 86, 0, 84, 0, 0, 0,
-    83, 0, 79, 0, 84, 0, 0, 0, 79, 0, 76, 0, 72, 0, 0, 0,
-  ],
-  swing: 0,
-  intensity: 0.9,
-};
-
-// BOSS — darker, faster, an 8-bar gauntlet (Am Am Dm E Am F Dm E).
-const BOSS: Song = {
-  bpm: 150,
-  steps: 128,
-  chords: [Am, Am, Dm, E, Am, F, Dm, E],
-  bass: [bA, bA, bD, bE, bA, bF, bD, bE],
-  lead: [
-    69, 69, 0, 72, 71, 0, 69, 68, 69, 0, 76, 0, 74, 0, 72, 0,
-    69, 69, 0, 72, 71, 0, 69, 68, 69, 0, 67, 0, 64, 0, 0, 0,
-    74, 74, 0, 77, 76, 0, 74, 72, 74, 0, 81, 0, 79, 0, 77, 0,
-    76, 0, 75, 0, 76, 0, 80, 0, 83, 0, 80, 0, 76, 0, 71, 0,
-    69, 69, 0, 72, 76, 0, 72, 0, 69, 0, 68, 0, 69, 0, 0, 0,
-    65, 0, 69, 0, 72, 0, 69, 0, 77, 0, 72, 0, 69, 0, 0, 0,
-    74, 0, 77, 0, 81, 0, 77, 0, 74, 0, 72, 0, 70, 0, 0, 0,
-    76, 0, 80, 0, 83, 0, 80, 76, 75, 0, 76, 0, 71, 0, 0, 0,
-  ],
-  swing: 0,
-  intensity: 0.95,
-};
-
-// MENU — calm, spacious title theme.
-const MENU: Song = {
-  bpm: 92,
-  steps: 128,
-  chords: [Am, F, C, G, Am, F, E, Am],
-  bass: [bA, bF, bC, bG, bA, bF, bE, bA],
-  lead: [
-    57, 0, 0, 0, 60, 0, 0, 0, 64, 0, 0, 0, 67, 0, 0, 0,
-    65, 0, 0, 0, 0, 0, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    64, 0, 0, 0, 67, 0, 0, 0, 72, 0, 0, 0, 0, 0, 0, 0,
-    71, 0, 0, 0, 0, 0, 67, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    69, 0, 0, 0, 72, 0, 0, 0, 76, 0, 0, 0, 0, 0, 0, 0,
-    65, 0, 0, 0, 69, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    64, 0, 0, 0, 63, 0, 0, 0, 0, 0, 59, 0, 0, 0, 0, 0,
-    57, 0, 0, 0, 0, 0, 60, 0, 64, 0, 0, 0, 0, 0, 0, 0,
-  ],
-  swing: 0.1,
-  intensity: 0.25,
-};
-
-
-// TOWN — bright, bouncy market-square theme. Major key with a jaunty swing, a
-// skipping melody and a lighter drum feel: cheerful and upbeat for Hearthwatch.
-const TOWN: Song = {
-  bpm: 132,
-  steps: 128,
-  chords: [C, G, Am, F, C, G, F, C],
-  bass: [bC, bG, bA, bF, bC, bG, bF, bC],
-  lead: [
-    67, 0, 64, 0, 72, 0, 0, 0, 76, 0, 72, 0, 67, 0, 64, 0,
-    67, 0, 71, 0, 74, 0, 0, 0, 79, 0, 74, 0, 71, 0, 67, 0,
-    69, 0, 72, 0, 76, 0, 0, 0, 72, 0, 69, 0, 67, 0, 69, 0,
-    65, 0, 69, 0, 72, 0, 0, 0, 77, 0, 72, 0, 69, 0, 65, 0,
-    72, 0, 0, 0, 76, 0, 79, 0, 84, 0, 79, 0, 76, 0, 72, 0,
-    71, 0, 0, 0, 74, 0, 79, 0, 83, 0, 79, 0, 74, 0, 71, 0,
-    77, 0, 74, 0, 72, 0, 69, 0, 72, 0, 69, 0, 65, 0, 0, 0,
-    72, 0, 76, 0, 72, 0, 67, 0, 64, 0, 67, 0, 72, 0, 0, 0,
-  ],
-  swing: 0.12,
-  intensity: 0.5,
-};
-
-const SONGS: Record<SongId, Song> = { dungeon: HEROIC, boss: BOSS, menu: MENU };
-
-// Each level theme picks a dungeon song so the music shifts with the mood.
-const THEME_SONGS: Record<ThemeId, Song> = {
-  crypt: HEROIC,
-  molten: DRIVING,
-  frost: ETHEREAL,
-  toxic: OMINOUS,
-  clockwork: DRIVING,
-  arena: DRIVING,
-  bog: OMINOUS,
-  storm: FINALE,
-  shadow: ETHEREAL,
-  sanctum: FINALE,
-  town: TOWN,
-};
-
-const TRACK_SONGS: Record<string, Song> = {
-  heroic: HEROIC,
-  driving: DRIVING,
-  ethereal: ETHEREAL,
-  ominous: OMINOUS,
-  finale: FINALE,
-  menu: MENU,
-  town: TOWN,
-};
-
-export const MUSIC_TRACKS: { id: string; label: string }[] = [
-  { id: 'auto', label: 'Auto (match realm)' },
-  { id: 'heroic', label: 'Heroic March' },
-  { id: 'driving', label: 'Driving Battle' },
-  { id: 'ethereal', label: 'Ethereal Calm' },
-  { id: 'ominous', label: 'Ominous Dread' },
-  { id: 'finale', label: 'Triumphant Finale' },
-  { id: 'menu', label: 'Wandering Minstrel' },
-  { id: 'town', label: 'Merry Hearthwatch' },
-];
+export const MUSIC_TRACKS = MUSIC_TRACK_LIST;
 
 export function musicTrackLabel(id: string): string {
-  return MUSIC_TRACKS.find((t) => t.id === id)?.label ?? 'Auto (match realm)';
+  return compositionLabel(id);
 }
 
 class AudioSystem {
@@ -260,16 +37,16 @@ class AudioSystem {
   private timer: number | null = null;
   private nextStepTime = 0;
   private step = 0;
-  private song: Song = HEROIC;
-  /** Which dungeon song the current level theme has selected. */
-  private dungeonSong: Song = HEROIC;
-  private lastTheme: ThemeId = 'crypt';
-  private playingId: SongId | null = null;
-  private padNodes: AudioNode[] = [];
+  private composition: Composition = THEME_COMPOSITIONS.crypt;
+  // Composition id for the current dungeon/area. Decoupled from the visual
+  // ThemeId so distinct places that share a theme (every town is theme:'town')
+  // can each carry their own song — see LevelData.music.
+  private lastMusicId = 'crypt';
+  private playingSlot: SongSlot | null = null;
 
-  private realTracks: Partial<Record<SongId, HTMLMediaElement>> = {};
-  private realSource: Partial<Record<SongId, MediaElementAudioSourceNode>> = {};
-  private realReady: Partial<Record<SongId, boolean>> = {};
+  private realTracks = new Map<string, HTMLMediaElement>();
+  private realSource = new Map<string, MediaElementAudioSourceNode>();
+  private realReady = new Set<string>();
   private activeReal: HTMLMediaElement | null = null;
 
   private initialized = false;
@@ -287,8 +64,8 @@ class AudioSystem {
     this.sfxBus = this.ctx.createGain();
     this.reverb = this.ctx.createConvolver();
     this.reverbGain = this.ctx.createGain();
-    this.reverb.buffer = this.makeImpulse(2.2, 2.4);
-    this.reverbGain.gain.value = 0.5;
+    this.reverb.buffer = this.makeImpulse(2.8, 2.6);
+    this.reverbGain.gain.value = 0.55;
 
     this.musicBus.connect(this.master);
     this.sfxBus.connect(this.master);
@@ -302,7 +79,6 @@ class AudioSystem {
     this.initialized = true;
   }
 
-  /** Must be called from a user gesture to satisfy autoplay policies. */
   unlock(): void {
     this.init();
     if (this.ctx && this.ctx.state === 'suspended') void this.ctx.resume();
@@ -326,7 +102,7 @@ class AudioSystem {
     settings.set('musicEnabled', on);
     this.applySettings();
     if (!on) this.stopMusic();
-    else if (this.playingId) this.playMusic(this.playingId);
+    else if (this.playingSlot) this.playMusic(this.playingSlot);
   }
 
   setMusicVolume(v: number): void {
@@ -444,60 +220,91 @@ class AudioSystem {
     osc.stop(t + 0.2);
   }
 
+  private voiceCtx(): VoiceCtx {
+    return {
+      tone: this.tone.bind(this),
+      noiseHit: this.noiseHit.bind(this),
+      kick: this.kick.bind(this),
+      musicBus: this.musicBus,
+    };
+  }
+
   // ---- music scheduler ----------------------------------------------------
-  playMusic(id: SongId): void {
+  playMusic(slot: SongSlot): void {
     this.init();
     if (!this.ctx) return;
-    if (this.playingId === id && (this.timer !== null || this.activeReal)) return;
+    if (this.playingSlot === slot && (this.timer !== null || this.activeReal)) return;
     this.stopMusic();
-    this.playingId = id;
+    this.playingSlot = slot;
+    if (slot === 'dungeon') this.composition = this.resolveDungeonComposition();
+
+    const trackId = this.trackIdForSlot(slot);
     if (!settings.get('musicEnabled')) return;
 
-    // Prefer a real track if present.
-    if (this.realReady[id] && this.realTracks[id]) {
-      const el = this.realTracks[id]!;
+    if (this.realReady.has(trackId) && this.realTracks.has(trackId)) {
+      const el = this.realTracks.get(trackId)!;
       this.activeReal = el;
       el.currentTime = 0;
       void el.play().catch(() => {
         this.activeReal = null;
-        this.startProcedural(id);
+        this.startProcedural(slot);
       });
       return;
     }
-    this.startProcedural(id);
+    this.startProcedural(slot);
   }
 
-  private startProcedural(id: SongId): void {
-    this.song = id === 'dungeon' ? this.dungeonSong : SONGS[id];
+  private trackIdForSlot(slot: SongSlot): string {
+    if (slot === 'boss') return 'boss';
+    if (slot === 'menu') return 'banner'; // epic title anthem (carries into char-select)
+    return this.composition.id;
+  }
+
+  private startProcedural(slot: SongSlot): void {
+    if (slot === 'boss') this.composition = COMPOSITIONS.boss;
+    else if (slot === 'menu') this.composition = COMPOSITIONS.banner;
+    // dungeon slot keeps the theme-resolved composition
     this.step = 0;
     this.nextStepTime = this.ctx!.currentTime + 0.06;
     this.timer = window.setInterval(() => this.scheduler(), 25);
   }
 
-  private resolveDungeonSong(): Song {
+  private resolveDungeonComposition(): Composition {
     const choice = settings.get('musicTrack');
-    if (choice && choice !== 'auto' && TRACK_SONGS[choice]) return TRACK_SONGS[choice];
-    return THEME_SONGS[this.lastTheme] ?? HEROIC;
+    if (choice && choice !== 'auto' && COMPOSITIONS[choice]) return COMPOSITIONS[choice];
+    return COMPOSITIONS[this.lastMusicId] ?? THEME_COMPOSITIONS.crypt;
   }
 
-  /** Pick the dungeon song that matches a level theme. Call before playMusic. */
-  setDungeonTheme(theme: ThemeId): void {
-    this.lastTheme = theme;
-    this.dungeonSong = this.resolveDungeonSong();
-    // If the dungeon song is already playing procedurally, swap it live.
-    if (this.playingId === 'dungeon' && this.timer !== null) {
-      this.song = this.dungeonSong;
-      this.step = 0;
+  /** Select the dungeon/area song by composition id (a ThemeId works too, since
+   *  every realm theme has a matching composition). */
+  setDungeonMusic(id: string): void {
+    this.lastMusicId = id;
+    const next = this.resolveDungeonComposition();
+    const changed = next.id !== this.composition.id;
+    this.composition = next;
+    if (this.playingSlot === 'dungeon' && changed) {
+      if (this.timer !== null) {
+        this.step = 0;
+      } else if (this.activeReal) {
+        this.activeReal.pause();
+        this.activeReal = null;
+        const trackId = this.composition.id;
+        if (this.realReady.has(trackId) && this.realTracks.has(trackId)) {
+          const el = this.realTracks.get(trackId)!;
+          this.activeReal = el;
+          el.currentTime = 0;
+          void el.play().catch(() => this.startProcedural('dungeon'));
+        } else {
+          this.startProcedural('dungeon');
+        }
+      }
     }
   }
 
   setMusicTrack(id: string): void {
     settings.set('musicTrack', id);
-    this.dungeonSong = this.resolveDungeonSong();
-    if (this.playingId === 'dungeon' && this.timer !== null) {
-      this.song = this.dungeonSong;
-      this.step = 0;
-    }
+    this.composition = this.resolveDungeonComposition();
+    if (this.playingSlot === 'dungeon' && this.timer !== null) this.step = 0;
   }
 
   stopMusic(): void {
@@ -509,90 +316,60 @@ class AudioSystem {
       this.activeReal.pause();
       this.activeReal = null;
     }
-    this.padNodes = [];
   }
 
   private scheduler(): void {
     if (!this.ctx) return;
-    const stepDur = 60 / this.song.bpm / 4;
+    const { bpm } = resolveSection(this.composition, this.step);
+    const stepDur = 60 / bpm / 4;
+    const steps = totalSteps(this.composition);
+
     while (this.nextStepTime < this.ctx.currentTime + 0.12) {
-      this.playStep(this.step, this.nextStepTime);
-      const swing = this.step % 2 === 1 ? this.song.swing * stepDur : 0;
+      this.playStep(this.step);
+      const swing = this.step % 2 === 1 ? 0.06 * stepDur : 0;
       this.nextStepTime += stepDur + swing;
-      this.step = (this.step + 1) % this.song.steps;
+      this.step = (this.step + 1) % steps;
     }
   }
 
-  private playStep(step: number, t: number): void {
-    const s = this.song;
-    const bar = Math.floor(step / 16) % s.chords.length;
-    const inBar = step % 16;
-    const chord = s.chords[bar];
-    const inten = s.intensity;
+  private playStep(globalStep: number): void {
+    const { section, localStep, bpm, style } = resolveSection(this.composition, globalStep);
+    const t = this.nextStepTime;
+    const bar = Math.floor(localStep / 16) % section.bars;
+    const inBar = localStep % 16;
+    const chord = section.chords[bar];
+    const inten = section.intensity;
+    const barDur = (60 / bpm) * 4;
+    const v = this.voiceCtx();
 
-    // --- pad: sustain a chord at bar start ---
+    // --- harmony bed ---
     if (inBar === 0) {
-      const barDur = (60 / s.bpm) * 4;
-      for (const m of chord) {
-        this.tone(mtof(m - 12), t, barDur * 0.95, 'sawtooth', 0.05, this.musicBus, {
-          attack: 0.15,
-          release: 0.4,
-          detune: -6,
-          reverb: 0.5,
-        });
-        this.tone(mtof(m - 12), t, barDur * 0.95, 'sawtooth', 0.05, this.musicBus, {
-          attack: 0.15,
-          release: 0.4,
-          detune: 6,
-        });
+      if (style === 'metal' || style === 'rock') {
+        powerChord(v, section.bass[bar], t, barDur * 0.9, 0.06 + inten * 0.04);
+      } else {
+        stringPad(v, chord, t, barDur * 0.95, 0.04 + inten * 0.05);
       }
     }
 
     // --- bass ---
-    const root = s.bass[bar];
-    if (inBar % 4 === 0 || inBar === 6 || inBar === 14) {
-      const note = inBar === 6 ? root + 7 : root + 12;
-      this.tone(mtof(note), t, 0.16, 'sawtooth', 0.22, this.musicBus, {
-        attack: 0.005,
-        release: 0.06,
-      });
-      this.tone(mtof(note - 12), t, 0.18, 'square', 0.06, this.musicBus, { release: 0.05 });
-    }
+    playBass(v, section.bass[bar], inBar, style, t);
 
-    // --- arpeggio (every 2 steps) ---
-    if (step % 2 === 0) {
-      const tone = chord[(step / 2) % chord.length];
-      this.tone(mtof(tone + 12), t, 0.09, 'triangle', 0.07 + inten * 0.04, this.musicBus, {
+    // --- arpeggio ---
+    if (localStep % 2 === 0 && style !== 'folk') {
+      const tone = chord[(localStep / 2) % chord.length];
+      v.tone(mtof(tone + 12), t, 0.1, 'triangle', 0.06 + inten * 0.04, this.musicBus, {
         attack: 0.004,
-        release: 0.05,
-        reverb: 0.25,
+        release: 0.06,
+        reverb: style === 'ethereal' ? 0.4 : 0.2,
       });
     }
 
-    // --- lead ---
-    const note = s.lead[step];
-    if (note) {
-      this.tone(mtof(note), t, 0.18, 'square', 0.12, this.musicBus, {
-        attack: 0.008,
-        release: 0.14,
-        reverb: 0.3,
-        vibrato: 2,
-      });
-      this.tone(mtof(note), t, 0.18, 'triangle', 0.06, this.musicBus, { release: 0.12 });
-      this.tone(mtof(note + 12), t, 0.1, 'square', 0.03, this.musicBus, { release: 0.06 });
-      // harmony a fifth below — the classic two-voice NES "ballad" fullness
-      this.tone(mtof(note - 7), t, 0.16, 'triangle', 0.05, this.musicBus, { attack: 0.01, release: 0.12 });
-    }
+    // --- lead melody ---
+    const note = section.lead[localStep];
+    if (note) playLead(v, note, t, style, inten);
 
     // --- drums ---
-    const beat = inBar % 4 === 0;
-    if (beat) this.kick(t, 0.7 + inten * 0.3);
-    if (inBar === 4 || inBar === 12)
-      this.noiseHit(t, 0.18, 0.25 + inten * 0.2, { type: 'bandpass', freq: 1900, q: 0.7 }, this.musicBus);
-    if (step % 2 === 0)
-      this.noiseHit(t, 0.04, 0.05 + inten * 0.05, { type: 'highpass', freq: 7000 }, this.musicBus);
-    if (inten > 0.8 && inBar % 2 === 0)
-      this.kick(t + 0.06, 0.25); // double-time pulse for boss
+    playDrums(v, inBar, localStep, style, inten, t);
   }
 
   // ---- SFX ----------------------------------------------------------------
@@ -690,41 +467,40 @@ class AudioSystem {
     }
   }
 
-  // ---- real-track detection ----------------------------------------------
+  // ---- real-track detection (per-realm audio files) -----------------------
   private detectRealTracks(): void {
     const base = (import.meta.env.BASE_URL || '/') as string;
-    const map: Record<SongId, string> = {
-      dungeon: 'theme',
-      boss: 'boss',
-      menu: 'menu',
-    };
+    const ids = [
+      ...Object.keys(COMPOSITIONS),
+      'theme', // legacy fallback for dungeon
+    ];
     const canMp3 = (() => {
       const a = document.createElement('audio');
       return !!a.canPlayType && a.canPlayType('audio/mpeg') !== '';
     })();
-    for (const id of Object.keys(map) as SongId[]) {
-      const name = map[id];
-      const ext = canMp3 ? 'mp3' : 'ogg';
+    const ext = canMp3 ? 'mp3' : 'ogg';
+
+    for (const id of ids) {
       const el = document.createElement('audio');
       el.loop = true;
       el.preload = 'auto';
-      el.src = `${base}audio/${name}.${ext}`;
+      el.src = `${base}audio/${id}.${ext}`;
       el.addEventListener('canplaythrough', () => {
-        this.realReady[id] = true;
-        if (!this.realSource[id] && this.ctx) {
+        this.realReady.add(id);
+        if (!this.realSource.has(id) && this.ctx) {
           try {
             const node = this.ctx.createMediaElementSource(el);
             node.connect(this.musicBus);
-            this.realSource[id] = node;
+            this.realSource.set(id, node);
           } catch {
             /* already connected */
           }
         }
       });
       el.addEventListener('error', () => {
-        this.realReady[id] = false;
+        this.realReady.delete(id);
       });
-      this.realTracks[id] = el;
+      this.realTracks.set(id, el);
     }
   }
 }
