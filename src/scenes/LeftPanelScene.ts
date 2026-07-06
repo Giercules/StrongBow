@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { LEFT_PANEL_WIDTH, GAME_HEIGHT, LOG_REGISTRY_KEY } from '../core/constants';
 import { C } from '../rendering/Palette';
-import type { LogRegistryData, LogEntry } from '../core/types';
+import type { LogRegistryData, LogEntry, LogEntryKind } from '../core/types';
 
 const W = LEFT_PANEL_WIDTH;
 const PAD = 10;
@@ -24,13 +24,35 @@ const KIND_COLOR: Record<LogEntry['kind'], string> = {
   system: '#8a93bd', // muted UI notes
 };
 
-const KIND_PREFIX: Record<LogEntry['kind'], string> = {
-  grok: '✻ ', // sparkle for the DM
+const KIND_PREFIX: Record<LogEntryKind, string> = {
+  grok: '✻ ',
   event: '• ',
-  combat: '⚔ ', // crossed swords
-  loot: '◆ ', // diamond
+  combat: '⚔ ',
+  loot: '◆ ',
   system: '· ',
 };
+
+function entryPrefix(e: LogEntry): string {
+  if (e.kind === 'grok' || e.source) {
+    if (e.depth === 'aside') return e.source === 'live' ? '◈ ' : '◇ ';
+    if (e.source === 'live') return '✻ ';
+    if (e.source === 'local') return '· ';
+  }
+  return KIND_PREFIX[e.kind];
+}
+
+function entryColor(e: LogEntry): string {
+  if (e.color) return e.color;
+  if (e.source === 'local') return '#8a93bd';
+  if (e.kind === 'grok' && e.depth === 'aside') return '#c9a8ff';
+  return KIND_COLOR[e.kind];
+}
+
+function entryStyle(e: LogEntry): string {
+  if (e.depth === 'aside') return 'italic';
+  if (e.kind === 'grok' || e.source === 'live') return 'italic';
+  return 'normal';
+}
 
 // ----------------------------------------------------------------------------
 // LeftPanelScene — the DnD adventure log + live Grok "Dungeon Master" feed.
@@ -44,6 +66,7 @@ export class LeftPanelScene extends Phaser.Scene {
   private grokLabel!: Phaser.GameObjects.Text;
   private moreAbove!: Phaser.GameObjects.Text;
   private moreBelow!: Phaser.GameObjects.Text;
+  private scrollHint!: Phaser.GameObjects.Text;
   private lastSig = '';
   private lastStatus = '';
   private dotPulse = 0;
@@ -119,7 +142,7 @@ export class LeftPanelScene extends Phaser.Scene {
     this.grokLabel = this.add
       .text(PAD + 20, boxY + 24, 'Grok • offline', { fontFamily: '"Trebuchet MS", sans-serif', fontSize: '10px', color: C.inkDim })
       .setDepth(8);
-    this.add
+    this.scrollHint = this.add
       .text(PAD + 8, boxY + 40, 'Narrating your descent…', { fontFamily: '"Trebuchet MS", sans-serif', fontSize: '8.5px', color: '#5f678f', fontStyle: 'italic' })
       .setDepth(8);
 
@@ -175,12 +198,17 @@ export class LeftPanelScene extends Phaser.Scene {
     }
 
     // log body — rebuild only when the entry set changes
-    const sig = data.entries.map((e) => e.kind[0] + e.text).join('|');
-    if (sig === this.lastSig) return;
-    this.lastSig = sig;
-    this.entries = data.entries;
-    if (this.stick) this.scrollY = 0;
-    this.layoutLog(this.entries);
+    const sig = data.entries.map((e) => `${e.kind}|${e.source ?? ''}|${e.depth ?? ''}|${e.text}`).join('|');
+    if (sig !== this.lastSig) {
+      this.lastSig = sig;
+      this.entries = data.entries;
+      if (this.stick) this.scrollY = 0;
+      this.layoutLog(this.entries);
+    }
+    const scrollable = this.maxScrollY > 0;
+    this.scrollHint
+      .setText(scrollable ? 'Scroll wheel for history  ·  ✻ live  ·  ◈ set-piece  ·  · local' : '✻ live DM  ·  ◈ set-piece  ·  · local fallback')
+      .setVisible(true);
   }
 
   /** Lay entries newest-at-bottom, shifted by scrollY for history scrollback. */
@@ -195,9 +223,9 @@ export class LeftPanelScene extends Phaser.Scene {
       const e = entries[i];
       const t = this.acquireLine(li);
       t.setWordWrapWidth(wrapW)
-        .setText(KIND_PREFIX[e.kind] + e.text)
-        .setColor(e.color ?? KIND_COLOR[e.kind])
-        .setFontStyle(e.kind === 'grok' ? 'italic' : 'normal');
+        .setText(entryPrefix(e) + e.text)
+        .setColor(entryColor(e))
+        .setFontStyle(entryStyle(e));
       heights[li] = t.height;
       total += t.height + LINE_GAP;
     }

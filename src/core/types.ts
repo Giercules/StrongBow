@@ -324,6 +324,8 @@ export interface HudRegistryData {
   generatorsTotal: number;
   bossAlive: boolean;
   quest: string;
+  /** Short DM progress beat appended under the main objective (altar updates, etc.). */
+  questBeat?: string;
   levelName: string;
   twoPlayer: boolean;
   elapsedMs: number;
@@ -381,11 +383,19 @@ export interface GameSettingsData {
   gameplay: GameplaySettings;
 }
 
+export type LogEntryKind = 'event' | 'grok' | 'system' | 'combat' | 'loot';
+/** Whether a grok line came from the live model or local fallback narration. */
+export type LogEntrySource = 'live' | 'local';
+/** Bark = quick reaction; aside = longer set-piece narration. */
+export type LogEntryDepth = 'bark' | 'aside';
+
 export interface LogEntry {
   text: string;
-  kind: 'event' | 'grok' | 'system' | 'combat' | 'loot';
+  kind: LogEntryKind;
   /** Optional per-line colour override (e.g. bright green for set pieces). */
   color?: string;
+  source?: LogEntrySource;
+  depth?: LogEntryDepth;
 }
 
 export interface LogRegistryData {

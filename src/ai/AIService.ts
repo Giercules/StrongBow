@@ -104,14 +104,14 @@ class AIService {
             .filter(Boolean)
             .join(' ');
     const prompt = facts
-      ? `Narrate this moment in one vivid line: ${event}. ${facts}`
-      : `Narrate this moment in one vivid line: ${event}.`;
-    return this.run({ context: 'bark', prompt, maxTokens: 32 }, 'never');
+      ? `React to this moment with one sharp DM line — hazard, consequence, or mood, not a recap: ${event}. ${facts}`
+      : `React to this moment with one sharp DM line — hazard, consequence, or mood, not a recap: ${event}.`;
+    return this.run({ context: 'bark', prompt, maxTokens: 40, reasoningEffort: 'none' }, 'never');
   }
 
   async generateCompanionBark(): Promise<string> {
     if (!settings.get('aiBarksEnabled') || !settings.get('companionAI').aiBarks) return '';
-    return (await this.run({ context: 'companion', prompt: 'An ally shouts encouragement in battle.', maxTokens: 28 }, 'never')).text;
+    return (await this.run({ context: 'companion', prompt: 'An ally shouts encouragement in battle.', maxTokens: 28, reasoningEffort: 'none' }, 'never')).text;
   }
 
   async generateItemFlavor(itemName: string): Promise<string> {
@@ -170,13 +170,16 @@ class AIService {
     );
   }
 
-  async generateExamine(subject: string, realm: string): Promise<{ text: string; live: boolean }> {
+  async generateExamine(subject: string, realm: string, knownDetail?: string): Promise<{ text: string; live: boolean }> {
     if (!settings.get('aiBarksEnabled')) return { text: '', live: false };
+    const base = knownDetail
+      ? `The hero already knows: "${knownDetail}" Do NOT repeat that. Add ONE new detail — a hidden clue, lurking threat, or actionable hint.`
+      : `Add ONE new detail the hero might act on — a hidden clue, lurking threat, or grim mood.`;
     return this.run(
       {
         context: 'examine',
-        prompt: `A weary adventurer examines ${subject} deep in ${realm}. In 1-3 sentences, describe it with grim, evocative lore.`,
-        maxTokens: 120,
+        prompt: `First study of ${subject} in ${realm}. ${base} One or two sentences max.`,
+        maxTokens: 90,
         reasoningEffort: 'none',
       },
       'never'
