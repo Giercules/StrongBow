@@ -6,6 +6,8 @@ import {
   GAME_HEIGHT,
   DEPTH,
   Tile,
+  HERO_SPRITE_SCALE,
+  NPC_SPRITE_SCALE,
   WALKABLE_TILES,
   HUD_REGISTRY_KEY,
   LOG_REGISTRY_KEY,
@@ -36,7 +38,7 @@ import type { Modal } from '../ui/uiHelpers';
 import { getTheme } from '../data/gen/themes';
 import { settings } from '../core/GameSettings';
 import { formatHudControls, formatHudControlsPad } from '../core/KeyBindings';
-import type { HeroClassId, LevelData, HudRegistryData, HudHeroSlot, ItemDefinition, ItemSlot, EnemyId, Grade, ThemeId, LogEntry, LogRegistryData } from '../core/types';
+import type { HeroClassId, LevelData, HudRegistryData, HudHeroSlot, HudPartyGroup, ItemDefinition, ItemSlot, EnemyId, Grade, ThemeId, LogEntry, LogRegistryData } from '../core/types';
 import { migrateEquipKey, migrateItemSlot } from '../core/equipment';
 import { Content } from '../content/ContentRegistry';
 import { ALL_CLASSES } from '../data/heroes';
@@ -58,11 +60,23 @@ import { Generator } from '../entities/Generator';
 import { ShadowSystem } from '../systems/ShadowSystem';
 import { DungeonInput } from '../systems/DungeonInput';
 import { FlowField } from '../systems/Pathfinding';
-import type { SaveData, SaveAlly } from '../systems/SaveSystem';
+import { hiredAlliesFromSave, type SaveData, type SaveAlly } from '../systems/SaveSystem';
 import { SaveLoadUI } from '../ui/SaveLoadUI';
 import { audio } from '../systems/AudioSystem';
 import { aiService, type BarkContext } from '../ai/AIService';
 import { DungeonMaster } from '../systems/DungeonMaster';
+import { computeRealmMonsterScale, computeArenaMonsterScale } from '../systems/MonsterScaling';
+import { computeRealmLootScale, computeArenaLootScale, type LootScale } from '../systems/LootScaling';
+import {
+  buildTacticalContext,
+  decideBardSong,
+  decideDruidBear,
+  bardWantsEncore,
+  wardenWantsAbility,
+  vanguardWantsRoar,
+  arcanistWantsMeteor,
+  type SongId as TacticSongId,
+} from '../systems/PartyTactics';
 import { InventoryUI } from '../ui/InventoryUI';
 import { ShopUI } from '../ui/ShopUI';
 import { GuildHireUI } from '../ui/GuildHireUI';
@@ -525,9 +539,10 @@ export class DungeonScene extends Phaser.Scene {
       this.startTile = { x: dret.x, y: dret.y };
       this.registry.remove('dungeonReturnTile');
     }
+    const carry = this.registry.get('carryParty') as SaveAlly[] | undefined;
+    this.restoreHiredAllies(save, carry);
     this.createHeroes();
     this.createCompanions();
-    const carry = this.registry.get('carryParty') as SaveAlly[] | undefined;
     if (carry) {
       this.applyPartyCarry(carry);
       this.registry.remove('carryParty');
@@ -563,6 +578,7 @@ export class DungeonScene extends Phaser.Scene {
     this.setupColliders();
     if (this.level.arena) this.spawnArenaFoes();
     else this.spawnAmbientMonsters();
+    this.applyRealmDifficulty();
     this.flow = new FlowField(this.level.width, this.level.height, (x, y) => this.isWalkable(x, y));
     if (this.level.overworld) this.initOverworldEncounters();
 
@@ -1300,8 +1316,6 @@ export class DungeonScene extends Phaser.Scene {
   private spawnArenaFoes(): void {
     const foes = (this.level.arenaFoes ?? []) as EnemyId[];
     const W = this.level.width;
-    const lvl = this.level.arenaLevel ?? 1;
-    const statScale = 1 + Math.max(0, lvl - 1) * 0.06;
     const cx = Math.floor(W / 2);
     const cols = Math.max(1, Math.min(foes.length, 5));
     foes.forEach((id, i) => {
@@ -1309,12 +1323,7 @@ export class DungeonScene extends Phaser.Scene {
       const gx = Math.max(4, Math.min(W - 5, Math.round(cx + (col - (cols - 1) / 2) * 5)));
       const gy = 5 + row * 4;
       const c = this.tileCenter(gx, gy);
-      const m = this.makeMonster(c.x, c.y, id);
-      if (statScale > 1) {
-        m.maxHealth = Math.round(m.maxHealth * statScale);
-        m.health = m.maxHealth;
-        m.dmgMult = (m.dmgMult ?? 1) * (1 + (statScale - 1) * 0.8);
-      }
+      this.makeMonster(c.x, c.y, id);
     });
     if (this.level.arenaElite && this.monsters.length) this.eliteify(this.monsters[Math.floor(this.monsters.length / 2)]);
     this.arenaFoeCount = this.monsters.length;
@@ -1357,7 +1366,7 @@ export class DungeonScene extends Phaser.Scene {
     if (lead) this.sweepArenaLoot(lead);
     const streak = ((this.registry.get('encounterStreak') as number | undefined) ?? 0) + 1;
     this.registry.set('encounterStreak', streak);
-    const bonus = Math.min(240, (streak - 1) * 20);
+    const bonus = Math.min(240, Math.round((streak - 1) * 20 * this.lootScale().goldMult));
     if (bonus > 0 && lead) { lead.inventory.addGold(bonus); lead.addScore(bonus); }
     this.arenaBanner('VICTORY', bonus > 0 ? `The road is yours.   Rampage x${streak}  ·  +${bonus}g` : 'The road is yours again.', '#8affa0');
     this.registry.set('encounterGrace', 2600);
@@ -1456,12 +1465,12 @@ export class DungeonScene extends Phaser.Scene {
                 : `townsfolk-${townsfolkVariant(sp.npcRole ?? '')}`;
             const spr = this.add
               .sprite(c.x, c.y, sheet)
-              .setScale(0.62 * settings.spriteScale())
+              .setScale(NPC_SPRITE_SCALE * settings.spriteScale())
               .setDepth(c.y);
             this.shadows.add(spr);
             this.townNpcs.push({ sprite: spr, homeX: c.x, homeY: c.y, vx: 0, vy: 0, nextTurn: 0, label: sp.label ?? 'Townsfolk', role: sp.npcRole ?? 'a townsperson', npcId: sp.npcId });
           } else {
-            const npc = this.add.sprite(c.x, c.y, 'npc-elder').setDepth(c.y);
+            const npc = this.add.sprite(c.x, c.y, 'npc-elder').setDepth(c.y).setScale(HERO_SPRITE_SCALE * settings.spriteScale());
             this.shadows.add(npc);
           }
           break;
@@ -1500,7 +1509,7 @@ export class DungeonScene extends Phaser.Scene {
         case 'merchant': {
           const tintByShop: Record<ShopKind, number> = { blacksmith: 0x9fb6d8, apothecary: 0x9fe07a, tavern: 0xffce6a, home: 0xff9a6a, guild: 0xff8a5a };
           const shop = sp.shop ?? 'home';
-          const spr = this.add.sprite(c.x, c.y, 'npc-elder').setDepth(c.y).setTint(tintByShop[shop]);
+          const spr = this.add.sprite(c.x, c.y, 'npc-elder').setDepth(c.y).setTint(tintByShop[shop]).setScale(HERO_SPRITE_SCALE * settings.spriteScale());
           this.shadows.add(spr);
           this.add
             .image(c.x, c.y - 6, 'fx-glow-warm')
@@ -1591,7 +1600,8 @@ export class DungeonScene extends Phaser.Scene {
         this.grokNarrate(this.barkContext('the heroes shatter a spawning altar', { altarsLeft }));
       }
       // Altars reliably cough up themed gear (honed or better).
-      if (Math.random() < generatorDropChance(this.bestLuck()) * settings.get('gameplay').lootMult) this.dropLoot(gen.x, gen.y, 'honed');
+      const ls = this.lootScale();
+      if (Math.random() < generatorDropChance(this.bestLuck()) * settings.get('gameplay').lootMult * ls.dropMult) this.dropLoot(gen.x, gen.y, 'honed');
     };
     this.generators.push(gen);
     this.shadows.add(gen, 2);
@@ -1962,11 +1972,19 @@ export class DungeonScene extends Phaser.Scene {
         this.nextFlowAt = time + 400;
       }
     }
+    const partyTactics = buildTacticalContext(
+      this.allies,
+      leader,
+      liveMonsters,
+      !!this.level.town,
+      null,
+      'party'
+    ).situation;
     // ---- party AI: fire class special abilities when prudent (snapshot so a
     // necromancer summoning mid-pass doesn't disturb iteration) ----
     for (const comp of [...this.companions]) {
       if (!comp.alive || comp.isSummon || !comp.canAbility(time)) continue;
-      if (this.companionShouldUseAbility(comp, liveMonsters)) {
+      if (this.companionShouldUseAbility(comp, liveMonsters, partyTactics)) {
         this.useAbility(comp, time, false);
         comp.markAbilityUsed(time);
       } else if (comp.classId === 'arcanist' && this.companionWantsFamiliar(comp)) {
@@ -1975,10 +1993,8 @@ export class DungeonScene extends Phaser.Scene {
         this.summonArcane(comp, ARCANE_ORDER[this.arcaneIdx++ % ARCANE_ORDER.length], true);
         comp.markAbilityUsed(time);
       } else if (comp.classId === 'bard' && !comp.song) {
-        // A hired Bard always keeps a song ringing — Hymn when the party is
-        // hurting, War Chant otherwise (the Encore path handles combat bursts).
-        const hurting = this.allies.some((a) => a.alive && a.healthRatio() < 0.6);
-        this.bardSing(comp, hurting ? 'hymn' : 'war');
+        const want = decideBardSong(partyTactics);
+        this.bardSing(comp, want);
         comp.markAbilityUsed(time);
       }
     }
@@ -1986,15 +2002,14 @@ export class DungeonScene extends Phaser.Scene {
     for (const comp of this.companions) {
       if (!comp.alive || comp.isSummon) continue;
       if (comp.classId === 'bard' && comp.song && time >= comp.nextShiftAt) {
-        const hurting = this.allies.some((a) => a.alive && a.healthRatio() < 0.55);
-        const want: SongId = hurting ? 'hymn' : 'war';
+        const want: SongId = decideBardSong(partyTactics);
         if (comp.song !== want) {
           comp.nextShiftAt = time + 4000; // don't thrash between tunes
           this.bardSing(comp, want);
         }
       } else if (comp.classId === 'druid') {
-        const near = liveMonsters.some((m) => Phaser.Math.Distance.Between(comp.x, comp.y, m.x, m.y) < 150);
-        if (near !== comp.bearForm && comp.shapeshift(time)) this.shiftFx(comp);
+        const wantBear = decideDruidBear(partyTactics, comp, liveMonsters);
+        if (wantBear !== comp.bearForm && comp.shapeshift(time)) this.shiftFx(comp);
       }
     }
     for (const comp of this.companions) {
@@ -2043,7 +2058,15 @@ export class DungeonScene extends Phaser.Scene {
         if (nearGens.length) targets = [...liveMonsters, ...nearGens];
       }
       const pathDir = leader && comp.alive ? this.flow.sample(comp.x, comp.y) : null;
-      comp.aiTick(time, delta, leader, targets, pathDir, { x: sx * 0.6, y: sy * 0.6 });
+      const tactical = buildTacticalContext(
+        this.allies,
+        leader,
+        liveMonsters,
+        !!this.level.town,
+        (comp.classId === 'bard' ? comp.song : null) as TacticSongId | null,
+        comp.classId
+      );
+      comp.aiTick(time, delta, leader, targets, pathDir, { x: sx * 0.6, y: sy * 0.6 }, tactical);
     }
   }
 
@@ -2105,7 +2128,7 @@ export class DungeonScene extends Phaser.Scene {
     const villager = this.add
       .sprite(c.x, c.y, `townsfolk-${Phaser.Math.Between(0, 6)}`)
       .setDepth(c.y)
-      .setScale(0.62 * settings.spriteScale())
+      .setScale(NPC_SPRITE_SCALE * settings.spriteScale())
       .setTint(0xb0b0c8);
     const bars = this.add.graphics().setDepth(c.y + 8);
     bars.lineStyle(2, 0x565c70, 1);
@@ -2346,7 +2369,7 @@ export class DungeonScene extends Phaser.Scene {
 
   /** When should an AI ally trigger its class special? Necromancers always raise
    *  the dead while under their cap; the rest react to nearby foes / hurt allies. */
-  private companionShouldUseAbility(comp: Companion, monsters: Monster[]): boolean {
+  private companionShouldUseAbility(comp: Companion, monsters: Monster[], party = buildTacticalContext(this.allies, this.leader(), monsters, !!this.level.town, null, 'party').situation): boolean {
     const within = (r: number) => monsters.filter((m) => Phaser.Math.Distance.Between(comp.x, comp.y, m.x, m.y) <= r);
     switch (comp.classId) {
       case 'necromancer': {
@@ -2354,19 +2377,18 @@ export class DungeonScene extends Phaser.Scene {
         const free = settings.get('gameplay').infiniteMana;
         return this.ownedSummons(comp) < comp.maxSummons() && (free || comp.mana >= 20);
       }
-      case 'warden':
-        // Heal whenever any ally OR necro pet is hurt (no need for foes nearby),
-        // and step in to resurrect a fallen comrade within reach.
-        return this.allies.some((a) =>
+      case 'warden': {
+        const allyNeed = this.allies.some((a) =>
           a.active && (a.alive ? a.healthRatio() < 0.65 : Phaser.Math.Distance.Between(comp.x, comp.y, a.x, a.y) < 170)
         );
+        return wardenWantsAbility(party, allyNeed);
+      }
       case 'vanguard':
-        return within(120).length >= 2;
+        return vanguardWantsRoar(party, within(120).length);
       case 'arcanist':
-        return within(300).length >= 2;
+        return arcanistWantsMeteor(party, within(300).length);
       case 'bard':
-        // Encore when a pack presses in close (its ring reaches ~100px)
-        return within(90).length >= 2;
+        return bardWantsEncore(party, within(90).length);
       case 'druid':
         return false; // shapeshifting is handled by the form-upkeep pass
       case 'thief': {
@@ -4302,6 +4324,62 @@ export class DungeonScene extends Phaser.Scene {
     }
   }
 
+  /** Gold, drop-rate and grade-roll bonuses for the current map and party. */
+  private lootScale(): LootScale {
+    if (this.level.arena) {
+      return computeArenaLootScale(this.level.arenaLevel ?? this.partyLevel());
+    }
+    const depth = Content.levelOrder.indexOf(this.level.id);
+    if (depth >= 0) return computeRealmLootScale(depth, this.partyLevel());
+    return computeArenaLootScale(this.partyLevel());
+  }
+
+  /** Average level of player-controlled heroes (falls back to start-level cheat). */
+  private partyLevel(): number {
+    const heroes = (this.allies.length ? this.allies : this.players).filter((a) => a.isPlayer);
+    if (heroes.length) {
+      return Math.round(heroes.reduce((sum, h) => sum + h.level, 0) / heroes.length);
+    }
+    const sl = settings.get('gameplay').startLevel;
+    return sl > 1 ? sl : 1;
+  }
+
+  /** Apply realm-depth and party-level scaling to one foe. */
+  private applyMonsterScaling(m: Monster): void {
+    if (m.scaleApplied || this.level.town || this.level.interior) return;
+    if (this.level.arena) {
+      const lvl = this.level.arenaLevel ?? this.partyLevel();
+      const scale = computeArenaMonsterScale(lvl);
+      m.maxHealth = Math.round(m.maxHealth * scale.hpMult);
+      m.health = m.maxHealth;
+      m.dmgMult *= scale.dmgMult;
+      m.armorBonus = scale.armorBonus;
+      m.scaleApplied = true;
+      return;
+    }
+    const depth = Content.levelOrder.indexOf(this.level.id);
+    if (depth < 0) return;
+    const scale = computeRealmMonsterScale(depth, this.partyLevel(), m.isBoss);
+    m.maxHealth = Math.round(m.maxHealth * scale.hpMult);
+    m.health = m.maxHealth;
+    m.dmgMult *= scale.dmgMult;
+    m.armorBonus = scale.armorBonus;
+    m.scaleApplied = true;
+  }
+
+  /** Scale every foe and altar once the party exists (boss spawns earlier). */
+  private applyRealmDifficulty(): void {
+    if (this.level.town || this.level.interior) return;
+    for (const m of this.monsters) this.applyMonsterScaling(m);
+    const depth = Content.levelOrder.indexOf(this.level.id);
+    if (depth < 0 || this.level.arena) return;
+    const scale = computeRealmMonsterScale(depth, this.partyLevel(), false);
+    for (const g of this.generators) {
+      g.maxHealth = Math.round(g.maxHealth * scale.hpMult);
+      g.health = g.maxHealth;
+    }
+  }
+
   /** Create a monster with all combat callbacks wired (ranged/summon/nova). */
   private makeMonster(x: number, y: number, enemyId: EnemyId): Monster {
     const m = new Monster(this, x, y, enemyId);
@@ -4310,6 +4388,7 @@ export class DungeonScene extends Phaser.Scene {
     m.onSummon = (mm) => this.summonAdds(mm);
     m.onNova = (mm, radius) => this.enemyNova(mm, radius);
     m.onPhase2 = (mm) => this.bossPhase2(mm);
+    if (this.players.length > 0 || this.level.arena) this.applyMonsterScaling(m);
     this.monsters.push(m);
     this.monsterGroup.add(m);
     this.shadows.add(m, 4);
@@ -4425,12 +4504,13 @@ export class DungeonScene extends Phaser.Scene {
     // Heartroot Plate: every kill mends the slayer
     if (killer.alive && killer.hasUniquePower('heartroot')) killer.heal(Math.max(2, Math.round(killer.stats.maxHealth * 0.04)));
     const goldMul = killer.hasUniquePower('midas') ? 1.4 : 1; // Midas Grips
+    const ls = this.lootScale();
     const coop = MULTIPLAYER_ENABLED && net.connected && net.partySize > 1 && !this.level.town && net.isHost;
     if (coop) {
       // Shared, party-bonused XP + gold — everyone earns MORE than playing solo.
       const bonus = 1 + 0.2 * (net.partySize - 1);
       const xp = Math.round(m.def.xp * mult * bonus);
-      const gold = cheats.goldMult > 0 ? Math.max(1, Math.round((2 + m.def.xp * 0.4) * cheats.goldMult * bonus * goldMul)) : 0;
+      const gold = cheats.goldMult > 0 ? Math.max(1, Math.round((2 + m.def.xp * 0.4) * cheats.goldMult * bonus * goldMul * ls.goldMult)) : 0;
       this.coopApplyReward(xp, gold);   // host's own party
       net.sendCoopReward(xp, gold);     // guests apply the same
       killer.addScore(m.def.xp);
@@ -4444,18 +4524,18 @@ export class DungeonScene extends Phaser.Scene {
         }
       }
       // gold coin drop (solo path; co-op gold is shared directly above)
-      if (cheats.goldMult > 0 && !m.isBoss && Math.random() < 0.45) {
-        this.spawnCoin(m.x, m.y, Math.max(1, Math.round((2 + m.def.xp * 0.4) * cheats.goldMult * goldMul)));
+      if (cheats.goldMult > 0 && !m.isBoss && Math.random() < Math.min(0.72, 0.45 * ls.dropMult)) {
+        this.spawnCoin(m.x, m.y, Math.max(1, Math.round((2 + m.def.xp * 0.4) * cheats.goldMult * goldMul * ls.goldMult)));
       }
     }
     // Item + scroll drops roll host-side / solo (cross-client item instancing is a follow-up).
+    const rollLuck = (killer.stats.luck ?? 0) + ls.luckBonus;
     if (m.isElite) {
-      if (Math.random() < eliteDropChance(killer.stats.luck ?? 0) * cheats.lootMult) this.dropLoot(m.x, m.y, 'runed');
-    } else if (!m.isBoss && Math.random() < monsterDropChance(killer.stats.luck ?? 0) * cheats.lootMult) {
-      const floor: Grade | undefined = m.def.xp >= 28 ? 'honed' : undefined;
-      this.dropLoot(m.x, m.y, floor);
+      if (Math.random() < eliteDropChance(rollLuck) * cheats.lootMult * ls.dropMult) this.dropLoot(m.x, m.y, 'runed');
+    } else if (!m.isBoss && Math.random() < monsterDropChance(rollLuck) * cheats.lootMult * ls.dropMult) {
+      this.dropLoot(m.x, m.y, this.lootGradeFloor(m));
     }
-    if (!m.isBoss && Math.random() < 0.022 * cheats.lootMult) {
+    if (!m.isBoss && Math.random() < 0.022 * cheats.lootMult * ls.dropMult) {
       const sid = ['town_portal_scroll', 'scroll_mending', 'scroll_renewal'][Math.floor(Math.random() * 3)];
       const sc = Content.item(sid);
       if (sc) this.spawnLootPickup(m.x, m.y, sc);
@@ -4484,8 +4564,9 @@ export class DungeonScene extends Phaser.Scene {
     this.dropLoot(m.x - 16, m.y + 4, 'ascendant');
     this.spawnLootPickup(m.x + 16, m.y + 4, rollSetDrop(partyClasses));
     const depth = Math.max(0, Content.levelOrder.indexOf(this.level.id)); // 0..9
+    const ls = this.lootScale();
     const diffBonus = cheats.difficulty === 'hard' ? 0.18 : cheats.difficulty === 'moderate' ? 0.09 : 0;
-    const bonusChance = Math.min(0.85, 0.15 + depth * 0.07 + diffBonus);
+    const bonusChance = Math.min(0.92, (0.15 + depth * 0.07 + diffBonus) * ls.dropMult);
     if (Math.random() < bonusChance) this.spawnLootPickup(m.x, m.y - 14, rollSetDrop(partyClasses));
   }
 
@@ -4519,11 +4600,20 @@ export class DungeonScene extends Phaser.Scene {
     return best;
   }
 
+  /** Minimum gear grade for a foe kill, rising with realm depth. */
+  private lootGradeFloor(m: Monster): Grade | undefined {
+    const depth = Content.levelOrder.indexOf(this.level.id);
+    if (depth >= 8) return 'runed';
+    if (depth >= 5) return 'honed';
+    if (m.def.xp >= 28) return 'honed';
+    return undefined;
+  }
+
   /** Mint a themed, graded item and drop it into the world as a pickup.
    *  A slice of successful drops upgrades into a class armor-set piece,
    *  weighted toward the classes actually in the party. */
   private dropLoot(x: number, y: number, floor?: Grade): void {
-    const luck = this.bestLuck();
+    const luck = this.bestLuck() + this.lootScale().luckBonus;
     // uniques are the rarest, most exciting roll — check them first
     if (Math.random() < uniqueDropChance(luck)) {
       this.spawnLootPickup(x, y, rollUniqueDrop());
@@ -4858,13 +4948,13 @@ export class DungeonScene extends Phaser.Scene {
     this.floatPickup(hero.x, hero.y - 22, '+400g', '#ffae42');
     const ids = [
       'health_potion', 'health_potion', 'mana_potion', 'mana_potion',
-      'iron_sword', 'leather_jerkin', 'dungeon_key', 'dungeon_key', 'dungeon_key',
-      'town_portal_scroll',
+      'iron_sword', 'leather_jerkin', 'town_portal_scroll',
     ];
     for (const id of ids) {
       const def = Content.item(id);
       if (def) hero.inventory.add({ ...def });
     }
+    hero.inventory.addKey(3);
     hero.refreshStats();
     this.floatPickup(hero.x, hero.y - 34, 'Starter Kit!', '#5fe06a');
   }
@@ -4886,7 +4976,11 @@ export class DungeonScene extends Phaser.Scene {
     if (itemId) {
       const item = this.resolveAdminItem(itemId, p);
       if (item) {
-        p.inventory.add(item);
+        if (item.id === 'dungeon_key') {
+          p.inventory.addKey(1);
+        } else {
+          p.inventory.add(item);
+        }
         this.floatPickup(p.x, p.y - 22, item.name, '#ffae42');
       }
     }
@@ -5082,7 +5176,7 @@ export class DungeonScene extends Phaser.Scene {
     for (const d of this.lockedDoors) {
       if (d.open) continue;
       const c = this.tileCenter(d.x, d.y);
-      const opener = this.players.find((p) => p.alive && p.inventory.keys > 0 && Phaser.Math.Distance.Between(p.x, p.y, c.x, c.y) < 26);
+      const opener = this.players.find((p) => p.alive && p.inventory.keyCount() > 0 && Phaser.Math.Distance.Between(p.x, p.y, c.x, c.y) < 26);
       if (opener && opener.inventory.useKey()) {
         this.openDoorCluster(d);
         audio.sfx('door');
@@ -5293,7 +5387,7 @@ export class DungeonScene extends Phaser.Scene {
       seen.add(peer.id);
       let g = this.netGhosts.get(peer.id);
       if (!g) {
-        const spr = this.add.sprite(0, 0, `hero-${peer.classId}-sheet`).setAlpha(peer.npc ? 0.78 : 0.55).setScale(settings.spriteScale());
+        const spr = this.add.sprite(0, 0, `hero-${peer.classId}-sheet`).setAlpha(peer.npc ? 0.78 : 0.55).setScale(HERO_SPRITE_SCALE * settings.spriteScale());
         if (this.lightingOn) spr.setLighting(true);
         if (peer.npc) spr.setTint(0x9affc0); // AI NPCs read green; real players stay natural
         try { spr.play(`${peer.classId}-idle-down`); } catch { /* texture may be absent */ }
@@ -5589,7 +5683,7 @@ export class DungeonScene extends Phaser.Scene {
       unlockedRealms: this.unlockedRealms(),
     });
     this.registry.set('cameByPortal', true);
-    this.registry.set('carryParty', this.players.map((a) => this.allyToSave(a)));
+    this.registry.set('carryParty', this.carryList());
     this.registry.set('levelId', 'town');
     this.registry.set('twoPlayer', this.twoPlayer);
     this.registry.set('fromTown', false);
@@ -5623,7 +5717,7 @@ export class DungeonScene extends Phaser.Scene {
     this.won = true;
     audio.sfx('portal');
     this.showBark('You step back through the portal into the depths...', 2600, 'event');
-    this.registry.set('carryParty', this.players.map((a) => this.allyToSave(a)));
+    this.registry.set('carryParty', this.carryList());
     this.registry.set('levelId', ret.levelId);
     this.registry.set('fromTown', ret.fromTown);
     this.registry.set('unlockedRealms', ret.unlockedRealms);
@@ -5694,7 +5788,7 @@ export class DungeonScene extends Phaser.Scene {
       `You enter ${door.label}.`,
       2600,
     );
-    this.registry.set('carryParty', this.players.map((a) => this.allyToSave(a)));
+    this.registry.set('carryParty', this.carryList());
     this.registry.set('levelId', door.interiorId);
     this.registry.set('twoPlayer', this.twoPlayer);
     this.registry.set('fromTown', false);
@@ -5779,8 +5873,7 @@ export class DungeonScene extends Phaser.Scene {
             if (player.gainLockpick(1)) this.showBark(`Lockpicking improved — Lv ${player.lockpickLevel}.`, 2200, 'system');
             this.showBark('You slip a pick into the lock... *click*.', 2200, 'event');
             audio.sfx('key');
-          } else if (player.inventory.keys > 0) {
-            player.inventory.keys -= 1;
+          } else if (player.inventory.useKey()) {
             ch.locked = false;
             this.showBark('You turn an iron key in the lock.', 2200, 'event');
             audio.sfx('key');
@@ -5803,8 +5896,11 @@ export class DungeonScene extends Phaser.Scene {
           audio.sfx('chest');
           return;
         }
-        // Chests reward themed, graded gear (Honed floor) tuned by the opener's luck.
-        const item = rollDrop(this.level.theme ?? 'crypt', player.stats.luck ?? 0, { floor: 'honed' });
+        // Chests reward themed, graded gear — floor and luck rise with realm depth / party level.
+        const ls = this.lootScale();
+        const depth = Content.levelOrder.indexOf(this.level.id);
+        const chestFloor: Grade = depth >= 8 ? 'runed' : 'honed';
+        const item = rollDrop(this.level.theme ?? 'crypt', (player.stats.luck ?? 0) + ls.luckBonus, { floor: chestFloor });
         player.inventory.add(item);
         player.refreshStats();
         this.showBark(`Found: ${describeItem(item)}`, 3400, 'loot');
@@ -6602,35 +6698,41 @@ export class DungeonScene extends Phaser.Scene {
   }
 
   private syncHudData(): void {
-    const slots: (HudHeroSlot | null)[] = [null, null, null, null];
-    // real party first (players + hired allies), summons fill leftover slots —
-    // and summons show their OWN name, not the hero class they borrow stats from
     const isSummon = (a: Hero): boolean => !!(a as Companion).isSummon;
-    const roster = [...this.allies.filter((a) => !isSummon(a)), ...this.allies.filter(isSummon)];
-    roster.slice(0, 4).forEach((a, i) => {
-      slots[i] = {
-        classId: a.classId,
-        name: (a as Companion).displayName ?? a.def.name,
-        isPlayer: a.isPlayer,
-        playerNum: a.playerNum,
-        summon: isSummon(a),
-        health: a.health,
-        maxHealth: a.stats.maxHealth,
-        mana: a.mana,
-        maxMana: a.stats.maxMana,
-        level: a.level,
-        xp: a.xp,
-        xpToNext: Math.max(1, Math.floor(40 * Math.pow(a.level, 1.45))),
-        gold: a.inventory.gold,
-        keys: a.inventory.keys,
-        alive: a.alive,
-        score: a.score,
-        skillPoints: a.skillSet.points,
-        attrPoints: a.attributes.points,
-      };
+    const toSlot = (a: Hero): HudHeroSlot => ({
+      classId: a.classId,
+      name: (a as Companion).displayName ?? a.def.name,
+      isPlayer: a.isPlayer,
+      playerNum: a.playerNum,
+      summon: isSummon(a),
+      health: a.health,
+      maxHealth: a.stats.maxHealth,
+      mana: a.mana,
+      maxMana: a.stats.maxMana,
+      level: a.level,
+      xp: a.xp,
+      xpToNext: Math.max(1, Math.floor(40 * Math.pow(a.level, 1.45))),
+      gold: a.inventory.gold,
+      keys: a.inventory.keyCount(),
+      alive: a.alive,
+      score: a.score,
+      skillPoints: a.skillSet.points,
+      attrPoints: a.attributes.points,
     });
+    const controllers = this.allies
+      .filter((a) => !isSummon(a))
+      .sort((a, b) => {
+        if (a.isPlayer !== b.isPlayer) return a.isPlayer ? -1 : 1;
+        return a.isPlayer ? a.playerNum - b.playerNum : 0;
+      });
+    const groups: HudPartyGroup[] = controllers.map((member) => ({
+      member: toSlot(member),
+      pets: this.allies
+        .filter((a) => isSummon(a) && (a as Companion).summoner === member)
+        .map(toSlot),
+    }));
     const data: HudRegistryData = {
-      slots,
+      groups,
       generatorsLeft: Math.max(0, this.requiredGenerators() - this.generatorsDestroyed),
       generatorsTotal: this.requiredGenerators(),
       bossAlive: this.bossAlive,
@@ -6717,11 +6819,25 @@ export class DungeonScene extends Phaser.Scene {
     this.registry.set('unlockedRealms', save.unlockedRealms ?? 1);
     this.registry.set('fromTown', save.levelId !== 'town');
     this.registry.remove('carryParty');
+    this.registry.set('hiredAllies', hiredAlliesFromSave(save));
     this.registry.set('loadSave', save);
     audio.stopMusic();
     this.time.timeScale = 1;
     this.scene.stop('HudScene');
     this.scene.start('DungeonScene');
+  }
+
+  /** Seed registry hiredAllies before companions spawn (save / carry restore). */
+  private restoreHiredAllies(save?: SaveData, carry?: SaveAlly[]): void {
+    if (save) {
+      const hired = hiredAlliesFromSave(save);
+      if (hired.length) this.registry.set('hiredAllies', hired);
+      return;
+    }
+    if (carry) {
+      const hired = carry.filter((a) => !a.isPlayer).map((a) => a.classId);
+      if (hired.length) this.registry.set('hiredAllies', hired);
+    }
   }
 
   /** Party members that travel between levels/saves. Summoned servants are
@@ -6765,7 +6881,7 @@ export class DungeonScene extends Phaser.Scene {
   /** Restore party progression + inventory to matching allies (no world state). */
   private applyPartyCarry(saved: SaveAlly[]): void {
     for (const a of this.allies) {
-      const sv = saved.find((m) => m.classId === a.classId);
+      const sv = saved.find((m) => m.classId === a.classId && m.isPlayer === a.isPlayer);
       if (!sv) continue;
       a.level = sv.level;
       a.xp = sv.xp;
@@ -6788,6 +6904,11 @@ export class DungeonScene extends Phaser.Scene {
       a.abilities.restore(sv.sigils);
       if (a.classId === 'druid') a.applyForm(!!sv.bearForm);
       a.recompute();
+      if (!sv.alive) a.die();
+      else {
+        a.health = Math.min(sv.health, a.stats.maxHealth);
+        a.mana = Math.min(sv.mana, a.stats.maxMana);
+      }
     }
   }
 
@@ -6811,6 +6932,7 @@ export class DungeonScene extends Phaser.Scene {
       doorsOpen: this.lockedDoors.map((d) => d.open),
       collectedPickups: [...this.collectedIds],
       allies: this.carryList(),
+      hiredAllies: this.companions.filter((c) => !(c as Companion).isSummon).map((c) => c.classId),
       mintedItems: Content.mintedList(),
       questLog: questLog.serialize(),
     };
@@ -6824,7 +6946,7 @@ export class DungeonScene extends Phaser.Scene {
     questLog.restore(data.questLog);
 
     for (const a of this.allies) {
-      const sv = data.allies.find((m) => m.classId === a.classId);
+      const sv = data.allies.find((m) => m.classId === a.classId && m.isPlayer === a.isPlayer);
       if (!sv) continue;
       a.level = sv.level;
       a.xp = sv.xp;

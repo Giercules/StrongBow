@@ -37,15 +37,25 @@ export function describeItem(item: ItemDefinition): string {
   return stats ? `${item.name} (${stats})` : item.name;
 }
 
-/** One stat per line, for the hover tooltip. */
-export function itemStatLines(item: ItemDefinition): string[] {
-  const lines: string[] = [];
+export interface ItemStatEntry {
+  key?: keyof StatMods;
+  line: string;
+}
+
+/** Stat rows for tooltips; `key` is set for numeric mods (used in compare tinting). */
+export function itemStatEntries(item: ItemDefinition): ItemStatEntry[] {
+  const lines: ItemStatEntry[] = [];
   for (const { key, fmt } of LABELS) {
     const v = item.mods[key];
-    if (typeof v === 'number' && v !== 0) lines.push(fmt(v));
+    if (typeof v === 'number' && v !== 0) lines.push({ key, line: fmt(v) });
   }
-  if (item.heal) lines.push(`Heals ${item.heal} HP`);
-  if (item.mana) lines.push(`Restores ${item.mana} MP`);
-  for (const e of item.effects ?? []) lines.push(e);
+  if (item.heal) lines.push({ line: `Heals ${item.heal} HP` });
+  if (item.mana) lines.push({ line: `Restores ${item.mana} MP` });
+  for (const e of item.effects ?? []) lines.push({ line: e });
   return lines;
+}
+
+/** One stat per line, for the hover tooltip. */
+export function itemStatLines(item: ItemDefinition): string[] {
+  return itemStatEntries(item).map((e) => e.line);
 }

@@ -1,4 +1,5 @@
 import type { CompanionAISettings } from '../core/types';
+import type { TacticalContext } from './PartyTactics';
 
 export interface Vec {
   x: number;
@@ -47,9 +48,14 @@ export function decideCompanion<M extends MonsterLike>(
   cfg: CompanionAISettings,
   manaRatio: number,
   profile: CombatProfile,
-  pathDir: Vec | null = null
+  pathDir: Vec | null = null,
+  tactical: TacticalContext | null = null
 ): CompanionDecision<M> {
   const { attackRange, ranged, fireRange, standoff, minKite } = profile;
+  const aggMod = tactical?.aggressionScale ?? 1;
+  const followDist = tactical?.regroup ? cfg.followDistance * 0.55 : cfg.followDistance;
+  const leashDist = tactical?.regroup ? cfg.leashDistance * 0.85 : cfg.leashDistance;
+  const anchor = tactical?.supportTarget ?? leader;
   // Prefer a precomputed path step (routes around wall corners) when supplied.
   const towardLeader = (fallbackX: number, fallbackY: number): Vec => {
     if (pathDir && (pathDir.x !== 0 || pathDir.y !== 0)) return { x: pathDir.x, y: pathDir.y };
@@ -69,19 +75,19 @@ export function decideCompanion<M extends MonsterLike>(
     }
   }
 
-  const toLeader = leader ? dist(self, leader) : 0;
+  const toAnchor = anchor ? dist(self, anchor) : 0;
 
   // 1) leashed too far -- return to the leader (path-routed). Checked first so a
   //    kiting archer can't strand itself across the map from the party.
-  if (leader && toLeader > cfg.leashDistance) {
-    const ux = (leader.x - self.x) / (toLeader || 1);
-    const uy = (leader.y - self.y) / (toLeader || 1);
+  if (anchor && toAnchor > leashDist) {
+    const ux = (anchor.x - self.x) / (toAnchor || 1);
+    const uy = (anchor.y - self.y) / (toAnchor || 1);
     const p = towardLeader(ux, uy);
     return { dirX: p.x, dirY: p.y, wantAttack: false, wantMagic: false, target: null };
   }
 
   // 2) engage a foe within our combat envelope
-  const meleeAssist = cfg.assistRange * (0.6 + cfg.aggression * 0.8);
+  const meleeAssist = cfg.assistRange * (0.6 + cfg.aggression * 0.8) * aggMod;
   const engage = ranged ? Math.max(fireRange, meleeAssist) : meleeAssist;
   if (target && best <= engage) {
     const ux = (target.x - self.x) / (best || 1);
@@ -113,10 +119,10 @@ export function decideCompanion<M extends MonsterLike>(
     };
   }
 
-  // 3) follow the leader, keeping a comfortable distance (path-routed)
-  if (leader && toLeader > cfg.followDistance) {
-    const ux = (leader.x - self.x) / (toLeader || 1);
-    const uy = (leader.y - self.y) / (toLeader || 1);
+  // 3) follow the leader (or support anchor), keeping a comfortable distance
+  if (anchor && toAnchor > followDist) {
+    const ux = (anchor.x - self.x) / (toAnchor || 1);
+    const uy = (anchor.y - self.y) / (toAnchor || 1);
     const p = towardLeader(ux, uy);
     return { dirX: p.x, dirY: p.y, wantAttack: false, wantMagic: false, target };
   }

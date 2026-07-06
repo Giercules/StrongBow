@@ -1,11 +1,11 @@
 import Phaser from 'phaser';
-import { framedPanel, makeButton, addPinned } from './uiHelpers';
+import { framedPanel, makeButton, addPinned, truncateToWidth } from './uiHelpers';
 import type { Modal } from './uiHelpers';
 import { C } from '../rendering/Palette';
 import { RARITY_COLOR } from '../data/items';
 import { MenuNav } from './MenuNav';
-import { describeItemStats } from '../data/pickupInfo';
 import { ItemTooltip } from './ItemTooltip';
+import { compareArrow, compareArrowColor, compareItems, wornItemFor } from '../systems/ItemCompare';
 import { audio } from '../systems/AudioSystem';
 import type { Hero } from '../entities/Hero';
 import type { ItemDefinition, EquipSlot } from '../core/types';
@@ -22,6 +22,8 @@ const PANEL_W = 480;
 const PANEL_H = 430;
 const SLOTS: EquipSlot[] = EQUIP_SLOTS;
 const BAG_PER_PAGE = 9; // keeps the 1-9 hotkeys mapped to exactly one page
+const EQ_ROW_W = 200;
+const BAG_ROW_W = PANEL_W / 2 - 40;
 const numHex = (n: number): string => '#' + n.toString(16).padStart(6, '0');
 
 export class InventoryUI {
@@ -162,18 +164,18 @@ export class InventoryUI {
       const item = hero.inventory.equipped[slot];
       const box = this.scene.add.graphics();
       box.fillStyle(i === this.sel ? 0x2a3358 : 0x000000, i === this.sel ? 0.9 : 0.35);
-      box.fillRoundedRect(leftX, yy, 200, 19, 3);
+      box.fillRoundedRect(leftX, yy, EQ_ROW_W, 19, 3);
       box.lineStyle(i === this.sel ? 2 : 1, i === this.sel ? parseInt(C.hudBorder.slice(1), 16) : 0x6e521f, 0.9);
-      box.strokeRoundedRect(leftX, yy, 200, 19, 3);
+      box.strokeRoundedRect(leftX, yy, EQ_ROW_W, 19, 3);
       addPinned(this.content!, box);
       this.label(leftX + 6, yy + 5, EQUIP_SLOT_LABEL[slot], C.inkDim, 8.5);
       if (item) {
         addPinned(this.content!, this.scene.add.image(leftX + 50, yy + 2, item.icon).setScale(0.9).setOrigin(0, 0));
-        const nm = item.name.length > 19 ? item.name.slice(0, 18) + '…' : item.name;
+        const nm = truncateToWidth(this.scene, item.name, EQ_ROW_W - 70 - 6, 9.5, true);
         this.label(leftX + 70, yy + 5, nm, item.setId ? SET_COLOR : numHex(RARITY_COLOR[item.rarity]), 9.5, true);
-        const ez = this.scene.add.zone(leftX, yy, 200, 19).setOrigin(0, 0).setInteractive({ useHandCursor: true });
+        const ez = this.scene.add.zone(leftX, yy, EQ_ROW_W, 19).setOrigin(0, 0).setInteractive({ useHandCursor: true });
         const setCount = item.setId === ARMOR_SETS[hero.classId].id ? hero.setPieces : undefined;
-        ez.on('pointerover', () => this.tip.show(item, leftX + 200, yy, 'right', setCount));
+        ez.on('pointerover', () => this.tip.show(item, leftX + EQ_ROW_W, yy, 'right', setCount));
         ez.on('pointerout', () => this.tip.hide());
         addPinned(this.content!, ez);
       } else {
@@ -189,7 +191,7 @@ export class InventoryUI {
       `DMG ${s.damage}  ARM ${s.armor}  SPD ${s.speed}  CRIT ${Math.round(s.critChance * 100)}%`,
     ];
     stats.forEach((st, i) => this.label(leftX, statsHdrY + 16 + i * 15, st, C.ink, 10));
-    this.label(leftX, y0 + PANEL_H - 28, `Gold ${hero.inventory.gold}   Keys ${hero.inventory.keys}   Score ${hero.score}`, C.coinHi, 11, true);
+    this.label(leftX, y0 + PANEL_H - 28, `Gold ${hero.inventory.gold}   Keys ${hero.inventory.keyCount()}   Score ${hero.score}`, C.coinHi, 11, true);
 
     const bag = hero.inventory.bag;
     const rows = this.bagRows();
@@ -207,16 +209,37 @@ export class InventoryUI {
       this.label(rightX, gy, `${i + 1}`, C.coinHi, 10, true);
       this.icon(rightX + 16, gy, item.icon);
       const nameCol = item.setId ? SET_COLOR : numHex(RARITY_COLOR[item.rarity]);
-      const t = this.label(rightX + 36, gy + 1, item.name, nameCol, 10, false);
-      if (row.count > 1) this.label(rightX + 38 + t.width, gy + 1, `x${row.count}`, C.coinHi, 10, true);
-      const zone = this.scene.add.zone(rightX, gy, PANEL_W / 2 - 40, 20).setOrigin(0, 0).setInteractive({ useHandCursor: true });
+      const verdict = item.slot !== 'consumable' && !item.quest ? compareItems(item, wornItemFor(hero.inventory, item), hero.classId) : 'none';
+      const arrow = compareArrow(verdict);
+      const stackText = row.count > 1 ? `x${row.count}` : '';
+      const suffixReserve = (arrow ? 14 : 0) + (stackText ? 30 : 0) + 6;
+      const nm = truncateToWidth(this.scene, item.name, BAG_ROW_W - 36 - suffixReserve, 10, false);
+      this.label(rightX + 36, gy + 1, nm, nameCol, 10, false);
+      const rowRight = rightX + BAG_ROW_W;
+      if (stackText) {
+        const stack = this.label(0, gy + 1, stackText, C.coinHi, 10, true);
+        stack.setOrigin(1, 0).setX(rowRight - (arrow ? 18 : 4));
+      }
+      if (arrow) {
+        const arr = this.label(0, gy, arrow, compareArrowColor(verdict), 11, true);
+        arr.setOrigin(1, 0).setX(rowRight - 4);
+      }
+      const zone = this.scene.add.zone(rightX, gy, BAG_ROW_W, 20).setOrigin(0, 0).setInteractive({ useHandCursor: true });
       zone.on('pointerdown', () => this.useItem(item));
       const setCount = item.setId === ARMOR_SETS[hero.classId].id ? hero.setPieces : undefined;
-      zone.on('pointerover', () => this.tip.show(item, rightX, gy, 'left', setCount));
+      zone.on('pointerover', () => {
+        if (item.slot === 'consumable' || item.quest) {
+          this.tip.show(item, rightX, gy, 'left', setCount);
+          return;
+        }
+        const worn = wornItemFor(hero.inventory, item);
+        const verdict = compareItems(item, worn, hero.classId);
+        this.tip.showCompare(item, worn, rightX, gy, 'left', verdict, setCount, hero.classId);
+      });
       zone.on('pointerout', () => this.tip.hide());
       addPinned(this.content!, zone);
       // bag rows are pad-focusable too (A equips/uses the focused item)
-      this.nav.register(rightX + (PANEL_W / 2 - 40) / 2, gy + 10, PANEL_W / 2 - 40, 20, () => this.useItem(item));
+      this.nav.register(rightX + BAG_ROW_W / 2, gy + 10, BAG_ROW_W, 20, () => this.useItem(item));
     });
 
     if (pageCount > 1) {

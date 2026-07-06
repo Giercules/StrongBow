@@ -40,6 +40,10 @@ export class Monster extends Phaser.Physics.Arcade.Sprite {
   // elite + status state
   isElite = false;
   dmgMult = 1;
+  /** Bonus armor from realm / party scaling (added to def.armor). */
+  armorBonus = 0;
+  /** True once realm or arena scaling has been applied. */
+  scaleApplied = false;
   private burnUntil = 0;
   private burnTickAt = 0;
   private burnDmg = 5;
@@ -470,7 +474,7 @@ export class Monster extends Phaser.Physics.Arcade.Sprite {
     if (!this.alive) return false;
     if (time < this.shockUntil) raw *= 1.3; // shocked enemies take more
     if (time < this.vulnUntil) raw *= this.vulnMult; // marked / vulnerable foes take even more
-    const actual = Math.max(1, Math.round(raw - this.def.armor * 0.5));
+    const actual = Math.max(1, Math.round(raw - (this.def.armor + this.armorBonus) * 0.5));
     this.health -= actual;
     this.hurtUntil = time + 120;
     this.setAlpha(0.55);

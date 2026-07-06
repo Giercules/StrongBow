@@ -61,12 +61,20 @@ export interface SaveData {
   doorsOpen: boolean[];
   collectedPickups: number[];
   allies: SaveAlly[];
+  /** Class ids hired at the Fighters Guild for this descent. */
+  hiredAllies?: HeroClassId[];
   /** Minted (dropped/graded) item definitions, persisted so ids resolve on load. */
   mintedItems?: ItemDefinition[];
   /** Notice-board state: reputation, posted offers, active contracts. */
   questLog?: QuestLogState;
   /** Small JPEG data-URL preview of the moment the save was made. */
   thumbnail?: string;
+}
+
+/** Fighters Guild sellswords in the active party (non-player allies). */
+export function hiredAlliesFromSave(data: SaveData): HeroClassId[] {
+  if (data.hiredAllies?.length) return [...data.hiredAllies];
+  return data.allies.filter((a) => !a.isPlayer).map((a) => a.classId);
 }
 
 function slotKey(slot: number): string {

@@ -20,6 +20,32 @@ export function addPinned<T extends Phaser.GameObjects.GameObject>(container: Ph
 
 const hx = (s: string): number => parseInt(s.replace('#', ''), 16);
 
+export const UI_SERIF = 'MedievalSharp, "Trebuchet MS", cursive';
+
+/** Ellipsize `str` so it fits `maxW` pixels at the given font size. */
+export function truncateToWidth(
+  scene: Phaser.Scene,
+  str: string,
+  maxW: number,
+  size: number,
+  bold = false
+): string {
+  const style = { fontFamily: UI_SERIF, fontSize: `${size}px`, fontStyle: bold ? 'bold' : 'normal' };
+  const probe = scene.add.text(-9999, -9999, str, style);
+  if (probe.width <= maxW) {
+    probe.destroy();
+    return str;
+  }
+  let cut = str;
+  while (cut.length > 1) {
+    cut = cut.slice(0, -1);
+    probe.setText(`${cut}…`);
+    if (probe.width <= maxW) break;
+  }
+  probe.destroy();
+  return `${cut}…`;
+}
+
 export interface Modal {
   container: Phaser.GameObjects.Container;
   cx: number;

@@ -119,9 +119,18 @@ export class Inventory {
   addKey(n = 1): void {
     this.keys += n;
   }
+  /** Keys ready to open chests/doors — counter plus Iron Keys still in the bag. */
+  keyCount(): number {
+    return this.keys + this.bag.filter((i) => i.id === 'dungeon_key').length;
+  }
   useKey(): boolean {
     if (this.keys > 0) {
       this.keys--;
+      return true;
+    }
+    const idx = this.bag.findIndex((i) => i.id === 'dungeon_key');
+    if (idx >= 0) {
+      this.bag.splice(idx, 1);
       return true;
     }
     return false;
