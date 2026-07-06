@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { PLAY_AREA_UI_DEPTH } from '../core/constants';
+import { MAX_SHOP_BUY_DISCOUNT, MAX_SHOP_SELL_BONUS, PLAY_AREA_UI_DEPTH } from '../core/constants';
 import { Content } from '../content/ContentRegistry';
 import { audio } from '../systems/AudioSystem';
 import type { ShopKind, ItemDefinition, Rarity } from '../core/types';
@@ -49,6 +49,9 @@ const STOCK: Record<Exclude<ShopKind, 'home' | 'guild'>, StockEntry[]> = {
     { id: 'leather_gloves', price: 70 },
     { id: 'traveler_boots', price: 80 },
     { id: 'dungeon_key', price: 40 },
+    { id: '__mat_scrap', price: 22, name: 'Scrap Iron' },
+    { id: '__mat_essence', price: 48, name: 'Arcane Essence' },
+    { id: '__mat_shard', price: 165, name: 'Godshard' },
   ],
   apothecary: [
     { id: 'health_potion', price: 30 },
@@ -149,10 +152,10 @@ export class ShopUI {
 
   private charismaDiscount(): number {
     // silver tongue + haggling + the town's opinion of you (reputation)
-    return Math.min(0.4, (this.buyer.charisma ?? 0) * 0.03) + this.haggleDiscount + questLog.repDiscount();
+    return Math.min(MAX_SHOP_BUY_DISCOUNT, (this.buyer.charisma ?? 0) * 0.03 + this.haggleDiscount + questLog.repDiscount());
   }
   private sellBonus(): number {
-    return Math.min(0.5, (this.buyer.charisma ?? 0) * 0.04) + questLog.repDiscount();
+    return Math.min(MAX_SHOP_SELL_BONUS, (this.buyer.charisma ?? 0) * 0.04 + questLog.repDiscount());
   }
   private priceFor(base: number): number {
     return Math.max(1, Math.round(base * (1 - this.charismaDiscount())));
@@ -199,8 +202,11 @@ export class ShopUI {
     }
     this.buyer.inventory.gold -= price;
     if (entry.id === 'dungeon_key') this.buyer.inventory.addKey(1);
+    else if (entry.id === '__mat_scrap') this.buyer.inventory.materials.scrap += 1;
+    else if (entry.id === '__mat_essence') this.buyer.inventory.materials.essence += 1;
+    else if (entry.id === '__mat_shard') this.buyer.inventory.materials.shard += 1;
     else this.buyer.inventory.add({ ...def, name: entry.name ?? def.name });
-    this.buyer.refreshStats();
+    if (!entry.id.startsWith('__mat_')) this.buyer.refreshStats();
     const lvl = this.buyer.gainCharisma(1);
     this.status = `Bought ${entry.name ?? def.name}.` + (lvl ? `  Charisma ${this.buyer.charisma}!` : '');
     audio.sfx('chest');
@@ -269,7 +275,10 @@ export class ShopUI {
       this.page = Math.min(Math.max(this.page, 0), totalPages - 1);
       const rows = allRows.slice(this.page * PAGE_SIZE, this.page * PAGE_SIZE + PAGE_SIZE);
       rows.forEach((entry, i) => {
-        const def = Content.item(entry.id);
+        const mat = entry.id.startsWith('__mat_');
+        const def = mat
+          ? ({ id: entry.id, name: entry.name ?? 'Material', slot: 'consumable' as const, rarity: 'uncommon' as const, icon: 'icon-amulet', mods: {} })
+          : Content.item(entry.id);
         if (!def) return;
         this.itemRow(x0, top + i * rowH, rowH, def, entry.name ?? def.name, this.priceFor(entry.price) + 'g', this.buyer.inventory.gold >= this.priceFor(entry.price), () => this.buy(entry, def));
       });

@@ -99,9 +99,9 @@ export const SUNSPIRE_ERRAND: ErrandSpec = {
     "You found her? She's — she's well? ...Gods be thanked, and you with them. Here — it's little enough beside what you've given me. You're a friend of my whole house now, wherever the road takes you.",
   deliverLine:
     "Tomas sent you? All the way across the dunes for a worrier like him? ...The roads south are cut — bandits hold the Ochre Pass, and no wagon's braved it in weeks. But tell my brother Amira Sunspire does not scare so easily. Here, for your trouble — and my thanks. Now I know someone still watches the northern road.",
-  giverBonus: 60,
-  gold: 150,
-  xp: 170,
+  giverBonus: 50,
+  gold: 130,
+  xp: 150,
   rep: 8,
 };
 
@@ -176,8 +176,11 @@ export class QuestLog {
   }
 
   /** Keep three fresh contracts pinned, drawn from unlocked realms only. */
-  refreshOffers(unlockedRealms: number): void {
+  refreshOffers(unlockedRealms: number, rotateStale = false): void {
     const pool = REALM_ORDER.slice(0, Math.max(1, Math.min(unlockedRealms, REALM_ORDER.length)));
+    if (rotateStale && this.offers.length >= 3) {
+      this.offers.splice(Math.floor(Math.random() * this.offers.length), 1);
+    }
     while (this.offers.length < 3) {
       const realmId = pool[Math.floor(Math.random() * pool.length)];
       const tier = REALM_ORDER.indexOf(realmId);
@@ -262,7 +265,7 @@ export class QuestLog {
       if (q.kind === 'bounty' && q.targetEnemy === enemyId) {
         q.progress++;
         advanced.push(q);
-      } else if (q.kind === 'gather' && q.realmId === levelId && Math.random() < 0.4) {
+      } else if (q.kind === 'gather' && q.realmId === levelId && Math.random() < 0.58) {
         q.progress++;
         advanced.push(q);
       }

@@ -153,8 +153,8 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
   }
 
   recompute(): StatBlock {
-    // keep sigil choices in step with level (auto-picks a rune when a tier unlocks)
-    this.abilities?.applyDefaults(this.level);
+    // Player heroes choose sigils manually; companions auto-equip so AI stays viable.
+    if (!this.isPlayer) this.abilities?.applyDefaults(this.level);
     this.stats = computeStats(this.def.base, this.level, this.inventory.equippedList(), this.skillSet.ranks, this.attributes.ranks);
     // class armor set: count equipped pieces, then fold in the 2/4/5 tier bonuses
     this.setPieces = countSetPieces(this.inventory.equippedList(), ARMOR_SETS[this.classId].id);
@@ -713,8 +713,8 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
     }
     if (leveled) {
       this.recompute();
-      this.health = this.stats.maxHealth;
-      this.mana = this.stats.maxMana;
+      this.health = Math.min(this.stats.maxHealth, this.health + Math.round(this.stats.maxHealth * 0.55));
+      this.mana = Math.min(this.stats.maxMana, this.mana + Math.round(this.stats.maxMana * 0.55));
       audio.sfx('levelup');
       const fx = this.scene.add.sprite(this.x, this.y, 'fx-levelup').setDepth(this.y + 10);
       fx.play('fx-levelup');
