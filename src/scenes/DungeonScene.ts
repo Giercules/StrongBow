@@ -62,6 +62,7 @@ import type { SaveData, SaveAlly } from '../systems/SaveSystem';
 import { SaveLoadUI } from '../ui/SaveLoadUI';
 import { audio } from '../systems/AudioSystem';
 import { aiService, type BarkContext } from '../ai/AIService';
+import { DungeonMaster } from '../systems/DungeonMaster';
 import { InventoryUI } from '../ui/InventoryUI';
 import { ShopUI } from '../ui/ShopUI';
 import { GuildHireUI } from '../ui/GuildHireUI';
@@ -389,7 +390,7 @@ export class DungeonScene extends Phaser.Scene {
   private grokStatus: 'offline' | 'connected' | 'thinking' = 'offline';
   private grokProvider = 'Grok';
   private static readonly LOG_CAP = 40;
-  private static readonly BARK_COOLDOWN = 8000; // min ms between throttled DM barks
+  private dm = new DungeonMaster();
 
   private generatorsDestroyed = 0;
   private generatorsTotal = 0;
@@ -398,7 +399,6 @@ export class DungeonScene extends Phaser.Scene {
   private bossMusicOn = false;
   private quest = '';
   private startTime = 0;
-  private lastBarkAt = 0;
   private lowHealthWarned = false;
   private questBeat = '';
   private startTile = { x: 4, y: 4 };
@@ -697,9 +697,8 @@ export class DungeonScene extends Phaser.Scene {
     // Lead with the chapter's own story beat, then let the Dungeon Master (Grok) layer on top.
     const chapterTag = this.level.chapter ? `${this.level.chapter} — ` : '';
     if (this.level.story) this.showBark(`${chapterTag}${this.level.story}`, 8000);
-    if (this.level.town) {
-      this.grokNarrate(this.level.overworld ? 'the party ventures out into the wild overworld surrounding Hearthwatch' : 'the party returns to the town of Hearthwatch to resupply between descents', { force: true });
-    } else {
+    // Realm intros are set-pieces; town hubs already have static quest + story beats.
+    if (!this.level.town) {
       this.dmSetPiece(aiService.generateRealmIntro(this.level.name, this.players[0]?.classId));
     }
 
@@ -1577,12 +1576,20 @@ export class DungeonScene extends Phaser.Scene {
     gen.onDestroyed = () => {
       this.generatorsDestroyed++;
       this.showBark('A spawning altar is destroyed!', 3400, 'combat');
-      this.grokNarrate(this.barkContext('the heroes shatter a spawning altar'), { force: true });
+      const altarsLeft = Math.max(0, this.requiredGenerators() - this.generatorsDestroyed);
       void aiService
-        .generateAltarProgress(this.level.name, Math.max(0, this.requiredGenerators() - this.generatorsDestroyed))
-        .then(({ text }) => {
-          if (text) this.questBeat = text;
+        .generateAltarProgress(this.level.name, altarsLeft)
+        .then(({ text, live }) => {
+          if (text) {
+            this.questBeat = text;
+            if (live) this.pushLog(text, 'grok');
+          }
         });
+      if (altarsLeft === 0) {
+        this.grokNarrate(this.barkContext('the last spawning altar falls — the exit stirs awake'), { force: true });
+      } else if (Math.random() < 0.4) {
+        this.grokNarrate(this.barkContext('the heroes shatter a spawning altar', { altarsLeft }));
+      }
       // Altars reliably cough up themed gear (honed or better).
       if (Math.random() < generatorDropChance(this.bestLuck()) * settings.get('gameplay').lootMult) this.dropLoot(gen.x, gen.y, 'honed');
     };
@@ -2206,7 +2213,7 @@ export class DungeonScene extends Phaser.Scene {
         this.spawnBlink(nx, ny);
       }
     }
-    this.dmSetPiece(aiService.generateBark(`the wounded ${m.def.name} entering its terrible second phase in ${this.level.name}`));
+    this.grokNarrate(this.barkContext(`the wounded ${m.def.name} enters its terrible second phase`), { force: true });
   }
 
   /** Blink a companion to the party leader with a small puff of magic. */
@@ -5960,20 +5967,22 @@ export class DungeonScene extends Phaser.Scene {
     this.dialogueUI.open(player, who.label, who.role, {
       quest,
       onChat: () => {
-        this.setGrokStatus('thinking');
         this.dialogueUI.say(this.townLine(who.role));
+        if (!this.dm.shouldNpcAiChat(this.time.now)) return;
+        this.dm.recordNpcChat(this.time.now);
+        this.setGrokStatus('thinking');
         void aiService
-          .generateBark(`${who.role} named ${who.label} chatting with a ${questLog.repTitle()} adventurer in the town of ${this.level.name}`)
-          .then(({ text }) => {
+          .generateBark(`${who.role} named ${who.label} shares a rumor with a ${questLog.repTitle()} adventurer in ${this.level.name}`)
+          .then(({ text, live }) => {
             this.setGrokStatus('connected');
-            if (text) this.dialogueUI.say(text);
+            if (text && live) this.dialogueUI.say(text);
           })
           .catch(() => this.setGrokStatus('connected'));
       },
     });
   }
 
-  /** Look at the nearest feature/NPC/tile and report DnD-flavored lore (AI-augmented). */
+  /** Look at the nearest feature/NPC/tile — hand-crafted lore first; Grok only on rare first discoveries. */
   private examine(player: Hero): void {
     if (this.level.town) {
       let nearN: (typeof this.townNpcs)[number] | null = null;
@@ -6003,6 +6012,20 @@ export class DungeonScene extends Phaser.Scene {
       if (Phaser.Math.Distance.Between(player.x, player.y, c.x, c.y) < 30) npcNear = true;
     }
 
+    const tile = this.tileAt(player.x, player.y);
+    const examineKey = DungeonMaster.examineKey({
+      npc: npcNear,
+      decor: best?.key,
+      tile: best ? undefined : tile,
+    });
+
+    if (this.dm.wasExamined(examineKey)) {
+      this.showBark(DungeonMaster.repeatExamineLine(examineKey), 2400, 'system');
+      audio.sfx('ui_move');
+      return;
+    }
+    this.dm.markExamined(examineKey);
+
     let flavor: string;
     let subject: string;
     if (npcNear) {
@@ -6012,19 +6035,20 @@ export class DungeonScene extends Phaser.Scene {
       flavor = DECOR_FLAVOR[best.key] ?? 'You study it a while, but glean little.';
       subject = best.key.replace(/-/g, ' ');
     } else {
-      const t = this.tileAt(player.x, player.y);
-      flavor = TILE_FLAVOR[t] ?? FLOOR_FLAVOR;
-      subject = 'the ground';
+      flavor = TILE_FLAVOR[tile] ?? FLOOR_FLAVOR;
+      subject = tile === Tile.EXIT ? 'the exit portal' : 'the ground';
     }
     this.showBark(flavor, 7200);
     audio.sfx('ui_move');
-    // AI-augmented examination, kept in the game's grim DnD voice (replaces if it returns)
+
+    if (!settings.get('aiBarksEnabled') || !this.dm.shouldAiExamine(examineKey, this.time.now)) return;
+    this.dm.recordAiExamine(this.time.now);
     this.setGrokStatus('thinking');
     void aiService
-      .generateExamine(subject, this.level.name)
+      .generateExamine(subject, this.level.name, flavor)
       .then(({ text, live }) => {
         this.setGrokStatus('connected');
-        if (text) this.showBark(text, 7200, live ? 'grok' : 'event');
+        if (text) this.pushLog(text, live ? 'grok' : 'event');
       })
       .catch(() => this.setGrokStatus('connected'));
   }
@@ -6512,8 +6536,8 @@ export class DungeonScene extends Phaser.Scene {
 
   private grokNarrate(ctx: BarkContext | string, opts: { force?: boolean } = {}): void {
     if (!settings.get('aiBarksEnabled')) return;
-    if (!opts.force && this.time.now - this.lastBarkAt < DungeonScene.BARK_COOLDOWN) return;
-    this.lastBarkAt = this.time.now;
+    if (!this.dm.canBark(this.time.now, opts.force)) return;
+    this.dm.recordBark(this.time.now);
     this.setGrokStatus('thinking');
     void aiService
       .generateBark(ctx)
