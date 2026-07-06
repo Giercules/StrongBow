@@ -318,8 +318,14 @@ export interface HudHeroSlot {
   attrPoints: number;
 }
 
+/** One party row on the HUD: a hero/ally and their summons nested beneath. */
+export interface HudPartyGroup {
+  member: HudHeroSlot;
+  pets: HudHeroSlot[];
+}
+
 export interface HudRegistryData {
-  slots: (HudHeroSlot | null)[];
+  groups: HudPartyGroup[];
   generatorsLeft: number;
   generatorsTotal: number;
   bossAlive: boolean;

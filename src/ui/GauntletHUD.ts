@@ -1,19 +1,44 @@
 import Phaser from 'phaser';
 import { C } from '../rendering/Palette';
 import { CLASS_HUD_COLORS, HUD_PANEL_WIDTH } from '../core/constants';
-import type { HudRegistryData, HudHeroSlot } from '../core/types';
+import type { HudRegistryData, HudHeroSlot, HudPartyGroup } from '../core/types';
 
 const W = HUD_PANEL_WIDTH;
 const PAD = 10;
-const SLOT_TOP = 50;
-const SLOT_H = 70;
-const CTRL_TOP = 50 + 70 * 4 + 40;
+const PARTY_TOP = 50;
+const PARTY_MAX_H = 268;
+const CTRL_TOP = PARTY_TOP + PARTY_MAX_H + 12;
+const MAIN_H_BASE = 52;
+const PET_H_BASE = 17;
+const GROUP_GAP = 3;
+const PET_INDENT = 10;
+
+const CLASS_ICONS: Record<string, string> = {
+  vanguard: 'icon-sword',
+  thief: 'icon-bow',
+  arcanist: 'icon-staff',
+  warden: 'icon-mace',
+  necromancer: 'icon-staff',
+  bard: 'icon-sword',
+  druid: 'icon-staff',
+};
 
 function hexNum(s: string): number {
   return parseInt(s.replace('#', ''), 16);
 }
 
-// Right-hand arcade panel: party slots, generators, controls box, quest footer.
+interface MainRow {
+  icon: Phaser.GameObjects.Image;
+  name: Phaser.GameObjects.Text;
+  stat: Phaser.GameObjects.Text;
+}
+
+interface PetRow {
+  icon: Phaser.GameObjects.Image;
+  name: Phaser.GameObjects.Text;
+}
+
+// Right-hand arcade panel: party + nested pets, generators, controls, quest footer.
 export class GauntletHUD {
   private scene: Phaser.Scene;
   private dyn!: Phaser.GameObjects.Graphics;
@@ -27,9 +52,8 @@ export class GauntletHUD {
   private questBeatText!: Phaser.GameObjects.Text;
   private ctrlTitle!: Phaser.GameObjects.Text;
   private ctrlText!: Phaser.GameObjects.Text;
-  private slotName: Phaser.GameObjects.Text[] = [];
-  private slotStat: Phaser.GameObjects.Text[] = [];
-  private slotIcon: Phaser.GameObjects.Image[] = [];
+  private mainRows: MainRow[] = [];
+  private petRows: PetRow[] = [];
 
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
@@ -60,13 +84,6 @@ export class GauntletHUD {
     }
     g.lineStyle(1, hexNum(C.hudBorderDk), 1);
     g.lineBetween(PAD, 46, W - PAD, 46);
-    for (let i = 0; i < 4; i++) {
-      const y = SLOT_TOP + i * SLOT_H;
-      g.fillStyle(hexNum(C.hudPanel2), 1);
-      g.fillRoundedRect(PAD, y, W - PAD * 2, SLOT_H - 6, 4);
-      g.lineStyle(1, hexNum(C.hudBorderDk), 0.7);
-      g.strokeRoundedRect(PAD, y, W - PAD * 2, SLOT_H - 6, 4);
-    }
     g.fillStyle(0x05060a, 0.6);
     g.fillRoundedRect(PAD, CTRL_TOP, W - PAD * 2, 110, 4);
     g.lineStyle(1, hexNum(C.hudBorderDk), 0.7);
@@ -83,15 +100,8 @@ export class GauntletHUD {
     this.levelText = this.mkText(W / 2, 32, 10, C.inkDim).setOrigin(0.5, 0);
     this.timerText = this.mkText(W - PAD, 12, 10, C.ink).setOrigin(1, 0);
 
-    for (let i = 0; i < 4; i++) {
-      const y = SLOT_TOP + i * SLOT_H;
-      this.slotIcon.push(this.scene.add.image(PAD + 15, y + 16, 'icon-sword').setDepth(9).setScale(1.3));
-      this.slotName.push(this.mkText(PAD + 28, y + 7, 11, C.ink, { fontStyle: 'bold' }));
-      this.slotStat.push(this.mkText(PAD + 12, y + 50, 9, C.inkDim));
-    }
-
-    this.genText = this.mkText(PAD, 50 + 70 * 4 + 4, 12, C.ink, { fontStyle: 'bold' });
-    this.bossText = this.mkText(PAD, 50 + 70 * 4 + 20, 11, C.hpLow, { fontStyle: 'bold' });
+    this.genText = this.mkText(PAD, CTRL_TOP - 22, 12, C.ink, { fontStyle: 'bold' });
+    this.bossText = this.mkText(PAD, CTRL_TOP - 6, 11, C.hpLow, { fontStyle: 'bold' });
 
     this.ctrlTitle = this.mkText(PAD + 6, CTRL_TOP + 4, 9, C.hudBorder, { fontStyle: 'bold' });
     this.ctrlTitle.setText('CONTROLS');
@@ -103,6 +113,34 @@ export class GauntletHUD {
     this.questBeatText = this.mkText(PAD, CTRL_TOP + 124, 9, '#b79bff', { wordWrap: { width: W - PAD * 2 }, lineSpacing: 1, fontStyle: 'italic' });
   }
 
+  private ensureMainRow(i: number): MainRow {
+    while (this.mainRows.length <= i) {
+      const icon = this.scene.add.image(0, 0, 'icon-sword').setDepth(9);
+      const name = this.mkText(0, 0, 11, C.ink, { fontStyle: 'bold' });
+      const stat = this.mkText(0, 0, 9, C.inkDim);
+      this.mainRows.push({ icon, name, stat });
+    }
+    return this.mainRows[i];
+  }
+
+  private ensurePetRow(i: number): PetRow {
+    while (this.petRows.length <= i) {
+      const icon = this.scene.add.image(0, 0, 'icon-amulet').setDepth(9);
+      const name = this.mkText(0, 0, 8, C.inkDim);
+      this.petRows.push({ icon, name });
+    }
+    return this.petRows[i];
+  }
+
+  private layoutScale(groups: HudPartyGroup[]): number {
+    let units = 0;
+    for (const g of groups) {
+      units += MAIN_H_BASE + g.pets.length * PET_H_BASE + GROUP_GAP;
+    }
+    if (units <= 0) return 1;
+    return Phaser.Math.Clamp(PARTY_MAX_H / units, 0.52, 1);
+  }
+
   update(data: HudRegistryData): void {
     const g = this.dyn;
     g.clear();
@@ -110,22 +148,46 @@ export class GauntletHUD {
     const secs = Math.floor(data.elapsedMs / 1000);
     this.timerText.setText(`${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`);
 
-    for (let i = 0; i < 4; i++) {
-      const slot = data.slots[i];
-      const y = SLOT_TOP + i * SLOT_H;
-      if (!slot) {
-        this.slotIcon[i].setVisible(false);
-        this.slotName[i].setText('');
-        this.slotStat[i].setText('');
-        continue;
+    const groups = data.groups ?? [];
+    const scale = this.layoutScale(groups);
+    const mainH = Math.round(MAIN_H_BASE * scale);
+    const petH = Math.round(PET_H_BASE * scale);
+    const gap = Math.max(2, Math.round(GROUP_GAP * scale));
+    const panelW = W - PAD * 2;
+
+    let y = PARTY_TOP;
+    let mainIdx = 0;
+    let petIdx = 0;
+
+    for (const group of groups) {
+      const row = this.ensureMainRow(mainIdx++);
+      this.renderMain(g, row, group.member, PAD, y, panelW, mainH, scale);
+      y += mainH;
+
+      for (const pet of group.pets) {
+        const prow = this.ensurePetRow(petIdx++);
+        this.renderPet(g, prow, pet, PAD + PET_INDENT, y, panelW - PET_INDENT, petH, scale);
+        y += petH;
       }
-      this.renderSlot(g, slot, y, i);
+      y += gap;
+    }
+
+    for (let i = mainIdx; i < this.mainRows.length; i++) {
+      const row = this.mainRows[i];
+      row.icon.setVisible(false);
+      row.name.setText('');
+      row.stat.setText('');
+    }
+    for (let i = petIdx; i < this.petRows.length; i++) {
+      const row = this.petRows[i];
+      row.icon.setVisible(false);
+      row.name.setText('');
     }
 
     this.genText.setText(`GENERATORS ${data.generatorsTotal - data.generatorsLeft}/${data.generatorsTotal}`);
     for (let k = 0; k < data.generatorsTotal; k++) {
       const px = PAD + 124 + (k % 8) * 11;
-      const py = 50 + 70 * 4 + 6;
+      const py = CTRL_TOP - 18;
       const destroyed = k < data.generatorsTotal - data.generatorsLeft;
       g.fillStyle(destroyed ? hexNum(C.hpFull) : hexNum(C.inkDim), destroyed ? 1 : 0.35);
       g.fillRect(px, py, 7, 7);
@@ -143,46 +205,115 @@ export class GauntletHUD {
     }
   }
 
-  private renderSlot(g: Phaser.GameObjects.Graphics, slot: HudHeroSlot, y: number, i: number): void {
+  private drawBubble(g: Phaser.GameObjects.Graphics, x: number, y: number, w: number, h: number, accent: number, alive: boolean): void {
+    g.fillStyle(hexNum(C.hudPanel2), 1);
+    g.fillRoundedRect(x, y, w, h - 2, 3);
+    g.lineStyle(1, hexNum(C.hudBorderDk), 0.7);
+    g.strokeRoundedRect(x, y, w, h - 2, 3);
+    g.fillStyle(accent, alive ? 1 : 0.3);
+    g.fillRect(x, y, 3, h - 2);
+  }
+
+  private renderMain(
+    g: Phaser.GameObjects.Graphics,
+    row: MainRow,
+    slot: HudHeroSlot,
+    x: number,
+    y: number,
+    w: number,
+    h: number,
+    scale: number
+  ): void {
     const color = CLASS_HUD_COLORS[slot.classId] ?? 0xffffff;
-    const x0 = PAD + 4;
-    const wInner = W - PAD * 2 - 8;
+    this.drawBubble(g, x, y, w, h, color, slot.alive);
 
-    g.fillStyle(color, slot.alive ? 1 : 0.3);
-    g.fillRect(PAD, y, 4, SLOT_H - 6);
+    const iconKey = slot.summon ? 'icon-amulet' : CLASS_ICONS[slot.classId] ?? 'icon-sword';
+    const iconScale = 1.15 * scale;
+    row.icon
+      .setVisible(true)
+      .setPosition(x + 12, y + Math.round(h * 0.38))
+      .setAlpha(slot.alive ? 1 : 0.4)
+      .setTexture(iconKey)
+      .setScale(iconScale);
 
-    const icons: Record<string, string> = { vanguard: 'icon-sword', thief: 'icon-bow', arcanist: 'icon-staff', warden: 'icon-mace', necromancer: 'icon-staff', bard: 'icon-sword', druid: 'icon-staff' };
-    this.slotIcon[i].setVisible(true).setAlpha(slot.alive ? 1 : 0.4).setTexture(slot.summon ? 'icon-amulet' : icons[slot.classId] ?? 'icon-sword');
-
-    const tag = slot.playerNum > 0 ? `P${slot.playerNum}` : slot.summon ? 'PET' : 'ALLY';
+    const nameSize = Math.max(8, Math.round(11 * scale));
+    const statSize = Math.max(7, Math.round(9 * scale));
+    const tag = slot.playerNum > 0 ? `P${slot.playerNum}` : 'ALLY';
     const growth = slot.skillPoints + slot.attrPoints;
-    this.slotName[i]
+    row.name
+      .setPosition(x + 26, y + Math.max(3, Math.round(5 * scale)))
+      .setFontSize(nameSize)
       .setText(`${tag} - ${slot.name} L${slot.level}${growth > 0 ? `  +${growth}` : ''}`)
       .setColor(!slot.alive ? '#6a7088' : slot.playerNum > 0 ? '#dfe6ff' : '#7fb0ff');
 
-    const barX = x0 + 8;
-    const barW = wInner - 8;
-    const hpY = y + 22;
+    const barX = x + 10;
+    const barW = w - 14;
+    const hpY = y + Math.round(h * 0.42);
+    const barH = Math.max(4, Math.round(6 * scale));
     g.fillStyle(0x000000, 0.5);
-    g.fillRect(barX, hpY, barW, 7);
+    g.fillRect(barX, hpY, barW, barH);
     const hp = Phaser.Math.Clamp(slot.health / slot.maxHealth, 0, 1);
     g.fillStyle(hp > 0.5 ? hexNum(C.hpFull) : hp > 0.25 ? hexNum(C.hpMid) : hexNum(C.hpLow), 1);
-    g.fillRect(barX, hpY, barW * hp, 7);
+    g.fillRect(barX, hpY, barW * hp, barH);
     g.lineStyle(1, hexNum(C.hudBorderDk), 0.8);
-    g.strokeRect(barX, hpY, barW, 7);
-    const mpY = y + 31;
+    g.strokeRect(barX, hpY, barW, barH);
+
+    const mpY = hpY + barH + 2;
+    const mpH = Math.max(2, Math.round(3 * scale));
     g.fillStyle(0x000000, 0.5);
-    g.fillRect(barX, mpY, barW, 4);
+    g.fillRect(barX, mpY, barW, mpH);
     const mp = slot.maxMana > 0 ? Phaser.Math.Clamp(slot.mana / slot.maxMana, 0, 1) : 0;
     g.fillStyle(hexNum(C.manaFill), 1);
-    g.fillRect(barX, mpY, barW * mp, 4);
-    const xpY = y + 37;
+    g.fillRect(barX, mpY, barW * mp, mpH);
+
+    const xpY = mpY + mpH + 1;
     const xp = slot.xpToNext > 0 ? Phaser.Math.Clamp(slot.xp / slot.xpToNext, 0, 1) : 0;
     g.fillStyle(hexNum(C.xpFill), 0.9);
-    g.fillRect(barX, xpY, barW * xp, 2);
+    g.fillRect(barX, xpY, barW * xp, Math.max(1, Math.round(2 * scale)));
 
-    this.slotStat[i]
-      .setText(`HP ${Math.max(0, Math.ceil(slot.health))}/${slot.maxHealth}  G:${slot.gold}  *${slot.score}  K:${slot.keys}`)
+    row.stat
+      .setPosition(x + 10, y + h - Math.max(10, Math.round(12 * scale)))
+      .setFontSize(statSize)
+      .setText(`HP ${Math.max(0, Math.ceil(slot.health))}/${slot.maxHealth}  G:${slot.gold}  *${slot.score}`)
       .setColor(slot.alive ? '#8a93bd' : '#5a6080');
+  }
+
+  private renderPet(
+    g: Phaser.GameObjects.Graphics,
+    row: PetRow,
+    slot: HudHeroSlot,
+    x: number,
+    y: number,
+    w: number,
+    h: number,
+    scale: number
+  ): void {
+    const accent = 0x9a7fd4;
+    this.drawBubble(g, x, y, w, h, accent, slot.alive);
+
+    const iconScale = 0.75 * scale;
+    row.icon
+      .setVisible(true)
+      .setPosition(x + 9, y + Math.round(h * 0.5))
+      .setAlpha(slot.alive ? 0.95 : 0.35)
+      .setTexture('icon-amulet')
+      .setScale(iconScale);
+
+    const nameSize = Math.max(7, Math.round(8 * scale));
+    row.name
+      .setPosition(x + 20, y + Math.max(2, Math.round((h - nameSize) / 2) - 1))
+      .setFontSize(nameSize)
+      .setText(`PET - ${slot.name}`)
+      .setColor(slot.alive ? '#b8a8e8' : '#5a6080');
+
+    const barX = x + w - Math.round(54 * scale);
+    const barW = Math.round(48 * scale);
+    const barH = Math.max(3, Math.round(4 * scale));
+    const barY = y + Math.round((h - barH) / 2);
+    g.fillStyle(0x000000, 0.45);
+    g.fillRect(barX, barY, barW, barH);
+    const hp = Phaser.Math.Clamp(slot.health / slot.maxHealth, 0, 1);
+    g.fillStyle(hp > 0.35 ? hexNum(C.hpFull) : hexNum(C.hpLow), 1);
+    g.fillRect(barX, barY, barW * hp, barH);
   }
 }

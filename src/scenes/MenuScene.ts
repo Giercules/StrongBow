@@ -7,10 +7,10 @@ import { getServerUrl, setServerUrl } from '../net/serverConfig';
 import { audio } from '../systems/AudioSystem';
 import { aiService } from '../ai/AIService';
 import { GameManualUI } from '../ui/GameManualUI';
-import { hasSave } from '../systems/SaveSystem';
-import type { SaveData } from '../systems/SaveSystem';
+import { hasSave, hiredAlliesFromSave, type SaveData } from '../systems/SaveSystem';
 import { SaveLoadUI } from '../ui/SaveLoadUI';
 import { ALL_CLASSES } from '../data/heroes';
+import { ArcadeStatusPanel, AI_STATUS_THEME, SERVER_STATUS_THEME } from '../ui/ArcadeStatusPanel';
 
 export class MenuScene extends Phaser.Scene {
   private pad?: MenuPad;
@@ -171,37 +171,38 @@ export class MenuScene extends Phaser.Scene {
     }
     reg(cx, by, 140, 22, 'MANUAL  (H)', () => manual.toggle(), { size: 11 });
 
-    // AI connection status - large, glowing, below the characters
-    const aiText = this.add
-      .text(cx, 486, 'AI: checking...', { fontFamily: 'MedievalSharp, "Trebuchet MS", cursive', fontSize: '15px', color: C.inkDim, fontStyle: 'bold' })
-      .setOrigin(0.5)
-      .setDepth(12);
+    // Phaser 4 alien arcade flank panels — bloom, glow, displacement, shine sweep
+    const menuBox = { cx, cy: 280, w: 230, h: 150 };
+    const panelGap = 16;
+    const panelHalf = 68;
+    const aiStatus = new ArcadeStatusPanel(this, cx - menuBox.w / 2 - panelGap - panelHalf, menuBox.cy, 'left', AI_STATUS_THEME);
+    const serverStatus = new ArcadeStatusPanel(this, cx + menuBox.w / 2 + panelGap + panelHalf, menuBox.cy, 'right', SERVER_STATUS_THEME);
+
     void aiService.checkConnection().then(({ connected, provider }) => {
-      if (connected) {
-        aiText.setText(`${provider.toUpperCase()} CONNECTED`).setColor('#5fe06a');
-        aiText.setShadow(0, 0, '#37d65a', 16, true, true);
-        this.tweens.add({ targets: aiText, alpha: { from: 0.65, to: 1 }, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
-      } else {
-        aiText.setText('AI: built-in narration').setColor('#b5894a');
-      }
+      if (connected) aiStatus.setLive(provider.toUpperCase(), 'CONNECTED');
+      else aiStatus.setIdle('BUILT-IN', 'NARRATION');
     });
 
-    // Game-server connection status — sits just under the AI/XAI line and polls
-    // the server's health endpoint (derived from the chosen ws:// address).
-    const serverText = this.add
-      .text(cx, 506, 'Server: checking…', { fontFamily: 'MedievalSharp, "Trebuchet MS", cursive', fontSize: '13px', color: C.inkDim, fontStyle: 'bold' })
-      .setOrigin(0.5)
-      .setDepth(12);
     const httpFromWs = (u: string) => u.replace(/^ws:\/\//, 'http://').replace(/^wss:\/\//, 'https://').replace(/\/+$/, '');
+    let serverState: 'checking' | 'up' | 'down' = 'checking';
     const checkServer = async (): Promise<void> => {
       const ctl = new AbortController();
       const to = setTimeout(() => ctl.abort(), 2500);
       try {
         const res = await fetch(httpFromWs(getServerUrl()) + '/api/health', { signal: ctl.signal });
         clearTimeout(to);
-        if (res.ok) { serverText.setText('● Server Connected').setColor('#5fe06a'); return; }
+        if (res.ok) {
+          if (serverState !== 'up') {
+            serverState = 'up';
+            serverStatus.setLive('SERVER', 'CONNECTED');
+          }
+          return;
+        }
       } catch { clearTimeout(to); }
-      serverText.setText('● Server Disconnected').setColor('#e0564a');
+      if (serverState !== 'down') {
+        serverState = 'down';
+        serverStatus.setDown('SERVER', 'OFFLINE');
+      }
     };
     void checkServer();
     const serverPoll = this.time.addEvent({ delay: 3000, loop: true, callback: () => void checkServer() });
@@ -225,12 +226,12 @@ export class MenuScene extends Phaser.Scene {
     buildServerBtn();
 
     this.add
-      .text(cx, GAME_HEIGHT - 12, 'Click PLAY or press 1 to begin   ·   H manual   ·   connects to your game server   ·   sound enables on first click', {
+      .text(cx, GAME_HEIGHT - 22, 'Click PLAY or press 1 to begin   ·   H manual   ·   connects to your game server   ·   sound enables on first click', {
         fontFamily: 'MedievalSharp, "Trebuchet MS", cursive',
-        fontSize: '11px',
+        fontSize: '10px',
         color: C.inkDim,
       })
-      .setOrigin(0.5)
+      .setOrigin(0.5, 1)
       .setDepth(10);
 
     this.input.keyboard?.on('keydown-ONE', () => this.startGame(false));
@@ -282,6 +283,7 @@ export class MenuScene extends Phaser.Scene {
     if (ps[1]) this.registry.set('p2Class', ps[1].classId);
     this.registry.set('levelId', save.levelId ?? 'sunken_crypt');
     this.registry.remove('carryParty');
+    this.registry.set('hiredAllies', hiredAlliesFromSave(save));
     this.registry.set('loadSave', save);
     this.cameras.main.fadeOut(220, 0, 0, 0);
     this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start('DungeonScene'));

@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import type { HeroClassDef, HeroClassId, Direction, StatBlock } from '../core/types';
 import { HEROES } from '../data/heroes';
 import { settings } from '../core/GameSettings';
+import { HERO_SPRITE_SCALE, HERO_SPRITE_SCALE_LARGE } from '../core/constants';
 import { SkillSet } from '../systems/SkillSystem';
 import { AttributeSet } from '../systems/AttributeSystem';
 import { AbilitySet } from '../systems/AbilitySystem';
@@ -139,7 +140,7 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
     body.setOffset(9, 26);
     this.setCollideWorldBounds(true);
     this.setDepth(y);
-    this.setScale(0.58 * settings.spriteScale());
+    this.setScale(HERO_SPRITE_SCALE * settings.spriteScale());
 
     this.stats = this.recompute();
     this.health = this.stats.maxHealth;
@@ -498,7 +499,7 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
     } else {
       this.skin = undefined;
       this.setTexture('hero-druid-sheet', 0);
-      this.setScale(0.58 * settings.spriteScale());
+      this.setScale(HERO_SPRITE_SCALE * settings.spriteScale());
     }
     this.recompute();
   }
@@ -518,11 +519,11 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
     if (active) {
       this.skin = { walk: 'necro_warden-walk', attack: 'necro_warden-attack' };
       this.setTexture('necro-warden-sheet', 0);
-      this.setScale(0.64 * settings.spriteScale());
+      this.setScale(HERO_SPRITE_SCALE_LARGE * settings.spriteScale());
     } else {
       this.skin = undefined;
       this.setTexture('hero-necromancer-sheet', 0);
-      this.setScale(0.58 * settings.spriteScale());
+      this.setScale(HERO_SPRITE_SCALE * settings.spriteScale());
     }
   }
 

@@ -11,6 +11,13 @@ import { MenuNav } from './MenuNav';
 
 const PANEL_W = 470;
 const PANEL_H = 430;
+const ROW_PITCH = 50;
+const BOX_H = 44;
+const BOX_PAD_X = 24;
+const HIRE_BTN_W = 66;
+const HIRE_BTN_INSET = 36;
+const DESC_PAD_L = 12;
+const DESC_BTN_GAP = 8;
 
 // The Fighters Guild hiring desk. Allies no longer follow for free — here the
 // player spends gold to hire sellswords for their NEXT descent. The contract
@@ -70,9 +77,30 @@ export class GuildHireUI {
     this.scene.registry.set('hiredAllies', list);
   }
 
-  private text(x: number, y: number, str: string, color: string, size = 12, bold = false, originX = 0): Phaser.GameObjects.Text {
+  private textStyle(size: number, bold: boolean): Phaser.Types.GameObjects.Text.TextStyle {
+    return { fontFamily: 'MedievalSharp, "Trebuchet MS", cursive', fontSize: `${size}px`, fontStyle: bold ? 'bold' : 'normal' };
+  }
+
+  private truncateToWidth(str: string, maxW: number, size: number, bold = false): string {
+    const probe = this.scene.add.text(-9999, -9999, str, this.textStyle(size, bold));
+    if (probe.width <= maxW) {
+      probe.destroy();
+      return str;
+    }
+    let cut = str;
+    while (cut.length > 1) {
+      cut = cut.slice(0, -1);
+      probe.setText(`${cut}…`);
+      if (probe.width <= maxW) break;
+    }
+    probe.destroy();
+    return `${cut}…`;
+  }
+
+  private text(x: number, y: number, str: string, color: string, size = 12, bold = false, originX = 0, maxW?: number): Phaser.GameObjects.Text {
+    const display = maxW ? this.truncateToWidth(str, maxW, size, bold) : str;
     const t = this.scene.add
-      .text(x, y, str, { fontFamily: 'MedievalSharp, "Trebuchet MS", cursive', fontSize: `${size}px`, color, fontStyle: bold ? 'bold' : 'normal' })
+      .text(x, y, display, { ...this.textStyle(size, bold), color })
       .setOrigin(originX, 0);
     addPinned(this.content!, t);
     return t;
@@ -87,36 +115,40 @@ export class GuildHireUI {
     const y0 = this.modal!.cy - PANEL_H / 2;
     const cost = this.cost();
 
-    this.text(this.modal!.cx, y0 + 40, `Party gold: ${buyer.inventory.gold}`, C.coinHi, 13, true, 0.5);
-    this.text(this.modal!.cx, y0 + 60, `Sellswords march with you for one descent — ${cost}g each. Re-hire after each run.`, C.inkDim, 9.5, false, 0.5);
+    this.text(this.modal!.cx, y0 + 38, `Party gold: ${buyer.inventory.gold}`, C.coinHi, 12, true, 0.5);
+    this.text(this.modal!.cx, y0 + 56, `Sellswords march with you for one descent — ${cost}g each. Re-hire after each run.`, C.inkDim, 9, false, 0.5);
 
     const hired = this.hired();
     const pool = ALL_CLASSES.filter((c) => !this.playerClasses.includes(c));
+    const boxW = PANEL_W - BOX_PAD_X * 2;
     pool.forEach((cls, i) => {
       const def = HEROES[cls];
       const color = CLASS_HUD_COLORS[cls] ?? 0xffffff;
-      const yy = y0 + 84 + i * 60;
+      const yy = y0 + 74 + i * ROW_PITCH;
       const isHired = hired.includes(cls);
-      const left = x0 + 22;
+      const left = x0 + BOX_PAD_X;
 
       const box = this.scene.add.graphics();
       box.fillStyle(0x000000, 0.32);
-      box.fillRoundedRect(left, yy, PANEL_W - 44, 52, 6);
+      box.fillRoundedRect(left, yy, boxW, BOX_H, 5);
       box.lineStyle(1.5, color, isHired ? 1 : 0.5);
-      box.strokeRoundedRect(left, yy, PANEL_W - 44, 52, 6);
+      box.strokeRoundedRect(left, yy, boxW, BOX_H, 5);
       addPinned(this.content!, box);
 
-      this.text(left + 14, yy + 8, def.name, hexStr(color), 14, true);
-      this.text(left + 14, yy + 28, `${def.role} — ${def.signature}`, C.inkDim, 9.5);
+      const descMaxW = boxW - DESC_PAD_L - HIRE_BTN_INSET - HIRE_BTN_W / 2 - DESC_BTN_GAP;
+      const btnX = left + boxW - HIRE_BTN_INSET;
+
+      this.text(left + DESC_PAD_L, yy + 6, def.name, hexStr(color), 12, true);
+      this.text(left + DESC_PAD_L, yy + 24, `${def.role} — ${def.signature}`, C.inkDim, 8.5, false, 0, descMaxW);
 
       if (isHired) {
-        this.text(left + PANEL_W - 110, yy + 19, 'HIRED', '#7fe0a0', 13, true);
+        this.text(left + boxW - 14, yy + BOX_H / 2 - 6, 'HIRED', '#7fe0a0', 11, true, 1);
       } else {
         const afford = buyer.inventory.gold >= cost;
         this.content!.add(
-          makeButton(this.scene, left + PANEL_W - 90, yy + 26, 72, 24, afford ? `HIRE ${cost}g` : 'NO GOLD', () => this.hire(cls), {
+          makeButton(this.scene, btnX, yy + BOX_H / 2, HIRE_BTN_W, 22, afford ? `HIRE ${cost}g` : 'NO GOLD', () => this.hire(cls), {
             fill: afford ? C.ivy : C.hudPanel2,
-            size: 10,
+            size: 9,
           })
         );
       }

@@ -2,8 +2,10 @@ import Phaser from 'phaser';
 import { Hero } from './Hero';
 import { decideCompanion } from '../systems/CompanionAI';
 import type { MonsterLike } from '../systems/CompanionAI';
+import type { TacticalContext } from '../systems/PartyTactics';
 import type { HeroClassId } from '../core/types';
 import { settings } from '../core/GameSettings';
+import { SUMMON_SPRITE_SCALE } from '../core/constants';
 
 // AI-driven ally. Follows the lead player, assists in combat, casts if allowed.
 export class Companion extends Hero {
@@ -58,7 +60,7 @@ export class Companion extends Hero {
     this.skin = { walk, attack };
     this.play(walk, true);
     // Match dungeon mob scale — pets share the 22×22 Bone Archer sprite size.
-    this.setScale(0.56 * settings.spriteScale());
+    this.setScale(SUMMON_SPRITE_SCALE * settings.spriteScale());
     const body = this.body as Phaser.Physics.Arcade.Body;
     const bw = this.width * 0.42;
     const bh = this.height * 0.4;
@@ -79,7 +81,8 @@ export class Companion extends Hero {
     leader: Hero | null,
     monsters: M[],
     pathDir: { x: number; y: number } | null = null,
-    sep: { x: number; y: number } = { x: 0, y: 0 }
+    sep: { x: number; y: number } = { x: 0, y: 0 },
+    tactical: TacticalContext | null = null
   ): { castTarget: M | null } {
     const cfg = settings.get('companionAI');
     let castTarget: M | null = null;
@@ -94,7 +97,7 @@ export class Companion extends Hero {
       const profile = ranged
         ? { attackRange: reach, ranged: true, fireRange: 230, standoff: 150, minKite: 95 }
         : { attackRange: reach, ranged: false, fireRange: 0, standoff: 0, minKite: 0 };
-      const d = decideCompanion(this, leader, monsters, cfg, manaRatio, profile, pathDir);
+      const d = decideCompanion(this, leader, monsters, cfg, manaRatio, profile, pathDir, tactical);
       let mx = d.dirX;
       let my = d.dirY;
       if (d.target) {

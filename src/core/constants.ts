@@ -30,6 +30,15 @@ export const SPRITE_SCALE_MIN = 1.0;
 export const SPRITE_SCALE_MAX = 2.0;
 export const SPRITE_SCALE_DEFAULT = 1.5;
 
+/** On-screen scale for hero-class sprites (64×64 sheets on 16px tiles). 25% smaller than the original 0.58. */
+export const HERO_SPRITE_SCALE = 0.435;
+/** Deathlord and other oversized hero forms. */
+export const HERO_SPRITE_SCALE_LARGE = 0.48;
+/** Summoned skeletons / familiars. */
+export const SUMMON_SPRITE_SCALE = 0.42;
+/** Townsfolk and other humanoid NPCs in the dungeon view. */
+export const NPC_SPRITE_SCALE = 0.465;
+
 // Camera zoom is fixed (no in-game slider) for a consistent arcade framing.
 export const OPTIMAL_ZOOM = 1.0;
 export const DEFAULT_ZOOM = OPTIMAL_ZOOM;
