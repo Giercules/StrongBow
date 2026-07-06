@@ -123,18 +123,50 @@ export class TradeUI {
   }
 
   private complete(): void {
-    // apply the swap on this side; the partner's client mirrors it
     const inv = this.hero.inventory;
-    for (const it of this.myOffer) inv.removeItem(it);
-    inv.gold = Math.max(0, inv.gold - this.myGold + this.theirGold);
-    for (const it of this.theirOffer) {
-      Content.registerItem(it);
-      inv.add(it);
+    for (const it of this.myOffer) {
+      if (inv.bag.indexOf(it) < 0) {
+        net.sendTradeCancel(this.partnerId);
+        this.teardown();
+        return;
+      }
     }
+    if (this.myGold > inv.gold || this.myGold < 0 || this.theirGold < 0) {
+      net.sendTradeCancel(this.partnerId);
+      this.teardown();
+      return;
+    }
+    const received = this.sanitizeIncoming(this.theirOffer);
+    if (received.length !== this.theirOffer.length) {
+      net.sendTradeCancel(this.partnerId);
+      this.teardown();
+      return;
+    }
+    for (const it of this.myOffer) inv.removeItem(it);
+    inv.gold = inv.gold - this.myGold + this.theirGold;
+    for (const it of received) inv.add(it);
     this.hero.refreshStats();
     audio.sfx('coin');
-    this.onComplete?.(this.myOffer.length, this.theirOffer.length);
+    this.onComplete?.(this.myOffer.length, received.length);
     this.teardown();
+  }
+
+  /** Accept partner items safely: catalog ids resolve from Content, minted gear is cloned. */
+  private sanitizeIncoming(items: ItemDefinition[]): ItemDefinition[] {
+    const out: ItemDefinition[] = [];
+    for (const raw of items) {
+      if (!raw?.id || !raw.name || !raw.slot || !raw.rarity) continue;
+      const catalog = Content.item(raw.id);
+      if (catalog && !raw.id.startsWith('mint_')) {
+        out.push(Content.cloneItem(catalog));
+        continue;
+      }
+      if (!raw.id.startsWith('mint_')) continue;
+      const copy = Content.cloneItem(raw);
+      Content.registerItem(copy);
+      out.push(copy);
+    }
+    return out;
   }
 
   private teardown(): void {

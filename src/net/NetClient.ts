@@ -70,7 +70,7 @@ export class NetClient {
   onAnnounce?: (text: string) => void;
   onKicked?: () => void;
   onCoopState?: (enemies: CoopEnemy[]) => void;
-  onCoopHit?: (netId: number, dmg: number) => void;
+  onCoopHit?: (netId: number, dmg: number, from?: string) => void;
   onCoopReward?: (xp: number, gold: number) => void;
   onCoopLoot?: (loot: CoopLoot) => void;
   onGrant?: (gold: number, itemId?: string) => void;
@@ -171,7 +171,7 @@ export class NetClient {
         this.onCoopState?.((msg.enemies as CoopEnemy[]) ?? []);
         break;
       case 'coopHit':
-        this.onCoopHit?.(Number(msg.netId), Number(msg.dmg));
+        this.onCoopHit?.(Number(msg.netId), Number(msg.dmg), typeof msg.from === 'string' ? msg.from : undefined);
         break;
       case 'coopReward':
         this.onCoopReward?.(Number(msg.xp), Number(msg.gold));

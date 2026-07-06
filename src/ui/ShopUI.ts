@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { MAX_SHOP_BUY_DISCOUNT, MAX_SHOP_SELL_BONUS, PLAY_AREA_UI_DEPTH } from '../core/constants';
+import { GAME_HEIGHT, MAX_SHOP_BUY_DISCOUNT, MAX_SHOP_SELL_BONUS, PLAY_AREA_UI_DEPTH, PLAY_AREA_WIDTH } from '../core/constants';
 import { Content } from '../content/ContentRegistry';
 import { audio } from '../systems/AudioSystem';
 import type { ShopKind, ItemDefinition, Rarity } from '../core/types';
@@ -113,9 +113,8 @@ export class ShopUI {
     this.haggled = false;
     this.haggleDiscount = 0;
     this.onClosed = onClosed;
-    const cam = this.scene.cameras.main;
     this.backdrop = this.scene.add
-      .rectangle(cam.width / 2, cam.height / 2, cam.width, cam.height, 0x05060a, 0.72)
+      .rectangle(PLAY_AREA_WIDTH / 2, GAME_HEIGHT / 2, PLAY_AREA_WIDTH, GAME_HEIGHT, 0x05060a, 0.72)
       .setScrollFactor(0)
       .setDepth(PLAY_AREA_UI_DEPTH + 5)
       .setInteractive();
@@ -205,7 +204,7 @@ export class ShopUI {
     else if (entry.id === '__mat_scrap') this.buyer.inventory.materials.scrap += 1;
     else if (entry.id === '__mat_essence') this.buyer.inventory.materials.essence += 1;
     else if (entry.id === '__mat_shard') this.buyer.inventory.materials.shard += 1;
-    else this.buyer.inventory.add({ ...def, name: entry.name ?? def.name });
+    else this.buyer.inventory.add(Content.cloneItem({ ...def, name: entry.name ?? def.name }));
     if (!entry.id.startsWith('__mat_')) this.buyer.refreshStats();
     const lvl = this.buyer.gainCharisma(1);
     this.status = `Bought ${entry.name ?? def.name}.` + (lvl ? `  Charisma ${this.buyer.charisma}!` : '');
@@ -232,9 +231,8 @@ export class ShopUI {
     this.container.removeAll(true);
     this.tip?.hide();
     this.nav.begin();
-    const cam = this.scene.cameras.main;
-    const cx = cam.width / 2;
-    const cy = cam.height / 2;
+    const cx = PLAY_AREA_WIDTH / 2;
+    const cy = GAME_HEIGHT / 2;
     const x0 = cx - PANEL_W / 2;
     const y0 = cy - PANEL_H / 2;
 

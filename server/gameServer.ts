@@ -286,10 +286,9 @@ wss.on('connection', (ws: WebSocket) => {
         const me = players.get(id);
         if (!me) break;
         const hostId = hostIdFor(me.levelId);
-        if (hostId && hostId !== id) {
-          const h = players.get(hostId);
-          if (h) send(h.ws, { t: 'coopHit', netId: num(msg.netId, 0), dmg: Math.max(0, Math.min(100000, num(msg.dmg, 0))), from: id });
-        }
+        if (!hostId || hostId === id) break; // only guests relay hits; host applies locally
+        const h = players.get(hostId);
+        if (h) send(h.ws, { t: 'coopHit', netId: num(msg.netId, 0), dmg: Math.max(0, Math.min(5000, num(msg.dmg, 0))), from: id });
         break;
       }
       case 'coopReward': {

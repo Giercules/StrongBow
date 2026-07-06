@@ -30,8 +30,6 @@ export class GuildHireUI {
   private content: Phaser.GameObjects.Container | null = null;
   private buyer: Hero | null = null;
   private playerClasses: HeroClassId[] = [];
-  private keyHandler?: (e: KeyboardEvent) => void;
-
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
   }
@@ -49,17 +47,12 @@ export class GuildHireUI {
     this.modal = framedPanel(this.scene, PANEL_W, PANEL_H, 'FIGHTERS GUILD');
     this.content = this.scene.add.container(0, 0).setDepth(this.modal.container.depth + 1);
     this.modal.add(this.content);
-    this.keyHandler = (e) => {
-      if (e.key === 'Escape') this.close();
-    };
-    this.scene.input.keyboard?.on('keydown', this.keyHandler);
+    // Esc handled centrally by the scene (closeAllOverlays → close)
     this.nav.attach(this.scene, () => this.close());
     this.rebuild();
   }
 
   close(): void {
-    if (this.keyHandler) this.scene.input.keyboard?.off('keydown', this.keyHandler);
-    this.keyHandler = undefined;
     this.nav.detach();
     this.content = null;
     this.modal?.destroy();

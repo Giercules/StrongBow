@@ -125,6 +125,11 @@ class Registry {
     return ITEMS[id] ?? this.minted[id];
   }
 
+  /** Deep-clone an item so bag instances don't share catalog/minted references. */
+  cloneItem(item: ItemDefinition): ItemDefinition {
+    return structuredClone(item);
+  }
+
   skill(id: string): SkillDef | undefined {
     return SKILLS[id];
   }

@@ -140,6 +140,13 @@ app.post('/api/restart', async (_req, res) => {
   res.json({ ok: true });
 });
 
+/** Admin proxy routes may only be called from this machine. */
+function localOnly(req: express.Request, res: express.Response, next: express.NextFunction): void {
+  const ip = req.socket.remoteAddress ?? '';
+  if (ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1') { next(); return; }
+  res.status(403).json({ ok: false, error: 'admin endpoints are local-only' });
+}
+
 // Proxy the running game server's API so the unified panel lives here on :8090.
 async function proxy(res: express.Response, path: string, init?: Parameters<typeof fetch>[1]): Promise<void> {
   try {
@@ -150,12 +157,12 @@ async function proxy(res: express.Response, path: string, init?: Parameters<type
   }
 }
 const jsonPost = (body: unknown): Parameters<typeof fetch>[1] => ({ method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-app.get('/api/server/state', (_req, res) => proxy(res, '/api/state'));
-app.get('/api/server/catalog', (_req, res) => proxy(res, '/api/catalog'));
-app.post('/api/server/config', (req, res) => proxy(res, '/api/config', jsonPost(req.body)));
-app.post('/api/server/kick', (req, res) => proxy(res, '/api/kick', jsonPost(req.body)));
-app.post('/api/server/broadcast', (req, res) => proxy(res, '/api/broadcast', jsonPost(req.body)));
-app.post('/api/server/grant', (req, res) => proxy(res, '/api/grant', jsonPost(req.body)));
+app.get('/api/server/state', localOnly, (_req, res) => proxy(res, '/api/state'));
+app.get('/api/server/catalog', localOnly, (_req, res) => proxy(res, '/api/catalog'));
+app.post('/api/server/config', localOnly, (req, res) => proxy(res, '/api/config', jsonPost(req.body)));
+app.post('/api/server/kick', localOnly, (req, res) => proxy(res, '/api/kick', jsonPost(req.body)));
+app.post('/api/server/broadcast', localOnly, (req, res) => proxy(res, '/api/broadcast', jsonPost(req.body)));
+app.post('/api/server/grant', localOnly, (req, res) => proxy(res, '/api/grant', jsonPost(req.body)));
 
 app.get('/', (_req, res) => {
   try {

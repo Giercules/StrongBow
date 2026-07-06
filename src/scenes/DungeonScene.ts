@@ -476,6 +476,7 @@ export class DungeonScene extends Phaser.Scene {
 
   constructor() {
     super('DungeonScene');
+    this.events.on(Phaser.Scenes.Events.SHUTDOWN, this.onShutdown, this);
   }
 
   create(): void {
@@ -745,7 +746,6 @@ export class DungeonScene extends Phaser.Scene {
       this.grokProvider = provider === 'xai' ? 'Grok' : provider === 'fallback' ? 'Local DM' : provider.charAt(0).toUpperCase() + provider.slice(1);
       this.setGrokStatus(connected ? 'connected' : 'offline');
     });
-    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.onShutdown());
   }
 
   private resetState(): void {
@@ -4540,13 +4540,13 @@ export class DungeonScene extends Phaser.Scene {
     }
   }
 
-  private onMonsterKilled(killer: Hero, m: Monster): void {
+  private onMonsterKilled(killer: Hero, m: Monster, remoteKiller = false): void {
     // leave remains behind for the Necromancer's Corpse Explosion / Army of the Dead
     if (!m.isBoss) this.addCorpse(m.x, m.y);
     // ---- Class Ability Expansion: on-kill sigils (owner = summoner for pets) ----
     const now = this.time.now;
     const owner = (killer as Companion).summoner ?? killer;
-    if (owner.alive) {
+    if (!remoteKiller && owner.alive) {
       if (owner.classId === 'arcanist' && m.isBurning(now) && this.heroSig(owner).has('arc_sig_meltdown')) {
         this.spawnBurst(m.x, m.y, 0xff7a2a, 2.0);
         this.aoeHit(owner, m.x, m.y, 70, Math.round(owner.magicDamage() * 0.9), now, 'burn', 40, 3000, Math.round(owner.magicDamage() * 0.15));
@@ -4558,9 +4558,9 @@ export class DungeonScene extends Phaser.Scene {
     }
     const cheats = settings.get('gameplay');
     const mult = cheats.xpMultiplier;
-    // Heartroot Plate: every kill mends the slayer
-    if (killer.alive && killer.hasUniquePower('heartroot')) killer.heal(Math.max(2, Math.round(killer.stats.maxHealth * 0.04)));
-    const goldMul = killer.hasUniquePower('midas') ? 1.4 : 1; // Midas Grips
+    // Heartroot Plate: every kill mends the slayer (local killer only — guests aren't simulated here)
+    if (!remoteKiller && killer.alive && killer.hasUniquePower('heartroot')) killer.heal(Math.max(2, Math.round(killer.stats.maxHealth * 0.04)));
+    const goldMul = !remoteKiller && killer.hasUniquePower('midas') ? 1.4 : 1; // Midas Grips
     const ls = this.lootScale();
     const coop = MULTIPLAYER_ENABLED && net.connected && net.partySize > 1 && !this.level.town && net.isHost;
     if (coop) {
@@ -4570,7 +4570,7 @@ export class DungeonScene extends Phaser.Scene {
       const gold = cheats.goldMult > 0 ? Math.max(1, Math.round((2 + m.def.xp * 0.4) * cheats.goldMult * bonus * goldMul * ls.goldMult)) : 0;
       this.coopApplyReward(xp, gold);   // host's own party
       net.sendCoopReward(xp, gold);     // guests apply the same
-      killer.addScore(m.def.xp);
+      if (!remoteKiller) killer.addScore(m.def.xp);
     } else {
       killer.gainXP(Math.round(m.def.xp * mult));
       killer.addScore(m.def.xp);
@@ -4593,7 +4593,7 @@ export class DungeonScene extends Phaser.Scene {
       }
     }
     // Item + scroll drops roll host-side / solo (cross-client item instancing is a follow-up).
-    const rollLuck = (killer.stats.luck ?? 0) + ls.luckBonus;
+    const rollLuck = (remoteKiller ? this.bestLuck() : (killer.stats.luck ?? 0)) + ls.luckBonus;
     if (m.isElite) {
       if (Math.random() < eliteDropChance(rollLuck) * cheats.lootMult * ls.dropMult) this.dropLoot(m.x, m.y, 'runed');
     } else if (!m.isBoss && Math.random() < monsterDropChance(rollLuck) * cheats.lootMult * ls.dropMult) {
@@ -5399,7 +5399,7 @@ export class DungeonScene extends Phaser.Scene {
     net.onConnect = (cfg) =>
       this.showBark(cfg.motd ? `Connected to server — ${cfg.motd}` : 'Connected to the game server.', 3200, 'system');
     net.onCoopState = (enemies) => this.coopApplyState(enemies);
-    net.onCoopHit = (netId, dmg) => this.coopApplyHit(netId, dmg);
+    net.onCoopHit = (netId, dmg, from) => this.coopApplyHit(netId, dmg, from);
     net.onCoopReward = (xp, gold) => this.coopApplyReward(xp, gold);
     net.onCoopLoot = (loot) => this.coopApplyLoot(loot);
     // ---- player-to-player trading ----
@@ -5551,13 +5551,16 @@ export class DungeonScene extends Phaser.Scene {
   }
 
   /** Host: apply a guest's reported hit to the authoritative enemy. */
-  private coopApplyHit(netId: number, dmg: number): void {
+  private coopApplyHit(netId: number, dmg: number, from?: string): void {
     if (!net.isHost) return;
     const m = this.monsters.find((mm) => mm.netId === netId && mm.alive);
     if (!m) return;
     const died = m.takeDamage(dmg, this.time.now);
     this.floatDamage(m.x, m.y, dmg, false);
-    if (died) this.onMonsterKilled(this.players[0], m);
+    if (died) {
+      const remote = !!from && from !== net.id;
+      this.onMonsterKilled(this.players[0], m, remote);
+    }
   }
 
   private updateTown(time: number, delta: number): void {
@@ -7111,7 +7114,8 @@ export class DungeonScene extends Phaser.Scene {
   }
 
   private onShutdown(): void {
-    // Detach net callbacks FIRST: they capture this scene, and a server message
+    this.closeAllOverlays();
+    // Detach net callbacks: they capture this scene, and a server message
     // arriving after shutdown would otherwise touch destroyed game objects.
     net.clearCallbacks();
     this.wisp?.destroy();

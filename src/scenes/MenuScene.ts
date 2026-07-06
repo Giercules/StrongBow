@@ -236,7 +236,7 @@ export class MenuScene extends Phaser.Scene {
     this.input.keyboard?.on('keydown-ONE', () => this.startGame(false));
     this.input.keyboard?.on('keydown-H', () => manual.toggle());
     this.input.keyboard?.on('keydown-L', () => this.showDisabled('Level Select is disabled for now.'));
-    this.input.keyboard?.on('keydown-F', () => this.goScene('ForgeScene'));
+    this.input.keyboard?.on('keydown-F', () => this.showDisabled('Forge a Level is disabled for now.'));
     // arrow keys + Enter drive the same focus highlight as the controller
     this.input.keyboard?.on('keydown-UP', () => this.focus?.move(0, -1));
     this.input.keyboard?.on('keydown-DOWN', () => this.focus?.move(0, 1));

@@ -12,10 +12,21 @@ try {
 }
 
 const app = express();
-app.use(cors());
-app.use(express.json({ limit: '32kb' }));
-
 const PORT = Number(process.env.PORT) || Number(process.env.AI_PROXY_PORT) || 3847;
+const HOST = process.env.AI_PROXY_HOST || '127.0.0.1';
+const GAME_ORIGINS = new Set([
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+  'http://localhost:4173',
+  'http://127.0.0.1:4173',
+]);
+app.use(cors({
+  origin(origin, cb) {
+    if (!origin || GAME_ORIGINS.has(origin)) cb(null, true);
+    else cb(null, false);
+  },
+}));
+app.use(express.json({ limit: '32kb' }));
 
 // Guardrails — this endpoint spends real API credits, so clamp everything a
 // caller controls and rate-limit per IP. Overruns degrade to canned narration.
@@ -148,6 +159,6 @@ app.post('/api/ai/complete', async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`StrongBow AI proxy listening on http://localhost:${PORT}`);
+app.listen(PORT, HOST, () => {
+  console.log(`StrongBow AI proxy listening on http://${HOST}:${PORT}`);
 });
