@@ -51,7 +51,11 @@ export const HP_PER_LEVEL = 12;
 export const MP_PER_LEVEL = 6;
 
 // Party support tuning
-export const GROUP_XP_SHARE = 0.35; // fraction of a kill's XP shared with the rest of the party
+export const GROUP_XP_SHARE = 0.22; // fraction of a kill's XP shared with each other ally
+export const GROUP_XP_SHARE_DECAY = 0.05; // each extra ally beyond the killer trims share further
+export const MAX_SHOP_BUY_DISCOUNT = 0.45;
+export const MAX_SHOP_SELL_BONUS = 0.45;
+export const PARTY_SUMMON_CAP = 8; // party-wide cap on active summons/familiars
 export const AURA_RADIUS = 120; // px radius for class group buffs
 export const WARDEN_HEAL_INTERVAL = 1000; // ms between Warden healing pulses
 // If a companion ends up farther than this from the party leader (stuck behind a
@@ -63,14 +67,16 @@ export const PLAY_AREA_UI_DEPTH = 9600;
 
 export const HUD_REGISTRY_KEY = 'hudData';
 export const LOG_REGISTRY_KEY = 'logData';
+/** Default altar count for moderate — kept in sync with DIFFICULTY.moderate. */
 export const GENERATORS_TO_DESTROY = 3;
 
 // Difficulty presets: how many generators the exit demands, and an enemy
 // density multiplier layered on top of the monster-count cheat.
+// requiredGenerators < 0 means "most altars" (see DungeonScene.requiredGenerators).
 export const DIFFICULTY = {
   easy: { requiredGenerators: 2, enemyMult: 0.7 },
-  moderate: { requiredGenerators: 3, enemyMult: 1 },
-  hard: { requiredGenerators: 99, enemyMult: 1.4 },
+  moderate: { requiredGenerators: GENERATORS_TO_DESTROY, enemyMult: 1 },
+  hard: { requiredGenerators: -1, enemyMult: 1.35 },
 } as const;
 
 export enum Tile {

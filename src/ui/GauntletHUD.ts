@@ -6,8 +6,12 @@ import type { HudRegistryData, HudHeroSlot, HudPartyGroup } from '../core/types'
 const W = HUD_PANEL_WIDTH;
 const PAD = 10;
 const PARTY_TOP = 50;
-const PARTY_MAX_H = 268;
-const CTRL_TOP = PARTY_TOP + PARTY_MAX_H + 12;
+const PARTY_MAX_H = 258;
+const GEN_TOP = PARTY_TOP + PARTY_MAX_H + 10;
+const GEN_BOX = 5;
+const GEN_GAP = 8;
+const CTRL_TOP = GEN_TOP + 34;
+const CTRL_H = 96;
 const MAIN_H_BASE = 52;
 const PET_H_BASE = 17;
 const GROUP_GAP = 3;
@@ -85,9 +89,9 @@ export class GauntletHUD {
     g.lineStyle(1, hexNum(C.hudBorderDk), 1);
     g.lineBetween(PAD, 46, W - PAD, 46);
     g.fillStyle(0x05060a, 0.6);
-    g.fillRoundedRect(PAD, CTRL_TOP, W - PAD * 2, 110, 4);
+    g.fillRoundedRect(PAD, CTRL_TOP, W - PAD * 2, CTRL_H, 4);
     g.lineStyle(1, hexNum(C.hudBorderDk), 0.7);
-    g.strokeRoundedRect(PAD, CTRL_TOP, W - PAD * 2, 110, 4);
+    g.strokeRoundedRect(PAD, CTRL_TOP, W - PAD * 2, CTRL_H, 4);
   }
 
   private mkText(x: number, y: number, size: number, color: string, opts: Partial<Phaser.Types.GameObjects.Text.TextStyle> = {}): Phaser.GameObjects.Text {
@@ -100,17 +104,17 @@ export class GauntletHUD {
     this.levelText = this.mkText(W / 2, 32, 10, C.inkDim).setOrigin(0.5, 0);
     this.timerText = this.mkText(W - PAD, 12, 10, C.ink).setOrigin(1, 0);
 
-    this.genText = this.mkText(PAD, CTRL_TOP - 22, 12, C.ink, { fontStyle: 'bold' });
-    this.bossText = this.mkText(PAD, CTRL_TOP - 6, 11, C.hpLow, { fontStyle: 'bold' });
+    this.genText = this.mkText(PAD, GEN_TOP, 11, C.ink, { fontStyle: 'bold' });
+    this.bossText = this.mkText(PAD, GEN_TOP + 14, 10, C.hpLow, { fontStyle: 'bold' });
 
     this.ctrlTitle = this.mkText(PAD + 6, CTRL_TOP + 4, 9, C.hudBorder, { fontStyle: 'bold' });
     this.ctrlTitle.setText('CONTROLS');
     this.ctrlText = this.mkText(PAD + 6, CTRL_TOP + 17, 9.5, C.inkDim, { lineSpacing: 2 });
 
-    this.questLabel = this.mkText(PAD, CTRL_TOP + 112, 8.5, C.hudBorder, { fontStyle: 'bold' });
+    this.questLabel = this.mkText(PAD, CTRL_TOP + CTRL_H + 4, 8.5, C.hudBorder, { fontStyle: 'bold' });
     this.questLabel.setText('OBJECTIVE');
-    this.questText = this.mkText(PAD, CTRL_TOP + 124, 9.5, '#cdb88a', { wordWrap: { width: W - PAD * 2 }, lineSpacing: 1, fontStyle: 'italic' });
-    this.questBeatText = this.mkText(PAD, CTRL_TOP + 124, 9, '#b79bff', { wordWrap: { width: W - PAD * 2 }, lineSpacing: 1, fontStyle: 'italic' });
+    this.questText = this.mkText(PAD, CTRL_TOP + CTRL_H + 16, 9.5, '#cdb88a', { wordWrap: { width: W - PAD * 2 }, lineSpacing: 1, fontStyle: 'italic' });
+    this.questBeatText = this.mkText(PAD, CTRL_TOP + CTRL_H + 16, 9, '#b79bff', { wordWrap: { width: W - PAD * 2 }, lineSpacing: 1, fontStyle: 'italic' });
   }
 
   private ensureMainRow(i: number): MainRow {
@@ -185,12 +189,16 @@ export class GauntletHUD {
     }
 
     this.genText.setText(`GENERATORS ${data.generatorsTotal - data.generatorsLeft}/${data.generatorsTotal}`);
+    const genBoxY = GEN_TOP + 11;
+    const genBoxX0 = PAD + 108;
     for (let k = 0; k < data.generatorsTotal; k++) {
-      const px = PAD + 124 + (k % 8) * 11;
-      const py = CTRL_TOP - 18;
+      const col = k % 8;
+      const row = Math.floor(k / 8);
+      const px = genBoxX0 + col * (GEN_BOX + GEN_GAP);
+      const py = genBoxY + row * (GEN_BOX + GEN_GAP);
       const destroyed = k < data.generatorsTotal - data.generatorsLeft;
       g.fillStyle(destroyed ? hexNum(C.hpFull) : hexNum(C.inkDim), destroyed ? 1 : 0.35);
-      g.fillRect(px, py, 7, 7);
+      g.fillRect(px, py, GEN_BOX, GEN_BOX);
     }
     this.bossText.setText(data.bossAlive ? 'WARDEN ALIVE' : data.generatorsLeft <= 0 ? 'EXIT OPEN' : '');
 
@@ -198,7 +206,7 @@ export class GauntletHUD {
     this.questText.setText(data.quest || '');
     if (data.questBeat) {
       this.questBeatText.setText(`✻ ${data.questBeat}`).setVisible(true);
-      const beatY = CTRL_TOP + 124 + this.questText.height + 4;
+      const beatY = CTRL_TOP + CTRL_H + 16 + this.questText.height + 4;
       this.questBeatText.setY(beatY);
     } else {
       this.questBeatText.setText('').setVisible(false);

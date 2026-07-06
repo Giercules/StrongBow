@@ -39,7 +39,7 @@ export class QuestBoardUI {
     this.onClosed = hooks.onClosed;
     this.onAccepted = hooks.onAccepted;
     this.onTurnedIn = hooks.onTurnedIn;
-    questLog.refreshOffers(unlockedRealms);
+    questLog.refreshOffers(unlockedRealms, true);
     // Esc is handled centrally by the scene (closeAllOverlays) — a local Esc
     // handler would close first and let the same press open the quit prompt.
     this.nav.attach(this.scene, () => this.close());

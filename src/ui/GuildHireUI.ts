@@ -8,6 +8,8 @@ import { ALL_CLASSES, HEROES } from '../data/heroes';
 import type { Hero } from '../entities/Hero';
 import type { HeroClassId } from '../core/types';
 import { MenuNav } from './MenuNav';
+import { questLog } from '../systems/QuestSystem';
+import type { SaveAlly } from '../systems/SaveSystem';
 
 const PANEL_W = 470;
 const PANEL_H = 430;
@@ -65,8 +67,20 @@ export class GuildHireUI {
     this.buyer = null;
   }
 
-  private cost(): number {
-    return 80 + 30 * (this.buyer?.level ?? 1);
+  private veterans(): SaveAlly[] {
+    return (this.scene.registry.get('companionVeterans') as SaveAlly[] | undefined) ?? [];
+  }
+
+  private isVeteran(cls: HeroClassId): boolean {
+    return this.veterans().some((v) => v.classId === cls && !v.isPlayer);
+  }
+
+  private cost(cls?: HeroClassId): number {
+    const base = 50 + 20 * (this.buyer?.level ?? 1);
+    const repMul = 1 - questLog.repDiscount() * 0.5;
+    let c = Math.round(base * repMul);
+    if (cls && this.isVeteran(cls)) c = Math.round(c * 0.55);
+    return c;
   }
 
   private hired(): HeroClassId[] {
@@ -113,10 +127,10 @@ export class GuildHireUI {
     const buyer = this.buyer;
     const x0 = this.modal!.cx - PANEL_W / 2;
     const y0 = this.modal!.cy - PANEL_H / 2;
-    const cost = this.cost();
+    const sampleCost = this.cost();
 
     this.text(this.modal!.cx, y0 + 38, `Party gold: ${buyer.inventory.gold}`, C.coinHi, 12, true, 0.5);
-    this.text(this.modal!.cx, y0 + 56, `Sellswords march with you for one descent — ${cost}g each. Re-hire after each run.`, C.inkDim, 9, false, 0.5);
+    this.text(this.modal!.cx, y0 + 56, `Sellswords march for one descent — from ${sampleCost}g each. Veterans re-enlist cheaper.`, C.inkDim, 9, false, 0.5);
 
     const hired = this.hired();
     const pool = ALL_CLASSES.filter((c) => !this.playerClasses.includes(c));
@@ -126,7 +140,9 @@ export class GuildHireUI {
       const color = CLASS_HUD_COLORS[cls] ?? 0xffffff;
       const yy = y0 + 74 + i * ROW_PITCH;
       const isHired = hired.includes(cls);
+      const veteran = this.isVeteran(cls);
       const left = x0 + BOX_PAD_X;
+      const hireCost = this.cost(cls);
 
       const box = this.scene.add.graphics();
       box.fillStyle(0x000000, 0.32);
@@ -139,14 +155,16 @@ export class GuildHireUI {
       const btnX = left + boxW - HIRE_BTN_INSET;
 
       this.text(left + DESC_PAD_L, yy + 6, def.name, hexStr(color), 12, true);
-      this.text(left + DESC_PAD_L, yy + 24, `${def.role} — ${def.signature}`, C.inkDim, 8.5, false, 0, descMaxW);
+      const vet = this.veterans().find((v) => v.classId === cls);
+      const vetTag = veteran && vet ? `  L${vet.level} veteran` : '';
+      this.text(left + DESC_PAD_L, yy + 24, `${def.role} — ${def.signature}${vetTag}`, C.inkDim, 8.5, false, 0, descMaxW);
 
       if (isHired) {
         this.text(left + boxW - 14, yy + BOX_H / 2 - 6, 'HIRED', '#7fe0a0', 11, true, 1);
       } else {
-        const afford = buyer.inventory.gold >= cost;
+        const afford = buyer.inventory.gold >= hireCost;
         this.content!.add(
-          makeButton(this.scene, btnX, yy + BOX_H / 2, HIRE_BTN_W, 22, afford ? `HIRE ${cost}g` : 'NO GOLD', () => this.hire(cls), {
+          makeButton(this.scene, btnX, yy + BOX_H / 2, HIRE_BTN_W, 22, afford ? `HIRE ${hireCost}g` : 'NO GOLD', () => this.hire(cls), {
             fill: afford ? C.ivy : C.hudPanel2,
             size: 9,
           })
@@ -160,7 +178,7 @@ export class GuildHireUI {
 
   private hire(cls: HeroClassId): void {
     if (!this.buyer) return;
-    const cost = this.cost();
+    const cost = this.cost(cls);
     if (this.buyer.inventory.gold < cost) {
       audio.sfx('ui_move');
       return;

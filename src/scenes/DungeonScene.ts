@@ -25,6 +25,8 @@ import {
   AURA_RADIUS,
   WARDEN_HEAL_INTERVAL,
   GROUP_XP_SHARE,
+  GROUP_XP_SHARE_DECAY,
+  PARTY_SUMMON_CAP,
   COMPANION_TELEPORT_DISTANCE,
   COMPANION_TELEPORT_MS,
 } from '../core/constants';
@@ -101,6 +103,16 @@ const SKELETON_INFO: Record<SkeletonType, { cls: HeroClassId; name: string; shee
 const SKELETON_ORDER: SkeletonType[] = ['tank', 'archer', 'mage', 'thief'];
 type SummonChoice = SkeletonType | 'beast';
 const BEAST_LEVEL = 8; // necromancer can bind monsters from this level up
+
+const COMPANION_STARTER: Partial<Record<HeroClassId, string>> = {
+  vanguard: 'iron_sword',
+  thief: 'hunters_bow',
+  arcanist: 'oak_staff',
+  warden: 'oak_shield',
+  necromancer: 'amulet_of_focus',
+  bard: 'leather_jerkin',
+  druid: 'oak_staff',
+};
 
 // --- Arcanist familiars (the "hold ability" radial; tap stays Meteor) --------
 type ArcaneType = 'ember' | 'void' | 'homunculus' | 'rootling';
@@ -473,6 +485,9 @@ export class DungeonScene extends Phaser.Scene {
     const levelId = (save?.levelId as string) ?? (this.registry.get('levelId') as string) ?? 'sunken_crypt';
     this.level = Content.getLevel(levelId);
     if (this.level.id === 'town' && this.registry.get('hireSpent')) {
+      const carry = this.registry.get('carryParty') as SaveAlly[] | undefined;
+      const veterans = carry?.filter((a) => !a.isPlayer) ?? [];
+      if (veterans.length) this.registry.set('companionVeterans', veterans);
       this.registry.set('hiredAllies', []);
       this.registry.remove('hireSpent');
     }
@@ -567,7 +582,7 @@ export class DungeonScene extends Phaser.Scene {
     if (this.level.town && !carry && !save) {
       // fresh campaign: each hero starts with 100 gold + a health & mana potion
       for (const p of this.players) {
-        p.inventory.gold = 100;
+        p.inventory.gold = 150;
         const hp = Content.item('health_potion');
         const mp = Content.item('mana_potion');
         if (hp) p.inventory.add(hp);
@@ -1579,7 +1594,7 @@ export class DungeonScene extends Phaser.Scene {
     const gen = new Generator(this, c.x, c.y, enemyId as never, interval, maxAlive, hp);
     gen.onSpawn = (g) => {
       const m = this.makeMonster(g.x + Phaser.Math.Between(-8, 8), g.y + Phaser.Math.Between(-4, 10), g.enemyId as EnemyId);
-      if (Math.random() < 0.09) this.eliteify(m);
+      if (Math.random() < 0.07) this.eliteify(m);
       return m;
     };
     gen.onDestroyed = () => {
@@ -1668,11 +1683,17 @@ export class DungeonScene extends Phaser.Scene {
     const c = this.tileCenter(this.startTile.x, this.startTile.y);
     pool.forEach((cls, i) => {
       const comp = new Companion(this, c.x + Phaser.Math.Between(-20, 20), c.y + 16 + i * 6, cls);
+      const starterId = COMPANION_STARTER[cls];
+      const starter = starterId ? Content.item(starterId) : null;
+      if (starter) comp.inventory.equipped[migrateEquipKey(starter.slot)] = starter;
+      comp.recompute();
       this.companions.push(comp);
       this.allyGroup.add(comp);
       this.shadows.add(comp, 3);
     });
     this.allies = [...this.players, ...this.companions];
+    const veterans = this.registry.get('companionVeterans') as SaveAlly[] | undefined;
+    if (veterans?.length) this.applyPartyCarry(veterans);
     const sl = settings.get('gameplay').startLevel;
     if (sl > 1) for (const a of this.allies) a.setStartLevel(sl);
   }
@@ -2375,7 +2396,9 @@ export class DungeonScene extends Phaser.Scene {
       case 'necromancer': {
         if (this.level.town) return false; // no raising the dead in Hearthwatch
         const free = settings.get('gameplay').infiniteMana;
-        return this.ownedSummons(comp) < comp.maxSummons() && (free || comp.mana >= 20);
+        const cap = comp.isPlayer ? comp.maxSummons() : Math.max(1, Math.floor(comp.maxSummons() / 2));
+        const manaNeed = comp.isPlayer ? 20 : 28;
+        return this.ownedSummons(comp) < cap && (free || comp.mana >= manaNeed);
       }
       case 'warden': {
         const allyNeed = this.allies.some((a) =>
@@ -2420,6 +2443,14 @@ export class DungeonScene extends Phaser.Scene {
     return this.summons.filter((s) => s.active && s.alive && s.summoner === owner).length;
   }
 
+  private totalSummons(): number {
+    return this.summons.filter((s) => s.active && s.alive).length;
+  }
+
+  private atSummonCap(): boolean {
+    return this.totalSummons() >= PARTY_SUMMON_CAP;
+  }
+
   /** Arcanist familiar cap: 1, growing to 3 with level, + summon affixes. */
   private arcaneCap(mage: Hero): number {
     return Math.min(3, 1 + Math.floor(mage.level / 4)) + (mage.stats.summonBonus ?? 0);
@@ -2429,7 +2460,9 @@ export class DungeonScene extends Phaser.Scene {
   private companionWantsFamiliar(comp: Companion): boolean {
     if (this.level.town) return false;
     const free = settings.get('gameplay').infiniteMana;
-    return this.ownedSummons(comp) < this.arcaneCap(comp) && (free || comp.mana >= ARCANE_COST);
+    const cap = comp.isPlayer ? this.arcaneCap(comp) : Math.max(1, Math.floor(this.arcaneCap(comp) / 2));
+    const manaNeed = comp.isPlayer ? ARCANE_COST : ARCANE_COST + 7;
+    return this.ownedSummons(comp) < cap && (free || comp.mana >= manaNeed);
   }
 
   private summonSkeleton(
@@ -2441,6 +2474,10 @@ export class DungeonScene extends Phaser.Scene {
     const time = this.time.now;
     this.summons = this.summons.filter((s) => s.active && s.alive);
     const cap = necro.maxSummons();
+    if (!opts.force && this.atSummonCap()) {
+      if (!quiet) this.showBark(`Too many servants already serve the party (max ${PARTY_SUMMON_CAP}).`, 2400, 'system');
+      return;
+    }
     if (!opts.force && this.ownedSummons(necro) >= cap) {
       if (!quiet) this.showBark(`Your servants already crowd the dark (max ${cap}).`, 2400, 'system');
       return;
@@ -2598,6 +2635,10 @@ export class DungeonScene extends Phaser.Scene {
   private summonMonster(necro: Hero): void {
     const time = this.time.now;
     this.summons = this.summons.filter((s) => s.active && s.alive);
+    if (this.atSummonCap()) {
+      this.showBark(`Too many servants already serve the party (max ${PARTY_SUMMON_CAP}).`, 2400, 'system');
+      return;
+    }
     if (this.ownedSummons(necro) >= necro.maxSummons()) {
       this.showBark(`Your servants already crowd the dark (max ${necro.maxSummons()}).`, 2400, 'system');
       return;
@@ -2616,9 +2657,13 @@ export class DungeonScene extends Phaser.Scene {
     sk.makeSkeleton(`monster-${id}-sheet`, `${id}-walk`, `${id}-attack`);
     sk.summoner = necro;
     sk.displayName = def.name;
-    sk.stats.maxHealth = def.health;
-    sk.health = def.health;
-    sk.stats.damage = def.damage;
+    const lvlMult = 1 + necro.level * 0.08;
+    const depth = Math.max(0, Content.levelOrder.indexOf(this.level.id));
+    const realmMult = depth >= 0 ? computeRealmMonsterScale(depth, this.partyLevel(), this.partySize(), false).hpMult : 1;
+    const bindMult = lvlMult * Math.min(realmMult, 2.4);
+    sk.stats.maxHealth = Math.round(def.health * bindMult);
+    sk.health = sk.stats.maxHealth;
+    sk.stats.damage = Math.round(def.damage * bindMult);
     sk.stats.speed = def.speed;
     sk.lifeStart = time;
     sk.expireAt = 0; // bound beasts also serve until slain or the level is left
@@ -2641,6 +2686,10 @@ export class DungeonScene extends Phaser.Scene {
     const time = this.time.now;
     this.summons = this.summons.filter((s) => s.active && s.alive);
     const cap = this.arcaneCap(mage);
+    if (this.atSummonCap()) {
+      if (!quiet) this.showBark(`Too many servants already serve the party (max ${PARTY_SUMMON_CAP}).`, 2400, 'system');
+      return;
+    }
     if (this.ownedSummons(mage) >= cap) {
       if (!quiet) this.showBark(`Your familiars already crowd the air (max ${cap}).`, 2400, 'system');
       return;
@@ -2738,7 +2787,8 @@ export class DungeonScene extends Phaser.Scene {
       this.radialNodes.push({ t: id, dx: ix, dy: iy, a0, a1, g, icon, txt });
     }
 
-    const beastOk = mode === 'necro' && (this.players[0]?.level ?? 1) >= BEAST_LEVEL;
+    const necroLead = this.players.find((p) => p.classId === 'necromancer' && p.alive) ?? this.players[0];
+    const beastOk = mode === 'necro' && (necroLead?.level ?? 1) >= BEAST_LEVEL;
     this.radialCenterId = beastOk ? 'beast' : null;
     const hub = this.add.graphics();
     cont.add(hub);
@@ -3993,10 +4043,10 @@ export class DungeonScene extends Phaser.Scene {
     const gold = Phaser.Math.Between(5, 14) + lvl * Phaser.Math.Between(3, 8);
     const items: ItemDefinition[] = [];
     const roll = Math.random();
-    const gearChance = Math.min(0.7, 0.16 + lvl * 0.06);
+    const gearChance = Math.min(0.52, 0.14 + lvl * 0.05);
     if (roll < gearChance) {
       const grades: Grade[] = ['cracked', 'honed', 'runed', 'ascendant', 'godforged'];
-      const cap = Math.min(grades.length - 1, Math.floor(lvl / 2)); // Lv8+ can reach Godforged
+      const cap = Math.min(grades.length - 2, Math.floor(lvl / 3)); // caps at Ascendant
       const grade = grades[Phaser.Math.Between(0, cap)];
       const theme = this.level.theme ?? 'crypt';
       const bases = THEME_BASES[theme] ?? THEME_BASES.crypt;
@@ -4326,12 +4376,13 @@ export class DungeonScene extends Phaser.Scene {
 
   /** Gold, drop-rate and grade-roll bonuses for the current map and party. */
   private lootScale(): LootScale {
+    const size = this.partySize();
     if (this.level.arena) {
-      return computeArenaLootScale(this.level.arenaLevel ?? this.partyLevel());
+      return computeArenaLootScale(this.level.arenaLevel ?? this.partyLevel(), size);
     }
     const depth = Content.levelOrder.indexOf(this.level.id);
-    if (depth >= 0) return computeRealmLootScale(depth, this.partyLevel());
-    return computeArenaLootScale(this.partyLevel());
+    if (depth >= 0) return computeRealmLootScale(depth, this.partyLevel(), size);
+    return computeArenaLootScale(this.partyLevel(), size);
   }
 
   /** Average level of player-controlled heroes (falls back to start-level cheat). */
@@ -4344,12 +4395,18 @@ export class DungeonScene extends Phaser.Scene {
     return sl > 1 ? sl : 1;
   }
 
+  /** Heroes marching together (players + hired allies; summons don't count). */
+  private partySize(): number {
+    const roster = (this.allies.length ? this.allies : this.players).filter((a) => !(a as Companion).isSummon);
+    return Math.max(1, roster.length);
+  }
+
   /** Apply realm-depth and party-level scaling to one foe. */
   private applyMonsterScaling(m: Monster): void {
     if (m.scaleApplied || this.level.town || this.level.interior) return;
     if (this.level.arena) {
       const lvl = this.level.arenaLevel ?? this.partyLevel();
-      const scale = computeArenaMonsterScale(lvl);
+      const scale = computeArenaMonsterScale(lvl, this.partySize());
       m.maxHealth = Math.round(m.maxHealth * scale.hpMult);
       m.health = m.maxHealth;
       m.dmgMult *= scale.dmgMult;
@@ -4359,7 +4416,7 @@ export class DungeonScene extends Phaser.Scene {
     }
     const depth = Content.levelOrder.indexOf(this.level.id);
     if (depth < 0) return;
-    const scale = computeRealmMonsterScale(depth, this.partyLevel(), m.isBoss);
+    const scale = computeRealmMonsterScale(depth, this.partyLevel(), this.partySize(), m.isBoss);
     m.maxHealth = Math.round(m.maxHealth * scale.hpMult);
     m.health = m.maxHealth;
     m.dmgMult *= scale.dmgMult;
@@ -4373,7 +4430,7 @@ export class DungeonScene extends Phaser.Scene {
     for (const m of this.monsters) this.applyMonsterScaling(m);
     const depth = Content.levelOrder.indexOf(this.level.id);
     if (depth < 0 || this.level.arena) return;
-    const scale = computeRealmMonsterScale(depth, this.partyLevel(), false);
+    const scale = computeRealmMonsterScale(depth, this.partyLevel(), this.partySize(), false);
     for (const g of this.generators) {
       g.maxHealth = Math.round(g.maxHealth * scale.hpMult);
       g.health = g.maxHealth;
@@ -4517,15 +4574,22 @@ export class DungeonScene extends Phaser.Scene {
     } else {
       killer.gainXP(Math.round(m.def.xp * mult));
       killer.addScore(m.def.xp);
-      const share = Math.round(m.def.xp * GROUP_XP_SHARE * mult);
+      const roster = this.allies.filter((a) => !(a as Companion).isSummon);
+      const others = roster.filter((a) => a !== killer && a.alive);
+      const shareMult = GROUP_XP_SHARE * Math.max(0.35, 1 - Math.max(0, others.length - 1) * GROUP_XP_SHARE_DECAY);
+      const share = Math.round(m.def.xp * shareMult * mult);
       if (share > 0) {
-        for (const a of this.allies) {
-          if (a !== killer && a.alive) a.gainXP(share);
-        }
+        for (const a of others) a.gainXP(share);
       }
       // gold coin drop (solo path; co-op gold is shared directly above)
-      if (cheats.goldMult > 0 && !m.isBoss && Math.random() < Math.min(0.72, 0.45 * ls.dropMult)) {
-        this.spawnCoin(m.x, m.y, Math.max(1, Math.round((2 + m.def.xp * 0.4) * cheats.goldMult * goldMul * ls.goldMult)));
+      if (cheats.goldMult > 0) {
+        const dropChance = m.isBoss ? 1 : Math.min(0.72, 0.45 * ls.dropMult);
+        if (Math.random() < dropChance) {
+          const total = Math.max(1, Math.round((2 + m.def.xp * (m.isBoss ? 0.5 : 0.4)) * cheats.goldMult * goldMul * ls.goldMult));
+          const alive = this.players.filter((p) => p.alive);
+          const each = Math.max(1, Math.floor(total / Math.max(1, alive.length)));
+          alive.forEach((p, i) => this.spawnCoin(m.x + (i - (alive.length - 1) / 2) * 6, m.y + (m.isBoss ? 6 : 0), each));
+        }
       }
     }
     // Item + scroll drops roll host-side / solo (cross-client item instancing is a follow-up).
@@ -4573,11 +4637,17 @@ export class DungeonScene extends Phaser.Scene {
   /** Apply a shared co-op reward to the local human player(s), with a popup. */
   private coopApplyReward(xp: number, gold: number): void {
     for (const a of this.players) if (a?.alive) a.gainXP(xp);
-    const p0 = this.players[0];
-    if (p0) {
-      if (gold > 0) p0.inventory.gold += gold;
-      this.floatPickup(p0.x, p0.y - 22, gold > 0 ? `+${xp} XP  +${gold}g` : `+${xp} XP`, '#9affc0');
+    const receivers = this.players.filter((p) => p?.alive);
+    if (receivers.length === 0) return;
+    if (gold > 0) {
+      const each = Math.floor(gold / receivers.length);
+      const rem = gold - each * receivers.length;
+      receivers.forEach((p, i) => {
+        p.inventory.gold += each + (i === 0 ? rem : 0);
+      });
     }
+    const anchor = receivers[0];
+    this.floatPickup(anchor.x, anchor.y - 22, gold > 0 ? `+${xp} XP  +${gold}g split` : `+${xp} XP`, '#9affc0');
   }
 
   /** Drop a collectable coin pickup worth `amount` gold. */
@@ -5900,7 +5970,7 @@ export class DungeonScene extends Phaser.Scene {
         const ls = this.lootScale();
         const depth = Content.levelOrder.indexOf(this.level.id);
         const chestFloor: Grade = depth >= 8 ? 'runed' : 'honed';
-        const item = rollDrop(this.level.theme ?? 'crypt', (player.stats.luck ?? 0) + ls.luckBonus, { floor: chestFloor });
+        const item = rollDrop(this.level.theme ?? 'crypt', this.bestLuck() + ls.luckBonus, { floor: chestFloor });
         player.inventory.add(item);
         player.refreshStats();
         this.showBark(`Found: ${describeItem(item)}`, 3400, 'loot');
@@ -6353,6 +6423,7 @@ export class DungeonScene extends Phaser.Scene {
   /** Generators that must fall before the exit opens, scaled by difficulty. */
   private requiredGenerators(): number {
     const need = DIFFICULTY[settings.get('gameplay').difficulty].requiredGenerators;
+    if (need < 0) return Math.max(GENERATORS_TO_DESTROY, Math.ceil(this.generatorsTotal * 0.85));
     return Math.min(need, this.generatorsTotal);
   }
 
@@ -6941,6 +7012,9 @@ export class DungeonScene extends Phaser.Scene {
   private applySave(data: SaveData): void {
     this.quest = data.quest || this.quest;
     this.startTime = this.time.now - (data.elapsedMs || 0);
+    if (data.unlockedRealms != null) {
+      this.registry.set('unlockedRealms', data.unlockedRealms);
+    }
     // Re-register any minted (dropped) gear so equipped/bag ids resolve.
     Content.registerItems((data.mintedItems ?? []).map((m) => ({ ...m, slot: migrateItemSlot(m.slot, m.icon) })));
     questLog.restore(data.questLog);

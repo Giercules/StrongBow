@@ -1,7 +1,10 @@
 // ----------------------------------------------------------------------------
 // Loot bonus scaling — mirrors realm / party progression so deeper, harder
 // fights pay out more gold, drop more often, and roll higher-grade gear.
+// Party headcount nudges rewards so larger rosters still see worthwhile drops.
 // ----------------------------------------------------------------------------
+
+import { ALL_CLASSES } from '../data/heroes';
 
 export interface LootScale {
   /** Multiplier on gold pickup values. */
@@ -14,16 +17,24 @@ export interface LootScale {
 
 const MAX_REALM_DEPTH = 9;
 const MAX_PARTY_LEVEL = 20;
+const MAX_PARTY_SIZE = ALL_CLASSES.length;
 
 function expectedLevelForDepth(depth: number): number {
   const d = Math.max(0, Math.min(MAX_REALM_DEPTH, depth));
   return 1 + (d / MAX_REALM_DEPTH) * (MAX_PARTY_LEVEL - 1);
 }
 
+function partySizeLootAdj(partySize: number): number {
+  const size = Math.max(1, Math.min(MAX_PARTY_SIZE, partySize));
+  if (MAX_PARTY_SIZE <= 1) return 1;
+  return 1 + ((size - 1) / (MAX_PARTY_SIZE - 1)) * 0.12;
+}
+
 /** Campaign realm loot — depth is the main driver; party level nudges rewards. */
-export function computeRealmLootScale(depth: number, partyLevel: number): LootScale {
+export function computeRealmLootScale(depth: number, partyLevel: number, partySize = 1): LootScale {
   const d = Math.max(0, Math.min(MAX_REALM_DEPTH, depth));
   const lvl = Math.max(1, Math.min(MAX_PARTY_LEVEL, partyLevel));
+  const sizeAdj = partySizeLootAdj(partySize);
 
   // depth 0 → 1.0×, depth 9 → ~2.5× gold / ~1.7× drops
   const realmGold = 1 + d * 0.17;
@@ -35,18 +46,19 @@ export function computeRealmLootScale(depth: number, partyLevel: number): LootSc
   const partyAdj = 1 + Math.max(-0.12, Math.min(0.12, delta * 0.02));
 
   return {
-    goldMult: realmGold * partyAdj,
-    dropMult: realmDrop * partyAdj,
+    goldMult: realmGold * partyAdj * sizeAdj,
+    dropMult: realmDrop * partyAdj * sizeAdj,
     luckBonus: realmLuck + (lvl - 1) * 1.2,
   };
 }
 
 /** Overworld encounters and non-realm maps — scale from party level only. */
-export function computeArenaLootScale(partyLevel: number): LootScale {
+export function computeArenaLootScale(partyLevel: number, partySize = 1): LootScale {
   const lvl = Math.max(1, Math.min(MAX_PARTY_LEVEL, partyLevel));
+  const sizeAdj = partySizeLootAdj(partySize);
   return {
-    goldMult: 1 + (lvl - 1) * 0.06,
-    dropMult: 1 + (lvl - 1) * 0.03,
+    goldMult: (1 + (lvl - 1) * 0.06) * sizeAdj,
+    dropMult: (1 + (lvl - 1) * 0.03) * sizeAdj,
     luckBonus: (lvl - 1) * 1.5,
   };
 }

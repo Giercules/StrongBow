@@ -29,6 +29,7 @@ export function salvageYield(item: ItemDefinition): MatCost {
     case 'ascendant': return { scrap: 3, essence: 2 };
     case 'runed': return { scrap: 2, essence: 1 };
     case 'honed': return { scrap: 2 };
+    case 'cracked': return { scrap: 1, essence: 0 };
     default: return { scrap: 1 };
   }
 }
@@ -45,10 +46,10 @@ export function reforgeCost(item: ItemDefinition): MatCost | null {
 }
 
 const ASCEND_COSTS: Partial<Record<Grade, MatCost>> = {
-  honed: { scrap: 3, gold: 40 },       // cracked -> honed
-  runed: { scrap: 5, essence: 1, gold: 100 },
-  ascendant: { essence: 3, gold: 220 },
-  godforged: { shard: 2, gold: 500 },
+  honed: { scrap: 2, gold: 35 },       // cracked -> honed
+  runed: { scrap: 4, essence: 1, gold: 90 },
+  ascendant: { essence: 2, gold: 200 },
+  godforged: { shard: 2, gold: 450 },
 };
 
 export function ascendCost(item: ItemDefinition): MatCost | null {

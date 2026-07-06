@@ -156,10 +156,9 @@ export class MenuScene extends Phaser.Scene {
     };
     // Compact menu cluster (≈half the old footprint).
     reg(cx, 224, 120, 26, 'PLAY', () => this.startGame(false), { fill: C.ivy, size: 13 });
-    // Local 2-player is retired in favour of server-based multiplayer; Level
-    // Select is disabled for now. Both are kept on-screen but greyed out.
+    // Level Select and Forge a Level are disabled for now — kept on-screen but greyed out.
     makeButton(this, cx - 56, 258, 112, 22, 'LEVEL SELECT', () => this.showDisabled('Level Select is disabled for now.'), { fill: C.hudBg, text: C.inkDim, size: 10 }).setDepth(11).setAlpha(0.5);
-    reg(cx + 56, 258, 112, 22, 'FORGE A LEVEL', () => this.goScene('ForgeScene'), { fill: C.hudPanel2, size: 10 });
+    makeButton(this, cx + 56, 258, 112, 22, 'FORGE A LEVEL', () => this.showDisabled('Forge a Level is disabled for now.'), { fill: C.hudBg, text: C.inkDim, size: 10 }).setDepth(11).setAlpha(0.5);
     let by = 286;
     if (hasSave()) {
       reg(cx, by, 170, 22, 'LOAD GAME', () => {
@@ -282,6 +281,8 @@ export class MenuScene extends Phaser.Scene {
     this.registry.set('p1Class', ps[0]?.classId ?? 'vanguard');
     if (ps[1]) this.registry.set('p2Class', ps[1].classId);
     this.registry.set('levelId', save.levelId ?? 'sunken_crypt');
+    this.registry.set('unlockedRealms', save.unlockedRealms ?? 1);
+    this.registry.set('fromTown', save.levelId !== 'town');
     this.registry.remove('carryParty');
     this.registry.set('hiredAllies', hiredAlliesFromSave(save));
     this.registry.set('loadSave', save);
