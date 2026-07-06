@@ -13,6 +13,8 @@ export interface CaveOptions {
   id: string;
   name: string;
   theme: ThemeId;
+  /** Music composition id — distinct per cave so they don't reuse a realm's song. */
+  music?: string;
   ambientColor: number;
   foes: EnemyId[];
   chestItems: string[]; // items behind locked chests in the treasure alcove
@@ -79,6 +81,7 @@ function buildCave(o: CaveOptions): LevelData {
     pickups,
     decor,
     theme: o.theme,
+    music: o.music,
     ambientColor: o.ambientColor,
     cave: true,
     subtitle: o.subtitle,
@@ -91,6 +94,7 @@ export const CAVE_MINE = buildCave({
   id: 'cave_mine',
   name: 'The Collapsed Silver Mine',
   theme: 'crypt',
+  music: 'mine',
   ambientColor: 0x0c0a08,
   foes: ['grunt', 'bone_archer', 'brute'],
   chestItems: ['scroll_mending', 'mana_potion', 'town_portal_scroll'],
@@ -104,6 +108,7 @@ export const CAVE_HOLLOW = buildCave({
   id: 'cave_hollow',
   name: 'The Hollow Beneath',
   theme: 'shadow',
+  music: 'hollow',
   ambientColor: 0x08070d,
   foes: ['shadow_stalker', 'void_imp', 'ghost'],
   chestItems: ['scroll_renewal', 'health_potion', 'town_portal_scroll'],

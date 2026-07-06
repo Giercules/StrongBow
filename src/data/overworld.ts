@@ -331,6 +331,7 @@ export function buildOverworld(): LevelData {
     pickups,
     decor,
     theme: 'town',
+    music: 'wilds',
     ambientColor: 0x0e1a10,
     town: true,
     overworld: true,

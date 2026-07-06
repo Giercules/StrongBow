@@ -1,22 +1,54 @@
 # Optional real-audio overrides
 
-StrongBow ships with a fully self-contained **procedural** soundtrack and sound
-effects (synthesized live in the browser via the Web Audio API), so it sounds
-great with **zero external files**.
+StrongBow ships with a fully self-contained **procedural** soundtrack — every
+realm, town, overworld, cave, boss fight, and the title menu has its own **full
+multi-section song** (90–150 seconds) with rock, ballad, folk, and epic
+orchestral layers. No external files are required.
 
-If you want to swap in real music tracks, drop audio files here with these exact
-names and the game will automatically load and use them instead of the
-procedural music:
+If you want to swap in recorded tracks (epic ballads, orchestral scores, metal
+anthems, etc.), drop audio files here. The game detects them at runtime and
+uses them instead of the procedural version for that slot.
 
-| File name           | Plays during            |
-| ------------------- | ----------------------- |
-| `theme.mp3`         | Main / dungeon theme    |
-| `boss.mp3`          | Grave Warden boss fight |
-| `menu.mp3`          | Title menu (optional)   |
+## Per-realm dungeon tracks
 
-`.ogg` is also accepted (e.g. `theme.ogg`). Files are detected at runtime — if a
-file is missing, the procedural track is used for that slot. No code changes
-needed.
+| File name        | Plays during                    |
+| ---------------- | ------------------------------- |
+| `crypt.mp3`      | Sunken Crypt                    |
+| `molten.mp3`     | Molten Deep                     |
+| `frost.mp3`      | Frozen Cathedral                |
+| `toxic.mp3`      | Toxic Undercroft                |
+| `clockwork.mp3`  | Clockwork Vault                 |
+| `arena.mp3`      | Blood Arena                     |
+| `bog.mp3`        | Drowned Bog                     |
+| `storm.mp3`      | Storm Spire                     |
+| `shadow.mp3`     | Shadow Warren                   |
+| `sanctum.mp3`    | Sanctum of the Undermaw         |
+
+## Town, overworld & cave tracks
+
+Each town, area, and cave now has its **own** song (they no longer share one
+town theme):
+
+| File name        | Plays during                          |
+| ---------------- | ------------------------------------- |
+| `town.mp3`       | Hearthwatch town square               |
+| `sunspire.mp3`   | Sunspire (desert oasis-town)          |
+| `wilds.mp3`      | The Wilds of Hearthwatch (overworld)  |
+| `tavern.mp3`     | Town interiors (tavern/guild/forge/…) |
+| `mine.mp3`       | The Collapsed Silver Mine (cave)      |
+| `hollow.mp3`     | The Hollow Beneath (cave)             |
+
+## Special tracks
+
+| File name     | Plays during                                |
+| ------------- | ------------------------------------------- |
+| `banner.mp3`  | Title screen + character select (epic anthem) |
+| `boss.mp3`    | Any boss fight                              |
+| `menu.mp3`    | "Wandering Minstrel" ballad (selectable track) |
+| `theme.mp3`   | Legacy fallback (crypt)                     |
+
+`.ogg` is also accepted (e.g. `molten.ogg`). If a file is missing, the
+procedural composition plays automatically — no code changes needed.
 
 ## Where to find epic, properly-licensed free music
 
@@ -25,6 +57,6 @@ needed.
 - **freepd.com** — public domain (CC0).
 - **Pixabay Music** — free for commercial use, no attribution required.
 
-Look for "epic", "heroic", "dungeon", "dark fantasy", or "battle" themes.
-Keep loops seamless for best results. Always check each track's license and
-provide attribution where required.
+Look for "epic", "heroic", "dungeon", "dark fantasy", "medieval tavern", or
+"battle" themes. Full songs (2–4 minutes) work great — they loop seamlessly.
+Always check each track's license and provide attribution where required.

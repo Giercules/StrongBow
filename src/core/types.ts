@@ -265,6 +265,10 @@ export interface LevelData {
   ambientColor?: number;
   /** Visual theme tag — drives the floor/wall tint and ambient mood. */
   theme?: ThemeId;
+  /** Music composition id (see systems/music/compositions). Decoupled from
+   *  `theme` so places that share a visual theme (all towns are theme:'town')
+   *  can each have their own song. Falls back to `theme` when omitted. */
+  music?: string;
   /** Multiply-tint applied to the baked floor/wall layer for instant theme identity. */
   themeTint?: number;
   /** Hand-placed cosmetic decorations. */

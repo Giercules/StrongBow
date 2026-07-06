@@ -476,11 +476,16 @@ export class DungeonScene extends Phaser.Scene {
 
   constructor() {
     super('DungeonScene');
-    this.events.on(Phaser.Scenes.Events.SHUTDOWN, this.onShutdown, this);
   }
 
   create(): void {
     this.resetState();
+    // Register shutdown cleanup here, not in the constructor: Phaser only injects
+    // `this.events` once the SceneManager boots the scene, so touching it in the
+    // constructor throws `Cannot read properties of undefined (reading 'on')` and
+    // crashes the boot before the title screen appears. `once` auto-clears when the
+    // scene shuts down, so restarts don't stack duplicate listeners.
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.onShutdown, this);
     this.twoPlayer = this.registry.get('twoPlayer') ?? false;
     const save = this.registry.get('loadSave') as SaveData | undefined;
     const levelId = (save?.levelId as string) ?? (this.registry.get('levelId') as string) ?? 'sunken_crypt';
@@ -709,7 +714,7 @@ export class DungeonScene extends Phaser.Scene {
     }
 
     audio.unlock();
-    audio.setDungeonTheme(this.level.theme ?? 'crypt');
+    audio.setDungeonMusic(this.level.music ?? this.level.theme ?? 'crypt');
     audio.playMusic('dungeon');
     this.startTime = this.time.now;
 
