@@ -73,14 +73,24 @@ export class ArcadeStatusPanel {
     this.container.add([this.holoBack, this.holoFront, this.plate, this.accents, this.scan, this.line1, this.line2]);
 
     if (this.webgl) {
-      this.plate.enableFilters();
-      const filters = this.plate.filters!.internal;
-      this.glowFx = filters.addGlow(theme.primary, 3, 1, 1, false, 6, 8) as GlowFx;
-      this.glowFx.active = false;
-      this.dispFx = filters.addDisplacement('fx-glow-magic', 0.007, 0.004) as DispFx;
-      this.dispFx.active = false;
-      scene.lights.enable();
-      scene.lights.setAmbientColor(0x050810);
+      try {
+        this.plate.enableFilters();
+        const f = this.plate.filters;
+        if (f && (f as any).internal) {
+          const filters = (f as any).internal;
+          this.glowFx = filters.addGlow(theme.primary, 3, 1, 1, false, 6, 8) as GlowFx;
+          this.glowFx.active = false;
+          this.dispFx = filters.addDisplacement('fx-glow-magic', 0.007, 0.004) as DispFx;
+          this.dispFx.active = false;
+        }
+        if (scene.lights) {
+          scene.lights.enable();
+          scene.lights.setAmbientColor(0x050810);
+        }
+      } catch {
+        // Filters/lights may not be available in this renderer or Phaser build;
+        // title screen must still load. FX are cosmetic for the status panels.
+      }
     }
 
     this.drawAccents(0x6a7088);
