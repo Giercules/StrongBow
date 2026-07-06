@@ -422,6 +422,55 @@ export function buildDungeon(opts: DungeonOptions): LevelData {
     p.y = q.y;
   }
 
+  // ---- de-overlap placed spawns: never let two share a tile ----
+  // Room centres get reused by unrelated placement passes (a branch room can
+  // overlap a path room, shrines/keys land on centres too), so spawns could
+  // stack. A generator dropped onto a chest is the worst case: it's a SOLID
+  // physics blocker that renders over the chest and spews enemies onto the tile,
+  // hiding the loot completely — which is exactly what was sinking the guaranteed
+  // quest chest (and could bury the boss-door key under a shrine). Reserve tiles
+  // in priority order and shove any lower-priority collider to the nearest free
+  // floor tile. No rng is consumed and only actual collisions move, so every
+  // existing seed's layout is otherwise untouched.
+  const spawnRank = (s: SpawnDef): number => {
+    if (s.kind === 'chest' && s.questItemId) return 0; // guaranteed quest chest wins outright
+    switch (s.kind) {
+      case 'playerStart': return 1;
+      case 'boss': return 2;
+      case 'key': return 3; // needed to reach the boss — must stay findable
+      case 'chest': return 4;
+      case 'npc': return 5;
+      case 'shrine': return 6;
+      default: return 7; // generators (and anything else) always yield
+    }
+  };
+  const isFloor = (x: number, y: number) => tiles[y]?.[x] === Tile.FLOOR;
+  const taken = new Set<string>();
+  const ordered = [...spawns].sort((a, b) => spawnRank(a) - spawnRank(b));
+  for (const s of ordered) {
+    // The quest chest also insists on a clean FLOOR tile (never lava/spikes) so
+    // the story item is always plainly visible and safe to walk up to.
+    const needsFloor = s.kind === 'chest' && !!s.questItemId;
+    let ok = !taken.has(`${s.x},${s.y}`) && (!needsFloor || isFloor(s.x, s.y));
+    if (!ok) {
+      search: for (let r = 1; r <= 12; r++) {
+        for (let dy = -r; dy <= r; dy++)
+          for (let dx = -r; dx <= r; dx++) {
+            if (Math.abs(dx) !== r && Math.abs(dy) !== r) continue; // ring perimeter only
+            const nx = s.x + dx;
+            const ny = s.y + dy;
+            if (!taken.has(`${nx},${ny}`) && isFloor(nx, ny)) {
+              s.x = nx;
+              s.y = ny;
+              ok = true;
+              break search;
+            }
+          }
+      }
+    }
+    taken.add(`${s.x},${s.y}`);
+  }
+
   return {
     id: opts.id,
     name: opts.name,
