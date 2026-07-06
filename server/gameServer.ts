@@ -120,7 +120,20 @@ function slog(level: LogLevel, cat: string, msg: string): void {
 
 // ---- HTTP + dashboard -------------------------------------------------------
 const app = express();
-app.use(cors());
+const GAME_ORIGINS = new Set([
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+  'http://localhost:4173',
+  'http://127.0.0.1:4173',
+  'http://localhost:8090', // launcher dashboard
+  'http://127.0.0.1:8090',
+]);
+app.use(cors({
+  origin(origin, cb) {
+    if (!origin || GAME_ORIGINS.has(origin)) cb(null, true);
+    else cb(null, false);
+  },
+}));
 app.use(express.json({ limit: '16kb' }));
 
 /** Admin routes may only be called from this machine (the launcher / a local

@@ -15,7 +15,10 @@ export class HudScene extends Phaser.Scene {
     this.layoutViewport();
     this.hud = new GauntletHUD(this);
     this.game.events.on('viewportresize', this.layoutViewport, this);
-    this.events.once('shutdown', () => this.game.events.off('viewportresize', this.layoutViewport, this));
+    this.events.once('shutdown', () => {
+      this.game.events.off('viewportresize', this.layoutViewport, this);
+      // GauntletHUD cleans its own children via scene; nothing extra required
+    });
   }
 
   private layoutViewport(): void {

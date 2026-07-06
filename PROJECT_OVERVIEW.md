@@ -1,6 +1,8 @@
 # StrongBow — Complete Project Overview
 
-**Version:** 0.1.0  
+> **NOTE:** This document is **historical / legacy** and describes the early v0.1 dungeon-prototype (4 classes, no town hub). The current game (see `README.md`) is a much larger town-hub + 10-realm campaign with multiplayer, 7 classes, crafting, fishing, co-op, etc. Use `README.md` and source for up-to-date info. This file is kept for training context on the original core loop.
+
+**Version:** 0.1.0 (prototype)  
 **Purpose:** Train AI assistants, onboard developers, and provide full project context without reading the entire codebase.  
 **Companion doc:** `DESIGN.md` contains pixel-perfect rebuild specs (graphics, coordinates, audio Hz values). This document explains *what the project is*, *how it is organized*, and *how to work on it safely*.
 

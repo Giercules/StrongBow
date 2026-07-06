@@ -90,11 +90,17 @@ export class LeftPanelScene extends Phaser.Scene {
     this.maxScrollY = 0;
     this.stick = true;
     this.buildChrome();
-    this.input.on('wheel', (pointer: Phaser.Input.Pointer, _objs: unknown, _dx: number, dy: number) => {
+    const wheelHandler = (pointer: Phaser.Input.Pointer, _objs: unknown, _dx: number, dy: number) => {
       if (pointer.x > W || this.maxScrollY <= 0) return;
       this.scrollY = Phaser.Math.Clamp(this.scrollY - dy, 0, this.maxScrollY);
       this.stick = this.scrollY <= 2;
       this.layoutLog(this.entries);
+    };
+    this.input.on('wheel', wheelHandler);
+    this.events.once('shutdown', () => {
+      this.input.off('wheel', wheelHandler);
+      for (const t of this.lines) t.destroy();
+      this.lines = [];
     });
   }
 
