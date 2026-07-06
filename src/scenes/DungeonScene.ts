@@ -1582,7 +1582,7 @@ export class DungeonScene extends Phaser.Scene {
         .then(({ text, live }) => {
           if (text) {
             this.questBeat = text;
-            if (live) this.pushLog(text, 'grok');
+            if (live) this.pushLog(text, 'grok', { source: 'live', depth: 'bark' });
           }
         });
       if (altarsLeft === 0) {
@@ -6048,7 +6048,7 @@ export class DungeonScene extends Phaser.Scene {
       .generateExamine(subject, this.level.name, flavor)
       .then(({ text, live }) => {
         this.setGrokStatus('connected');
-        if (text) this.pushLog(text, live ? 'grok' : 'event');
+        if (text) this.pushDmLine(text, live, 'bark');
       })
       .catch(() => this.setGrokStatus('connected'));
   }
@@ -6503,16 +6503,21 @@ export class DungeonScene extends Phaser.Scene {
   private showBark(text: string, holdMs = 3400, kind: LogEntry['kind'] = 'event', color = '#ffe9a8'): void {
     if (!text) return;
     // set-piece green (and any explicit non-default colour) carries into the log line
-    this.pushLog(text, kind, color !== '#ffe9a8' ? color : undefined);
+    this.pushLog(text, kind, color !== '#ffe9a8' ? { color } : {});
     if (!this.barkText) return;
     this.barkText.setText(text).setAlpha(1).setColor(color);
     this.tweens.killTweensOf(this.barkText);
     this.tweens.add({ targets: this.barkText, alpha: 0, delay: Math.min(holdMs, 2600), duration: 700 });
   }
 
-  private pushLog(text: string, kind: LogEntry['kind'] = 'event', color?: string): void {
+  private pushLog(
+    text: string,
+    kind: LogEntry['kind'] = 'event',
+    opts: { color?: string; source?: LogEntry['source']; depth?: LogEntry['depth'] } = {},
+  ): void {
     if (!text) return;
-    this.logEntries.push(color ? { text, kind, color } : { text, kind });
+    const entry: LogEntry = { text, kind, ...opts };
+    this.logEntries.push(entry);
     if (this.logEntries.length > DungeonScene.LOG_CAP) {
       this.logEntries.splice(0, this.logEntries.length - DungeonScene.LOG_CAP);
     }
@@ -6543,7 +6548,7 @@ export class DungeonScene extends Phaser.Scene {
       .generateBark(ctx)
       .then(({ text, live }) => {
         this.setGrokStatus('connected');
-        if (text) this.pushLog(text, live ? 'grok' : 'event');
+        if (text) this.pushDmLine(text, live, 'bark');
       })
       .catch(() => this.setGrokStatus('connected'));
   }
@@ -6555,9 +6560,17 @@ export class DungeonScene extends Phaser.Scene {
     void p
       .then(({ text, live }) => {
         this.setGrokStatus('connected');
-        if (text) this.pushLog(text, live ? 'grok' : 'event');
+        if (text) this.pushDmLine(text, live, 'aside');
       })
       .catch(() => this.setGrokStatus('connected'));
+  }
+
+  private pushDmLine(text: string, live: boolean, depth: LogEntry['depth']): void {
+    if (live) {
+      this.pushLog(text, 'grok', { source: 'live', depth });
+      return;
+    }
+    this.pushLog(text, 'event', { source: 'local', depth });
   }
 
   /** Build a Dungeon Master context snapshot from current run state. */
@@ -6621,7 +6634,8 @@ export class DungeonScene extends Phaser.Scene {
       generatorsLeft: Math.max(0, this.requiredGenerators() - this.generatorsDestroyed),
       generatorsTotal: this.requiredGenerators(),
       bossAlive: this.bossAlive,
-      quest: this.questBeat ? `${this.quest}  —  ${this.questBeat}` : this.quest,
+      quest: this.quest,
+      questBeat: this.questBeat || undefined,
       levelName: this.level.name,
       twoPlayer: this.twoPlayer,
       elapsedMs: this.time.now - this.startTime,

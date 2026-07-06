@@ -22,7 +22,9 @@ export class GauntletHUD {
   private timerText!: Phaser.GameObjects.Text;
   private genText!: Phaser.GameObjects.Text;
   private bossText!: Phaser.GameObjects.Text;
+  private questLabel!: Phaser.GameObjects.Text;
   private questText!: Phaser.GameObjects.Text;
+  private questBeatText!: Phaser.GameObjects.Text;
   private ctrlTitle!: Phaser.GameObjects.Text;
   private ctrlText!: Phaser.GameObjects.Text;
   private slotName: Phaser.GameObjects.Text[] = [];
@@ -95,7 +97,10 @@ export class GauntletHUD {
     this.ctrlTitle.setText('CONTROLS');
     this.ctrlText = this.mkText(PAD + 6, CTRL_TOP + 17, 9.5, C.inkDim, { lineSpacing: 2 });
 
-    this.questText = this.mkText(PAD, CTRL_TOP + 118, 9.5, '#cdb88a', { wordWrap: { width: W - PAD * 2 }, lineSpacing: 1, fontStyle: 'italic' });
+    this.questLabel = this.mkText(PAD, CTRL_TOP + 112, 8.5, C.hudBorder, { fontStyle: 'bold' });
+    this.questLabel.setText('OBJECTIVE');
+    this.questText = this.mkText(PAD, CTRL_TOP + 124, 9.5, '#cdb88a', { wordWrap: { width: W - PAD * 2 }, lineSpacing: 1, fontStyle: 'italic' });
+    this.questBeatText = this.mkText(PAD, CTRL_TOP + 124, 9, '#b79bff', { wordWrap: { width: W - PAD * 2 }, lineSpacing: 1, fontStyle: 'italic' });
   }
 
   update(data: HudRegistryData): void {
@@ -129,6 +134,13 @@ export class GauntletHUD {
 
     this.ctrlText.setText((data.controls || []).join('\n'));
     this.questText.setText(data.quest || '');
+    if (data.questBeat) {
+      this.questBeatText.setText(`✻ ${data.questBeat}`).setVisible(true);
+      const beatY = CTRL_TOP + 124 + this.questText.height + 4;
+      this.questBeatText.setY(beatY);
+    } else {
+      this.questBeatText.setText('').setVisible(false);
+    }
   }
 
   private renderSlot(g: Phaser.GameObjects.Graphics, slot: HudHeroSlot, y: number, i: number): void {
