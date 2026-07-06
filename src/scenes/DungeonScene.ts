@@ -7129,5 +7129,6 @@ export class DungeonScene extends Phaser.Scene {
     this.sheetUI?.close();
     this.manualUI?.close();
     this.scene.stop('LeftPanelScene');
+    this.scene.stop('HudScene');
   }
 }
