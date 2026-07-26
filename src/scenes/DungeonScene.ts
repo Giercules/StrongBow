@@ -1328,7 +1328,7 @@ export class DungeonScene extends Phaser.Scene {
     this.cameras.main.shake(360, 0.012);
     this.cameras.main.flash(200, 70, 18, 18);
     this.cameras.main.fadeOut(680, 0, 0, 0);
-    this.time.delayedCall(1000, () => { this.scene.stop('HudScene'); this.scene.start('DungeonScene'); });
+    this.handoffToDungeon(1000);
   }
 
   /** Lay out the encounter pack across the far side of the arena, scale it to the
@@ -1428,7 +1428,7 @@ export class DungeonScene extends Phaser.Scene {
     this.registry.set('twoPlayer', this.twoPlayer);
     this.registry.remove('loadSave');
     this.cameras.main.fadeOut(Math.max(300, delayMs - 120), 0, 0, 0);
-    this.time.delayedCall(delayMs, () => { this.scene.stop('HudScene'); this.scene.start('DungeonScene'); });
+    this.handoffToDungeon(delayMs);
   }
 
   // ---- encounter cinematics (screen-space, survive the scene transition) ----
@@ -1814,7 +1814,7 @@ export class DungeonScene extends Phaser.Scene {
   }
 
   private pollMenus(): void {
-    if (this.input2.capturing || this.gameOverUI.isOpen()) return;
+    if (this.won || this.input2.capturing || this.gameOverUI.isOpen()) return;
 
     if (Phaser.Input.Keyboard.JustDown(this.escKey)) {
       if (this.quitConfirm) this.closeQuitConfirm();
@@ -1883,6 +1883,17 @@ export class DungeonScene extends Phaser.Scene {
   }
 
   private refreshPauseState(): void {
+    // Level-clear / portal handoffs schedule a scene restart on a timer. If a
+    // menu opens during that beat, timeScale hits 0 and the handoff never fires
+    // — the run strands on the victory overlay (common once the bag fills up).
+    if (this.won) {
+      if (this.paused) {
+        this.paused = false;
+        this.physics.world.resume();
+        this.time.timeScale = 1;
+      }
+      return;
+    }
     const open = this.anyOverlayOpen();
     if (open !== this.paused) {
       this.paused = open;
@@ -1894,6 +1905,33 @@ export class DungeonScene extends Phaser.Scene {
         this.time.timeScale = 1;
       }
     }
+  }
+
+  /** Resume timers/physics before a scene handoff (menus freeze scene time). */
+  private unpauseForHandoff(): void {
+    this.closeAllOverlays();
+    this.paused = false;
+    this.time.timeScale = 1;
+    this.physics.world.resume();
+  }
+
+  /** Restart DungeonScene after a short beat; wall-clock fallback if scene time stalls. */
+  private handoffToDungeon(delayMs: number): void {
+    this.unpauseForHandoff();
+    let done = false;
+    const go = () => {
+      if (done) return;
+      done = true;
+      this.scene.stop('LeftPanelScene');
+      this.scene.stop('HudScene');
+      this.scene.start('DungeonScene');
+    };
+    const ms = Math.max(0, delayMs);
+    const fallback = window.setTimeout(go, ms + 600);
+    this.time.delayedCall(ms, () => {
+      window.clearTimeout(fallback);
+      go();
+    });
   }
 
   private handlePlayerInput(time: number, delta: number): void {
@@ -5717,10 +5755,7 @@ export class DungeonScene extends Phaser.Scene {
     this.registry.remove('portalReturn');
     this.registry.remove('loadSave');
     this.cameras.main.fadeOut(700, 0, 0, 0);
-    this.time.delayedCall(900, () => {
-      this.scene.stop('HudScene');
-      this.scene.start('DungeonScene');
-    });
+    this.handoffToDungeon(900);
   }
 
   /** Use a scroll from the inventory. Town Portal teleports home (and back);
@@ -5767,10 +5802,7 @@ export class DungeonScene extends Phaser.Scene {
     this.registry.set('fromTown', false);
     this.registry.remove('loadSave');
     this.cameras.main.fadeOut(600, 0, 0, 0);
-    this.time.delayedCall(750, () => {
-      this.scene.stop('HudScene');
-      this.scene.start('DungeonScene');
-    });
+    this.handoffToDungeon(750);
   }
 
   /** A shimmering gate in town back down to where the portal was cast. */
@@ -5804,10 +5836,7 @@ export class DungeonScene extends Phaser.Scene {
     this.registry.remove('portalReturn');
     this.registry.remove('loadSave');
     this.cameras.main.fadeOut(600, 0, 0, 0);
-    this.time.delayedCall(750, () => {
-      this.scene.stop('HudScene');
-      this.scene.start('DungeonScene');
-    });
+    this.handoffToDungeon(750);
   }
 
   /** Step into a building interior (or back out to town). Peaceful, like town. */
@@ -5872,10 +5901,7 @@ export class DungeonScene extends Phaser.Scene {
     this.registry.set('fromTown', false);
     this.registry.remove('loadSave');
     this.cameras.main.fadeOut(500, 0, 0, 0);
-    this.time.delayedCall(650, () => {
-      this.scene.stop('HudScene');
-      this.scene.start('DungeonScene');
-    });
+    this.handoffToDungeon(650);
   }
 
   private useMerchant(m: { shop: ShopKind; label: string }, player: Hero): void {
@@ -6444,6 +6470,7 @@ export class DungeonScene extends Phaser.Scene {
 
   private win(): void {
     this.won = true;
+    this.unpauseForHandoff();
     audio.sfx('portal');
     const fromTown = (this.registry.get('fromTown') as boolean) ?? false;
     const idx = Content.levelOrder.indexOf(this.level.id);
@@ -6479,7 +6506,17 @@ export class DungeonScene extends Phaser.Scene {
         if (text) vsub.setText(text);
       });
     }
-    this.time.delayedCall(3600, () => this.quitToMenu());
+    let quitDone = false;
+    const quitGo = () => {
+      if (quitDone) return;
+      quitDone = true;
+      this.quitToMenu();
+    };
+    const quitFallback = window.setTimeout(quitGo, 4200);
+    this.time.delayedCall(3600, () => {
+      window.clearTimeout(quitFallback);
+      quitGo();
+    });
   }
 
   private advanceToLevel(nextId: string): void {
@@ -6501,10 +6538,7 @@ export class DungeonScene extends Phaser.Scene {
     this.registry.remove('loadSave');
     audio.sfx('victory');
     this.cameras.main.fadeOut(800, 0, 0, 0);
-    this.time.delayedCall(1100, () => {
-      this.scene.stop('HudScene');
-      this.scene.start('DungeonScene');
-    });
+    this.handoffToDungeon(1100);
   }
 
   private returnToTown(): void {
@@ -6526,10 +6560,7 @@ export class DungeonScene extends Phaser.Scene {
     this.registry.remove('loadSave');
     audio.sfx('victory');
     this.cameras.main.fadeOut(900, 0, 0, 0);
-    this.time.delayedCall(1200, () => {
-      this.scene.stop('HudScene');
-      this.scene.start('DungeonScene');
-    });
+    this.handoffToDungeon(1200);
   }
 
   private checkGameOver(): void {
