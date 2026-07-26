@@ -279,32 +279,56 @@ class AudioSystem {
    *  every realm theme has a matching composition). */
   setDungeonMusic(id: string): void {
     this.lastMusicId = id;
+    this.applyDungeonComposition();
+  }
+
+  /** The player's explicit pick from Settings → Audio. */
+  setMusicTrack(id: string): void {
+    settings.set('musicTrack', id);
+    this.applyDungeonComposition();
+  }
+
+  /**
+   * Re-resolve the area song from the realm + the player's choice, and — if
+   * that song is what's currently playing — swap to it straight away.
+   *
+   * The boss theme and the title anthem own the `composition` field while they
+   * hold the slot, so they're left strictly alone: reassigning it under a
+   * running scheduler would morph the boss fight into the area track mid-song.
+   */
+  private applyDungeonComposition(): void {
+    if (this.playingSlot === 'boss' || this.playingSlot === 'menu') return;
     const next = this.resolveDungeonComposition();
     const changed = next.id !== this.composition.id;
     this.composition = next;
-    if (this.playingSlot === 'dungeon' && changed) {
-      if (this.timer !== null) {
-        this.step = 0;
-      } else if (this.activeReal) {
-        this.activeReal.pause();
-        this.activeReal = null;
-        const trackId = this.composition.id;
-        if (this.realReady.has(trackId) && this.realTracks.has(trackId)) {
-          const el = this.realTracks.get(trackId)!;
-          this.activeReal = el;
-          el.currentTime = 0;
-          void el.play().catch(() => this.startProcedural('dungeon'));
-        } else {
-          this.startProcedural('dungeon');
-        }
-      }
-    }
+    if (changed && this.playingSlot === 'dungeon') this.restartAreaTrack();
   }
 
-  setMusicTrack(id: string): void {
-    settings.set('musicTrack', id);
-    this.composition = this.resolveDungeonComposition();
-    if (this.playingSlot === 'dungeon' && this.timer !== null) this.step = 0;
+  /**
+   * Restart the area song from whatever `composition` now names.
+   *
+   * A recorded track has to be swapped out by hand: an <audio> element happily
+   * keeps playing the old song until it is told otherwise, whereas the
+   * procedural scheduler only needs its step reset. Handling just the
+   * procedural case is what made the Settings track picker appear dead — every
+   * composition ships an MP3, so the recorded path is the one normal play
+   * always takes, and the branch that would have swapped it never ran.
+   */
+  private restartAreaTrack(): void {
+    this.stopMusic();
+    if (!settings.get('musicEnabled')) return;
+    const trackId = this.composition.id;
+    if (this.realReady.has(trackId) && this.realTracks.has(trackId)) {
+      const el = this.realTracks.get(trackId)!;
+      this.activeReal = el;
+      el.currentTime = 0;
+      void el.play().catch(() => {
+        this.activeReal = null;
+        this.startProcedural('dungeon');
+      });
+      return;
+    }
+    this.startProcedural('dungeon');
   }
 
   stopMusic(): void {
