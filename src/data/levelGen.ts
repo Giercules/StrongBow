@@ -1,4 +1,5 @@
 import { Tile } from '../core/constants';
+import { decorBlocks } from '../core/decorCollision';
 import type { LevelData, SpawnDef, PickupDef, DecorDef, EnemyId, ThemeId } from '../core/types';
 import { getTheme } from './gen/themes';
 import type { RoomShape, HazardKind, SetPieceId } from './gen/themes';
@@ -590,6 +591,93 @@ export function buildDungeon(opts: DungeonOptions): LevelData {
     taken.add(`${s.x},${s.y}`);
   }
 
+  // ---- keep solid props out of the party's way ------------------------------
+  // Decor is stamped by five independent passes — layout colonnades, the boss
+  // chamber's pillar row, the entry-hall dressing, set-piece prefabs and the
+  // ambient scatter — and not one of them can see where the routes run. Every
+  // free-standing prop gets a physics body in the scene (see decorCollision), so
+  // that blindness put pillars on the exit portal itself, and stamped a decor
+  // row straight across a corridor mouth: a 3-wide passage pinched down to a
+  // single tile, which is a ~17.6px slot for a ~14.3px hero body. It reads as a
+  // wall of columns, and in the Molten Deep it had a quarter of the map behind
+  // it. Two rules, applied once every other pass has had its say.
+  const decorSolid = (d: DecorDef) => decorBlocks(d.key);
+
+  // Rule 1: never on a tile the party has to stand on or walk through.
+  const reserved = new Set<string>();
+  for (const s of spawns) reserved.add(`${s.x},${s.y}`);
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++) {
+      const tt = tiles[y][x];
+      if (tt === Tile.EXIT || tt === Tile.DOOR || tt === Tile.LOCKED_DOOR) reserved.add(`${x},${y}`);
+    }
+  const propTiles = new Set<string>();
+  const keptDecor = decor.filter((d) => {
+    if (!decorSolid(d)) return true;
+    if (reserved.has(`${d.x},${d.y}`)) return false;
+    propTiles.add(`${d.x},${d.y}`);
+    return true;
+  });
+
+  // Rule 2: a prop may never be the thing that GATES a route.
+  //
+  // A one-tile slot is only a problem when it is the sole way through. A pillar
+  // standing a tile off a wall also leaves a one-tile lane beside it, but you
+  // simply walk around it through the open room — deleting those would strip the
+  // colonnades that give the crypt and the cathedral their character (an earlier
+  // width-only rule cost the Sunken Crypt 143 of its 164 pillars). So each
+  // candidate slot is tested for what it actually is: block it off, and ask
+  // whether the two sides are still connected by any other path. If they are,
+  // the prop is decoration and stays. If they aren't, it is a gate and goes.
+  const isRock = (x: number, y: number): boolean => {
+    const tt = tiles[y]?.[x];
+    return tt === undefined || tt === Tile.WALL || tt === Tile.VOID;
+  };
+  const stops = (x: number, y: number) => isRock(x, y) || propTiles.has(`${x},${y}`);
+  /** Can `from` still reach `to` without stepping on `closed`? */
+  const connectedWithout = (from: [number, number], to: [number, number], closed: string) => {
+    if (stops(from[0], from[1]) || stops(to[0], to[1])) return true; // not a passage anyway
+    const goal = `${to[0]},${to[1]}`;
+    const seen = new Set<string>([`${from[0]},${from[1]}`]);
+    const queue: [number, number][] = [from];
+    while (queue.length) {
+      const [cx2, cy2] = queue.pop()!;
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as [number, number][]) {
+        const nx = cx2 + dx;
+        const ny = cy2 + dy;
+        const k = `${nx},${ny}`;
+        if (k === closed || seen.has(k) || stops(nx, ny)) continue;
+        if (k === goal) return true;
+        seen.add(k);
+        queue.push([nx, ny]);
+      }
+    }
+    return false;
+  };
+  const AXES: [number, number][] = [[1, 0], [0, 1]];
+  // Opening one gate can expose the next prop along a stamped row, so iterate to
+  // a fixed point (bounded — every pass only deletes, so it converges fast).
+  for (let pass = 0; pass < 4; pass++) {
+    let changed = false;
+    for (let y = 1; y < H - 1; y++)
+      for (let x = 1; x < W - 1; x++) {
+        if (stops(x, y)) continue;
+        for (const [ax, ay] of AXES) {
+          // Blockers sit on this axis, so the passage runs across the other one.
+          if (!stops(x - ax, y - ay) || !stops(x + ax, y + ay)) continue;
+          if (!propTiles.has(`${x - ax},${y - ay}`) && !propTiles.has(`${x + ax},${y + ay}`)) continue;
+          const a: [number, number] = [x - ay, y - ax];
+          const b: [number, number] = [x + ay, y + ax];
+          if (connectedWithout(a, b, `${x},${y}`)) continue; // a detour exists — decoration
+          for (const [nx, ny] of [[x - ax, y - ay], [x + ax, y + ay]] as [number, number][]) {
+            if (propTiles.delete(`${nx},${ny}`)) changed = true;
+          }
+        }
+      }
+    if (!changed) break;
+  }
+  const finalDecor = keptDecor.filter((d) => !decorSolid(d) || propTiles.has(`${d.x},${d.y}`));
+
   return {
     id: opts.id,
     name: opts.name,
@@ -601,7 +689,7 @@ export function buildDungeon(opts: DungeonOptions): LevelData {
     ambientColor,
     theme: theme.id,
     themeTint,
-    decor,
+    decor: finalDecor,
     subtitle,
     chapter: opts.chapter,
     story: opts.story,
