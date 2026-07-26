@@ -29,6 +29,34 @@ export function navCollector(): MenuNav | null {
   return activeCollector;
 }
 
+export type PadDownHandler = (pad: Phaser.Input.Gamepad.Gamepad, button: Phaser.Input.Gamepad.Button, value: number) => void;
+
+/**
+ * Subscribe to gamepad button presses by BUTTON INDEX.
+ *
+ * Phaser's plugin-level 'down' event is `(pad, button, value)` — the third
+ * argument is the analog value, which is `1` for any digital press, NOT the
+ * button index. Reading it as an index makes every single button look like
+ * button 1, which silently turns every menu press into "back": nothing can be
+ * selected, the D-pad stops navigating, and a modal opened with Start can never
+ * be closed with Start (the modal closes itself, then the scene's own poll
+ * re-opens it on the same frame).
+ *
+ * The index lives on the *button*, so every menu goes through here.
+ */
+export function onPadDown(scene: Phaser.Scene, handler: (index: number) => void): PadDownHandler | undefined {
+  const gp = scene.input.gamepad;
+  if (!gp) return undefined;
+  const h: PadDownHandler = (_pad, button) => handler(button.index);
+  gp.on('down', h);
+  return h;
+}
+
+/** Detach a listener installed by onPadDown. Safe with undefined. */
+export function offPadDown(scene: Phaser.Scene, handler: PadDownHandler | undefined): void {
+  if (handler) scene.input.gamepad?.off('down', handler);
+}
+
 export class MenuNav {
   private scene: Phaser.Scene | null = null;
   private items: NavItem[] = [];
@@ -36,7 +64,7 @@ export class MenuNav {
   private gfx: Phaser.GameObjects.Graphics | null = null;
   private onBack?: () => void;
   private keyHandler?: (e: KeyboardEvent) => void;
-  private padHandler?: (pad: Phaser.Input.Gamepad.Gamepad, button: Phaser.Input.Gamepad.Button, index: number) => void;
+  private padHandler?: PadDownHandler;
   private stickHandler?: () => void;
   private stickPrevX = 0;
   private stickPrevY = 0;
@@ -53,11 +81,7 @@ export class MenuNav {
       this.keyHandler = (e) => this.onKey(e);
       scene.input.keyboard?.on('keydown', this.keyHandler);
     }
-    const gp = scene.input.gamepad;
-    if (gp) {
-      this.padHandler = (_p, _b, index) => this.onPad(index);
-      gp.on('down', this.padHandler);
-    }
+    this.padHandler = onPadDown(scene, (index) => this.onPad(index));
     this.stickPrevX = 0;
     this.stickPrevY = 0;
     this.stickHandler = () => this.pollStick();
@@ -68,7 +92,7 @@ export class MenuNav {
   detach(): void {
     if (!this.scene) return;
     if (this.keyHandler) this.scene.input.keyboard?.off('keydown', this.keyHandler);
-    if (this.padHandler) this.scene.input.gamepad?.off('down', this.padHandler);
+    offPadDown(this.scene, this.padHandler);
     if (this.stickHandler) this.scene.events.off(Phaser.Scenes.Events.UPDATE, this.stickHandler);
     this.keyHandler = undefined;
     this.padHandler = undefined;

@@ -1,5 +1,7 @@
 import Phaser from 'phaser';
 import { PLAY_AREA_UI_DEPTH } from '../core/constants';
+import { onPadDown, offPadDown } from './MenuNav';
+import type { PadDownHandler } from './MenuNav';
 import { MANUAL_PAGES } from '../data/manualContent';
 import type { ManualEntry, ManualPage } from '../data/manualContent';
 import { audio } from '../systems/AudioSystem';
@@ -25,7 +27,7 @@ export class GameManualUI {
   private backdrop: Phaser.GameObjects.Rectangle | null = null;
   private page = 0;
   private keyHandler?: (e: KeyboardEvent) => void;
-  private padHandler?: (pad: Phaser.Input.Gamepad.Gamepad, button: Phaser.Input.Gamepad.Button, index: number) => void;
+  private padHandler?: PadDownHandler;
   private onClosed?: () => void;
 
   constructor(scene: Phaser.Scene) {
@@ -58,23 +60,21 @@ export class GameManualUI {
       else if (e.key === 'ArrowLeft') this.go(-1);
     };
     this.scene.input.keyboard?.on('keydown', this.keyHandler);
-    // gamepad: D-Pad / bumpers turn pages, B closes the manual
-    const gp = this.scene.input.gamepad;
-    if (gp) {
-      this.padHandler = (_p: Phaser.Input.Gamepad.Gamepad, _b: Phaser.Input.Gamepad.Button, index: number) => {
-        if (index === 15 || index === 5) this.go(1);
-        else if (index === 14 || index === 4) this.go(-1);
-        else if (index === 1) this.close();
-      };
-      gp.on('down', this.padHandler);
-    }
+    // gamepad: D-Pad / bumpers turn pages, B closes the manual. Must go through
+    // onPadDown — the raw 'down' event's third argument is the button VALUE, not
+    // its index. See MenuNav.onPadDown.
+    this.padHandler = onPadDown(this.scene, (index) => {
+      if (index === 15 || index === 5) this.go(1);
+      else if (index === 14 || index === 4) this.go(-1);
+      else if (index === 1) this.close();
+    });
     this.render();
   }
 
   close(): void {
     if (this.keyHandler) this.scene.input.keyboard?.off('keydown', this.keyHandler);
     this.keyHandler = undefined;
-    if (this.padHandler) this.scene.input.gamepad?.off('down', this.padHandler);
+    offPadDown(this.scene, this.padHandler);
     this.padHandler = undefined;
     this.backdrop?.destroy();
     this.backdrop = null;

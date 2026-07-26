@@ -1,6 +1,8 @@
 import Phaser from 'phaser';
 import { framedPanel, makeButton, addPinned } from './uiHelpers';
 import type { Modal } from './uiHelpers';
+import { onPadDown, offPadDown } from './MenuNav';
+import type { PadDownHandler } from './MenuNav';
 import { C } from '../rendering/Palette';
 import { settings } from '../core/GameSettings';
 import { audio, MUSIC_TRACKS, musicTrackLabel } from '../systems/AudioSystem';
@@ -51,7 +53,7 @@ export class SettingsUI {
   // Gamepad / focus navigation. focus 0 = the tab bar; 1..N = the tab's rows.
   private rows: FocusRow[] = [];
   private focus = 0;
-  private padHandler?: (pad: Phaser.Input.Gamepad.Gamepad, button: Phaser.Input.Gamepad.Button, index: number) => void;
+  private padHandler?: PadDownHandler;
   // Left-stick navigation needs per-frame polling (stick motion fires no 'down'
   // events); these track the last quantised stick direction for edge detection.
   private stickHandler?: () => void;
@@ -80,11 +82,9 @@ export class SettingsUI {
     this.modal.add(this.content);
     this.keyHandler = (e) => this.onKey(e);
     this.scene.input.keyboard?.on('keydown', this.keyHandler);
-    const gp = this.scene.input.gamepad;
-    if (gp) {
-      this.padHandler = (_p, _b, index) => this.onPad(index);
-      gp.on('down', this.padHandler);
-    }
+    // Must go through onPadDown: the raw 'down' event's third argument is the
+    // button VALUE, not its index. See MenuNav.onPadDown.
+    this.padHandler = onPadDown(this.scene, (index) => this.onPad(index));
     this.stickPrevX = 0;
     this.stickPrevY = 0;
     this.stickHandler = () => this.pollStick();
@@ -95,7 +95,7 @@ export class SettingsUI {
   close(): void {
     if (this.keyHandler) this.scene.input.keyboard?.off('keydown', this.keyHandler);
     this.keyHandler = undefined;
-    if (this.padHandler) this.scene.input.gamepad?.off('down', this.padHandler);
+    offPadDown(this.scene, this.padHandler);
     this.padHandler = undefined;
     if (this.stickHandler) this.scene.events.off(Phaser.Scenes.Events.UPDATE, this.stickHandler);
     this.stickHandler = undefined;
