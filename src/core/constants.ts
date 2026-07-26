@@ -60,9 +60,28 @@ export const MAX_PLAYERS = 4;
 export const HP_PER_LEVEL = 12;
 export const MP_PER_LEVEL = 6;
 
-// Party support tuning
-export const GROUP_XP_SHARE = 0.22; // fraction of a kill's XP shared with each other ally
-export const GROUP_XP_SHARE_DECAY = 0.05; // each extra ally beyond the killer trims share further
+// ---- progression pace --------------------------------------------------------
+// The XP ladder. It used to be 40*L^1.45, which asked 23.6k XP for level 20 —
+// almost exactly what a single sweep of all ten realms pays out, and altars keep
+// pumping monsters indefinitely, so a patient player capped out around realm
+// five and spent the back half of the campaign with nothing left to earn.
+// 60*L^1.6 asks 52.1k: reaching 20 now takes more than one pass through the
+// world, and the early levels still arrive quickly (level 2 costs 60 XP, four or
+// five crypt kills).
+export const XP_CURVE_BASE = 60;
+export const XP_CURVE_EXP = 1.6;
+
+// Fellowship: what share of a kill each LIVING roster member banks, by roster
+// size. The old rule gave the killer 100% and everyone else 22%, which meant a
+// lone hero levelled ~2.5x faster than a member of a party of four — the exact
+// opposite of a crawl that is supposed to get easier when you bring friends.
+// Now the whole roster banks the kill together and the share grows with the
+// company, so hiring at the Fighters Guild buys progress as well as swords, and
+// walking in alone is the slow, deliberate road.
+export const FELLOWSHIP_XP_SOLO = 0.82;
+export const FELLOWSHIP_XP_PER_ALLY = 0.09;
+export const FELLOWSHIP_XP_CAP = 1.25;
+
 export const MAX_SHOP_BUY_DISCOUNT = 0.45;
 export const MAX_SHOP_SELL_BONUS = 0.45;
 export const PARTY_SUMMON_CAP = 8; // party-wide cap on active summons/familiars

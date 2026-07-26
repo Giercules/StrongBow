@@ -36,9 +36,11 @@ export function computeRealmLootScale(depth: number, partyLevel: number, partySi
   const lvl = Math.max(1, Math.min(MAX_PARTY_LEVEL, partyLevel));
   const sizeAdj = partySizeLootAdj(partySize);
 
-  // depth 0 → 1.0×, depth 9 → ~2.5× gold / ~1.7× drops
+  // depth 0 → 1.0×, depth 9 → ~2.5× gold / ~1.45× drops. Gold keeps its old
+  // curve on purpose: it funds the Fighters Guild, and party play is now the
+  // faster road, so the party has to stay affordable.
   const realmGold = 1 + d * 0.17;
-  const realmDrop = 1 + d * 0.08;
+  const realmDrop = 1 + d * 0.05;
   const realmLuck = d * 3;
 
   const expected = expectedLevelForDepth(d);

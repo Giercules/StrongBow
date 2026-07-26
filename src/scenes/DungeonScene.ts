@@ -32,8 +32,6 @@ import {
   OPTIMAL_ZOOM,
   AURA_RADIUS,
   WARDEN_HEAL_INTERVAL,
-  GROUP_XP_SHARE,
-  GROUP_XP_SHARE_DECAY,
   PARTY_SUMMON_CAP,
   COMPANION_TELEPORT_DISTANCE,
   COMPANION_TELEPORT_MS,
@@ -62,7 +60,7 @@ import { Content } from '../content/ContentRegistry';
 import { ALL_CLASSES } from '../data/heroes';
 import { ITEMS } from '../data/items';
 import { GRADES, GRADE_ORDER } from '../data/grades';
-import { rollDrop, mintItem, monsterDropChance, generatorDropChance, eliteDropChance } from '../systems/LootSystem';
+import { rollDrop, mintItem, monsterDropChance, generatorDropChance, eliteDropChance, scrollDropChance } from '../systems/LootSystem';
 import { ARMOR_SETS, SET_COLOR, rollSetDrop, setDropChance, mintSetPiece, SET_PIECE_SLOTS, type SetPieceSlot } from '../data/setItems';
 import { THEME_BASES, ALL_THEME_BASES } from '../data/themedItems';
 import { UNIQUES, mintUnique } from '../data/uniqueItems';
@@ -85,6 +83,7 @@ import { aiService, type BarkContext } from '../ai/AIService';
 import { DungeonMaster } from '../systems/DungeonMaster';
 import { computeRealmMonsterScale, computeArenaMonsterScale } from '../systems/MonsterScaling';
 import { computeRealmLootScale, computeArenaLootScale, type LootScale } from '../systems/LootScaling';
+import { xpToNext, fellowshipXpScale } from '../systems/StatsSystem';
 import {
   buildTacticalContext,
   decideBardSong,
@@ -1863,7 +1862,7 @@ export class DungeonScene extends Phaser.Scene {
       }
       // Altars reliably cough up themed gear (honed or better).
       const ls = this.lootScale();
-      if (Math.random() < generatorDropChance(this.bestLuck()) * settings.get('gameplay').lootMult * ls.dropMult) this.dropLoot(gen.x, gen.y, 'honed');
+      if (Math.random() < generatorDropChance(this.bestLuck(), settings.get('gameplay').lootMult * ls.dropMult)) this.dropLoot(gen.x, gen.y, 'honed');
     };
     this.generators.push(gen);
     this.shadows.add(gen, 2);
@@ -5224,23 +5223,27 @@ export class DungeonScene extends Phaser.Scene {
     const ls = this.lootScale();
     const coop = MULTIPLAYER_ENABLED && net.connected && net.partySize > 1 && !this.level.town && net.isHost;
     if (coop) {
-      // Shared, party-bonused XP + gold — everyone earns MORE than playing solo.
-      const bonus = 1 + 0.2 * (net.partySize - 1);
+      // Networked parties use the same fellowship curve as a hired roster, so
+      // "how much is a kill worth per head" has one answer in the whole game.
+      const bonus = fellowshipXpScale(net.partySize);
       const xp = Math.round(m.def.xp * mult * bonus);
       const gold = cheats.goldMult > 0 ? Math.max(1, Math.round((2 + m.def.xp * 0.4) * cheats.goldMult * bonus * goldMul * ls.goldMult)) : 0;
       this.coopApplyReward(xp, gold);   // host's own party
       net.sendCoopReward(xp, gold);     // guests apply the same
       if (!remoteKiller) killer.addScore(m.def.xp);
     } else {
-      killer.gainXP(Math.round(m.def.xp * mult));
-      killer.addScore(m.def.xp);
-      const roster = this.allies.filter((a) => !(a as Companion).isSummon);
-      const others = roster.filter((a) => a !== killer && a.alive);
-      const shareMult = GROUP_XP_SHARE * Math.max(0.35, 1 - Math.max(0, others.length - 1) * GROUP_XP_SHARE_DECAY);
-      const share = Math.round(m.def.xp * shareMult * mult);
-      if (share > 0) {
-        for (const a of others) a.gainXP(share);
-      }
+      // Fellowship: the whole living roster banks the kill together, at a share
+      // that GROWS with the company. Who landed the blow no longer decides who
+      // profits — under the old killer-takes-all split a lone hero levelled
+      // about 2.5x faster than a member of a party of four, which had the crawl
+      // exactly backwards. Summons are excluded: they're spent conjurations, and
+      // counting them would let a necromancer inflate the party's own share.
+      const living = this.allies.filter((a) => !this.isSummon(a) && a.active && a.alive);
+      const share = Math.round(m.def.xp * mult * fellowshipXpScale(living.length));
+      if (share > 0) for (const a of living) a.gainXP(share);
+      // Score still belongs to whoever earned the kill (a pet's goes to its raiser).
+      const scorer = (killer as Companion).summoner ?? killer;
+      scorer.addScore(m.def.xp);
       // gold coin drop (solo path; co-op gold is shared directly above)
       if (cheats.goldMult > 0) {
         const dropChance = m.isBoss ? 1 : Math.min(0.72, 0.45 * ls.dropMult);
@@ -5254,12 +5257,14 @@ export class DungeonScene extends Phaser.Scene {
     }
     // Item + scroll drops roll host-side / solo (cross-client item instancing is a follow-up).
     const rollLuck = (remoteKiller ? this.bestLuck() : (killer.stats.luck ?? 0)) + ls.luckBonus;
+    // The multiplier goes INTO the chance so its ceiling still binds — see LootSystem.
+    const dropMult = cheats.lootMult * ls.dropMult;
     if (m.isElite) {
-      if (Math.random() < eliteDropChance(rollLuck) * cheats.lootMult * ls.dropMult) this.dropLoot(m.x, m.y, 'runed');
-    } else if (!m.isBoss && Math.random() < monsterDropChance(rollLuck) * cheats.lootMult * ls.dropMult) {
+      if (Math.random() < eliteDropChance(rollLuck, dropMult)) this.dropLoot(m.x, m.y, 'runed');
+    } else if (!m.isBoss && Math.random() < monsterDropChance(rollLuck, dropMult)) {
       this.dropLoot(m.x, m.y, this.lootGradeFloor(m));
     }
-    if (!m.isBoss && Math.random() < 0.022 * cheats.lootMult * ls.dropMult) {
+    if (!m.isBoss && Math.random() < scrollDropChance(dropMult)) {
       const sid = ['town_portal_scroll', 'scroll_mending', 'scroll_renewal'][Math.floor(Math.random() * 3)];
       const sc = Content.item(sid);
       if (sc) this.spawnLootPickup(m.x, m.y, sc);
@@ -7693,7 +7698,7 @@ export class DungeonScene extends Phaser.Scene {
       maxMana: a.stats.maxMana,
       level: a.level,
       xp: a.xp,
-      xpToNext: Math.max(1, Math.floor(40 * Math.pow(a.level, 1.45))),
+      xpToNext: Math.max(1, xpToNext(a.level)),
       gold: a.inventory.gold,
       keys: a.inventory.keyCount(),
       alive: a.alive,

@@ -8,6 +8,7 @@ import { ARMOR_SETS, SET_COLOR, SET_COLOR_NEXT, SET_PIECE_SLOTS, setTierColor, s
 import type { SetPieceSlot } from '../data/setItems';
 import type { Hero } from '../entities/Hero';
 import { MenuNav } from './MenuNav';
+import { xpToNext as xpForLevel } from '../systems/StatsSystem';
 
 const PANEL_W = 480;
 const PANEL_H = 420;
@@ -122,7 +123,7 @@ export class CharacterSheetUI {
     let ly = y0 + 186 + sig.height + 6;
 
     // XP bar — flows below the (possibly multi-line) signature
-    const xpToNext = Math.max(1, Math.floor(40 * Math.pow(h.level, 1.45)));
+    const xpToNext = Math.max(1, xpForLevel(h.level));
     const g = this.scene.add.graphics();
     g.fillStyle(0x000000, 0.5);
     g.fillRect(left, ly, 150, 8);

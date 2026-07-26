@@ -1,7 +1,15 @@
 import type { StatBlock, StatMods, ItemDefinition } from '../core/types';
 import { SKILLS } from '../data/skills';
 import { ATTRIBUTES } from '../data/attributes';
-import { HP_PER_LEVEL, MP_PER_LEVEL } from '../core/constants';
+import {
+  HP_PER_LEVEL,
+  MP_PER_LEVEL,
+  XP_CURVE_BASE,
+  XP_CURVE_EXP,
+  FELLOWSHIP_XP_SOLO,
+  FELLOWSHIP_XP_PER_ALLY,
+  FELLOWSHIP_XP_CAP,
+} from '../core/constants';
 
 function addMods(into: StatBlock, mods: StatMods, scale = 1): void {
   (Object.keys(mods) as (keyof StatBlock)[]).forEach((k) => {
@@ -50,6 +58,22 @@ export function computeStats(
   return s;
 }
 
+/** XP required to climb from `level` to the next. The single source of truth —
+ *  the HUD and character sheet both read this, so the bars can't drift from the
+ *  ladder the way they did when the formula was copy-pasted into each of them. */
 export function xpToNext(level: number): number {
-  return Math.floor(40 * Math.pow(level, 1.45));
+  return Math.floor(XP_CURVE_BASE * Math.pow(level, XP_CURVE_EXP));
+}
+
+/**
+ * Share of a kill's XP each living roster member banks, by how many of them
+ * there are. Summons don't count — they're spent conjurations, not comrades.
+ *
+ * Deliberately rises with the company: a lone hero banks less than the full
+ * kill, a full roster banks more. Bigger parties also face tougher monsters
+ * (see MonsterScaling.partySizeAdjustment), so the extra XP is paid for.
+ */
+export function fellowshipXpScale(livingRoster: number): number {
+  const n = Math.max(1, livingRoster);
+  return Math.min(FELLOWSHIP_XP_CAP, FELLOWSHIP_XP_SOLO + FELLOWSHIP_XP_PER_ALLY * (n - 1));
 }

@@ -65,16 +65,35 @@ export function rollDrop(theme: ThemeId, luck: number, opts: DropOptions = {}): 
   return mintItem(baseItem, grade);
 }
 
-/** Probability that a slain regular monster drops gear, scaled by luck. */
-export function monsterDropChance(luck: number): number {
-  return Math.min(0.1, 0.022 + luck * 0.0024);
+// ----------------------------------------------------------------------------
+// Drop odds.
+//
+// Each takes the caller's combined multiplier (realm depth scaling x the loot
+// cheat) and applies the ceiling AFTER it. That ordering is the point: the caps
+// used to be applied to the raw luck curve and the multipliers piled on top
+// afterwards, so nothing was actually capped — by the last realm a champion's
+// "80% maximum" had become 138%, i.e. a guaranteed drop, and the floor was
+// carpeted in gear nobody stopped to read. Bases and luck coefficients are also
+// lower across the board; a sweep of realm I yields ~6 pieces instead of ~9, and
+// of realm X ~15 instead of ~35.
+// ----------------------------------------------------------------------------
+
+/** Probability that a slain regular monster drops gear. */
+export function monsterDropChance(luck: number, mult = 1): number {
+  return Math.min(0.06, (0.013 + luck * 0.0014) * mult);
 }
 
-/** Probability that a destroyed generator drops gear, scaled by luck. */
-export function generatorDropChance(luck: number): number {
-  return Math.min(0.4, 0.14 + luck * 0.005);
+/** Probability that a destroyed spawning altar drops gear. */
+export function generatorDropChance(luck: number, mult = 1): number {
+  return Math.min(0.28, (0.09 + luck * 0.0032) * mult);
 }
 
-export function eliteDropChance(luck: number): number {
-  return Math.min(0.8, 0.45 + luck * 0.009);
+/** Probability that a slain champion drops gear. */
+export function eliteDropChance(luck: number, mult = 1): number {
+  return Math.min(0.55, (0.3 + luck * 0.006) * mult);
+}
+
+/** Probability that a slain monster coughs up a scroll. */
+export function scrollDropChance(mult = 1): number {
+  return Math.min(0.04, 0.012 * mult);
 }
