@@ -24,18 +24,23 @@ function add(
 
 export class AnimationRegistry {
   static register(scene: Phaser.Scene): void {
-    // ---- heroes: facing frame bases down=0, up=4, side=8 ----
+    // ---- heroes: 5 poses per facing, so the bases are down=0, up=5, side=10 ----
+    // Poses: 0 idle · 1 walk-A · 2 walk-B · 3 wind-up · 4 strike.
     for (const cls of HERO_CLASSES) {
       const sheet = `hero-${cls}-sheet`;
       const dirs: [string, number][] = [
         ['down', 0],
-        ['up', 4],
-        ['side', 8],
+        ['up', 5],
+        ['side', 10],
       ];
       for (const [dir, b] of dirs) {
         add(scene, `${cls}-idle-${dir}`, sheet, [b], 2, -1);
         add(scene, `${cls}-walk-${dir}`, sheet, [b + 1, b, b + 2, b], 9, -1);
-        add(scene, `${cls}-attack-${dir}`, sheet, [b + 3], 1, 0);
+        // Damage lands the instant the button is pressed, so the anticipation
+        // frame has to be brief or the swing reads as input lag. One beat of
+        // wind-up, three of held follow-through: ~45ms then ~135ms, which fits
+        // inside the 240ms attack window with room to settle.
+        add(scene, `${cls}-attack-${dir}`, sheet, [b + 3, b + 4, b + 4, b + 4], 22, 0);
       }
     }
 
@@ -97,5 +102,17 @@ export class AnimationRegistry {
     add(scene, 'fx-slash', 'fx-slash', [0, 1, 2], 22, 0);
     add(scene, 'fx-fire', 'fx-fire', [0, 1, 2, 3], 14, 0);
     add(scene, 'fx-levelup', 'fx-levelup', [0, 1, 2, 3, 4], 16, 0);
+
+    // ---- juice library ----
+    // Frame rates are deliberately fast: an impact that lingers past ~150ms stops
+    // reading as an impact and starts reading as a decal.
+    add(scene, 'fx-shock', 'fx-shock', [0, 1, 2, 3, 4, 5], 24, 0);
+    add(scene, 'fx-impact', 'fx-impact', [0, 1, 2, 3, 4], 34, 0);
+    add(scene, 'fx-slash-arc', 'fx-slash-arc', [0, 1, 2, 3, 4], 30, 0);
+    add(scene, 'fx-puff', 'fx-puff', [0, 1, 2, 3], 14, 0);
+    add(scene, 'fx-lightning', 'fx-lightning', [0, 1, 2, 1, 0], 26, 0);
+    add(scene, 'fx-soul', 'fx-soul', [0, 1, 2, 3], 9, 0);
+    // the cast sigil loops slowly beneath a caster while the spell winds up
+    add(scene, 'fx-sigil', 'fx-sigil', [0, 1, 2, 3, 4, 5], 11, -1);
   }
 }

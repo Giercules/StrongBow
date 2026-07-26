@@ -2,10 +2,13 @@ import Phaser from 'phaser';
 import { C, HERO_RAMPS, MONSTER_RAMPS } from './Palette';
 import type { HeroRamp, MonsterRamp } from './Palette';
 import * as art from './spriteArt';
+import * as bossArt from './bossArt';
+import * as monArt from './monsterArt';
+import * as fx from './fxArt';
 import * as townArt from './townArt';
 import * as overworldArt from './overworldArt';
 import * as desertArt from './desertTownArt';
-import { HERO_FW, HERO_FH, MON_FW, MON_FH, BOSS_FW, BOSS_FH, SMALL_MOB_FW, SMALL_MOB_FH } from './spriteArt';
+import { HERO_FW, HERO_FH, HERO_POSES, HERO_FRAMES, MON_FW, MON_FH, BOSS_FW, BOSS_FH, SMALL_MOB_FW, SMALL_MOB_FH } from './spriteArt';
 import type { Ctx, Facing } from './spriteArt';
 
 // TextureFactory - Phaser adapter that renders the pure spriteArt routines onto
@@ -53,9 +56,10 @@ function addSheet(
 function makeHeroSheet(scene: Phaser.Scene, cls: string): void {
   const ramp = HERO_RAMPS[cls];
   const facings: Facing[] = ['down', 'up', 'side'];
-  addSheet(scene, `hero-${cls}-sheet`, HERO_FW, HERO_FH, 12, (ctx, ox, frame) => {
-    const facing = facings[Math.floor(frame / 4)];
-    const pose = frame % 4;
+  // 15 frames: 3 facings × 5 poses (idle, walk-A, walk-B, wind-up, strike).
+  addSheet(scene, `hero-${cls}-sheet`, HERO_FW, HERO_FH, HERO_FRAMES, (ctx, ox, frame) => {
+    const facing = facings[Math.floor(frame / HERO_POSES)];
+    const pose = frame % HERO_POSES;
     art.drawHumanoid(ctx, ox, cls, ramp, facing, pose);
   }, true, true);
 }
@@ -368,7 +372,7 @@ export class TextureFactory {
     sheet('fx-slash', 16, 24, 3, (c, ox, f) => art.drawSlash(c, ox, f));
     sheet('fx-fire', 16, 16, 4, (c, ox, f) => art.drawFire(c, ox, f));
     sheet('fx-levelup', 32, 28, 5, (c, ox, f) => art.drawRing(c, ox, f, C.coinHi));
-    img('fx-shadow', 24, 8, art.drawShadow);
+    img('fx-shadow', 24, 8, (c) => fx.drawSoftShadow(c, 24, 8));
     img('fx-ally-aura', 28, 28, (c) => art.drawAura(c, C.allyAura));
     img('fx-hit', 16, 16, art.drawHitStar);
     img('fx-glow-warm', 16, 16, (c) => art.drawGlowDot(c, 'rgba(255,170,60,0.9)'));
@@ -381,6 +385,41 @@ export class TextureFactory {
     img('fx-light', 128, 128, (c) => art.drawRadialLight(c, 128, 128));
     img('fx-vignette', 740, 540, (c) => art.drawVignette(c, 740, 540));
     img('fx-edge', 740, 540, (c) => art.drawEdgeTint(c, 740, 540));
+
+    // ---- juice library (fxArt) ----------------------------------------------
+    // Hard pixel FX live in the world layer; the *-glow / fog / ray textures are
+    // additive light layers meant to be drawn above the pixels. See fxArt.ts.
+    sheet('fx-shock', fx.SHOCK_SIZE, fx.SHOCK_SIZE, 6, (c, ox, f) => fx.drawShockRing(c, ox, f));
+    sheet('fx-impact', fx.IMPACT_SIZE, fx.IMPACT_SIZE, 5, (c, ox, f) => fx.drawImpactBurst(c, ox, f));
+    sheet('fx-slash-arc', fx.SLASH_W, fx.SLASH_H, 5, (c, ox, f) => fx.drawSlashArc(c, ox, f));
+    sheet('fx-puff', fx.PUFF_SIZE, fx.PUFF_SIZE, 4, (c, ox, f) => fx.drawSmokePuff(c, ox, f));
+    sheet('fx-lightning', fx.BOLT_W, fx.BOLT_H, 3, (c, ox, f) => fx.drawLightning(c, ox, f));
+    sheet('fx-sigil', fx.SIGIL_SIZE, fx.SIGIL_SIZE, 6, (c, ox, f) => fx.drawRuneSigil(c, ox, f));
+    sheet('fx-soul', fx.SOUL_SIZE, fx.SOUL_SIZE, 4, (c, ox, f) => fx.drawSoulWisp(c, ox, f));
+    img('fx-shard', 6, 5, fx.drawShard);
+    img('fx-spark', 8, 6, fx.drawSpark);
+    img('fx-crit-star', 16, 16, fx.drawCritStar);
+    img('fx-gore', 5, 5, fx.drawGoreDrop);
+    // persistent ground decals — the marks a fight leaves behind
+    img('fx-decal-blood', fx.DECAL_W, fx.DECAL_H, fx.drawDecalBlood);
+    img('fx-decal-scorch', fx.DECAL_W, fx.DECAL_H, fx.drawDecalScorch);
+    img('fx-decal-frost', fx.DECAL_W, fx.DECAL_H, fx.drawDecalFrost);
+    img('fx-decal-void', fx.DECAL_W, fx.DECAL_H, fx.drawDecalVoid);
+    img('fx-decal-crack', fx.DECAL_W, fx.DECAL_H, fx.drawDecalCrack);
+    // ambient motes — one texture each, tinted per realm by the emitter
+    img('fx-mote-ember', 8, 8, fx.drawEmber);
+    img('fx-mote-snow', 8, 8, fx.drawSnowflake);
+    img('fx-mote-spore', 8, 8, fx.drawSpore);
+    img('fx-mote-ash', 8, 8, fx.drawAsh);
+    img('fx-mote-rain', 3, 8, fx.drawRainStreak);
+    img('fx-mote-dust', 8, 8, fx.drawDustMote);
+    // additive light layers
+    img('fx-glow-ring', 64, 64, (c) => fx.drawGlowRing(c, 64));
+    img('fx-beam', 64, 8, (c) => fx.drawBeamCore(c, 64, 8));
+    img('fx-godray', 64, 256, (c) => fx.drawGodRay(c, 64, 256));
+    img('fx-fog', 256, 128, (c) => fx.drawFogBank(c, 256, 128));
+    img('fx-pillar', 64, 256, (c) => fx.drawLightPillar(c, 64, 256));
+    img('fx-scanlines', 256, 256, (c) => fx.drawScanlines(c, 256, 256));
 
     // the Druid's bear form: a monster-style 4-frame sheet (walk 0-2, attack 3)
     sheet('druid-bear-sheet', MON_FW, MON_FH, 4, (c, ox, f) => art.drawDruidBear(c, ox, f), true);
@@ -409,7 +448,7 @@ export class TextureFactory {
     mon('monster-grunt-sheet', MONSTER_RAMPS.grunt, art.drawGrunt);
     mon('monster-ghost-sheet', MONSTER_RAMPS.ghost, art.drawGhost);
     mon('monster-demon-sheet', MONSTER_RAMPS.demon, art.drawDemon);
-    mon('monster-boss-sheet', MONSTER_RAMPS.grave_warden, art.drawBoss, BOSS_FW, BOSS_FH);
+    mon('monster-boss-sheet', MONSTER_RAMPS.grave_warden, bossArt.drawGraveWarden, BOSS_FW, BOSS_FH);
     mon('monster-bone_archer-sheet', MONSTER_RAMPS.bone_archer, art.drawBoneArcher);
     mon('monster-skel_tank-sheet', MONSTER_RAMPS.skel_tank, (c, ox, f, r) => art.drawSkeletonServant(c, ox, f, r, 'tank'), SMALL_MOB_FW, SMALL_MOB_FH);
     mon('monster-skel_archer-sheet', MONSTER_RAMPS.skel_archer, (c, ox, f, r) => art.drawSkeletonServant(c, ox, f, r, 'archer'), SMALL_MOB_FW, SMALL_MOB_FH);
@@ -417,32 +456,32 @@ export class TextureFactory {
     mon('monster-skel_thief-sheet', MONSTER_RAMPS.skel_thief, (c, ox, f, r) => art.drawSkeletonServant(c, ox, f, r, 'thief'), SMALL_MOB_FW, SMALL_MOB_FH);
     mon('monster-brute-sheet', MONSTER_RAMPS.brute, art.drawBrute);
     mon('monster-imp-sheet', MONSTER_RAMPS.imp, art.drawImp);
-    mon('monster-molten_colossus-sheet', MONSTER_RAMPS.molten_colossus, art.drawColossus, BOSS_FW, BOSS_FH);
+    mon('monster-molten_colossus-sheet', MONSTER_RAMPS.molten_colossus, bossArt.drawMoltenColossus, BOSS_FW, BOSS_FH);
 
-    // ---- themed regulars (recolours + bespoke shapes) ----
-    mon('monster-frost_shade-sheet', MONSTER_RAMPS.frost_shade, art.drawGhost);
-    mon('monster-rime_archer-sheet', MONSTER_RAMPS.rime_archer, art.drawBoneArcher);
+    // ---- themed regulars: base body + an identity kit (see monsterArt.ts) ----
+    mon('monster-frost_shade-sheet', MONSTER_RAMPS.frost_shade, monArt.drawFrostShade);
+    mon('monster-rime_archer-sheet', MONSTER_RAMPS.rime_archer, monArt.drawRimeArcher);
     mon('monster-plague_ooze-sheet', MONSTER_RAMPS.plague_ooze, art.drawOoze);
-    mon('monster-spore_imp-sheet', MONSTER_RAMPS.spore_imp, art.drawImp);
-    mon('monster-gear_knight-sheet', MONSTER_RAMPS.gear_knight, art.drawBrute);
+    mon('monster-spore_imp-sheet', MONSTER_RAMPS.spore_imp, monArt.drawSporeImp);
+    mon('monster-gear_knight-sheet', MONSTER_RAMPS.gear_knight, monArt.drawGearKnight);
     mon('monster-brass_sentinel-sheet', MONSTER_RAMPS.brass_sentinel, art.drawConstruct);
-    mon('monster-gladiator-sheet', MONSTER_RAMPS.gladiator, art.drawGrunt);
-    mon('monster-mire_lurker-sheet', MONSTER_RAMPS.mire_lurker, art.drawDemon);
+    mon('monster-gladiator-sheet', MONSTER_RAMPS.gladiator, monArt.drawGladiator);
+    mon('monster-mire_lurker-sheet', MONSTER_RAMPS.mire_lurker, monArt.drawMireLurker);
     mon('monster-storm_wisp-sheet', MONSTER_RAMPS.storm_wisp, art.drawWisp);
-    mon('monster-sky_lancer-sheet', MONSTER_RAMPS.sky_lancer, art.drawBoneArcher);
+    mon('monster-sky_lancer-sheet', MONSTER_RAMPS.sky_lancer, monArt.drawSkyLancer);
     mon('monster-shadow_stalker-sheet', MONSTER_RAMPS.shadow_stalker, art.drawStalker);
-    mon('monster-void_imp-sheet', MONSTER_RAMPS.void_imp, art.drawImp);
-    mon('monster-hollow_knight-sheet', MONSTER_RAMPS.hollow_knight, art.drawBrute);
+    mon('monster-void_imp-sheet', MONSTER_RAMPS.void_imp, monArt.drawVoidImp);
+    mon('monster-hollow_knight-sheet', MONSTER_RAMPS.hollow_knight, monArt.drawHollowKnight);
 
-    // ---- themed bosses ----
-    mon('monster-rime_cantor-sheet', MONSTER_RAMPS.rime_cantor, art.drawBoss, BOSS_FW, BOSS_FH);
-    mon('monster-rot_sovereign-sheet', MONSTER_RAMPS.rot_sovereign, art.drawBoss, BOSS_FW, BOSS_FH);
-    mon('monster-brass_magnus-sheet', MONSTER_RAMPS.brass_magnus, art.drawColossus, BOSS_FW, BOSS_FH);
-    mon('monster-arena_champion-sheet', MONSTER_RAMPS.arena_champion, art.drawColossus, BOSS_FW, BOSS_FH);
-    mon('monster-mire_leviathan-sheet', MONSTER_RAMPS.mire_leviathan, art.drawColossus, BOSS_FW, BOSS_FH);
-    mon('monster-tempest_herald-sheet', MONSTER_RAMPS.tempest_herald, art.drawBoss, BOSS_FW, BOSS_FH);
-    mon('monster-umbral_devourer-sheet', MONSTER_RAMPS.umbral_devourer, art.drawBoss, BOSS_FW, BOSS_FH);
-    mon('monster-hollow_king-sheet', MONSTER_RAMPS.hollow_king, art.drawBoss, BOSS_FW, BOSS_FH);
+    // ---- themed bosses: each realm warden now has its OWN silhouette ----
+    mon('monster-rime_cantor-sheet', MONSTER_RAMPS.rime_cantor, bossArt.drawRimeCantor, BOSS_FW, BOSS_FH);
+    mon('monster-rot_sovereign-sheet', MONSTER_RAMPS.rot_sovereign, bossArt.drawRotSovereign, BOSS_FW, BOSS_FH);
+    mon('monster-brass_magnus-sheet', MONSTER_RAMPS.brass_magnus, bossArt.drawBrassMagnus, BOSS_FW, BOSS_FH);
+    mon('monster-arena_champion-sheet', MONSTER_RAMPS.arena_champion, bossArt.drawArenaChampion, BOSS_FW, BOSS_FH);
+    mon('monster-mire_leviathan-sheet', MONSTER_RAMPS.mire_leviathan, bossArt.drawMireLeviathan, BOSS_FW, BOSS_FH);
+    mon('monster-tempest_herald-sheet', MONSTER_RAMPS.tempest_herald, bossArt.drawTempestHerald, BOSS_FW, BOSS_FH);
+    mon('monster-umbral_devourer-sheet', MONSTER_RAMPS.umbral_devourer, bossArt.drawUmbralDevourer, BOSS_FW, BOSS_FH);
+    mon('monster-hollow_king-sheet', MONSTER_RAMPS.hollow_king, bossArt.drawHollowKing, BOSS_FW, BOSS_FH);
 
     // ---- decorative NPC (outlined) ----
     img('npc-elder', HERO_FW, HERO_FH, (c) => {

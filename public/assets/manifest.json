@@ -426,20 +426,6 @@
       "frameHeight": 22
     },
     {
-      "key": "monster-boss-sheet",
-      "path": "assets/sprites/monster-grave_warden.png",
-      "kind": "spritesheet",
-      "frameWidth": 40,
-      "frameHeight": 40
-    },
-    {
-      "key": "monster-molten_colossus-sheet",
-      "path": "assets/sprites/monster-molten_colossus.png",
-      "kind": "spritesheet",
-      "frameWidth": 40,
-      "frameHeight": 40
-    },
-    {
       "key": "monster-skel_tank-sheet",
       "path": "assets/sprites/monster-skel_tank-sheet.png",
       "kind": "spritesheet",

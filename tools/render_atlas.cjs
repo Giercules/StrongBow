@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { createCanvas, loadImage, GlobalFonts } = require('@napi-rs/canvas');
-const { art, townArt, C, HERO_RAMPS, MONSTER_RAMPS } = require('./_artbundle.cjs');
+const { art, townArt, bossArt, monsterArt, C, HERO_RAMPS, MONSTER_RAMPS } = require('./_artbundle.cjs');
 
 const ROOT = path.join(__dirname, '..');
 const PUB = path.join(ROOT, 'public');
@@ -44,7 +44,9 @@ async function sheetSprite(key, fw, fh, procFn, shade) {
   return proc(fw, fh, procFn, shade);
 }
 const heroDraw = (cls) => (ctx) => art.drawHumanoid(ctx, 0, cls, HERO_RAMPS[cls], 'down', 0);
-const monDraw = (drawer, ramp) => (ctx) => art[drawer](ctx, 0, 0, MONSTER_RAMPS[ramp]);
+// Bespoke wardens/variants live in bossArt/monsterArt; the shared bodies in art.
+const drawerFor = (name) => bossArt[name] || monsterArt[name] || art[name];
+const monDraw = (drawer, ramp) => (ctx) => drawerFor(drawer)(ctx, 0, 0, MONSTER_RAMPS[ramp]);
 const skelDraw = (ramp, role) => (ctx) => art.drawSkeletonServant(ctx, 0, 0, MONSTER_RAMPS[ramp], role);
 
 async function build() {
@@ -53,21 +55,21 @@ async function build() {
     HEROES.push([n, await sheetSprite(`hero-${c}-sheet`, 40, 48, heroDraw(c), true)]);
 
   const BOSSES = [];
-  for (const [n,r,d] of [['Grave Warden','grave_warden','drawBoss'],['Molten Colossus','molten_colossus','drawColossus'],
-    ['Rime Cantor','rime_cantor','drawBoss'],['Rot Sovereign','rot_sovereign','drawBoss'],['Brass Magnus','brass_magnus','drawColossus'],
-    ['Undying Champion','arena_champion','drawColossus'],['Mire Leviathan','mire_leviathan','drawColossus'],['Tempest Herald','tempest_herald','drawBoss'],
-    ['Umbral Devourer','umbral_devourer','drawBoss'],['Hollow King','hollow_king','drawBoss']]) {
+  for (const [n,r,d] of [['Grave Warden','grave_warden','drawGraveWarden'],['Molten Colossus','molten_colossus','drawMoltenColossus'],
+    ['Rime Cantor','rime_cantor','drawRimeCantor'],['Rot Sovereign','rot_sovereign','drawRotSovereign'],['Brass Magnus','brass_magnus','drawBrassMagnus'],
+    ['Undying Champion','arena_champion','drawArenaChampion'],['Mire Leviathan','mire_leviathan','drawMireLeviathan'],['Tempest Herald','tempest_herald','drawTempestHerald'],
+    ['Umbral Devourer','umbral_devourer','drawUmbralDevourer'],['Hollow King','hollow_king','drawHollowKing']]) {
     const key = r === 'grave_warden' ? 'monster-boss-sheet' : `monster-${r}-sheet`;
     BOSSES.push([n, await sheetSprite(key, 80, 80, monDraw(d,r), true)]);
   }
 
   const MOBROWS = [['Crypt Grunt','grunt','drawGrunt'],['Wailing Shade','ghost','drawGhost'],['Pit Demon','demon','drawDemon'],
     ['Bone Archer','bone_archer','drawBoneArcher'],['Crypt Brute','brute','drawBrute'],['Cinder Imp','imp','drawImp'],
-    ['Frost Shade','frost_shade','drawGhost'],['Rime Archer','rime_archer','drawBoneArcher'],['Plague Ooze','plague_ooze','drawOoze'],
-    ['Spore Imp','spore_imp','drawImp'],['Gear Knight','gear_knight','drawBrute'],['Brass Sentinel','brass_sentinel','drawConstruct'],
-    ['Gladiator','gladiator','drawGrunt'],['Mire Lurker','mire_lurker','drawDemon'],['Storm Wisp','storm_wisp','drawWisp'],
-    ['Sky Lancer','sky_lancer','drawBoneArcher'],['Shadow Stalker','shadow_stalker','drawStalker'],['Void Imp','void_imp','drawImp'],
-    ['Hollow Knight','hollow_knight','drawBrute']];
+    ['Frost Shade','frost_shade','drawFrostShade'],['Rime Archer','rime_archer','drawRimeArcher'],['Plague Ooze','plague_ooze','drawOoze'],
+    ['Spore Imp','spore_imp','drawSporeImp'],['Gear Knight','gear_knight','drawGearKnight'],['Brass Sentinel','brass_sentinel','drawConstruct'],
+    ['Gladiator','gladiator','drawGladiator'],['Mire Lurker','mire_lurker','drawMireLurker'],['Storm Wisp','storm_wisp','drawWisp'],
+    ['Sky Lancer','sky_lancer','drawSkyLancer'],['Shadow Stalker','shadow_stalker','drawStalker'],['Void Imp','void_imp','drawVoidImp'],
+    ['Hollow Knight','hollow_knight','drawHollowKnight']];
   const MOBS = [];
   for (const [n,r,d] of MOBROWS) MOBS.push([n, await sheetSprite(`monster-${r}-sheet`, 44, 44, monDraw(d,r), true)]);
 

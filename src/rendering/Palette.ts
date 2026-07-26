@@ -1,109 +1,118 @@
 // ----------------------------------------------------------------------------
 // StrongBow -- master palette
-// A cohesive arcade dungeon palette. All art references these so the whole
-// game stays colour-consistent. Values are 0xRRGGBB (or '#rrggbb' strings).
+//
+// A cohesive arcade dungeon palette. All art references these so the whole game
+// stays colour-consistent. Values are 0xRRGGBB (or '#rrggbb' strings).
+//
+// Direction (see docs/ART_DIRECTION.md):
+//   • The WORLD is low-key and desaturated — cold stone, wet wood, bruised dark.
+//   • Only LIGHT is saturated — flame, magic, eyes, runes, loot, hazards.
+//   • Every ramp separates on VALUE first so silhouettes survive a squint test.
+//   • Shadows carry a colour cast (never neutral grey); highlights push near-white
+//     so additive glows have a genuinely hot core.
 // ----------------------------------------------------------------------------
 import type { ThemeId } from '../core/types';
 
 export const C = {
-  // ---- Floors (warm dithered stone) ----
-  floor0: '#2a1d12',
-  floor1: '#3a2817',
-  floor2: '#4a341f',
-  floor3: '#5c4227',
-  floorHi: '#6f5230',
-  floorCrack: '#1c130b',
-  floorMoss: '#3c4a26',
+  // ---- Floors (warm dithered stone; the crypt default) ----
+  // Deepened the low end and warmed the highs so torchlight has somewhere to go.
+  floor0: '#1d1309',
+  floor1: '#31210f',
+  floor2: '#452e17',
+  floor3: '#5b3d1f',
+  floorHi: '#7a5430',
+  floorCrack: '#120b04',
+  floorMoss: '#3f5222',
 
-  // ---- Walls (cold lit brick) ----
-  wallDark: '#0c1430',
-  wallBase: '#1b2a55',
-  wallMid: '#2c4080',
-  wallLit: '#4a63b0',
-  wallHi: '#7d96d8',
-  wallTopDark: '#14224a',
-  wallTopLit: '#5570c0',
-  wallMortar: '#070b1c',
+  // ---- Walls (cold lit brick — the complement to the warm floor) ----
+  wallDark: '#070c22',
+  wallBase: '#16234b',
+  wallMid: '#27397a',
+  wallLit: '#4a63b8',
+  wallHi: '#8fa6e8',
+  wallTopDark: '#0f1a3e',
+  wallTopLit: '#5872c8',
+  wallMortar: '#040713',
 
   // ---- Doors ----
-  doorWood: '#5a3a1c',
-  doorWoodHi: '#7a5128',
-  doorIron: '#3a3f52',
-  doorLock: '#e0b03a',
+  doorWood: '#52341a',
+  doorWoodHi: '#7d5225',
+  doorIron: '#343949',
+  doorLock: '#ffc63f',
   doorLockDark: '#9a7320',
 
-  // ---- Hazards ----
-  waterDark: '#0e2940',
-  waterMid: '#155074',
-  waterHi: '#2f86b5',
-  waterFoam: '#a9e3ff',
-  lavaDark: '#5a1500',
-  lavaMid: '#c43c06',
-  lavaHi: '#ff8a1e',
-  lavaWhite: '#ffd98a',
-  iceDark: '#2a4a66',
-  iceMid: '#6fb0d8',
-  iceHi: '#bfe9ff',
-  iceWhite: '#f2fbff',
-  poisonDark: '#16331c',
-  poisonMid: '#3f8a3a',
-  poisonHi: '#8ce05a',
-  poisonGas: '#b6f06a',
-  spikeBase: '#1a2030',
-  spikeSteel: '#8b94a8',
-  spikeHi: '#dfe6ff',
-  spikeBlood: '#a01818',
+  // ---- Hazards (all self-illuminated: these are allowed to be loud) ----
+  waterDark: '#07203a',
+  waterMid: '#11557f',
+  waterHi: '#2f96cc',
+  waterFoam: '#c2edff',
+  lavaDark: '#460d00',
+  lavaMid: '#d13c04',
+  lavaHi: '#ff9a1c',
+  lavaWhite: '#fff0b4',
+  iceDark: '#1c3f5e',
+  iceMid: '#6fb8e4',
+  iceHi: '#ccf0ff',
+  iceWhite: '#f6fdff',
+  poisonDark: '#0f2a15',
+  poisonMid: '#3d9636',
+  poisonHi: '#95ee56',
+  poisonGas: '#c4ff62',
+  spikeBase: '#141a29',
+  spikeSteel: '#96a0b6',
+  spikeHi: '#ecf1ff',
+  spikeBlood: '#a81616',
 
   // ---- Themed decor ----
-  crystal: '#7fe4ff',
-  crystalHi: '#dffaff',
-  crystalDk: '#2f6f9a',
-  cog: '#9a7b3a',
-  cogHi: '#e6c264',
-  cogDk: '#4a3812',
-  vine: '#3f7a34',
-  vineHi: '#7fce58',
-  bloodDark: '#5a0e0e',
-  bloodMid: '#9c1818',
+  crystal: '#78ecff',
+  crystalHi: '#e8fdff',
+  crystalDk: '#245f8c',
+  cog: '#a4823a',
+  cogHi: '#f4cf68',
+  cogDk: '#3f2f0e',
+  vine: '#3a7c2e',
+  vineHi: '#84dc58',
+  bloodDark: '#4d0a0a',
+  bloodMid: '#a41515',
 
   // ---- Exit portal ----
-  portal0: '#1a0a3a',
-  portal1: '#4a18a8',
-  portal2: '#8a3cff',
-  portal3: '#c79bff',
+  portal0: '#150636',
+  portal1: '#4d16b8',
+  portal2: '#9440ff',
+  portal3: '#d3a8ff',
   portalCore: '#ffffff',
 
   // ---- Shadow / vignette ----
   shadow: '#000000',
 
   // ---- Gold / loot / coins ----
-  coinDark: '#9a6e10',
-  coinMid: '#e0a81e',
-  coinHi: '#ffe27a',
-  gem: '#39e0d0',
+  coinDark: '#8f6208',
+  coinMid: '#efb320',
+  coinHi: '#ffeb92',
+  gem: '#2ff0dc',
 
   // ---- FX ----
   magicCore: '#ffffff',
-  magicHot: '#c79bff',
-  magicMid: '#7a3cff',
-  magicEdge: '#3a18a8',
-  fireCore: '#fff2b0',
-  fireMid: '#ff8a1e',
-  fireEdge: '#c43c06',
-  spark: '#ffe27a',
-  heal: '#7cf08a',
-  allyAura: '#5fe0a0',
+  magicHot: '#d3a8ff',
+  magicMid: '#8a3cff',
+  magicEdge: '#3b13ab',
+  fireCore: '#fff6c4',
+  fireMid: '#ff9420',
+  fireEdge: '#c8360a',
+  spark: '#ffe98c',
+  heal: '#78f78d',
+  allyAura: '#54e6a4',
 
   // ---- Torch ----
   torchWood: '#3a2614',
-  torchFlame0: '#ffd98a',
-  torchFlame1: '#ff8a1e',
-  torchFlame2: '#c43c06',
+  torchFlame0: '#ffefb4',
+  torchFlame1: '#ff9420',
+  torchFlame2: '#c8360a',
 
   // ---- UI chrome (arcade cabinet: deep navy + hot gold + neon status) ----
-  hudBg: '#03050c',
-  hudPanel: '#0a1020',
-  hudPanel2: '#121c36',
+  hudBg: '#02040a',
+  hudPanel: '#080e1c',
+  hudPanel2: '#101a33',
   hudBorder: '#ffd24a',
   hudBorderDk: '#8a6418',
   hudNeon: '#fff0b8',
@@ -116,6 +125,16 @@ export const C = {
   hpLow: '#ff3a3a',
   manaFill: '#4ab8ff',
   xpFill: '#d898ff',
+
+  // ---- Shared light treatment (see ART_DIRECTION "one light direction") ----
+  /** Warm upper-left key rim painted on sprite edges. */
+  rimWarm: 'rgba(255,236,196,0.30)',
+  /** Cool ambient bounce on the lower-right of a form. */
+  rimCool: 'rgba(120,160,255,0.16)',
+  /** Standard sprite keyline — near-black with an indigo cast. */
+  keyline: '#05050c',
+  /** Contact shadow beneath anything standing on the ground. */
+  contact: 'rgba(0,0,0,0.45)',
 } as const;
 
 // ----------------------------------------------------------------------------
@@ -149,10 +168,28 @@ export interface FaceColors {
   lower: string;
   line: string;
 }
+
+/**
+ * The realm's *light*, as distinct from its *pigment*. Drives glows, ambient
+ * motes, screen-edge grade and emissive decor so a realm reads from a thumbnail.
+ * Optional so any consumer that only wants wall/floor colours keeps working.
+ */
+export interface ThemeLight {
+  /** The realm's signature saturated accent — runes, eyes, emissive trim. */
+  accent: string;
+  /** Hot core of that accent (glow centres, sparks). */
+  accentHi: string;
+  /** Colour of ambient haze layered over the floor. */
+  fog: string;
+  /** Colour the realm's torches/lamps burn. */
+  flame: string;
+}
+
 export interface ThemeArt {
   wall: WallColors;
   floor: FloorColors;
   face: FaceColors;
+  light: ThemeLight;
 }
 
 export const DEFAULT_WALL: WallColors = {
@@ -175,74 +212,106 @@ export const DEFAULT_FLOOR: FloorColors = {
   moss: C.floorMoss,
 };
 const DEFAULT_FACE: FaceColors = {
-  main: '#16234a',
-  top: '#7d96d8',
-  upper: '#2c4080',
-  lower: '#1b2a55',
-  line: '#070b1c',
+  main: '#101b3e',
+  top: '#8fa6e8',
+  upper: '#27397a',
+  lower: '#16234b',
+  line: '#040713',
 };
 
 export const THEME_ART: Record<ThemeId, ThemeArt> = {
+  // Cold indigo masonry over warm torch-lit stone — the complementary pairing
+  // that makes every flame in the crypt feel like the only warm thing alive.
   crypt: {
     wall: DEFAULT_WALL,
     floor: DEFAULT_FLOOR,
     face: DEFAULT_FACE,
+    light: { accent: '#9ab4ff', accentHi: '#e6efff', fog: '#2a3a78', flame: '#ffa040' },
   },
+  // Black basalt bled through with orange. The rock is nearly value-0 so the
+  // cracks read as molten rather than merely "orange rock".
   molten: {
-    wall: { base: '#4a1810', mortar: '#1a0604', mid: '#6e2412', lit: '#a83a14', hi: '#ff7a28', dark: '#240806', topLit: '#c04a18', topDark: '#2e0c08' },
-    floor: { f0: '#1a0a06', f1: '#2e120c', f2: '#4a1e12', f3: '#6a2c16', hi: '#a84820', crack: '#100404', moss: '#7a3010' },
-    face: { main: '#2e0c08', top: '#ff7a28', upper: '#6e2412', lower: '#4a1810', line: '#140404' },
+    wall: { base: '#3d1109', mortar: '#150301', mid: '#631c0c', lit: '#a83512', hi: '#ff8324', dark: '#1a0503', topLit: '#c44a15', topDark: '#250705' },
+    floor: { f0: '#120603', f1: '#240d07', f2: '#3c170d', f3: '#5c2411', hi: '#a44418', crack: '#ff5a12', moss: '#7a2c0c' },
+    face: { main: '#250705', top: '#ff8324', upper: '#631c0c', lower: '#3d1109', line: '#0e0302' },
+    light: { accent: '#ff7a18', accentHi: '#ffe0a0', fog: '#8a2808', flame: '#ff6a10' },
   },
+  // Glacial: deep navy shadow, brilliant white-cyan highlight. High value range
+  // so ice reads as translucent instead of pale-blue plastic.
   frost: {
-    wall: { base: '#2e5278', mortar: '#0a1e32', mid: '#4a7aa8', lit: '#7eb8e0', hi: '#e8f6ff', dark: '#142840', topLit: '#8ec8f0', topDark: '#1e3a58' },
-    floor: { f0: '#162838', f1: '#243e52', f2: '#3a5e78', f3: '#527a96', hi: '#9ec8e8', crack: '#0e1c28', moss: '#4a8090' },
-    face: { main: '#1a3850', top: '#e8f6ff', upper: '#4a7aa8', lower: '#2e5278', line: '#0a1a2c' },
+    wall: { base: '#25496f', mortar: '#061626', mid: '#4179ab', lit: '#7ec2ec', hi: '#f0fbff', dark: '#0d2138', topLit: '#93d3f7', topDark: '#163150' },
+    floor: { f0: '#0e1f30', f1: '#1c3548', f2: '#325a75', f3: '#4c7896', hi: '#a6d6f2', crack: '#081420', moss: '#4b93a6' },
+    face: { main: '#123048', top: '#f0fbff', upper: '#4179ab', lower: '#25496f', line: '#06131f' },
+    light: { accent: '#8fe8ff', accentHi: '#f4fdff', fog: '#1a5a90', flame: '#a8e0ff' },
   },
+  // Acid-green bile over black rot. Yellow-shifted highlights keep it sickly
+  // rather than "forest".
   toxic: {
-    wall: { base: '#284a24', mortar: '#0a180a', mid: '#3e6a32', lit: '#68a048', hi: '#b8f060', dark: '#122010', topLit: '#5a9040', topDark: '#1a2e16' },
-    floor: { f0: '#121e0c', f1: '#1e3016', f2: '#2e4a22', f3: '#426a2e', hi: '#7ab848', crack: '#0a1206', moss: '#8ce05a' },
-    face: { main: '#1a2e12', top: '#b8f060', upper: '#3e6a32', lower: '#284a24', line: '#081208' },
+    wall: { base: '#22461d', mortar: '#061105', mid: '#39682a', lit: '#6ba63f', hi: '#c4fb5c', dark: '#0c1a08', topLit: '#5c9636', topDark: '#152a10' },
+    floor: { f0: '#0d1808', f1: '#182a10', f2: '#28451b', f3: '#3d6626', hi: '#79bd3e', crack: '#060f04', moss: '#95ee56' },
+    face: { main: '#152a10', top: '#c4fb5c', upper: '#39682a', lower: '#22461d', line: '#040c03' },
+    light: { accent: '#9cf24e', accentHi: '#e8ffb0', fog: '#246a20', flame: '#a0f050' },
   },
+  // Oiled iron underfoot, brass above, amber filament light.
   clockwork: {
-    wall: { base: '#423828', mortar: '#120e08', mid: '#6a5630', lit: '#a0803c', hi: '#ffe070', dark: '#1e1810', topLit: '#c09840', topDark: '#2e2414' },
-    floor: { f0: '#1a1a18', f1: '#282826', f2: '#3a3a36', f3: '#52524c', hi: '#8a8a78', crack: '#0e0e0c', moss: '#8a6e30' },
-    face: { main: '#2a2014', top: '#ffe070', upper: '#6a5630', lower: '#423828', line: '#100c06' },
+    wall: { base: '#403422', mortar: '#0d0a05', mid: '#6d5527', lit: '#ab8531', hi: '#ffdf6b', dark: '#191308', topLit: '#c99a34', topDark: '#2a1f0e' },
+    floor: { f0: '#131316', f1: '#1f2026', f2: '#2f3138', f3: '#45474f', hi: '#7e8290', crack: '#08080a', moss: '#8f7028' },
+    face: { main: '#261c0e', top: '#ffdf6b', upper: '#6d5527', lower: '#403422', line: '#0b0804' },
+    light: { accent: '#ffd24a', accentHi: '#fff4c8', fog: '#6a4a12', flame: '#ffc040' },
   },
+  // Sun-bleached sandstone, blood in the grout, hot white-gold key light.
   arena: {
-    wall: { base: '#563e28', mortar: '#1a1008', mid: '#7e5e38', lit: '#b08850', hi: '#f0d090', dark: '#2e2014', topLit: '#c09858', topDark: '#3a2818' },
-    floor: { f0: '#2a1e14', f1: '#3e2c1c', f2: '#524028', f3: '#6a5434', hi: '#a08050', crack: '#180e08', moss: '#9a2820' },
-    face: { main: '#3a2818', top: '#f0d090', upper: '#7e5e38', lower: '#563e28', line: '#140c06' },
+    wall: { base: '#57391f', mortar: '#170c04', mid: '#845c2c', lit: '#bd8f47', hi: '#ffdf9d', dark: '#2b1a0c', topLit: '#cc9c50', topDark: '#382110' },
+    floor: { f0: '#271a0f', f1: '#3b2916', f2: '#503b21', f3: '#6b512e', hi: '#a5824b', crack: '#140b05', moss: '#a01e18' },
+    face: { main: '#382110', top: '#ffdf9d', upper: '#845c2c', lower: '#57391f', line: '#110903' },
+    light: { accent: '#ff8a3a', accentHi: '#ffe2b4', fog: '#8a1810', flame: '#ff7030' },
   },
+  // Drowned and desaturated, with luminous swamp gas as the only clean colour.
   bog: {
-    wall: { base: '#28382a', mortar: '#08120c', mid: '#3e5434', lit: '#5e7a44', hi: '#9ec868', dark: '#121c14', topLit: '#52703c', topDark: '#1c2a1c' },
-    floor: { f0: '#121a14', f1: '#1c281c', f2: '#2c3c28', f3: '#3e5240', hi: '#6a8a48', crack: '#080e08', moss: '#5a9a40' },
-    face: { main: '#18281c', top: '#9ec868', upper: '#3e5434', lower: '#28382a', line: '#061008' },
+    wall: { base: '#233324', mortar: '#050d07', mid: '#385030', lit: '#5b7a3e', hi: '#a3d16b', dark: '#0e170f', topLit: '#4d6c36', topDark: '#162217' },
+    floor: { f0: '#0d150e', f1: '#152016', f2: '#233421', f3: '#344a33', hi: '#628544', crack: '#050a05', moss: '#5ba33f' },
+    face: { main: '#132114', top: '#a3d16b', upper: '#385030', lower: '#233324', line: '#040b05' },
+    light: { accent: '#8ce05a', accentHi: '#dcffb0', fog: '#245a30', flame: '#98e070' },
   },
+  // Rain-dark slate lit by lightning: cold, blue-violet, high-contrast.
   storm: {
-    wall: { base: '#2e3460', mortar: '#0a0c20', mid: '#4a5288', lit: '#7a88c8', hi: '#c8dcff', dark: '#161830', topLit: '#6a78b8', topDark: '#202448' },
-    floor: { f0: '#14162c', f1: '#20243c', f2: '#303650', f3: '#464c68', hi: '#7a88b8', crack: '#0c0c1a', moss: '#4a5aa0' },
-    face: { main: '#1c2040', top: '#c8dcff', upper: '#4a5288', lower: '#2e3460', line: '#0a0c1a' },
+    wall: { base: '#272d5c', mortar: '#06081a', mid: '#454f8c', lit: '#7b8cd4', hi: '#dbe8ff', dark: '#101128', topLit: '#6675c0', topDark: '#191c42' },
+    floor: { f0: '#0f1126', f1: '#191d36', f2: '#282e4c', f3: '#3c4364', hi: '#7181b4', crack: '#080915', moss: '#4356a8' },
+    face: { main: '#161a3c', top: '#dbe8ff', upper: '#454f8c', lower: '#272d5c', line: '#060716' },
+    light: { accent: '#bcd4ff', accentHi: '#ffffff', fog: '#2a3a80', flame: '#d8ecff' },
   },
+  // Void: near-black plum with a magenta-violet emissive. The darkest realm.
   shadow: {
-    wall: { base: '#2a1e3a', mortar: '#08060e', mid: '#3e2e58', lit: '#5e4a80', hi: '#a888d8', dark: '#120c1e', topLit: '#523a70', topDark: '#1a1230' },
-    floor: { f0: '#100c18', f1: '#1a1428', f2: '#261e38', f3: '#3a2e50', hi: '#5e4a80', crack: '#06040c', moss: '#4a3070' },
-    face: { main: '#160e24', top: '#a888d8', upper: '#3e2e58', lower: '#2a1e3a', line: '#060410' },
+    wall: { base: '#241734', mortar: '#05030a', mid: '#38254f', lit: '#5c4180', hi: '#b18ce4', dark: '#0d0718', topLit: '#4c3070', topDark: '#150c28' },
+    floor: { f0: '#0b0713', f1: '#140e22', f2: '#1f1733', f3: '#31264a', hi: '#5a4280', crack: '#040209', moss: '#4a2a78' },
+    face: { main: '#110920', top: '#b18ce4', upper: '#38254f', lower: '#241734', line: '#04020b' },
+    light: { accent: '#c79bff', accentHi: '#f0e0ff', fog: '#3a2060', flame: '#c898ff' },
   },
+  // Bone-gold marble under a radiant, holy key light. Warm and bright — the
+  // only realm where the *stone itself* is high-value.
   sanctum: {
-    wall: { base: '#5e5440', mortar: '#1c180e', mid: '#827456', lit: '#b8a878', hi: '#fff0b8', dark: '#362e20', topLit: '#a09068', topDark: '#403828' },
-    floor: { f0: '#2a261c', f1: '#3e3a2c', f2: '#524c38', f3: '#6a6248', hi: '#b0a070', crack: '#18140c', moss: '#d0a830' },
-    face: { main: '#403828', top: '#fff0b8', upper: '#827456', lower: '#5e5440', line: '#141008' },
+    wall: { base: '#655840', mortar: '#1a150a', mid: '#8d7c58', lit: '#c6b47e', hi: '#fff6cd', dark: '#332b1c', topLit: '#a99770', topDark: '#3f3623' },
+    floor: { f0: '#282318', f1: '#3c3728', f2: '#524b34', f3: '#6d6444', hi: '#b8a76f', crack: '#161207', moss: '#dcb02e' },
+    face: { main: '#3f3623', top: '#fff6cd', upper: '#8d7c58', lower: '#655840', line: '#110d05' },
+    light: { accent: '#ffd24a', accentHi: '#fffbe6', fog: '#7a6020', flame: '#ffd848' },
   },
-  // Town square — sunlit lawns of green grass (roads are stamped as decor on top).
+  // Town square — sunlit lawns of green grass (roads are stamped as decor on
+  // top). The one place with true daylight: high key, low contrast, no gloom.
   town: {
-    wall: { base: '#6a5238', mortar: '#241a10', mid: '#806440', lit: '#b09058', hi: '#f0d098', dark: '#3a2c1c', topLit: '#a08050', topDark: '#42301e' },
-    floor: { f0: '#2a4a24', f1: '#3a5e2e', f2: '#4a7238', f3: '#5e8a48', hi: '#80c058', crack: '#1e3818', moss: '#90d060' },
-    face: { main: '#3a2c1c', top: '#f0d098', upper: '#806440', lower: '#6a5238', line: '#160e06' },
+    wall: { base: '#6f5537', mortar: '#221809', mid: '#8a6a41', lit: '#bd995b', hi: '#ffdc9f', dark: '#3a2a17', topLit: '#a98750', topDark: '#42311c' },
+    floor: { f0: '#2c5122', f1: '#3d672c', f2: '#4f7d36', f3: '#639645', hi: '#8ace55', crack: '#1f3c17', moss: '#9ada5e' },
+    face: { main: '#3a2a17', top: '#ffdc9f', upper: '#8a6a41', lower: '#6f5537', line: '#150d04' },
+    light: { accent: '#ffcf7a', accentHi: '#fff6de', fog: '#4a3820', flame: '#ffb868' },
   },
 };
 
 export function getThemeArt(id: ThemeId | undefined): ThemeArt {
   return THEME_ART[id ?? 'crypt'] ?? THEME_ART.crypt;
+}
+
+/** The realm's signature emissive colour as a Phaser tint (0xRRGGBB). */
+export function themeAccent(id: ThemeId | undefined): number {
+  return parseInt(getThemeArt(id).light.accent.slice(1), 16);
 }
 
 // ---- Hero colour ramps (shadow, base, light, trim) ----
@@ -255,85 +324,106 @@ export interface HeroRamp {
   trim: string; // metal / accent
   trimHi: string;
   hair: string;
+  /** Optional signature glow (spell light, soul-fire, holy radiance). */
+  glow?: string;
+  /** Optional deep accent used for straps, shadow folds and under-hem. */
+  deep?: string;
 }
 
 export const HERO_RAMPS: Record<string, HeroRamp> = {
   // Vanguard — Conan-style barbarian: bronzed skin, fur + leather, black mane.
+  // Warmer, higher-chroma bronze so bare skin is the class's read at a glance.
   vanguard: {
-    skin: '#c97e44',
-    skinHi: '#e6a86a',
-    cloth0: '#2e1d10', // dark fur cloak
-    cloth1: '#6e4423', // fur
-    cloth2: '#9c6a3c', // lit fur
-    trim: '#c8a25e', // bronze / leather
-    trimHi: '#f0d79a',
-    hair: '#1f160e', // black mane
+    skin: '#d0813f',
+    skinHi: '#f2b072',
+    cloth0: '#2a1a0c', // dark fur cloak
+    cloth1: '#77461f', // fur
+    cloth2: '#ab7440', // lit fur
+    trim: '#d2a95e', // bronze / leather
+    trimHi: '#ffe6ac',
+    hair: '#1a1109', // black mane
+    glow: '#ff9a3a',
+    deep: '#160c05',
   },
   // Thief — Drizzt-style drow ranger: ashen grey skin, white hair, dark cloak.
+  // Cooled the skin toward violet-grey and pushed the cloak to true black so the
+  // silver hair is the only bright value on the sprite.
   thief: {
-    skin: '#808096',
-    skinHi: '#b8b8ce',
-    cloth0: '#1a1530', // black cloak
-    cloth1: '#332a52', // dark leather
-    cloth2: '#59477e', // lavender-shadow
-    trim: '#b6b6cc', // silver
-    trimHi: '#eef0ff',
-    hair: '#eef2ff', // white-silver hair
+    skin: '#7d7d97',
+    skinHi: '#bfbfd8',
+    cloth0: '#120e26', // black cloak
+    cloth1: '#2e2551', // dark leather
+    cloth2: '#5b4788', // lavender-shadow
+    trim: '#bcbcd6', // silver
+    trimHi: '#f4f6ff',
+    hair: '#f2f6ff', // white-silver hair
+    glow: '#a97dff',
+    deep: '#080512',
   },
   // Arcanist — Merlin: deep blue robe, gold trim, long white hair + beard.
   arcanist: {
-    skin: '#d6a07a',
-    skinHi: '#f0c39c',
-    cloth0: '#161f52', // deep robe shadow
-    cloth1: '#26368c', // blue robe
-    cloth2: '#4f6ad6', // lit blue
-    trim: '#ffd45a', // gold
-    trimHi: '#fff0b0',
-    hair: '#eef0f4', // white hair/beard
+    skin: '#dda57c',
+    skinHi: '#f7caa1',
+    cloth0: '#0f1650', // deep robe shadow
+    cloth1: '#243499', // blue robe
+    cloth2: '#5372e8', // lit blue
+    trim: '#ffd451', // gold
+    trimHi: '#fff4bc',
+    hair: '#f3f5fa', // white hair/beard
+    glow: '#8fb4ff',
+    deep: '#070a2e',
   },
   // Warden — holy cleric: cream + gold robe, hooded, sacred light.
   warden: {
-    skin: '#cf9763',
-    skinHi: '#efb98a',
-    cloth0: '#6a5a2e', // robe shadow
-    cloth1: '#c7ba8e', // cream robe
-    cloth2: '#efe6c8', // lit cream
-    trim: '#e6c24a', // gold
-    trimHi: '#fff4c0',
-    hair: '#7a6a4a',
+    skin: '#d59a62',
+    skinHi: '#f5c18d',
+    cloth0: '#665326', // robe shadow
+    cloth1: '#cfc193', // cream robe
+    cloth2: '#f6eed2', // lit cream
+    trim: '#efc94c', // gold
+    trimHi: '#fff8ca',
+    hair: '#7d6c49',
+    glow: '#ffe9a0',
+    deep: '#3d3014',
   },
   // Necromancer — arcade lich: bone-white skull, electric violet robes, cyan soul-fire.
   necromancer: {
-    skin: '#d8e0ea',
-    skinHi: '#f4f8ff',
-    cloth0: '#120818',
-    cloth1: '#5a28a0',
-    cloth2: '#8a48e8',
-    trim: '#40e8ff',
-    trimHi: '#b0ffff',
-    hair: '#080410',
+    skin: '#dde5ef',
+    skinHi: '#f8fbff',
+    cloth0: '#0e0514',
+    cloth1: '#5d24ad',
+    cloth2: '#9450f5',
+    trim: '#37ecff',
+    trimHi: '#c0ffff',
+    hair: '#060309',
+    glow: '#37ecff',
+    deep: '#070211',
   },
   // Bard — swashbuckling skald: wine-red doublet, gold trim, chestnut hair.
   bard: {
-    skin: '#d8a276',
-    skinHi: '#f2c79e',
-    cloth0: '#3a1622',
-    cloth1: '#7e2f47',
-    cloth2: '#b04a66',
-    trim: '#e0b04a',
-    trimHi: '#ffe9a8',
-    hair: '#8a5a2e',
+    skin: '#dfa87a',
+    skinHi: '#f8cda4',
+    cloth0: '#33121d',
+    cloth1: '#8a3049',
+    cloth2: '#bd5170',
+    trim: '#e8b74c',
+    trimHi: '#fff0ae',
+    hair: '#8f5c2c',
+    glow: '#ffd98a',
+    deep: '#1e0910',
   },
   // Druid — keeper of the old wild: moss-green robes, bark trim, auburn mane.
   druid: {
-    skin: '#c98e5a',
-    skinHi: '#e8b584',
-    cloth0: '#22301a',
-    cloth1: '#41592a',
-    cloth2: '#64883e',
-    trim: '#8a6e3a',
-    trimHi: '#c9a94e',
-    hair: '#6e4a2a',
+    skin: '#cf9155',
+    skinHi: '#eebb86',
+    cloth0: '#1c2b15',
+    cloth1: '#42602a',
+    cloth2: '#6c9440',
+    trim: '#8f713a',
+    trimHi: '#d3b252',
+    hair: '#734b28',
+    glow: '#a8f56a',
+    deep: '#101a0c',
   },
 };
 
@@ -345,100 +435,116 @@ export interface MonsterRamp {
   accent: string;
   eye: string;
   detail: string;
+  /** Optional self-illuminated colour: soul-fire, molten core, rune glow. */
+  glow?: string;
+  /** Optional secondary material (bone, brass, cloth) for two-tone creatures. */
+  alt?: string;
 }
 
 export const MONSTER_RAMPS: Record<string, MonsterRamp> = {
   grunt: {
-    body0: '#1c4a1e',
-    body1: '#2f7a33',
-    body2: '#56b85a',
-    accent: '#9adf6a',
+    body0: '#153f17',
+    body1: '#2c7a30',
+    body2: '#5cc460',
+    accent: '#a6ec70',
     eye: '#ffe23a',
-    detail: '#123314',
+    detail: '#0c2610',
+    glow: '#ffe23a',
+    alt: '#7a5a30',
   },
   ghost: {
-    body0: '#2a3b6a',
-    body1: '#5a73c0',
-    body2: '#a9c4ff',
-    accent: '#dceaff',
+    body0: '#1f2f5e',
+    body1: '#5872c6',
+    body2: '#b0c9ff',
+    accent: '#e6f1ff',
     eye: '#ff5a8a',
-    detail: '#1a2746',
+    detail: '#131e3c',
+    glow: '#9fc0ff',
   },
   demon: {
-    body0: '#5a1208',
-    body1: '#a82414',
-    body2: '#e04a26',
-    accent: '#ff9a3a',
+    body0: '#4e0d05',
+    body1: '#ae2312',
+    body2: '#ec5024',
+    accent: '#ffa338',
     eye: '#ffe23a',
-    detail: '#380a04',
+    detail: '#2c0702',
+    glow: '#ff7a1e',
+    alt: '#1a0603',
   },
   grave_warden: {
-    body0: '#1a1426',
-    body1: '#382a52',
-    body2: '#6a4f9a',
-    accent: '#b58aff',
+    body0: '#150f22',
+    body1: '#3a2a58',
+    body2: '#7053a8',
+    accent: '#bd8fff',
     eye: '#3affd0',
-    detail: '#0c0814',
+    detail: '#08050f',
+    glow: '#3affd0',
+    alt: '#d8dce8',
   },
   bone_archer: {
-    body0: '#7d7660',
-    body1: '#c9c2a6',
-    body2: '#efe9cf',
-    accent: '#9b3a2a',
+    body0: '#79725c',
+    body1: '#cdc6a8',
+    body2: '#f4eed4',
+    accent: '#a03626',
     eye: '#ff5a3a',
-    detail: '#4a4636',
+    detail: '#433f30',
+    glow: '#ff5a3a',
   },
-  skel_tank: { body0: '#7d7660', body1: '#c9c2a6', body2: '#efe9cf', accent: '#5ab0ff', eye: '#80e8ff', detail: '#4a4636' },
-  skel_archer: { body0: '#7d7660', body1: '#c9c2a6', body2: '#efe9cf', accent: '#58e8a8', eye: '#b8ffe0', detail: '#4a4636' },
-  skel_mage: { body0: '#7d7660', body1: '#c9c2a6', body2: '#efe9cf', accent: '#c070ff', eye: '#e8c0ff', detail: '#4a4636' },
-  skel_thief: { body0: '#7d7660', body1: '#c9c2a6', body2: '#efe9cf', accent: '#78ff78', eye: '#c8ffc8', detail: '#4a4636' },
+  skel_tank: { body0: '#79725c', body1: '#cdc6a8', body2: '#f4eed4', accent: '#5ab0ff', eye: '#80e8ff', detail: '#433f30', glow: '#80e8ff' },
+  skel_archer: { body0: '#79725c', body1: '#cdc6a8', body2: '#f4eed4', accent: '#58e8a8', eye: '#b8ffe0', detail: '#433f30', glow: '#58e8a8' },
+  skel_mage: { body0: '#79725c', body1: '#cdc6a8', body2: '#f4eed4', accent: '#c070ff', eye: '#e8c0ff', detail: '#433f30', glow: '#c070ff' },
+  skel_thief: { body0: '#79725c', body1: '#cdc6a8', body2: '#f4eed4', accent: '#78ff78', eye: '#c8ffc8', detail: '#433f30', glow: '#78ff78' },
   brute: {
-    body0: '#3a2418',
-    body1: '#6e4326',
-    body2: '#9c6a3c',
-    accent: '#c0392b',
+    body0: '#331f13',
+    body1: '#734527',
+    body2: '#a67142',
+    accent: '#c93a2b',
     eye: '#ffd24a',
-    detail: '#1f120a',
+    detail: '#1a0f07',
+    alt: '#8b94a8',
   },
   imp: {
-    body0: '#6a1408',
-    body1: '#c4361a',
-    body2: '#ff7a2a',
+    body0: '#5e0f05',
+    body1: '#cc3616',
+    body2: '#ff8630',
     accent: '#ffd24a',
     eye: '#fff4b0',
-    detail: '#360a04',
+    detail: '#2c0702',
+    glow: '#ff8630',
   },
   molten_colossus: {
-    body0: '#2a1410',
-    body1: '#6e2414',
-    body2: '#c4451c',
-    accent: '#ffae2a',
-    eye: '#fff0a0',
-    detail: '#140805',
+    body0: '#1d0e0a',
+    body1: '#6b2110',
+    body2: '#cc4718',
+    accent: '#ffb324',
+    eye: '#fff4b0',
+    detail: '#0d0503',
+    glow: '#ff8a1e',
+    alt: '#2a2a30',
   },
 
   // ---- themed regulars ----
-  frost_shade: { body0: '#2a4a66', body1: '#5a86c0', body2: '#bfe9ff', accent: '#eaf6ff', eye: '#7fe4ff', detail: '#1a2746' },
-  rime_archer: { body0: '#7a8aa0', body1: '#c2d6ec', body2: '#eef6ff', accent: '#4aa3d8', eye: '#7fe4ff', detail: '#3a4656' },
-  plague_ooze: { body0: '#1c3a18', body1: '#3f7a2e', body2: '#7fbf44', accent: '#b6f06a', eye: '#eaff8a', detail: '#0e2009' },
-  spore_imp: { body0: '#1c4a1e', body1: '#3f8a3a', body2: '#7fce58', accent: '#b6f06a', eye: '#eaff8a', detail: '#123314' },
-  gear_knight: { body0: '#2a2e36', body1: '#4a4f5e', body2: '#7a8294', accent: '#cfa64e', eye: '#ffd24a', detail: '#15171c' },
-  brass_sentinel: { body0: '#4a3812', body1: '#8a6e34', body2: '#e6c264', accent: '#fff0b0', eye: '#7fe4ff', detail: '#2a2010' },
-  gladiator: { body0: '#4a2a18', body1: '#8a5a30', body2: '#c08a4c', accent: '#d8b87a', eye: '#ffd24a', detail: '#241208' },
-  mire_lurker: { body0: '#16280f', body1: '#345a26', body2: '#5e8a3a', accent: '#9fd05a', eye: '#cfff6a', detail: '#0a1607' },
-  storm_wisp: { body0: '#2a2e4a', body1: '#4a64b0', body2: '#9fc0ff', accent: '#eaf4ff', eye: '#ffffff', detail: '#161830' },
-  sky_lancer: { body0: '#3a5a7a', body1: '#6a9ad0', body2: '#cfe6ff', accent: '#3a86c8', eye: '#b0e8ff', detail: '#1a2a3a' },
-  shadow_stalker: { body0: '#140e1e', body1: '#2e2240', body2: '#4e3a68', accent: '#8a6ab0', eye: '#c08aff', detail: '#08060e' },
-  void_imp: { body0: '#1e0e36', body1: '#3e2468', body2: '#6a3cc0', accent: '#b58aff', eye: '#e2c0ff', detail: '#100620' },
-  hollow_knight: { body0: '#1c1a14', body1: '#3a3424', body2: '#6a5e3a', accent: '#e6c264', eye: '#fff0b0', detail: '#0e0c08' },
+  frost_shade: { body0: '#20415e', body1: '#548ac8', body2: '#c8f0ff', accent: '#f0fbff', eye: '#7fe4ff', detail: '#12253f', glow: '#8fe8ff' },
+  rime_archer: { body0: '#6f819a', body1: '#c6dcf2', body2: '#f4faff', accent: '#3fa3de', eye: '#7fe4ff', detail: '#31404f', glow: '#8fe8ff' },
+  plague_ooze: { body0: '#173517', body1: '#3d842c', body2: '#84cb44', accent: '#c4ff62', eye: '#f0ff8a', detail: '#0a1a06', glow: '#9cf24e' },
+  spore_imp: { body0: '#173d1a', body1: '#3d8f38', body2: '#84d858', accent: '#c4ff62', eye: '#f0ff8a', detail: '#0c2610', glow: '#9cf24e' },
+  gear_knight: { body0: '#23272f', body1: '#454b59', body2: '#7d8698', accent: '#d9ad4e', eye: '#ffd24a', detail: '#101216', glow: '#ffd24a', alt: '#a4823a' },
+  brass_sentinel: { body0: '#402f0e', body1: '#916f2f', body2: '#f0c964', accent: '#fff2b8', eye: '#7fe4ff', detail: '#241a0a', glow: '#7fe4ff' },
+  gladiator: { body0: '#3f2213', body1: '#8a5628', body2: '#c99049', accent: '#e0bd7c', eye: '#ffd24a', detail: '#1e0f06', alt: '#a01e18' },
+  mire_lurker: { body0: '#11230b', body1: '#325c22', body2: '#628f38', accent: '#a6d95c', eye: '#d4ff6a', detail: '#071105', glow: '#8ce05a' },
+  storm_wisp: { body0: '#23274a', body1: '#4665bd', body2: '#a6c6ff', accent: '#f0f7ff', eye: '#ffffff', detail: '#101128', glow: '#bcd4ff' },
+  sky_lancer: { body0: '#2f5074', body1: '#6a9ed8', body2: '#d6eaff', accent: '#3a8ad4', eye: '#b0e8ff', detail: '#14222f', glow: '#bcd4ff' },
+  shadow_stalker: { body0: '#0f0918', body1: '#2b1e40', body2: '#513c72', accent: '#9370c4', eye: '#c08aff', detail: '#050309', glow: '#c79bff' },
+  void_imp: { body0: '#190826', body1: '#42227a', body2: '#7340d4', accent: '#bd8fff', eye: '#e8caff', detail: '#0c041a', glow: '#c79bff' },
+  hollow_knight: { body0: '#171510', body1: '#3a3320', body2: '#726237', accent: '#efc94c', eye: '#fff0b0', detail: '#0a0906', glow: '#ffd24a', alt: '#cdc6a8' },
 
-  // ---- themed bosses ----
-  rime_cantor: { body0: '#1a2a40', body1: '#3a6a9a', body2: '#8fc8f0', accent: '#cfeaff', eye: '#7fffe4', detail: '#0c1626' },
-  rot_sovereign: { body0: '#16240f', body1: '#3a6a2a', body2: '#6faa3a', accent: '#b6f06a', eye: '#eaff8a', detail: '#0a1607' },
-  brass_magnus: { body0: '#2a2010', body1: '#6e5424', body2: '#c0982e', accent: '#ffd24a', eye: '#7fe4ff', detail: '#140e05' },
-  arena_champion: { body0: '#2a1810', body1: '#6e3e24', body2: '#a8603a', accent: '#d8b87a', eye: '#ffd24a', detail: '#160a06' },
-  mire_leviathan: { body0: '#0e2012', body1: '#2e5226', body2: '#54863a', accent: '#9fd05a', eye: '#cfff6a', detail: '#081208' },
-  tempest_herald: { body0: '#1a1e3a', body1: '#3a4a90', body2: '#7f9aff', accent: '#cfe0ff', eye: '#ffffff', detail: '#0c0e1e' },
-  umbral_devourer: { body0: '#100820', body1: '#2e1850', body2: '#5a2ea0', accent: '#b58aff', eye: '#3affd0', detail: '#06040e' },
-  hollow_king: { body0: '#16120a', body1: '#3a3018', body2: '#6e5a2a', accent: '#ffd24a', eye: '#ff5a3a', detail: '#0a0805' },
+  // ---- themed bosses (each gets a hot signature accent; see drawBoss variants) ----
+  rime_cantor: { body0: '#132538', body1: '#356b9e', body2: '#96d0f5', accent: '#d6efff', eye: '#7fffe4', detail: '#08121f', glow: '#8fe8ff', alt: '#f0fbff' },
+  rot_sovereign: { body0: '#11200c', body1: '#376b26', body2: '#75b13a', accent: '#c4ff62', eye: '#f0ff8a', detail: '#060f04', glow: '#9cf24e', alt: '#6b5a2c' },
+  brass_magnus: { body0: '#241a0a', body1: '#755720', body2: '#cca02c', accent: '#ffd24a', eye: '#7fe4ff', detail: '#100a03', glow: '#ffd24a', alt: '#2a2a30' },
+  arena_champion: { body0: '#25130b', body1: '#733b1f', body2: '#b26538', accent: '#e0bd7c', eye: '#ffd24a', detail: '#120705', glow: '#ff8a3a', alt: '#a01e18' },
+  mire_leviathan: { body0: '#0a1c0e', body1: '#2c5522', body2: '#5a8f38', accent: '#a6d95c', eye: '#d4ff6a', detail: '#050d05', glow: '#8ce05a', alt: '#cdc6a8' },
+  tempest_herald: { body0: '#141838', body1: '#3a4a9e', body2: '#88a3ff', accent: '#d6e4ff', eye: '#ffffff', detail: '#080a18', glow: '#bcd4ff', alt: '#e8f0ff' },
+  umbral_devourer: { body0: '#0c0619', body1: '#31164f', body2: '#6231ab', accent: '#bd8fff', eye: '#3affd0', detail: '#04020a', glow: '#c79bff', alt: '#3affd0' },
+  hollow_king: { body0: '#130f07', body1: '#3a2f16', body2: '#7a6128', accent: '#ffd24a', eye: '#ff5a3a', detail: '#080602', glow: '#ff5a3a', alt: '#cdc6a8' },
 };

@@ -12,6 +12,7 @@ import { ARMOR_SETS, applySetBonuses, countSetPieces } from '../data/setItems';
 import { activeFor } from '../data/abilities';
 import type { ActiveSlot } from '../data/abilities';
 import { audio } from '../systems/AudioSystem';
+import type { Vfx } from '../rendering/Vfx';
 
 const MAGIC_COST = 15;
 const IFRAME_MS = 800;
@@ -422,6 +423,50 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
     return false;
   }
 
+  /**
+   * How this hero's melee swing should read: 'dagger' | 'sword' | 'greatsword' |
+   * 'mace' | 'maul' | 'axe' | 'staff' | 'spear' | 'scythe' | 'claw'.
+   *
+   * Items carry an icon but no weapon type, and only four weapon icons exist, so
+   * the icon alone would flatten a Tidebreaker Maul and a Crypt Knife into the
+   * same swing. Names are the richer signal — the loot generator already spells
+   * out "Maul", "Cleaver", "Glaive" — so those win, with the icon as backup and
+   * the class's signature arm as the floor.
+   */
+  swingKind(): string {
+    if (this.classId === 'druid' && this.bearForm) return 'claw';
+    if (this.classId === 'necromancer' && this.deathlordForm) return 'scythe';
+    const held = this.inventory.equipped.weapon;
+    const name = (held?.name ?? '').toLowerCase();
+    if (name) {
+      if (/\b(maul|warhammer|hammer)\b/.test(name)) return 'maul';
+      if (/\b(axe|cleaver|hatchet)\b/.test(name)) return 'axe';
+      if (/\b(dagger|knife|dirk|shiv|stiletto)\b/.test(name)) return 'dagger';
+      if (/\b(scythe|sickle)\b/.test(name)) return 'scythe';
+      if (/\b(spear|glaive|halberd|pike|lance)\b/.test(name)) return 'spear';
+      if (/\b(greatsword|claymore|zweihander)\b/.test(name)) return 'greatsword';
+      if (/\b(rapier|sabre|saber)\b/.test(name)) return 'dagger';
+      if (/\b(staff|stave|rod|wand)\b/.test(name)) return 'staff';
+      if (/\b(mace|flail|club|cudgel)\b/.test(name)) return 'mace';
+      if (/\b(sword|blade|falchion|scimitar)\b/.test(name)) return 'sword';
+    }
+    // A bow says nothing about how someone swings in melee — skip to the class arm.
+    const icon = held?.icon;
+    if (icon === 'icon-sword') return 'sword';
+    if (icon === 'icon-mace') return 'mace';
+    if (icon === 'icon-staff') return 'staff';
+    const fallback: Record<HeroClassId, string> = {
+      vanguard: 'sword',
+      thief: 'dagger',
+      arcanist: 'staff',
+      warden: 'mace',
+      necromancer: 'staff',
+      bard: 'dagger',
+      druid: 'staff',
+    };
+    return fallback[this.classId];
+  }
+
   weaponStyle(): 'melee' | 'ranged' {
     if (this.classId === 'druid') return this.bearForm ? 'melee' : 'ranged';
     if (this.classId === 'necromancer' && this.deathlordForm) return 'melee';
@@ -716,9 +761,14 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
       this.health = Math.min(this.stats.maxHealth, this.health + Math.round(this.stats.maxHealth * 0.55));
       this.mana = Math.min(this.stats.maxMana, this.mana + Math.round(this.stats.maxMana * 0.55));
       audio.sfx('levelup');
-      const fx = this.scene.add.sprite(this.x, this.y, 'fx-levelup').setDepth(this.y + 10);
-      fx.play('fx-levelup');
-      fx.once('animationcomplete', () => fx.destroy());
+      const vfx = (this.scene as unknown as { vfx?: Vfx }).vfx;
+      if (vfx) {
+        vfx.levelUp(this.x, this.y);
+      } else {
+        const fx = this.scene.add.sprite(this.x, this.y, 'fx-levelup').setDepth(this.y + 10);
+        fx.play('fx-levelup');
+        fx.once('animationcomplete', () => fx.destroy());
+      }
     }
   }
 

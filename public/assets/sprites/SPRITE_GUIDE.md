@@ -31,7 +31,7 @@ falls back to the built-in art.
 
 | Asset | Texture key | Frame | Frames | Strip (px) | Frame layout (order) |
 |---|---|---|---|---|---|
-| Hero (4 classes) | `hero-vanguard-sheet`, `hero-thief-sheet`, `hero-arcanist-sheet`, `hero-warden-sheet` | 40×48 | 12 | 480×48 | 3 facings × 4 poses. **0–3 = facing DOWN, 4–7 = UP, 8–11 = SIDE** (side faces right; it's auto-flipped for left). Within each block: **idle, walk-A, walk-B, attack**. |
+| Hero (7 classes) | `hero-vanguard-sheet`, `hero-thief-sheet`, `hero-arcanist-sheet`, `hero-warden-sheet`, `hero-necromancer-sheet`, `hero-bard-sheet`, `hero-druid-sheet` | 40×48 | 15 | 600×48 | 3 facings × 5 poses. **0–4 = facing DOWN, 5–9 = UP, 10–14 = SIDE** (side faces right; it's auto-flipped for left). Within each block: **idle, walk-A, walk-B, wind-up, strike**. |
 | Regular monster | `monster-grunt-sheet`, `-ghost-`, `-demon-`, `-imp-`, `-brute-`, `-bone_archer-`, plus themed: `-frost_shade-`, `-rime_archer-`, `-plague_ooze-`, `-spore_imp-`, `-gear_knight-`, `-brass_sentinel-`, `-gladiator-`, `-mire_lurker-`, `-storm_wisp-`, `-sky_lancer-`, `-shadow_stalker-`, `-void_imp-`, `-hollow_knight-` | 44×44 | 4 | 176×44 | **0,1,2 = walk cycle, 3 = attack pose** (single-facing; faces right, auto-flipped). |
 | Boss | `monster-boss-sheet` (Grave Warden), `monster-molten_colossus-sheet`, `-rime_cantor-`, `-rot_sovereign-`, `-brass_magnus-`, `-arena_champion-`, `-mire_leviathan-`, `-tempest_herald-`, `-umbral_devourer-`, `-hollow_king-` | 80×80 | 4 | 320×80 | **0,1,2 = walk, 3 = attack.** |
 | NPC elder (town) | `npc-elder` | 40×48 | 1 | 40×48 | single standing frame. |
@@ -121,10 +121,11 @@ falls back to the built-in art.
 Save as `bird.png`, override `monster-imp-sheet` (or any `monster-*-sheet`).
 
 **New hero look:**
-> 40×48 per frame, 12 frames in one horizontal strip (480×48), transparent bg, pixel
-> art. A hooded ranger. Frames 0–3 face the viewer (idle, step-left, step-right,
-> attack); 4–7 same poses facing away; 8–11 same poses in profile facing right. Feet
-> near the bottom of each frame, consistent position across frames.
+> 40×48 per frame, 15 frames in one horizontal strip (600×48), transparent bg, pixel
+> art. A hooded ranger. Frames 0–4 face the viewer (idle, step-left, step-right,
+> weapon drawn back to wind up, weapon extended in a committed strike); 5–9 the same
+> five poses facing away; 10–14 the same five in profile facing right. Feet near the
+> bottom of each frame, consistent position across frames.
 
 Save and override `hero-thief-sheet` (`frameWidth: 40, frameHeight: 48`).
 
@@ -139,3 +140,36 @@ Save and override `hero-thief-sheet` (`frameWidth: 40, frameHeight: 48`).
   88×22) are older half-size samples — fine to use, but the native procedural sizes
   above (40×48 heroes, 44×44 monsters, 80×80 bosses) give the crispest results.
 - Licensing for any third-party art: see `CREDITS.md`.
+
+---
+
+## Effects layer (`fx-*`)
+
+Everything the juice system spawns is a normal texture key, so it can be
+overridden from the manifest exactly like a monster. Hard pixel FX sit in the
+world layer; the `light` group is drawn additively above the pixels and expects
+soft gradients rather than crisp pixels.
+
+| Key | Native size | Frames | What it is |
+|---|---|---|---|
+| `fx-shock` | 64×64 | 6 | Flat ground shockwave (slams, novas, deaths) |
+| `fx-impact` | 32×32 | 5 | Melee contact burst — frame 0 is the white flash |
+| `fx-slash-arc` | 48×48 | 5 | Blade sweep; drawn facing right, rotated in code |
+| `fx-puff` | 24×24 | 4 | Smoke/dust puff (deaths, dodges) |
+| `fx-lightning` | 24×48 | 3 | Bolt, drawn top-to-bottom, stretched between points |
+| `fx-sigil` | 48×48 | 6 | Rotating cast circle under a caster |
+| `fx-soul` | 16×16 | 4 | Rising soul wisp for undead deaths |
+| `fx-shard` | 6×5 | 1 | Debris chunk (tinted per material) |
+| `fx-spark` | 8×6 | 1 | Hot spark with a tail; rotated to travel direction |
+| `fx-crit-star` | 16×16 | 1 | Four-point twinkle for crits and level-ups |
+| `fx-gore` | 5×5 | 1 | Viscera droplet (tinted per creature) |
+| `fx-mote-ember` / `-snow` / `-spore` / `-ash` / `-rain` / `-dust` | 8×8 (rain 3×8) | 1 | Per-realm ambient motes |
+| `fx-decal-blood` / `-scorch` / `-frost` / `-void` / `-crack` | 32×20 | 1 | Persistent floor stains left by deaths, fire/ice zones and slams |
+| `fx-glow-ring` | 64×64 | 1 | *light* — hollow halo for auras and lamps |
+| `fx-beam` | 64×8 | 1 | *light* — stretched beam core |
+| `fx-godray` | 64×256 | 1 | *light* — raking shaft |
+| `fx-fog` | 256×128 | 1 | *light* — rolling ground haze |
+| `fx-pillar` | 64×256 | 1 | *light* — level-up column |
+
+Tinting: the engine recolours these at runtime (`setTint`), so author them
+**white/neutral** unless you specifically want a fixed colour.

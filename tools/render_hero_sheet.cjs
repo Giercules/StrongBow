@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Bake a procedural hero class into a 40×48 × 12-frame PNG for manifest override.
+ * Bake a procedural hero class into a 40×48 × 15-frame PNG for manifest override.
  * Matches TextureFactory.makeHeroSheet (drawHumanoid + softShade + outline).
  *
  * Usage: node tools/render_hero_sheet.cjs vanguard
@@ -28,7 +28,7 @@ function ensureBundle() {
 
 const FW = 40;
 const FH = 48;
-const N = 12;
+const N = 15; // 3 facings x 5 poses (idle, walk-A, walk-B, wind-up, strike)
 const FACINGS = ['down', 'up', 'side'];
 
 async function main() {
@@ -51,9 +51,10 @@ async function main() {
   const ctx = sheet.getContext('2d');
   ctx.imageSmoothingEnabled = false;
 
+  const POSES = N / FACINGS.length; // 5
   for (let frame = 0; frame < N; frame++) {
-    const facing = FACINGS[Math.floor(frame / 4)];
-    const pose = frame % 4;
+    const facing = FACINGS[Math.floor(frame / POSES)];
+    const pose = frame % POSES;
     const ox = frame * FW;
     art.drawHumanoid(ctx, ox, cls, ramp, facing, pose);
     art.softShade(ctx, ox, 0, FW, FH);

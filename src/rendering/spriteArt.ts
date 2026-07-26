@@ -15,6 +15,25 @@ export type Facing = 'down' | 'up' | 'side';
 // Hero.ts halves its base display scale to keep on-screen size unchanged.
 export const HERO_FW = 40;
 export const HERO_FH = 48;
+/**
+ * Poses per facing: 0 idle · 1 walk-A · 2 walk-B · 3 wind-up · 4 strike.
+ *
+ * The attack used to be a single held frame, which meant every hero's swing was
+ * a pop with no anticipation — the one place animation matters most in a brawler
+ * and the game had none. Splitting it into wind-up + strike costs three frames
+ * per hero and is the difference between "the sprite changed" and "they swung".
+ */
+export const HERO_POSES = 5;
+export const HERO_FRAMES = HERO_POSES * 3; // × down / up / side
+
+/**
+ * Horizontal body lean for the attack poses: back on the wind-up, forward on the
+ * strike. Every layer (body, weapon, cloak) reads this so the whole figure coils
+ * and then commits as one piece instead of only the weapon moving.
+ */
+export function attackLean(pose: number): number {
+  return pose === 3 ? -3 : pose === 4 ? 3 : 0;
+}
 export const MON_FW = 44;
 export const MON_FH = 44;
 export const BOSS_FW = 80;
@@ -109,25 +128,29 @@ export function rng(seed: number): () => number {
 export function drawFloor(ctx: Ctx, ox: number, oy: number, seed: number, fp: FloorColors = DEFAULT_FLOOR, theme: ThemeId = 'crypt'): void {
   const r = rng(seed);
   R(ctx, ox, oy, 16, 16, fp.f1);
-  // Per-theme dither density / pattern bias
+  // Dither density. Kept deliberately low: the floor is the LARGEST surface on
+  // screen, so every extra percent of noise costs sprite readability directly.
+  // The old values (0.30–0.50) made stone that competed with the monsters on it.
   const dens =
-    theme === 'molten' ? 0.48
-    : theme === 'frost' ? 0.4
-    : theme === 'toxic' ? 0.46
-    : theme === 'clockwork' ? 0.36
-    : theme === 'arena' ? 0.34
-    : theme === 'bog' ? 0.5
-    : theme === 'storm' ? 0.42
-    : theme === 'shadow' ? 0.38
-    : theme === 'sanctum' ? 0.32
-    : theme === 'town' ? 0.3
-    : 0.42;
+    theme === 'molten' ? 0.30
+    : theme === 'frost' ? 0.24
+    : theme === 'toxic' ? 0.28
+    : theme === 'clockwork' ? 0.20
+    : theme === 'arena' ? 0.20
+    : theme === 'bog' ? 0.30
+    : theme === 'storm' ? 0.24
+    : theme === 'shadow' ? 0.22
+    : theme === 'sanctum' ? 0.18
+    : theme === 'town' ? 0.26
+    : 0.26;
   for (let y = 0; y < 16; y++) {
     for (let x = 0; x < 16; x++) {
       const n = r();
-      if (n < dens * 0.38) PX(ctx, ox + x, oy + y, fp.f0);
-      else if (n < dens * 0.72) PX(ctx, ox + x, oy + y, fp.f2);
-      else if (n < dens * 0.9) PX(ctx, ox + x, oy + y, fp.f3);
+      // Weighted toward the two tones nearest the base so the grain reads as
+      // texture rather than static; `hi` is a rare glint, not a fill.
+      if (n < dens * 0.42) PX(ctx, ox + x, oy + y, fp.f0);
+      else if (n < dens * 0.82) PX(ctx, ox + x, oy + y, fp.f2);
+      else if (n < dens * 0.96) PX(ctx, ox + x, oy + y, fp.f3);
       else if (n < dens) PX(ctx, ox + x, oy + y, fp.hi);
     }
   }
@@ -322,7 +345,7 @@ function drawFloorThemeAccent(ctx: Ctx, ox: number, oy: number, theme: ThemeId, 
 
 export function drawWall(ctx: Ctx, ox: number, oy: number, cap: boolean, seed = 0, wp: WallColors = DEFAULT_WALL): void {
   const r = rng(seed * 2654435761 + 11);
-  R(ctx, ox, oy, 16, 16, wp.base);
+  R(ctx, ox, oy, 16, 16, wp.mortar);
   const rows = [0, 4, 8, 12];
   for (let i = 0; i < rows.length; i++) {
     const ry = rows[i];
@@ -330,33 +353,39 @@ export function drawWall(ctx: Ctx, ox: number, oy: number, cap: boolean, seed = 
     R(ctx, ox, oy + ry, 16, 1, wp.mortar);
     for (let bx = 0; bx < 16; bx += 8) {
       const x = ox + ((bx + offset) % 16);
-      // brick face with punchier per-brick tone variation (arcade depth)
+      // A brick face is only 3px tall, so a full-width highlight row would make
+      // a THIRD of the wall read as the highlight colour and blow the whole
+      // surface out. The lighting instead goes: 1px lit top edge, mid body, 1px
+      // dark bottom — with a 2px specular *pip* at the upper-left corner as the
+      // only place the true highlight appears. Same light direction, far less
+      // luminance, and the brick pattern survives at a distance.
       const v = r();
-      const face = v < 0.3 ? wp.mid : v < 0.62 ? wp.base : v < 0.88 ? wp.lit : wp.hi;
+      const face = v < 0.34 ? wp.base : v < 0.74 ? wp.mid : wp.base;
       R(ctx, x, oy + ry + 1, 7, 3, face);
-      // top-left bevel highlight (light from upper-left)
-      R(ctx, x, oy + ry + 1, 7, 1, wp.hi);
-      R(ctx, x, oy + ry + 1, 1, 3, wp.lit);
-      // bottom-right bevel shadow
-      R(ctx, x, oy + ry + 3, 7, 1, wp.dark);
-      R(ctx, x + 6, oy + ry + 1, 1, 3, wp.dark);
-      // vertical mortar groove
-      R(ctx, x + 7, oy + ry + 1, 1, 3, wp.mortar);
-      // weathering: occasional crack or moss fleck
-      if (r() < 0.16) PX(ctx, x + 1 + Math.floor(r() * 4), oy + ry + 2, wp.mortar);
-      else if (r() < 0.1) PX(ctx, x + 2 + Math.floor(r() * 3), oy + ry + 2, wp.dark);
-      else if (r() < 0.06) PX(ctx, x + 3 + Math.floor(r() * 2), oy + ry + 1, wp.hi);
+      R(ctx, x, oy + ry + 1, 7, 1, wp.lit); // lit top edge
+      R(ctx, x, oy + ry + 1, 2, 1, wp.hi); // upper-left specular pip
+      R(ctx, x, oy + ry + 2, 1, 2, wp.mid); // softly lit left face
+      R(ctx, x, oy + ry + 3, 7, 1, wp.dark); // grounded bottom edge
+      R(ctx, x + 6, oy + ry + 1, 1, 3, wp.dark); // shadowed right face
+      R(ctx, x + 7, oy + ry + 1, 1, 3, wp.mortar); // vertical mortar groove
+      // weathering: a chip, a pit, or a glint of quartz — one per brick at most
+      const w = r();
+      if (w < 0.14) PX(ctx, x + 1 + Math.floor(r() * 4), oy + ry + 2, wp.mortar);
+      else if (w < 0.24) PX(ctx, x + 2 + Math.floor(r() * 3), oy + ry + 2, wp.dark);
+      else if (w < 0.29) PX(ctx, x + 3 + Math.floor(r() * 2), oy + ry + 2, wp.lit);
     }
   }
   // grounding shadow at the very bottom edge
-  ctx.globalAlpha = 0.45;
+  ctx.globalAlpha = 0.5;
   R(ctx, ox, oy + 14, 16, 2, wp.dark);
   ctx.globalAlpha = 1;
   if (cap) {
+    // The cap is the lit top surface seen from above — this IS where the wall is
+    // allowed to be bright, because it's the plane facing the light.
     R(ctx, ox, oy, 16, 3, wp.topLit);
     R(ctx, ox, oy, 16, 1, wp.hi);
     R(ctx, ox, oy + 3, 16, 1, wp.topDark);
-    ctx.globalAlpha = 0.3;
+    ctx.globalAlpha = 0.22;
     R(ctx, ox, oy + 4, 16, 2, wp.hi);
     ctx.globalAlpha = 1;
   }
@@ -1937,7 +1966,90 @@ export function drawBolt(ctx: Ctx): void {
 export function legShift(pose: number): [number, number] {
   if (pose === 1) return [-2, 2];
   if (pose === 2) return [2, -2];
+  if (pose === 3) return [2, -2]; // wind-up: weight shifts onto the back foot
+  if (pose === 4) return [-3, 3]; // strike: front foot plants into a lunge
   return [0, 0];
+}
+
+/**
+ * A crisp diagonal bar: a rotated rectangle without the anti-aliasing.
+ *
+ * `ctx.rotate()` would be one line, but canvas rotation feathers every edge, and
+ * a soft-edged sword in a hard-edged game is instantly obvious. Stepping integer
+ * pixels along the dominant axis gives a clean staircase instead — the way a
+ * pixel artist would actually draw the same line.
+ */
+export function stepBar(
+  ctx: Ctx,
+  x0: number,
+  y0: number,
+  x1: number,
+  y1: number,
+  thick: number,
+  color: string,
+  hi?: string
+): void {
+  const dx = x1 - x0;
+  const dy = y1 - y0;
+  const steps = Math.max(1, Math.round(Math.max(Math.abs(dx), Math.abs(dy))));
+  // Runs are laid perpendicular to the dominant axis so the bar keeps an even
+  // apparent thickness whether it is mostly vertical or mostly horizontal.
+  const vertical = Math.abs(dy) >= Math.abs(dx);
+  for (let i = 0; i <= steps; i++) {
+    const x = Math.round(x0 + (dx * i) / steps);
+    const y = Math.round(y0 + (dy * i) / steps);
+    if (vertical) {
+      R(ctx, x, y, thick, 1, color);
+      if (hi) PX(ctx, x, y, hi);
+    } else {
+      R(ctx, x, y, 1, thick, color);
+      if (hi) PX(ctx, x, y, hi);
+    }
+  }
+}
+
+/**
+ * The wind-up weapon: hauled up and back over the trailing shoulder.
+ *
+ * Drawn as its own pose rather than a transform of the idle one — the weapon has
+ * to cross the body diagonally, which no offset of the vertical idle pose can
+ * express. Every class shares the same gesture (hand low and forward, tip high
+ * and back) so the party's anticipation reads as one beat.
+ */
+function drawWeaponWindup(ctx: Ctx, cx: number, cls: string, ramp: HeroRamp): void {
+  const steel = '#cfd6e8';
+  // hand end (low, forward) -> tip end (high, back across the body)
+  const hx = cx + 10;
+  const hy = 30;
+  if (cls === 'vanguard') {
+    stepBar(ctx, hx, hy, cx - 6, 7, 4, ramp.trim, ramp.trimHi);
+    stepBar(ctx, hx + 1, hy - 1, cx - 5, 6, 2, steel, '#ffffff');
+    R(ctx, hx - 1, hy + 1, 8, 2, C.coinMid); // crossguard, still by the hand
+    R(ctx, hx + 1, hy + 3, 3, 4, ramp.cloth1); // grip
+  } else if (cls === 'thief') {
+    stepBar(ctx, hx - 1, hy - 2, cx + 3, 18, 2, steel, '#ffffff');
+    R(ctx, hx - 2, hy - 1, 5, 2, ramp.trim);
+    PX(ctx, cx + 3, 17, '#ffffff');
+  } else if (cls === 'bard') {
+    stepBar(ctx, hx - 1, hy - 1, cx + 1, 8, 2, steel, '#ffffff');
+    R(ctx, hx - 3, hy, 6, 2, ramp.trim); // swept hilt
+    R(ctx, hx - 1, hy + 2, 2, 4, '#3a1622');
+  } else if (cls === 'warden') {
+    stepBar(ctx, hx, hy, cx - 3, 12, 3, C.doorWood, C.doorWoodHi);
+    R(ctx, cx - 6, 6, 8, 7, ramp.trim); // mace head, cocked high
+    R(ctx, cx - 6, 6, 8, 2, ramp.trimHi);
+    PX(ctx, cx - 3, 9, '#ffffff');
+  } else {
+    // arcanist / necromancer / druid — a staff with the orb swung up and back
+    const shaft = cls === 'necromancer' ? '#2a1838' : cls === 'druid' ? '#5a4426' : C.doorWood;
+    const shaftHi = cls === 'necromancer' ? '#5a3880' : cls === 'druid' ? '#7e6238' : C.doorWoodHi;
+    const orb = cls === 'necromancer' ? '#40e8ff' : cls === 'druid' ? '#7fce58' : C.magicMid;
+    const orbDark = cls === 'necromancer' ? '#120818' : cls === 'druid' ? '#1e3312' : C.magicEdge;
+    stepBar(ctx, hx, hy + 4, cx - 6, 10, 3, shaft, shaftHi);
+    R(ctx, cx - 9, 5, 8, 8, orbDark);
+    R(ctx, cx - 8, 6, 6, 6, orb);
+    R(ctx, cx - 7, 7, 2, 2, '#ffffff');
+  }
 }
 
 export function drawWeapon(
@@ -1948,8 +2060,15 @@ export function drawWeapon(
   facing: Facing,
   pose: number
 ): void {
-  const attack = pose === 3;
-  const cx = ox + HERO_FW / 2;
+  // pose 3 coils the weapon back and down; pose 4 is the committed strike (the
+  // pose the old single-frame attack used, pushed a little further).
+  const windup = pose === 3;
+  const attack = pose === 4;
+  const cx = ox + HERO_FW / 2 + attackLean(pose);
+  if (windup) {
+    drawWeaponWindup(ctx, cx, cls, ramp);
+    return;
+  }
   if (cls === 'vanguard') {
     const hx = (facing === 'side' ? cx + 12 : cx + 10) + (attack ? 1 : 0);
     const len = attack ? 26 : 20;
@@ -2063,76 +2182,148 @@ export function drawWeapon(
  *  torso overlaps it — this is what gives each class a big, readable D&D
  *  silhouette instead of a plain pixel doll. */
 function drawHeroBack(ctx: Ctx, ox: number, cls: string, ramp: HeroRamp, facing: Facing, pose: number): void {
-  const cx = ox + HERO_FW / 2;
-  const bob = pose === 1 ? -2 : 0;
-  const sway = pose === 1 ? -1 : pose === 3 ? 1 : 0;
+  // Cloth LAGS the body: when the torso snaps forward on the strike the cloak is
+  // still behind it, and vice versa on the wind-up. Inverting the lean here is
+  // the cheapest possible secondary motion and it does most of the work.
+  const cx = ox + HERO_FW / 2 - Math.round(attackLean(pose) * 0.7);
+  const bob = pose === 1 ? -2 : pose === 4 ? 1 : 0;
+  const sway = pose === 1 ? -1 : pose === 3 ? -2 : pose === 4 ? 2 : 0;
   const tTop = 19 + bob;
+  const deep = ramp.deep ?? ramp.cloth0;
   if (cls === 'vanguard') {
-    // heavy fur half-cloak spilling off the left shoulder + war banner strap
-    R(ctx, cx - 12, tTop - 1, 5, 18 + sway, ramp.cloth0);
-    R(ctx, cx - 12, tTop - 1, 2, 18 + sway, 'rgba(255,255,255,0.10)');
-    for (let i = 0; i < 6; i++) PX(ctx, cx - 12 + (i % 3), tTop + 2 + i * 2, 'rgba(230,220,200,0.28)');
-    PX(ctx, cx - 10 + sway, tTop + 17 + sway, ramp.cloth0);
-    PX(ctx, cx - 8 - sway, tTop + 18 + sway, ramp.cloth0);
+    // A full fur cloak that flares BEYOND the body. The seven heroes were all the
+    // same rectangle before; each class now owns one outline-breaking mass, and
+    // the Vanguard's is width — he is the widest thing in the party.
+    R(ctx, cx - 15, tTop - 2, 30, 8, deep); // heavy shoulder roll
+    R(ctx, cx - 15, tTop - 2, 30, 2, ramp.cloth1);
+    R(ctx, cx - 13, tTop + 6, 26, 12 + sway, ramp.cloth0);
+    R(ctx, cx - 13, tTop + 6, 4, 12 + sway, ramp.cloth1); // lit left face
+    // ragged fur hem, swinging with the stride
+    for (let i = 0; i < 13; i++) {
+      const h = 2 + ((i * 7 + pose * 3) % 5);
+      R(ctx, cx - 13 + i * 2, tTop + 18 + sway, 2, h, ramp.cloth0);
+    }
+    for (let i = 0; i < 9; i++) PX(ctx, cx - 12 + i * 3, tTop + 3 + (i % 3) * 3, 'rgba(235,225,205,0.30)');
     if (facing === 'up') {
       // round iron shield slung across the back
-      R(ctx, cx - 6, tTop + 1, 12, 12, ramp.trim);
-      R(ctx, cx - 6, tTop + 1, 12, 2, ramp.trimHi);
-      R(ctx, cx - 4, tTop + 3, 8, 8, ramp.cloth1);
-      R(ctx, cx - 1, tTop + 5, 2, 4, ramp.trimHi);
+      R(ctx, cx - 7, tTop + 1, 14, 14, ramp.trim);
+      R(ctx, cx - 7, tTop + 1, 14, 2, ramp.trimHi);
+      R(ctx, cx - 5, tTop + 4, 10, 9, ramp.cloth1);
+      R(ctx, cx - 1, tTop + 6, 2, 5, ramp.trimHi);
     }
   } else if (cls === 'thief') {
-    // short shadow-cape that flicks with movement
-    R(ctx, cx - 10, tTop, 4, 14 + sway, ramp.cloth0);
-    R(ctx, cx + 6, tTop, 4, 13 - sway, ramp.cloth0);
-    PX(ctx, cx - 9 + sway, tTop + 14 + sway, ramp.cloth0);
-    PX(ctx, cx + 8 - sway, tTop + 13 - sway, ramp.cloth0);
+    // The Thief's mass is a high collar and a cape that flares at the HEM —
+    // narrow at the shoulders, wide at the feet: the inverse of the Vanguard.
+    R(ctx, cx - 7, tTop - 5, 14, 6, deep); // popped collar behind the head
+    R(ctx, cx - 7, tTop - 5, 14, 1, ramp.cloth2);
+    R(ctx, cx - 8, tTop, 16, 9, ramp.cloth0);
+    R(ctx, cx - 11 + sway, tTop + 9, 22, 11, ramp.cloth0); // flare
+    R(ctx, cx - 11 + sway, tTop + 9, 3, 11, ramp.cloth1);
+    for (let i = 0; i < 8; i++) {
+      const h = 3 + ((i * 5 + pose * 2) % 6);
+      R(ctx, cx - 11 + sway + i * 3, tTop + 20, 3, h, ramp.cloth0);
+    }
   } else if (cls === 'necromancer') {
-    // tattered shroud mantle — same silhouette as the druid's hide cloak
-    R(ctx, cx - 12, tTop - 2, 24, 6, ramp.cloth0);
-    R(ctx, cx - 12, tTop - 2, 24, 1, 'rgba(255,255,255,0.08)');
-    for (let i = 0; i < 8; i++) PX(ctx, cx - 11 + i * 3, tTop + 3 + (i % 2), 'rgba(64,232,255,0.38)');
-    PX(ctx, cx - 10 + sway, tTop + 5, ramp.trim);
-    PX(ctx, cx + 9 - sway, tTop + 5, ramp.cloth2);
+    // The lich's mass is VERTICAL: bone spaulders that spike above the shoulder
+    // line, and a shroud that trails into nothing rather than ending in a hem.
+    R(ctx, cx - 13, tTop - 3, 26, 7, deep);
+    R(ctx, cx - 13, tTop - 3, 26, 1, ramp.cloth2);
+    for (const s of [-1, 1]) {
+      // curved rib-spikes rising off each shoulder
+      for (let i = 0; i < 4; i++) {
+        R(ctx, cx + s * (10 + i) - (s < 0 ? 2 : 0), tTop - 5 - i * 2, 2, 3, ramp.skin);
+      }
+      PX(ctx, cx + s * 14 - (s < 0 ? 1 : 0), tTop - 12, ramp.trim);
+    }
+    R(ctx, cx - 11, tTop + 4, 22, 16, ramp.cloth0);
+    for (let i = 0; i < 11; i++) {
+      const h = 3 + ((i * 11 + pose * 4) % 9); // wildly uneven: it is rotting
+      R(ctx, cx - 11 + i * 2, tTop + 20, 2, h, ramp.cloth0);
+    }
+    for (let i = 0; i < 8; i++) PX(ctx, cx - 10 + i * 3, tTop + 6 + (i % 3) * 3, 'rgba(55,236,255,0.40)');
   } else if (cls === 'warden') {
-    // fur mantle draped over both shoulders
-    R(ctx, cx - 12, tTop - 2, 24, 6, ramp.cloth0);
-    R(ctx, cx - 12, tTop - 2, 24, 1, 'rgba(255,255,255,0.14)');
-    for (let i = 0; i < 8; i++) PX(ctx, cx - 11 + i * 3, tTop + 3 + (i % 2), 'rgba(235,228,205,0.30)');
+    // The Warden's mass is a HALO — a ring of light behind the head that no
+    // other class has, readable even when the body is off-screen.
+    // 1px only, and pushed up so it clears the hood: a thick ring reads as a
+    // bonnet, a thin one floating above the head reads as sanctity.
+    ctx.strokeStyle = ramp.trimHi;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.ellipse(cx, 6 + bob, 12, 5, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.globalAlpha = 0.45;
+    ctx.beginPath();
+    ctx.ellipse(cx, 6 + bob, 14, 6.5, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+    for (let i = 0; i < 4; i++) {
+      const a = (i / 4) * Math.PI * 2 + pose * 0.4;
+      PX(ctx, Math.round(cx + Math.cos(a) * 12), Math.round(6 + bob + Math.sin(a) * 5), '#ffffff');
+    }
+    // wide ceremonial mantle over both shoulders
+    R(ctx, cx - 14, tTop - 2, 28, 7, ramp.cloth0);
+    R(ctx, cx - 14, tTop - 2, 28, 1, ramp.trimHi);
+    R(ctx, cx - 14, tTop + 5, 4, 10, ramp.cloth1);
+    R(ctx, cx + 10, tTop + 5, 4, 10, ramp.cloth1);
+    for (let i = 0; i < 9; i++) PX(ctx, cx - 13 + i * 3, tTop + 4 + (i % 2), 'rgba(240,232,210,0.34)');
   } else if (cls === 'bard') {
-    // beloved lute slung across the back, neck over the left shoulder
-    R(ctx, cx + 4, tTop + 4, 8, 10, '#7e5228'); // rounded body
+    // The Bard's mass is his coat TAILS — they kick out behind him as he walks,
+    // and the lute neck juts past the shoulder line.
+    R(ctx, cx - 12, tTop + 12, 24, 8, ramp.cloth0);
+    for (const s of [-1, 1]) {
+      R(ctx, cx + s * 10 - (s < 0 ? 4 : 0) + sway * s, tTop + 18, 5, 10 + (pose === 1 ? 2 : 0), ramp.cloth0);
+      R(ctx, cx + s * 10 - (s < 0 ? 4 : 0) + sway * s, tTop + 18, 5, 1, ramp.trim);
+    }
+    R(ctx, cx + 4, tTop + 4, 8, 10, '#7e5228'); // lute body
     R(ctx, cx + 5, tTop + 5, 6, 8, '#a8763c');
     R(ctx, cx + 6, tTop + 7, 3, 3, '#3a2410'); // sound hole
-    R(ctx, cx - 6 - sway, tTop - 4, 10, 2, '#5a3a1c'); // neck (angled up-left)
-    R(ctx, cx - 6 - sway, tTop - 4, 10, 1, '#7a5128');
-    R(ctx, cx - 8 - sway, tTop - 6, 3, 4, '#5a3a1c'); // headstock
-    PX(ctx, cx - 7 - sway, tTop - 7, ramp.trim); // tuning pegs
-    for (let i = 0; i < 4; i++) PX(ctx, cx - 2 + i * 2, tTop - 3 + Math.floor(i / 2) + 2, 'rgba(255,233,168,0.6)'); // strings glint
-    // shoulder strap
-    for (let i = 0; i < 6; i++) PX(ctx, cx - 4 + i, tTop + 1 + i, ramp.trim);
+    R(ctx, cx - 8 - sway, tTop - 6, 13, 2, '#5a3a1c'); // neck, angled up-left
+    R(ctx, cx - 8 - sway, tTop - 6, 13, 1, '#7a5128');
+    R(ctx, cx - 11 - sway, tTop - 9, 4, 5, '#5a3a1c'); // headstock
+    PX(ctx, cx - 10 - sway, tTop - 10, ramp.trim); // tuning pegs
+    PX(ctx, cx - 8 - sway, tTop - 10, ramp.trim);
+    for (let i = 0; i < 4; i++) PX(ctx, cx - 2 + i * 2, tTop - 3 + Math.floor(i / 2) + 2, 'rgba(255,233,168,0.6)');
+    for (let i = 0; i < 6; i++) PX(ctx, cx - 4 + i, tTop + 1 + i, ramp.trim); // strap
   } else if (cls === 'druid') {
-    // leaf-trimmed hide mantle over the shoulders
-    R(ctx, cx - 12, tTop - 2, 24, 6, ramp.cloth0);
-    R(ctx, cx - 12, tTop - 2, 24, 1, 'rgba(255,255,255,0.10)');
-    for (let i = 0; i < 8; i++) PX(ctx, cx - 11 + i * 3, tTop + 3 + (i % 2), 'rgba(127,206,88,0.45)'); // leaf fringe
-    PX(ctx, cx - 10 + sway, tTop + 5, '#7fce58');
-    PX(ctx, cx + 9 - sway, tTop + 5, '#4a8a3a');
+    // The Druid's mass is ORGANIC: a hide cloak whose hem is a fringe of leaves,
+    // plus a living branch curving off the shoulder.
+    R(ctx, cx - 13, tTop - 2, 26, 7, ramp.cloth0);
+    R(ctx, cx - 13, tTop - 2, 26, 1, ramp.cloth2);
+    R(ctx, cx - 12, tTop + 5, 24, 14, ramp.cloth0);
+    R(ctx, cx - 12, tTop + 5, 4, 14, ramp.cloth1);
+    for (let i = 0; i < 12; i++) {
+      const h = 2 + ((i * 9 + pose * 3) % 7);
+      R(ctx, cx - 12 + i * 2, tTop + 19, 2, h, i % 3 === 0 ? '#4a8a3a' : ramp.cloth0);
+    }
+    // branch arcing over the left shoulder with a few leaves
+    for (let i = 0; i < 5; i++) {
+      R(ctx, cx - 12 - i, tTop - 4 - i * 2, 2, 2, ramp.trim);
+      if (i % 2 === 0) PX(ctx, cx - 14 - i, tTop - 5 - i * 2, '#84dc58');
+    }
+    for (let i = 0; i < 8; i++) PX(ctx, cx - 11 + i * 3, tTop + 6 + (i % 3) * 3, 'rgba(132,220,88,0.45)');
   }
 }
 
 /** Front detail layer: crowns, masks, emblems, glows — drawn after the body so
  *  every class reads as a proper D&D archetype at a glance. */
 function drawHeroFlair(ctx: Ctx, ox: number, cls: string, ramp: HeroRamp, facing: Facing, pose: number): void {
-  const cx = ox + HERO_FW / 2;
-  const bob = pose === 1 ? -2 : 0;
-  const sway = pose === 1 ? -1 : pose === 3 ? 1 : 0;
+  const cx = ox + HERO_FW / 2 + attackLean(pose);
+  const bob = pose === 1 ? -2 : pose === 4 ? 1 : 0;
+  const sway = pose === 1 ? -1 : pose === 3 ? -2 : pose === 4 ? 2 : 0;
   const hTop = 8 + bob;
   const tTop = 19 + bob;
   const hx0 = cx - 6;
   const hw = 12;
   if (cls === 'vanguard') {
-    // iron browband + war-braids, crossed baldric, belt skulls
+    // Spiked pauldrons — the front half of the "widest hero" read. They sit
+    // proud of the arms so the outline stays broad from every facing.
+    for (const s of [-1, 1]) {
+      R(ctx, cx + s * 12 - 4, tTop - 1, 8, 7, ramp.trim);
+      R(ctx, cx + s * 12 - 4, tTop - 1, 8, 2, ramp.trimHi);
+      R(ctx, cx + s * 12 - 4, tTop + 5, 8, 1, ramp.cloth0);
+      R(ctx, cx + s * 13 - 2, tTop - 4, 2, 4, ramp.trimHi); // spike
+    }
+    // iron browband + war-braids
     R(ctx, hx0 - 1, hTop + 1, hw + 2, 1, ramp.trim);
     PX(ctx, hx0 - 1, hTop + 1, ramp.trimHi);
     R(ctx, hx0 - 2, hTop + 4, 1, 6, ramp.hair);
@@ -2220,11 +2411,12 @@ export function drawHumanoid(
   facing: Facing,
   pose: number
 ): void {
-  const cx = ox + HERO_FW / 2;
-  const bob = pose === 1 ? -2 : 0;
+  const cx = ox + HERO_FW / 2 + attackLean(pose);
+  // The strike drops the body a pixel — weight landing behind the blow.
+  const bob = pose === 1 ? -2 : pose === 4 ? 1 : 0;
   const [ll, rl] = legShift(pose);
   const robe = cls === 'arcanist' || cls === 'warden' || cls === 'necromancer' || cls === 'druid';
-  const sway = pose === 1 ? -1 : pose === 3 ? 1 : 0;
+  const sway = pose === 1 ? -1 : pose === 3 ? -2 : pose === 4 ? 2 : 0;
   const SH = 'rgba(0,0,0,0.18)';
   const SHd = 'rgba(0,0,0,0.32)';
 
@@ -2247,7 +2439,9 @@ export function drawHumanoid(
   const liftL = pose === 1 ? 2 : 0;
   const liftR = pose === 2 ? 2 : 0;
   const armSwingL = pose === 1 ? 1 : pose === 2 ? -1 : 0;
-  const armSwingR = pose === 3 ? -2 : -armSwingL;
+  // Weapon arm: cocked UP and back on the wind-up, driven down/through on the
+  // strike. The off-arm counter-rotates so the torso reads as twisting.
+  const armSwingR = pose === 3 ? 3 : pose === 4 ? -3 : -armSwingL;
 
   if (robe) {
     const rw = side ? 16 : 18;

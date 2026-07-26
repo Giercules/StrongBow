@@ -37,7 +37,9 @@ import * as art from '../rendering/spriteArt';
 import * as overworldArt from '../rendering/overworldArt';
 import { OVERWORLD_ENTRIES, NOMAD_GATE, biomeAt, type OverworldDir } from '../data/overworld';
 import { rollEncounter, buildArena, BIOME_DANGER } from '../data/encounters';
-import { getThemeArt, C } from '../rendering/Palette';
+import { getThemeArt, C, themeAccent } from '../rendering/Palette';
+import { Vfx } from '../rendering/Vfx';
+import type { DecalKind } from '../rendering/Vfx';
 import { framedPanel, makeButton } from '../ui/uiHelpers';
 import type { Modal } from '../ui/uiHelpers';
 import { getTheme } from '../data/gen/themes';
@@ -58,7 +60,7 @@ import { describeItem } from '../data/pickupInfo';
 import { Hero } from '../entities/Hero';
 import { Companion } from '../entities/Companion';
 import { LanternWisp } from '../entities/LanternWisp';
-import { Monster } from '../entities/Monster';
+import { Monster, MONSTER_GORE } from '../entities/Monster';
 import type { MonsterStatus } from '../entities/Monster';
 import { activeFor } from '../data/abilities';
 import type { ActiveSlot } from '../data/abilities';
@@ -190,20 +192,52 @@ interface Atmosphere {
   edgeTint: number; // screen-edge colour grade
   mode: 'rise' | 'fall' | 'drift';
   frequency: number;
+  /** Texture key for the realm's signature mote (see fxArt ambient motes). */
+  mote: string;
+  /** Rolling ground haze colour + strength. 0 disables the fog layer entirely. */
+  fogTint: number;
+  fogAlpha: number;
+  /** Shafts of light raking the play area — only for realms with a sky or a
+   *  ceiling worth believing in. */
+  rays: number; // 0 = none, otherwise the ray tint
 }
-// Saturated edge grades + hotter particles for a true arcade cabinet read.
+// Each realm owns a colour family, a mote behaviour, a haze and a light shaft.
+// The rule from docs/ART_DIRECTION.md: a realm should be identifiable from a
+// one-inch thumbnail, and that is mostly decided here rather than in the tiles.
 const ATMOSPHERE: Record<ThemeId, Atmosphere> = {
-  crypt: { lightTint: 0xfff2d8, particleTint: 0xa8b4e0, flameTint: 0xffa040, portalTint: 0xc8a0ff, edgeTint: 0x2a3a78, mode: 'drift', frequency: 380 },
-  molten: { lightTint: 0xffc080, particleTint: 0xff9030, flameTint: 0xff7a18, portalTint: 0xffa040, edgeTint: 0x8a2808, mode: 'rise', frequency: 110 },
-  frost: { lightTint: 0xd0f0ff, particleTint: 0xf0fbff, flameTint: 0xa8e0ff, portalTint: 0x80e0ff, edgeTint: 0x1a5a90, mode: 'fall', frequency: 95 },
-  toxic: { lightTint: 0xb8f090, particleTint: 0x98f060, flameTint: 0xa0f050, portalTint: 0xa8f060, edgeTint: 0x246a20, mode: 'rise', frequency: 180 },
-  clockwork: { lightTint: 0xffd878, particleTint: 0xffe060, flameTint: 0xffc040, portalTint: 0xffe060, edgeTint: 0x6a4a12, mode: 'fall', frequency: 280 },
-  arena: { lightTint: 0xffa888, particleTint: 0xff9040, flameTint: 0xff7030, portalTint: 0xff8040, edgeTint: 0x8a1810, mode: 'rise', frequency: 150 },
-  bog: { lightTint: 0xb0e8b0, particleTint: 0x90e060, flameTint: 0x98e070, portalTint: 0x98e070, edgeTint: 0x245a30, mode: 'drift', frequency: 180 },
-  storm: { lightTint: 0xc8dcff, particleTint: 0xe0f0ff, flameTint: 0xd8ecff, portalTint: 0xd0e8ff, edgeTint: 0x2a3a80, mode: 'fall', frequency: 85 },
-  shadow: { lightTint: 0xb090d0, particleTint: 0xa080d0, flameTint: 0xc898ff, portalTint: 0xd8a8ff, edgeTint: 0x3a2060, mode: 'drift', frequency: 220 },
-  sanctum: { lightTint: 0xffe8b0, particleTint: 0xffe060, flameTint: 0xffd848, portalTint: 0xfff0b0, edgeTint: 0x7a6020, mode: 'rise', frequency: 160 },
-  town: { lightTint: 0xfff6e0, particleTint: 0xffe8b8, flameTint: 0xffb868, portalTint: 0xd0a8ff, edgeTint: 0x4a3820, mode: 'drift', frequency: 480 },
+  crypt: { lightTint: 0xfff2d8, particleTint: 0xa8b4e0, flameTint: 0xffa040, portalTint: 0xc8a0ff, edgeTint: 0x2a3a78, mode: 'drift', frequency: 380, mote: 'fx-mote-dust', fogTint: 0x2a3a78, fogAlpha: 0.10, rays: 0xffe2b0 },
+  molten: { lightTint: 0xffc080, particleTint: 0xff9030, flameTint: 0xff7a18, portalTint: 0xffa040, edgeTint: 0x8a2808, mode: 'rise', frequency: 110, mote: 'fx-mote-ember', fogTint: 0xc04010, fogAlpha: 0.14, rays: 0 },
+  frost: { lightTint: 0xd0f0ff, particleTint: 0xf0fbff, flameTint: 0xa8e0ff, portalTint: 0x80e0ff, edgeTint: 0x1a5a90, mode: 'fall', frequency: 95, mote: 'fx-mote-snow', fogTint: 0x9fd0f0, fogAlpha: 0.13, rays: 0xcdeeff },
+  toxic: { lightTint: 0xb8f090, particleTint: 0x98f060, flameTint: 0xa0f050, portalTint: 0xa8f060, edgeTint: 0x246a20, mode: 'rise', frequency: 180, mote: 'fx-mote-spore', fogTint: 0x4a9a2a, fogAlpha: 0.16, rays: 0 },
+  clockwork: { lightTint: 0xffd878, particleTint: 0xffe060, flameTint: 0xffc040, portalTint: 0xffe060, edgeTint: 0x6a4a12, mode: 'fall', frequency: 280, mote: 'fx-mote-dust', fogTint: 0x6a5424, fogAlpha: 0.09, rays: 0xffd88a },
+  arena: { lightTint: 0xffa888, particleTint: 0xff9040, flameTint: 0xff7030, portalTint: 0xff8040, edgeTint: 0x8a1810, mode: 'drift', frequency: 150, mote: 'fx-mote-dust', fogTint: 0xa06a30, fogAlpha: 0.11, rays: 0xfff0c8 },
+  bog: { lightTint: 0xb0e8b0, particleTint: 0x90e060, flameTint: 0x98e070, portalTint: 0x98e070, edgeTint: 0x245a30, mode: 'drift', frequency: 180, mote: 'fx-mote-spore', fogTint: 0x5a8a5a, fogAlpha: 0.20, rays: 0 },
+  storm: { lightTint: 0xc8dcff, particleTint: 0xe0f0ff, flameTint: 0xd8ecff, portalTint: 0xd0e8ff, edgeTint: 0x2a3a80, mode: 'fall', frequency: 42, mote: 'fx-mote-rain', fogTint: 0x6a80c0, fogAlpha: 0.12, rays: 0xdfeaff },
+  shadow: { lightTint: 0xb090d0, particleTint: 0xa080d0, flameTint: 0xc898ff, portalTint: 0xd8a8ff, edgeTint: 0x3a2060, mode: 'drift', frequency: 220, mote: 'fx-mote-ash', fogTint: 0x3a2060, fogAlpha: 0.16, rays: 0 },
+  sanctum: { lightTint: 0xffe8b0, particleTint: 0xffe060, flameTint: 0xffd848, portalTint: 0xfff0b0, edgeTint: 0x7a6020, mode: 'rise', frequency: 160, mote: 'fx-mote-dust', fogTint: 0xc0a040, fogAlpha: 0.10, rays: 0xfff4d0 },
+  town: { lightTint: 0xfff6e0, particleTint: 0xffe8b8, flameTint: 0xffb868, portalTint: 0xd0a8ff, edgeTint: 0x4a3820, mode: 'drift', frequency: 480, mote: 'fx-mote-dust', fogTint: 0xffe0a0, fogAlpha: 0.06, rays: 0xfff2cc },
+};
+
+/** Per-class impact colour. Sparks, contact flashes and slash arcs all pull from
+ *  here so a crowded four-hero fight still reads as four distinct attackers. */
+const HIT_TINT: Record<string, number> = {
+  vanguard: 0xeaf0ff, // steel white
+  thief: 0xa9f0c0, // venom green
+  arcanist: 0xb48cff, // arcane violet
+  warden: 0xffcf5a, // holy gold
+  necromancer: 0x37ecff, // soul cyan
+  bard: 0xff9ab0, // rose
+  druid: 0xa8f56a, // living green
+};
+
+/** Collection-pop colour per pickup kind — matches the semantics table in
+ *  docs/ART_DIRECTION.md (gold = reward, green = life, violet = arcane). */
+const PICKUP_TINT: Record<string, number> = {
+  coin: 0xffd24a,
+  food: 0x7dffa0,
+  potion: 0xff9ad0,
+  key: 0xffe07a,
+  item: 0xd3a8ff,
 };
 
 function townsfolkVariant(role: string): number {
@@ -320,6 +354,11 @@ export class DungeonScene extends Phaser.Scene {
   private summonTimerGfx?: Phaser.GameObjects.Graphics;
   private vignette?: Phaser.GameObjects.Image;
   private edgeGrade?: Phaser.GameObjects.Image;
+  /** Ambient particle emitters + haze/ray images, torn down on level change. */
+  private ambience: Phaser.GameObjects.Particles.ParticleEmitter[] = [];
+  private ambienceImages: Phaser.GameObjects.Image[] = [];
+  /** Red edge grade that pulses when the party leader is near death. */
+  private dangerVeil?: Phaser.GameObjects.Image;
   private selectedSkeleton: SummonChoice = 'tank';
   private questBoardUI!: QuestBoardUI;
   private dialogueUI!: DialogueUI;
@@ -411,6 +450,9 @@ export class DungeonScene extends Phaser.Scene {
   private allyGroup!: Phaser.Physics.Arcade.Group;
   private monsterGroup!: Phaser.Physics.Arcade.Group;
 
+  /** Juice system — impacts, trauma, hit-stop, trails. Public so entities can
+   *  reach it without importing this scene (see Vfx.ts header). */
+  vfx!: Vfx;
   private shadows!: ShadowSystem;
   private cameraTarget!: Phaser.GameObjects.Rectangle;
   private input2!: DungeonInput;
@@ -561,6 +603,11 @@ export class DungeonScene extends Phaser.Scene {
       if (!interior) this.partyLightSrc = this.lights.addLight(0, 0, 400, atmoL.lightTint, openAir ? 0.4 : 0.85);
     }
 
+    // The juice system. Entities reach it through `(scene as {vfx}).vfx` rather
+    // than importing DungeonScene, which would create an import cycle.
+    this.vfx = new Vfx(this);
+    this.vfx.setBaseZoom(OPTIMAL_ZOOM);
+
     this.shadows = new ShadowSystem(this);
     this.allyGroup = this.physics.add.group();
     this.monsterGroup = this.physics.add.group();
@@ -666,14 +713,26 @@ export class DungeonScene extends Phaser.Scene {
       .setTint(atmo.edgeTint)
       .setBlendMode(Phaser.BlendModes.ADD)
       .setAlpha(0.78);
+    // Low-health danger veil: a red edge grade that breathes faster the closer
+    // the party is to death. It lives above the normal grade but below the
+    // scanlines, and is fully transparent until it matters — this is the one
+    // piece of chrome allowed to interrupt the realm's colour identity.
+    this.dangerVeil = this.add
+      .image(PLAY_AREA_WIDTH / 2, GAME_HEIGHT / 2, 'fx-edge')
+      .setScrollFactor(0)
+      .setDisplaySize(PLAY_AREA_WIDTH, GAME_HEIGHT)
+      .setDepth(DEPTH.VIGNETTE + 2)
+      .setTint(0xff2a2a)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setAlpha(0);
     // CRT-style scanline haze (play area only — not camera post FX).
-    const scan = this.add.graphics().setScrollFactor(0).setDepth(DEPTH.VIGNETTE + 2).setAlpha(0.055);
+    const scan = this.add.graphics().setScrollFactor(0).setDepth(DEPTH.VIGNETTE + 3).setAlpha(0.055);
     for (let y = 0; y < GAME_HEIGHT; y += 3) {
       scan.fillStyle(0x000000, 1);
       scan.fillRect(0, y, PLAY_AREA_WIDTH, 1);
     }
     // Soft top/bottom bezel darken for cabinet framing
-    const bezel = this.add.graphics().setScrollFactor(0).setDepth(DEPTH.VIGNETTE + 3);
+    const bezel = this.add.graphics().setScrollFactor(0).setDepth(DEPTH.VIGNETTE + 4);
     bezel.fillStyle(0x000000, 0.22);
     bezel.fillRect(0, 0, PLAY_AREA_WIDTH, 10);
     bezel.fillRect(0, GAME_HEIGHT - 10, PLAY_AREA_WIDTH, 10);
@@ -865,6 +924,9 @@ export class DungeonScene extends Phaser.Scene {
     this.hudNextSync = 0;
     this.vignette = undefined;
     this.edgeGrade = undefined;
+    this.ambience = [];
+    this.ambienceImages = [];
+    this.dangerVeil = undefined;
     this.partyLight = undefined;
     this.partyLightSrc = undefined;
     this.torchLightSrcs = [];
@@ -1300,6 +1362,27 @@ export class DungeonScene extends Phaser.Scene {
         this.tweens.add({ targets: s, scaleX: { from: US, to: US * 0.9 }, duration: 1400 + Math.random() * 700, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
       } else if (buildingTiles.has(d.key)) {
         this.add.image(dc.x, dc.y, d.key).setDepth(dc.y - 2); // native 32px facade tiles, 1:1
+        // Lit windows are what make a town read as INHABITED rather than as a
+        // set of empty facades. Each pane gets its own phase and period so the
+        // street flickers like a hundred separate hearths, never in lockstep.
+        if (d.key === 'house-window' || d.key === 'adobe-window') {
+          const warm = this.add
+            .image(dc.x, dc.y, 'fx-glow-warm')
+            .setScale(1.15)
+            .setAlpha(0.3)
+            .setTint(0xffcf7a)
+            .setBlendMode(Phaser.BlendModes.ADD)
+            .setDepth(dc.y - 1);
+          this.tweens.add({
+            targets: warm,
+            alpha: { from: 0.22, to: 0.44 },
+            duration: 1800 + Math.random() * 2200,
+            delay: Math.random() * 1500,
+            yoyo: true,
+            repeat: -1,
+            ease: 'Sine.easeInOut',
+          });
+        }
       } else {
         this.add.image(dc.x, dc.y, d.key).setDepth(dc.y - 2).setScale(US);
       }
@@ -1416,7 +1499,7 @@ export class DungeonScene extends Phaser.Scene {
     this.registry.remove('loadSave');
     this.encounterStinger(spec.ambush);
     audio.sfx('portal');
-    this.cameras.main.shake(360, 0.012);
+    this.vfx.addTrauma(0.87);
     this.cameras.main.flash(200, 70, 18, 18);
     this.cameras.main.fadeOut(680, 0, 0, 0);
     this.handoffToDungeon(1000);
@@ -1545,7 +1628,7 @@ export class DungeonScene extends Phaser.Scene {
       fontFamily: 'MedievalSharp, "Trebuchet MS", cursive', fontSize: '15px', color: '#e6dcc4', stroke: '#000', strokeThickness: 3,
     }).setOrigin(0.5).setScrollFactor(0).setDepth(DEPTH.OVERLAY + 1).setAlpha(0);
     for (const o of [title, sub]) this.tweens.add({ targets: o, alpha: 1, duration: 400, yoyo: true, hold: 2200, delay: 250, onComplete: () => o.destroy() });
-    if (this.level.arenaAmbush) { this.cameras.main.shake(300, 0.01); audio.sfx('hit'); }
+    if (this.level.arenaAmbush) { this.vfx.addTrauma(0.79); audio.sfx('hit'); }
   }
 
   private arenaBanner(title: string, sub: string, color: string): void {
@@ -1850,6 +1933,7 @@ export class DungeonScene extends Phaser.Scene {
       else if (Phaser.Input.Keyboard.JustDown(this.menuKey)) this.quitToMenu();
     }
 
+    this.vfx.update(delta);
     this.shadows.update();
     this.updateLighting(time);
     if (this.wisp) this.updateFamiliar(time);
@@ -2398,11 +2482,17 @@ export class DungeonScene extends Phaser.Scene {
     const p2 = BOSS_PHASE2[m.enemyId];
     if (!p2) return;
     this.showBark(p2.bark, 4200, 'combat', '#ff8a6a');
-    this.cameras.main.shake(420, 0.012);
     audio.sfx('boss_roar');
-    // crimson flare so the turn reads even mid-melee
-    const flare = this.add.image(m.x, m.y - 8, 'fx-glow-warm').setScale(4).setAlpha(0.85).setBlendMode(Phaser.BlendModes.ADD).setDepth(m.y + 24).setTint(0xff4a2a);
-    this.tweens.add({ targets: flare, alpha: 0, scale: 6, duration: 700, onComplete: () => flare.destroy() });
+    // The loudest beat in the vocabulary short of the kill: twin shockwaves, a
+    // debris storm, a screen flash and a long rumble — tinted to the realm so
+    // the turn also announces *where* you are.
+    const accent = themeAccent(this.level.theme);
+    this.vfx.bossPhase(m.x, m.y - 6, accent);
+    const flare = this.add.image(m.x, m.y - 8, 'fx-glow-warm').setScale(4).setAlpha(0.9).setBlendMode(Phaser.BlendModes.ADD).setDepth(m.y + 24).setTint(accent);
+    this.tweens.add({ targets: flare, alpha: 0, scale: 7, duration: 800, onComplete: () => flare.destroy() });
+    // The warden is permanently bigger in phase 2 — a standing reminder that the
+    // fight changed. (Set through scaleBy, since Monster.tick owns the scale.)
+    m.scaleBy(1.12);
     if (p2.healFrac) {
       m.health = Math.min(m.maxHealth, m.health + Math.round(m.maxHealth * p2.healFrac));
       this.floatPickup(m.x, m.y - 26, 'second wind!', '#ff8a6a');
@@ -2458,43 +2548,129 @@ export class DungeonScene extends Phaser.Scene {
     this.tweens.add({ targets: fx, alpha: 0, scale: 2.2, duration: 320, ease: 'Quad.easeOut', onComplete: () => fx.destroy() });
   }
 
-  /** A subtle, camera-fixed ambient particle layer themed to the level. */
+  /**
+   * The realm's air, in four layers.
+   *
+   * A single mote emitter reads as "a screensaver over the game". Depth is what
+   * makes it read as *air*: a far layer that parallaxes with the world, a near
+   * layer locked to the camera, a slab of ground haze underneath the entities,
+   * and — where the realm has a sky or a believable ceiling — raking light
+   * shafts. Together they give the play area a front, a middle and a back.
+   */
   private spawnAmbience(theme: ThemeId): void {
     const a = ATMOSPHERE[theme] ?? ATMOSPHERE.crypt;
-    let y: { min: number; max: number };
-    let speedY: { min: number; max: number };
-    let speedX: { min: number; max: number };
-    if (a.mode === 'rise') {
-      y = { min: GAME_HEIGHT - 8, max: GAME_HEIGHT + 6 };
-      speedY = { min: -34, max: -12 };
-      speedX = { min: -8, max: 8 };
-    } else if (a.mode === 'fall') {
-      y = { min: -8, max: 2 };
-      speedY = { min: 14, max: 40 };
-      speedX = { min: -10, max: 10 };
-    } else {
-      y = { min: 0, max: GAME_HEIGHT };
-      speedY = { min: -10, max: 10 };
-      speedX = { min: -14, max: 14 };
-    }
-    const p = this.add.particles(0, 0, 'fx-glow-white', {
-      x: { min: 0, max: PLAY_AREA_WIDTH },
-      y,
-      lifespan: a.mode === 'drift' ? 5200 : 4000,
-      speedX,
-      speedY,
-      scale: { start: 0.72, end: 0 },
-      alpha: { start: 0.68, end: 0 },
-      frequency: Math.max(50, Math.floor(a.frequency * 0.7)),
+    const mote = this.textures.exists(a.mote) ? a.mote : 'fx-glow-white';
+
+    const band = (mode: Atmosphere['mode']) => {
+      if (mode === 'rise') {
+        return { y: { min: GAME_HEIGHT - 8, max: GAME_HEIGHT + 6 }, speedY: { min: -38, max: -14 }, speedX: { min: -10, max: 10 } };
+      }
+      if (mode === 'fall') {
+        return { y: { min: -10, max: 2 }, speedY: { min: 26, max: 74 }, speedX: { min: -12, max: 12 } };
+      }
+      return { y: { min: 0, max: GAME_HEIGHT }, speedY: { min: -12, max: 12 }, speedX: { min: -16, max: 16 } };
+    };
+    const b = band(a.mode);
+    const life = a.mode === 'drift' ? 5200 : 4200;
+
+    // ---- far layer: small, dim, slow, and parallaxing at 0.35 so it visibly
+    // sits BEHIND the action as the camera moves.
+    const far = this.add.particles(0, 0, mote, {
+      x: { min: -40, max: PLAY_AREA_WIDTH + 40 },
+      y: b.y,
+      lifespan: life * 1.4,
+      speedX: { min: b.speedX.min * 0.5, max: b.speedX.max * 0.5 },
+      speedY: { min: b.speedY.min * 0.55, max: b.speedY.max * 0.55 },
+      scale: { start: 0.55, end: 0.2 },
+      alpha: { start: 0.30, end: 0 },
+      frequency: Math.max(60, a.frequency),
       tint: a.particleTint,
       blendMode: 'ADD',
     });
-    p.setScrollFactor(0).setDepth(DEPTH.VIGNETTE - 2);
+    far.setScrollFactor(0.35).setDepth(DEPTH.VIGNETTE - 3);
+    this.ambience.push(far);
+
+    // ---- near layer: bigger, brighter, faster, locked to the camera.
+    const near = this.add.particles(0, 0, mote, {
+      x: { min: 0, max: PLAY_AREA_WIDTH },
+      y: b.y,
+      lifespan: life,
+      speedX: b.speedX,
+      speedY: b.speedY,
+      scale: { start: 1.05, end: 0.35 },
+      alpha: { start: 0.75, end: 0 },
+      rotate: a.mote === 'fx-mote-rain' ? { min: -8, max: 8 } : { min: -180, max: 180 },
+      frequency: Math.max(45, Math.floor(a.frequency * 0.62)),
+      tint: a.particleTint,
+      blendMode: 'ADD',
+    });
+    near.setScrollFactor(0).setDepth(DEPTH.VIGNETTE - 2);
+    this.ambience.push(near);
+
+    // ---- ground haze: two slow-drifting banks UNDER the entities, so heroes
+    // and monsters wade through it instead of being veiled by it.
+    if (a.fogAlpha > 0 && this.textures.exists('fx-fog')) {
+      for (let i = 0; i < 2; i++) {
+        const fog = this.add
+          .image(PLAY_AREA_WIDTH * (i ? 0.7 : 0.3), GAME_HEIGHT * (i ? 0.68 : 0.42), 'fx-fog')
+          .setScrollFactor(0.6)
+          .setDisplaySize(PLAY_AREA_WIDTH * 1.6, GAME_HEIGHT * 0.75)
+          .setTint(a.fogTint)
+          .setAlpha(a.fogAlpha)
+          .setBlendMode(Phaser.BlendModes.ADD)
+          .setDepth(DEPTH.DECOR_LOW - 12);
+        this.tweens.add({
+          targets: fog,
+          x: fog.x + (i ? -120 : 120),
+          duration: 26000 + i * 7000,
+          yoyo: true,
+          repeat: -1,
+          ease: 'Sine.easeInOut',
+        });
+        this.ambienceImages.push(fog);
+      }
+    }
+
+    // ---- god rays: only where light could plausibly get in. Slow, low-alpha,
+    // and pinned to the camera so they read as the room's lighting rather than
+    // as objects in it.
+    if (a.rays && this.textures.exists('fx-godray')) {
+      for (let i = 0; i < 3; i++) {
+        const ray = this.add
+          .image(PLAY_AREA_WIDTH * (0.2 + i * 0.3), GAME_HEIGHT * 0.3, 'fx-godray')
+          .setScrollFactor(0)
+          .setDisplaySize(120 + i * 40, GAME_HEIGHT * 1.3)
+          .setRotation(0.22)
+          .setTint(a.rays)
+          .setAlpha(0)
+          .setBlendMode(Phaser.BlendModes.ADD)
+          .setDepth(DEPTH.VIGNETTE - 4);
+        this.tweens.add({
+          targets: ray,
+          alpha: { from: 0.05, to: 0.16 },
+          duration: 5200 + i * 1400,
+          yoyo: true,
+          repeat: -1,
+          ease: 'Sine.easeInOut',
+        });
+        this.ambienceImages.push(ray);
+      }
+    }
   }
 
   private spawnDodgeFx(h: Hero): void {
-    const fx = this.add.image(h.x, h.y, 'fx-glow-white').setDepth(h.y - 1).setScale(1.4).setAlpha(0.5).setBlendMode(Phaser.BlendModes.ADD);
-    this.tweens.add({ targets: fx, alpha: 0, scaleX: 2.4, duration: 240, onComplete: () => fx.destroy() });
+    const tint = HIT_TINT[h.classId] ?? 0x9fc0ff;
+    // Kick-off dust at the feet, then four afterimages spaced across the roll.
+    // The ghosts are what turn a fast translation into a readable *dash*.
+    const puff = this.add.sprite(h.x, h.y + 6, 'fx-puff').setDepth(h.y - 2).setScale(0.85).setAlpha(0.6);
+    puff.play('fx-puff');
+    puff.once('animationcomplete', () => puff.destroy());
+    for (let i = 0; i < 4; i++) {
+      this.time.delayedCall(i * 42, () => {
+        if (h.active && h.dodging) this.vfx.afterimage(h, { tint, alpha: 0.42 - i * 0.07, life: 200 });
+      });
+    }
+    this.vfx.glow(h.x, h.y, { tint, scale: 1.3, life: 0.22, bias: -1 });
   }
 
   /** Unique-legendary dodge riders: the Comet's fire trail, the Nightveil's shadow. */
@@ -2548,6 +2724,7 @@ export class DungeonScene extends Phaser.Scene {
     this.centerSmallLevel();
     this.vignette?.setPosition(PLAY_AREA_WIDTH / 2, GAME_HEIGHT / 2).setDisplaySize(PLAY_AREA_WIDTH, GAME_HEIGHT);
     this.edgeGrade?.setPosition(PLAY_AREA_WIDTH / 2, GAME_HEIGHT / 2).setDisplaySize(PLAY_AREA_WIDTH, GAME_HEIGHT);
+    this.dangerVeil?.setPosition(PLAY_AREA_WIDTH / 2, GAME_HEIGHT / 2).setDisplaySize(PLAY_AREA_WIDTH, GAME_HEIGHT);
     this.barkText?.setPosition(PLAY_AREA_WIDTH / 2, GAME_HEIGHT - 40);
     if (this.mmImage) {
       const px = PLAY_AREA_WIDTH - this.mmCW - 12;
@@ -3212,7 +3389,7 @@ export class DungeonScene extends Phaser.Scene {
     if (d.bearForm && this.heroSig(d).has('dru_sig_apex')) {
       const time = this.time.now;
       this.spawnRing(d.x, d.y, 120, 0x8fce5a);
-      this.cameras.main.shake(160, 0.006);
+      this.vfx.addTrauma(0.61);
       const hit = this.aoeHit(d, d.x, d.y, 120, Math.round(d.attackDamage().dmg * 1.3), time, 'stun', 200, 900);
       for (const m of hit) m.applyStatus('bleed', 2600, time, Math.max(4, Math.round(d.attackDamage().dmg * 0.12)));
     }
@@ -3326,6 +3503,10 @@ export class DungeonScene extends Phaser.Scene {
         meteor.play('fx-fire');
         meteor.once('animationcomplete', () => meteor.destroy());
         this.add.image(dx, dy, 'fx-glow-warm').setScale(rad / 30).setAlpha(0.85).setBlendMode(Phaser.BlendModes.ADD).setDepth(dy + 10);
+        // an impact crater that outlives the fireball
+        this.vfx.shockwave(dx, dy + 4, { scale: (rad * 2) / 58, tint: 0xff9a3a });
+        this.vfx.decal(dx, dy + 4, 'scorch', { scale: rad / 26, alpha: 0.6 });
+        this.vfx.decal(dx, dy + 4, 'crack', { scale: rad / 34, alpha: 0.4 });
         if (sig.has('arc_sig_singularity')) this.aoeHit(h, dx, dy, rad * 1.4, 1, time, 'chill', -200, 200);
         const hit = this.aoeHit(h, dx, dy, rad, Math.round(h.magicDamage() * mult), time, 'burn', 70, burnDur, burnDmg);
         if (sig.has('arc_sig_frostmeteor')) for (const m of hit) { m.applyStatus('chill', 2200, time); m.applyStatus('root', 900, time); }
@@ -3340,7 +3521,7 @@ export class DungeonScene extends Phaser.Scene {
       if (sig.has('arc_sig_crater') || sig.has('arc_sig_firestorm')) {
         this.spawnGroundZone({ x: tx, y: ty, radius, owner: h, duration: sig.has('arc_sig_firestorm') ? 5000 : 4000, tickEvery: 600, dmg: Math.round(h.magicDamage() * 0.4), status: 'burn', statusDur: 1600, statusMag: burnDmg, slow: sig.has('arc_sig_crater'), texture: 'fx-glow-warm', tint: 0xff7a2a, alpha: 0.38 });
       }
-      if (announce) this.cameras.main.shake(220, 0.008);
+      if (announce) this.vfx.addTrauma(0.71);
       audio.sfx('magic');
     } else {
       // Vanguard — Seismic Slam: a quaking shockwave that stuns, flings/pulls,
@@ -3383,7 +3564,7 @@ export class DungeonScene extends Phaser.Scene {
           this.aoeHit(h, cx, cy, radius * 0.9, Math.round(dmg * 0.7), now, 'stun', 200, 800);
         });
       }
-      if (announce) this.cameras.main.shake(240, 0.009);
+      if (announce) this.vfx.addTrauma(0.75);
       audio.sfx('hit');
     }
     this.spawnBurst(cx, cy, 0xffd0a0);
@@ -3421,6 +3602,13 @@ export class DungeonScene extends Phaser.Scene {
     const def = activeFor(h.classId, slot);
     const cx = h.x;
     const cy = h.y;
+    // Every active opens with a rune circle at the caster's feet, sized by tier.
+    // It costs nothing and gives all 21 actives a shared "something is about to
+    // happen" grammar — the ultimate's is simply bigger and brighter.
+    if (h.isPlayer) {
+      const tier = slot === 'ultimate' ? 1.8 : slot === 'tertiary' ? 1.3 : 1;
+      this.vfx.castSigil(cx, cy + 6, HIT_TINT[h.classId] ?? 0xd3a8ff, 420 * tier, 0.85 * tier);
+    }
     switch (def.id) {
       // ---- Vanguard ----
       case 'van_charge': {
@@ -3435,7 +3623,7 @@ export class DungeonScene extends Phaser.Scene {
             const now = this.time.now;
             this.spawnRing(dest.x, dest.y, 82, 0x9fd0ff);
             this.aoeHit(h, dest.x, dest.y, 82, Math.round(h.attackDamage().dmg * 1.1), now, 'stun', 260, 1000);
-            this.cameras.main.shake(160, 0.006);
+            this.vfx.addTrauma(0.61);
           },
         });
         audio.sfx('swing');
@@ -3452,7 +3640,7 @@ export class DungeonScene extends Phaser.Scene {
         const radius = 260;
         this.spawnRing(cx, cy, radius, 0x9fd0ff);
         this.spawnRing(cx, cy, radius * 0.6, 0xbfe0ff);
-        this.cameras.main.shake(500, 0.02);
+        this.vfx.addTrauma(1.00);
         const hit = this.aoeHit(h, cx, cy, radius, Math.round(h.attackDamage().dmg * 3.4), time, 'stun', 260, 3200);
         for (const m of hit) m.applyStatus('vuln', 3200, time, 1.3);
         this.spawnGroundZone({ x: cx, y: cy, radius: radius * 0.8, owner: h, duration: 6000, tickEvery: 800, dmg: Math.round(h.attackDamage().dmg * 0.7), status: 'chill', slow: true, texture: 'fx-glow-warm', tint: 0xffb060, alpha: 0.4 });
@@ -3531,7 +3719,7 @@ export class DungeonScene extends Phaser.Scene {
         const near = this.nearestFoe(cx, cy, 520);
         const tx = near ? near.x : cx + this.facingVec(h).x * 160;
         const ty = near ? near.y : cy + this.facingVec(h).y * 160;
-        this.cameras.main.shake(600, 0.012);
+        this.vfx.addTrauma(0.87);
         for (let i = 0; i < 6; i++) {
           const ox = tx + Phaser.Math.Between(-140, 140);
           const oy = ty + Phaser.Math.Between(-140, 140);
@@ -3621,7 +3809,7 @@ export class DungeonScene extends Phaser.Scene {
         }
         for (const s of this.summons) if (s.alive && s.summoner === h) s.grantBuff(14000, time, { dmgMult: 1.5, speed: 40 });
         this.spawnBurst(cx, cy, 0x9b5bff, 3.0);
-        this.cameras.main.shake(300, 0.008);
+        this.vfx.addTrauma(0.71);
         audio.sfx('magic');
         break;
       }
@@ -3704,7 +3892,7 @@ export class DungeonScene extends Phaser.Scene {
         h.grantShield(Math.round(h.stats.maxHealth * 0.3), 12000, time);
         const radius = 200;
         this.spawnRing(cx, cy, radius, 0x8fce5a);
-        this.cameras.main.shake(360, 0.012);
+        this.vfx.addTrauma(0.87);
         const hit = this.aoeHit(h, cx, cy, radius, Math.round(h.attackDamage().dmg * 2.6), time, 'stun', 240, 2000);
         for (const m of hit) m.applyStatus('bleed', 3500, time, Math.max(6, Math.round(h.attackDamage().dmg * 0.16)));
         this.spawnGroundZone({ x: cx, y: cy, radius: radius * 0.8, owner: h, duration: 6000, tickEvery: 800, dmg: Math.round(h.attackDamage().dmg * 0.5), slow: true, status: 'chill', texture: 'fx-glow-green', tint: 0x8fce5a, alpha: 0.3 });
@@ -3774,6 +3962,22 @@ export class DungeonScene extends Phaser.Scene {
       .setScale((opts.radius * 2) / 32);
     if (opts.tint !== undefined) gfx.setTint(opts.tint);
     this.tweens.add({ targets: gfx, alpha: alpha * 0.55, duration: 700, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+    // A zone that burned or froze the ground for several seconds should still be
+    // legible on the floor after it expires. Two or three overlapping stamps
+    // across the radius read as an area rather than as a single sticker.
+    const zoneDecal: DecalKind | null =
+      opts.status === 'burn' ? 'scorch' : opts.status === 'chill' ? 'frost' : opts.status === 'fear' ? 'void' : null;
+    if (zoneDecal) {
+      const stamps = Phaser.Math.Clamp(Math.round(opts.radius / 34), 1, 4);
+      for (let i = 0; i < stamps; i++) {
+        const a = Math.random() * Math.PI * 2;
+        const d = Math.random() * opts.radius * 0.55;
+        this.vfx.decal(opts.x + Math.cos(a) * d, opts.y + Math.sin(a) * d * 0.6, zoneDecal, {
+          scale: 0.8 + opts.radius / 120,
+          alpha: 0.5,
+        });
+      }
+    }
     this.groundZones.push({
       x: opts.x,
       y: opts.y,
@@ -3888,23 +4092,22 @@ export class DungeonScene extends Phaser.Scene {
 
   /** A quick fading energy line between two points (faultline, bone spear). */
   private spawnBeam(x1: number, y1: number, x2: number, y2: number, color: number): void {
-    const g = this.add.graphics().setDepth(Math.max(y1, y2) + 12);
-    g.lineStyle(4, color, 0.9).lineBetween(x1, y1, x2, y2);
-    g.lineStyle(1.5, 0xffffff, 0.85).lineBetween(x1, y1, x2, y2);
-    this.tweens.add({ targets: g, alpha: 0, duration: 260, onComplete: () => g.destroy() });
+    this.vfx.beam(x1, y1, x2, y2, color, 7);
   }
 
   /** A one-shot expanding glow burst (ability flourish). */
   private spawnBurst(x: number, y: number, color: number, scale = 2.4): void {
     const flash = this.add.image(x, y, 'fx-glow-warm').setScale(scale).setAlpha(0.72).setBlendMode(Phaser.BlendModes.ADD).setDepth(y + 10).setTint(color);
     this.tweens.add({ targets: flash, alpha: 0, scale: scale * 1.5, duration: 420, onComplete: () => flash.destroy() });
+    this.vfx.sparks(x, y, Math.round(4 + scale * 2), color, 60 + scale * 40);
   }
 
   /** An animated ring pulse centered on a point (slam / nova telegraph). */
   private spawnRing(x: number, y: number, radius: number, tint: number): void {
-    const ring = this.add.sprite(x, y, 'fx-magic').setDepth(y + 20).setScale((radius * 2) / 32).setTint(tint);
-    ring.play('fx-magic');
-    ring.once('animationcomplete', () => ring.destroy());
+    // The shock ring lies flat on the ground, so an AoE now reads as a *floor*
+    // area rather than a billboard facing the camera — which matters a lot when
+    // the player has to judge whether they're inside it.
+    this.vfx.shockwave(x, y, { scale: (radius * 2) / 52, tint });
   }
 
   /** Run a callback for each living ally within radius of a hero (self optional). */
@@ -3937,8 +4140,7 @@ export class DungeonScene extends Phaser.Scene {
     const cd = Math.max(1, Math.round(dmg * 0.6));
     const died = best.takeDamage(cd, time);
     this.floatDamage(best.x, best.y, cd, false);
-    const line = this.add.line(0, 0, from.x, from.y, best.x, best.y, 0x9bd0ff, 0.9).setOrigin(0, 0).setLineWidth(2).setDepth(best.y + 14).setBlendMode(Phaser.BlendModes.ADD);
-    this.tweens.add({ targets: line, alpha: 0, duration: 200, onComplete: () => line.destroy() });
+    this.vfx.lightning(from.x, from.y - 8, best.x, best.y - 8, 0x9bd0ff);
     if (died) this.onMonsterKilled(owner, best);
     else this.chainBolt(owner, best, cd, time, chains - 1, hit);
   }
@@ -4246,14 +4448,14 @@ export class DungeonScene extends Phaser.Scene {
         // (the hero sheets hold a single attack frame; this adds the motion).
         // Player-only so a necromancer's summons + companions don't flood the screen.
         if (ally.isPlayer) {
-          const sl = this.add.sprite(ally.x + dir.x * 14, ally.y + dir.y * 14, 'fx-slash')
-            .setDepth(ally.y + 9)
-            .setScale(1.7)
-            .setRotation(Math.atan2(dir.y, dir.x))
-            .setTint(crit ? 0xffd24a : 0xeaf2ff)
-            .setAlpha(0.9);
-          sl.play('fx-slash');
-          sl.once('animationcomplete', () => sl.destroy());
+          this.vfx.weaponSwing(
+            ally.x + dir.x * 8,
+            ally.y + dir.y * 8 - 4,
+            Math.atan2(dir.y, dir.x),
+            ally.swingKind(),
+            crit ? 0xffd24a : HIT_TINT[ally.classId] ?? 0xeaf2ff,
+            (ally.reach() / 30) * (crit ? 1.12 : 1)
+          );
         }
         const tsig = ally.classId === 'thief' ? this.heroSig(ally) : null;
         for (const m of this.monsters) {
@@ -4406,20 +4608,22 @@ export class DungeonScene extends Phaser.Scene {
     this.tweens.add({ targets: fx, scale: 2.8, alpha: 0, duration: 640, onComplete: () => fx.destroy() });
   }
 
-  /** Weighty melee feedback for the player: screen shake, crit zoom-punch, burst. */
+  /** Weighty melee feedback for the player: shake, hit-stop, sparks, debris. */
   private meleeImpact(attacker: Hero, m: Monster, crit: boolean): void {
-    const cam = this.cameras.main;
-    cam.shake(crit ? 130 : 70, crit ? 0.006 : 0.0028);
-    if (crit) {
-      this.tweens.killTweensOf(cam);
-      this.tweens.add({
-        targets: cam, zoom: OPTIMAL_ZOOM * 1.06, duration: 70, yoyo: true, ease: 'Quad.easeOut',
-        onComplete: () => cam.setZoom(OPTIMAL_ZOOM),
-      });
-    }
-    const col = attacker.classId === 'vanguard' ? 0xeaf0ff : attacker.classId === 'warden' ? 0xffcf5a : 0xffffff;
-    const burst = this.add.image(m.x, m.y, 'fx-glow-white').setTint(col).setBlendMode(Phaser.BlendModes.ADD).setScale(0.6).setDepth(m.y + 12);
-    this.tweens.add({ targets: burst, scale: 1.9, alpha: 0, duration: 190, onComplete: () => burst.destroy() });
+    // Each class strikes in its own colour so a four-hero brawl still reads as
+    // four distinct people hitting things.
+    const col = HIT_TINT[attacker.classId] ?? 0xffffff;
+    const dx = m.x - attacker.x;
+    const dy = m.y - attacker.y;
+    const len = Math.hypot(dx, dy) || 1;
+    this.vfx.impact(m.x, m.y - 4, {
+      dirX: dx / len,
+      dirY: dy / len - 0.35, // bias the spray upward so it clears the sprite
+      crit,
+      tint: col,
+      power: m.isBoss ? 1.5 : 1,
+      gore: MONSTER_GORE[m.enemyId],
+    });
   }
 
   private fireProjectile(owner: Hero, dir: { x: number; y: number }, time: number): void {
@@ -4617,6 +4821,9 @@ export class DungeonScene extends Phaser.Scene {
     m.onNova = (mm, radius) => this.enemyNova(mm, radius);
     m.onPhase2 = (mm) => this.bossPhase2(mm);
     if (this.players.length > 0 || this.level.arena) this.applyMonsterScaling(m);
+    // Realm wardens wear their realm's colour as a standing sigil — the arena
+    // announces the fight before the health bar does.
+    if (m.isBoss) m.attachAura(themeAccent(this.level.theme), 1.5, 5);
     this.monsters.push(m);
     this.monsterGroup.add(m);
     this.shadows.add(m, 4);
@@ -4629,7 +4836,11 @@ export class DungeonScene extends Phaser.Scene {
     m.dmgMult = 1.4;
     m.maxHealth = Math.round(m.maxHealth * 2.3);
     m.health = m.maxHealth;
-    m.setScale(m.scaleX * 1.35);
+    m.scaleBy(1.35); // must go through scaleBy: tick() owns scaleX/scaleY
+    // A standing gold sigil + three orbiting motes. The gold tint alone was
+    // invisible in the sanctum and read as a status effect everywhere else; a
+    // ring on the floor works in every realm and telegraphs the threat early.
+    m.attachAura(0xffd24a, 0.9, 3);
     const fx = this.add
       .image(m.x, m.y, 'fx-glow-warm')
       .setTint(0xffd24a)
@@ -4638,6 +4849,7 @@ export class DungeonScene extends Phaser.Scene {
       .setBlendMode(Phaser.BlendModes.ADD)
       .setDepth(m.y - 1);
     this.tweens.add({ targets: fx, alpha: 0, scale: 3.2, duration: 520, onComplete: () => fx.destroy() });
+    this.vfx.sparks(m.x, m.y - 8, 10, 0xffd24a, 150);
   }
 
   private spawnEnemyShot(m: Monster, ux: number, uy: number): void {
@@ -4675,9 +4887,12 @@ export class DungeonScene extends Phaser.Scene {
         this.floatDamage(a.x, a.y, dealt, false);
       }
     }
-    const ring = this.add.sprite(m.x, m.y, 'fx-magic').setDepth(m.y + 20).setScale((radius * 2) / 32).setTint(0xff5a2a);
-    ring.play('fx-magic');
-    ring.once('animationcomplete', () => ring.destroy());
+    // A nova is a slam: flat ring on the floor, trauma, and a fractured stone
+    // decal so the arena keeps a record of where the boss detonated.
+    this.vfx.shockwave(m.x, m.y + 4, { scale: (radius * 2) / 52, tint: 0xff5a2a });
+    this.vfx.debris(m.x, m.y, 12, { tint: 0xc8ccd8, speed: 240 });
+    this.vfx.decal(m.x, m.y + 4, 'crack', { scale: radius / 34, alpha: 0.55 });
+    this.vfx.addTrauma(0.6);
     audio.sfx('boss_roar');
   }
 
@@ -5123,7 +5338,22 @@ export class DungeonScene extends Phaser.Scene {
       blendMode: 'ADD',
     });
     sparks.setDepth(y + 1);
+    // Top-tier drops (uniques, set pieces, godforged) get the same rotating
+    // ground sigil elites wear. Reusing that one shape means the game has a
+    // single visual word for "this is special" instead of two competing ones.
+    let sigil: Phaser.GameObjects.Sprite | undefined;
+    if (item.unique || item.setId || tier >= 4) {
+      sigil = this.add
+        .sprite(x, y + 4, 'fx-sigil')
+        .setScale(0.75)
+        .setAlpha(0.55)
+        .setTint(tint)
+        .setBlendMode(Phaser.BlendModes.ADD)
+        .setDepth(y - 4);
+      sigil.play('fx-sigil');
+    }
     spr.once('destroy', () => {
+      sigil?.destroy();
       glow.destroy();
       ring.destroy();
       beam.destroy();
@@ -5235,47 +5465,66 @@ export class DungeonScene extends Phaser.Scene {
     this.showBark(`${bossName} falls! The exit awakens.`, 3400, 'combat');
     this.dmSetPiece(aiService.generateVictory(this.level.name, this.players[0]?.classId));
     audio.sfx('victory');
-    this.cameras.main.shake(360, 0.012);
+    // The warden falls: three expanding rings and a slow-motion beat. Monster.die
+    // already fired the boss death burst; this is the *arena's* reaction to it.
+    if (this.boss) {
+      const accent = themeAccent(this.level.theme);
+      for (let i = 0; i < 3; i++) {
+        this.time.delayedCall(i * 130, () => {
+          if (!this.boss) return;
+          this.vfx.shockwave(this.boss.x, this.boss.y + 4, { scale: 1.4 + i * 0.9, tint: i === 1 ? 0xffffff : accent });
+        });
+      }
+      this.vfx.hitStop(220, 0.14);
+    }
     // The realm's warden always yields a guaranteed, high-grade themed reward.
     if (this.boss) this.dropLoot(this.boss.x, this.boss.y, 'runed');
   }
 
   private floatDamage(x: number, y: number, amount: number, crit: boolean): void {
-    // Arcade-style hit number: pops in with an overshoot, colour-tiers by size,
-    // crits land BIG, tilted and gold with a warm glow + a punchy "!".
-    const big = !crit && amount >= 30;
-    let color = '#ffffff';
-    if (crit) color = '#ffe23a';
-    else if (amount >= 30) color = '#ff7a1e';
-    else if (amount >= 15) color = '#ffd24a';
-    const size = crit ? 30 : big ? 23 : 16;
-    const jitterX = Phaser.Math.Between(-6, 6);
+    // Arcade hit number with attitude. Four escalating tiers (chip · solid ·
+    // heavy · CRIT) so the player reads the *size* of a hit peripherally,
+    // without ever having to actually parse the digits mid-fight.
+    const tier = crit ? 3 : amount >= 45 ? 2 : amount >= 18 ? 1 : 0;
+    const color = ['#f0f4ff', '#ffd24a', '#ff7a1e', '#fff0a0'][tier];
+    const size = [16, 21, 27, 34][tier];
+    const label = crit ? `${amount}!` : `${amount}`;
+    // Crits arc out sideways instead of straight up — the diverging paths keep a
+    // flurry of numbers legible instead of stacking into a column of mush.
+    const jitterX = Phaser.Math.Between(-7, 7);
+    const driftX = crit ? Phaser.Math.Between(-26, 26) : jitterX * 1.6;
     const t = this.add
-      .text(x + jitterX, y - 12, crit ? `${amount}!` : `${amount}`, {
+      .text(x + jitterX, y - 12, label, {
         fontFamily: 'Cinzel, Georgia, serif',
         fontSize: `${size}px`,
         color,
         fontStyle: 'bold',
-        stroke: '#1a0a00',
-        strokeThickness: crit ? 6 : 4,
+        stroke: crit ? '#6a1c00' : '#12080a',
+        strokeThickness: crit ? 7 : 4,
       })
       .setOrigin(0.5)
-      .setDepth(y + 50)
-      .setScale(0.4);
-    t.setShadow(0, 3, crit ? '#7a2200' : '#000000', crit ? 6 : 4, true, true);
-    if (crit) t.setAngle(Phaser.Math.Between(-9, 9));
-    // pop -> overshoot -> settle -> rise + fade
-    this.tweens.add({ targets: t, scale: crit ? 1.4 : 1.18, duration: 130, ease: 'Back.easeOut' });
-    this.tweens.add({ targets: t, scale: 1, delay: 130, duration: 110, ease: 'Quad.easeOut' });
+      .setDepth(y + 50 + tier)
+      .setScale(0.35);
+    t.setShadow(0, 3, crit ? '#ff6a10' : '#000000', crit ? 9 : 4, true, true);
+    if (crit) t.setAngle(Phaser.Math.Between(-11, 11));
+
+    // pop -> overshoot -> settle -> arc away + fade
+    this.tweens.add({ targets: t, scale: crit ? 1.5 : 1.2, duration: crit ? 150 : 120, ease: 'Back.easeOut' });
+    this.tweens.add({ targets: t, scale: 1, delay: crit ? 150 : 120, duration: 110, ease: 'Quad.easeOut' });
     this.tweens.add({
       targets: t,
-      y: y - (crit ? 48 : 34),
+      x: x + jitterX + driftX,
+      y: y - (crit ? 54 : 36),
       alpha: 0,
-      delay: crit ? 380 : 240,
-      duration: crit ? 640 : 480,
+      delay: crit ? 400 : 230,
+      duration: crit ? 680 : 470,
       ease: 'Quad.easeIn',
       onComplete: () => t.destroy(),
     });
+    if (crit) {
+      // a gold flare behind the number so the crit owns its patch of screen
+      this.vfx.glow(x + jitterX, y - 16, { tint: 0xffd24a, scale: 1.6, life: 0.34, bias: 48 });
+    }
   }
 
   private floatPickup(x: number, y: number, text: string, color: string): void {
@@ -5389,9 +5638,10 @@ export class DungeonScene extends Phaser.Scene {
               audio.sfx('levelup');
               this.showBark(`${set.name} COMPLETE — ${set.powerName} awakens: ${set.powerDesc}`, 6000, 'event', SET_COLOR);
               this.flashLight(collector.x, collector.y, 0x39ff6a, 210, 900, 1.5);
-              const fx = this.add.sprite(collector.x, collector.y, 'fx-levelup').setDepth(collector.y + 10).setTint(0x8affa0);
-              fx.play('fx-levelup');
-              fx.once('animationcomplete', () => fx.destroy());
+              // Completing a set is the rarest reward in the game — it gets the
+              // full level-up spectacle plus a green flash, and nothing else does.
+              this.vfx.levelUp(collector.x, collector.y, 0x8affa0);
+              this.vfx.flash(0x39ff6a, 200, 0.3);
             }
           } else {
             const col = item.grade ? GRADES[item.grade].color : '#ffe9a8';
@@ -5408,7 +5658,18 @@ export class DungeonScene extends Phaser.Scene {
       }
       if (p.id !== undefined) this.collectedIds.add(p.id);
       const spr = p.sprite;
-      this.tweens.add({ targets: spr, y: spr.y - 12, alpha: 0, duration: 240, onComplete: () => spr.destroy() });
+      // Pickups pop rather than fade: a quick scale-up + inward spark ring reads
+      // as "collected", where a plain fade reads as "expired".
+      this.vfx.pickup(spr.x, spr.y, PICKUP_TINT[p.kind] ?? 0xffd24a);
+      this.tweens.add({
+        targets: spr,
+        y: spr.y - 16,
+        scale: (spr.scale || 1) * 1.5,
+        alpha: 0,
+        duration: 220,
+        ease: 'Quad.easeOut',
+        onComplete: () => spr.destroy(),
+      });
       this.pickups.splice(i, 1);
     }
   }
@@ -6845,12 +7106,31 @@ export class DungeonScene extends Phaser.Scene {
   private updateLighting(time: number): void {
     for (const L of this.torchLights) {
       const ph = (L.getData('ph') as number) || 0;
-      const f = 0.22 + Math.sin(time * 0.009 + ph) * 0.06 + (Math.random() - 0.5) * 0.035;
-      L.setAlpha(Phaser.Math.Clamp(f, 0.1, 0.32));
+      // Two sines at incommensurate rates plus a little noise: a single sine
+      // reads as a machine pulsing, this reads as a flame guttering.
+      const f =
+        0.24 +
+        Math.sin(time * 0.009 + ph) * 0.05 +
+        Math.sin(time * 0.023 + ph * 2.3) * 0.03 +
+        (Math.random() - 0.5) * 0.04;
+      L.setAlpha(Phaser.Math.Clamp(f, 0.1, 0.36));
     }
     if (this.partyLight) {
       this.partyLight.setPosition(this.cameraTarget.x, this.cameraTarget.y);
       this.partyLight.setAlpha(0.28 + Math.sin(time * 0.006) * 0.05);
+    }
+    // Danger veil: invisible above 45% health, then ramps in and beats faster as
+    // the leader bleeds out — a heart-rate readout you feel rather than read.
+    if (this.dangerVeil) {
+      const lead = this.leader();
+      const hr = lead && lead.alive ? lead.healthRatio() : 1;
+      if (hr >= 0.45) {
+        this.dangerVeil.setAlpha(0);
+      } else {
+        const urgency = 1 - hr / 0.45; // 0 at the threshold -> 1 at death's door
+        const beat = (Math.sin(time * (0.005 + urgency * 0.011)) + 1) / 2;
+        this.dangerVeil.setAlpha(0.10 * urgency + 0.30 * urgency * beat);
+      }
     }
     if (this.lightingOn) {
       // flicker the real torch lights + carry the party light with the camera target
@@ -7339,6 +7619,7 @@ export class DungeonScene extends Phaser.Scene {
     this.wisp?.destroy();
     this.wisp = undefined;
     this.time.timeScale = 1;
+    this.vfx?.destroy();
     this.shadows.removeAll();
     this.inventoryUI?.close();
     this.skillsUI?.close();

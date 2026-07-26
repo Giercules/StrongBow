@@ -140,6 +140,17 @@ export const SPIKE_TICK_MS = 650;
 
 export const DEPTH = {
   FLOOR: 0,
+  /**
+   * Combat decals (blood, scorch, frost, craters) — above the floor tiles, but
+   * BELOW the level's own floor coverings.
+   *
+   * Flat decor sits at FLOOR+1 and its glows at FLOOR+2, so anything authored as
+   * part of the room — rugs, roads, wood floors, rune circles — must paint over
+   * the mess a fight leaves. Otherwise gore ends up smeared across the tavern
+   * carpet. Fractional on purpose: it slots into the existing FLOOR+n ladder
+   * without renumbering it.
+   */
+  DECAL: 0.5,
   DECOR_LOW: 50,
   VIGNETTE: 8500,
   CONTROLS: 8600,

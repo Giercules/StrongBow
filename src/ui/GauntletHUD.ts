@@ -74,6 +74,8 @@ export class GauntletHUD {
   private ctrlText!: Phaser.GameObjects.Text;
   private mainRows: MainRow[] = [];
   private petRows: PetRow[] = [];
+  /** Trailing "lag bar" state per bar id — see drawStatusBar. */
+  private lag = new Map<string, { shown: number; at: number }>();
 
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
@@ -355,6 +357,17 @@ export class GauntletHUD {
   }
 
   /** Arcade status bar: dark well, saturated fill, top highlight stripe. */
+  /**
+   * Arcade status bar with a "lag" ghost.
+   *
+   * The bar's real value snaps instantly, but a second pale bar trails behind it
+   * and catches up over ~0.4s. That trailing sliver is the whole trick: it shows
+   * you *how much* you just lost as a width rather than as a number, which the
+   * eye can read mid-fight without looking away from the playfield. Fighting
+   * games have used it forever and it costs one lerp.
+   *
+   * Pass a stable `id` (per hero, per bar) to enable it; omit for static bars.
+   */
   private drawStatusBar(
     g: Phaser.GameObjects.Graphics,
     x: number,
@@ -363,17 +376,48 @@ export class GauntletHUD {
     h: number,
     ratio: number,
     fill: number,
-    alpha = 1
+    alpha = 1,
+    id?: string
   ): void {
     const r = Phaser.Math.Clamp(ratio, 0, 1);
-    g.fillStyle(0x000000, 0.62);
+
+    // recessed track
+    g.fillStyle(0x000000, 0.72);
     g.fillRect(x, y, w, h);
+    g.fillStyle(0x000000, 0.35);
+    g.fillRect(x, y, w, 1);
+
+    // lag ghost — only ever drawn when the value DROPPED
+    if (id) {
+      const now = this.scene.time.now;
+      const st = this.lag.get(id);
+      if (!st) {
+        this.lag.set(id, { shown: r, at: now });
+      } else {
+        if (r > st.shown) st.shown = r; // gains snap; only losses trail
+        else if (st.shown > r) st.shown = Math.max(r, st.shown - (now - st.at) / 420);
+        st.at = now;
+        if (st.shown > r + 0.004 && h >= 3) {
+          g.fillStyle(0xff8a8a, 0.75 * alpha);
+          g.fillRect(x + w * r, y, w * (st.shown - r), h);
+        }
+      }
+    }
+
     if (r > 0.01) {
       g.fillStyle(fill, alpha);
       g.fillRect(x, y, w * r, h);
       if (h >= 3) {
-        g.fillStyle(0xffffff, 0.32 * alpha);
+        // top gloss + bottom shade give the fill a tube-like roundness
+        g.fillStyle(0xffffff, 0.34 * alpha);
         g.fillRect(x, y, w * r, 1);
+        g.fillStyle(0x000000, 0.22 * alpha);
+        g.fillRect(x, y + h - 1, w * r, 1);
+        // hot pip at the leading edge so the bar has somewhere the eye lands
+        if (r < 0.995) {
+          g.fillStyle(0xffffff, 0.85 * alpha);
+          g.fillRect(x + w * r - 1, y, 1, h);
+        }
       }
     }
     g.lineStyle(1, hexNum(C.hudBorderDk), 0.75);
@@ -418,12 +462,20 @@ export class GauntletHUD {
     const barH = Math.max(4, Math.round(6 * scale));
     const hp = Phaser.Math.Clamp(slot.health / slot.maxHealth, 0, 1);
     const hpCol = hp > 0.5 ? hexNum(C.hpFull) : hp > 0.25 ? hexNum(C.hpMid) : hexNum(C.hpLow);
-    this.drawStatusBar(g, barX, hpY, barW, barH, hp, hpCol);
+    const key = `${slot.playerNum}:${slot.name}`;
+    this.drawStatusBar(g, barX, hpY, barW, barH, hp, hpCol, 1, `${key}:hp`);
+    // Critical health: an outline that beats around the bar. Cheap, impossible
+    // to miss peripherally, and it never covers the numbers.
+    if (slot.alive && hp <= 0.25) {
+      const beat = (Math.sin(this.scene.time.now * 0.011) + 1) / 2;
+      g.lineStyle(1, hexNum(C.hpLow), 0.35 + beat * 0.6);
+      g.strokeRect(barX - 2, hpY - 2, barW + 4, barH + 4);
+    }
 
     const mpY = hpY + barH + 2;
     const mpH = Math.max(2, Math.round(3 * scale));
     const mp = slot.maxMana > 0 ? Phaser.Math.Clamp(slot.mana / slot.maxMana, 0, 1) : 0;
-    this.drawStatusBar(g, barX, mpY, barW, mpH, mp, hexNum(C.manaFill));
+    this.drawStatusBar(g, barX, mpY, barW, mpH, mp, hexNum(C.manaFill), 1, `${key}:mp`);
 
     const xpY = mpY + mpH + 1;
     const xp = slot.xpToNext > 0 ? Phaser.Math.Clamp(slot.xp / slot.xpToNext, 0, 1) : 0;
@@ -470,6 +522,6 @@ export class GauntletHUD {
     const barH = Math.max(3, Math.round(4 * scale));
     const barY = y + Math.round((h - barH) / 2);
     const hp = Phaser.Math.Clamp(slot.health / slot.maxHealth, 0, 1);
-    this.drawStatusBar(g, barX, barY, barW, barH, hp, hp > 0.35 ? hexNum(C.hpFull) : hexNum(C.hpLow));
+    this.drawStatusBar(g, barX, barY, barW, barH, hp, hp > 0.35 ? hexNum(C.hpFull) : hexNum(C.hpLow), 1, `pet:${slot.name}`);
   }
 }
