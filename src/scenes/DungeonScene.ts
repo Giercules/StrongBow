@@ -40,6 +40,7 @@ import {
   COMPANION_ACTIVE_GAP,
   COMPANION_QUAFF_GAP,
   COMPANION_FIELD_POTIONS,
+  SUMMON_CRUMBLE_MS,
   LOCKPICK_REACH,
 } from '../core/constants';
 import * as art from '../rendering/spriteArt';
@@ -2254,9 +2255,22 @@ export class DungeonScene extends Phaser.Scene {
 
   private updateCompanions(time: number, delta: number): void {
     const liveMonsters = this.monsters.filter((m) => m.active && m.alive);
-    // expire timed-out summons
+    // Retire finished summons: the ones whose time ran out, and the ones that
+    // were killed. A slain servant crumbles to dust — it does NOT lie on the
+    // floor waiting for a resurrection the way a hired comrade does. Only the
+    // expiry path used to clean up, so a pet killed in a fight stayed in
+    // `companions`/`allies`/`summons` forever: it kept its row on the HUD party
+    // list beside the replacement its summoner raised, and — worse — it pinned
+    // PartySituation.needsRez true for the rest of the run, which had the Warden
+    // hunting a corpse to revive and made every class read the run as a standing
+    // emergency (see the `bigMoment` gate in chooseCompanionActive).
     for (const sk of this.summons) {
-      if (sk.alive && sk.expireAt && time > sk.expireAt) {
+      if (!sk.alive) {
+        if (!sk.crumbleAt) sk.crumbleAt = time + SUMMON_CRUMBLE_MS;
+        if (time >= sk.crumbleAt) this.crumbleSummon(sk);
+        continue;
+      }
+      if (sk.expireAt && time > sk.expireAt) {
         sk.expireAt = 0;
         this.crumbleSummon(sk);
       }
@@ -3416,6 +3430,17 @@ export class DungeonScene extends Phaser.Scene {
     this.companions = this.companions.filter((c) => c !== sk);
     this.allies = this.allies.filter((a) => a !== sk);
     this.summons = this.summons.filter((s) => s !== sk);
+    this.compFarSince.delete(sk);
+    this.compNextActive.delete(sk);
+    this.compNextQuaff.delete(sk);
+    // The party list is on a ~90ms refresh; a pet vanishing is a discrete event
+    // and should leave the roster the moment it leaves the floor.
+    this.syncHudData();
+  }
+
+  /** Conjured servants (skeletons, familiars) vs. real party members. */
+  private isSummon(a: Hero): boolean {
+    return !!(a as Companion).isSummon;
   }
 
   /** Bring a downed ally/player back into the fight (Warden resurrect). */
@@ -3659,7 +3684,11 @@ export class DungeonScene extends Phaser.Scene {
           }
           const fx = this.add.image(a.x, a.y - 6, 'fx-glow-green').setDepth(a.y + 8).setScale(1.3).setBlendMode(Phaser.BlendModes.ADD);
           this.tweens.add({ targets: fx, alpha: 0, scale: 2.2, duration: 520, onComplete: () => fx.destroy() });
-        } else if (a.active && (reviveAll || !revived) && Phaser.Math.Distance.Between(cx, cy, a.x, a.y) < radius + 40) {
+        } else if (a.active && !this.isSummon(a) && (reviveAll || !revived) && Phaser.Math.Distance.Between(cx, cy, a.x, a.y) < radius + 40) {
+          // Summons are excluded: a conjured servant is re-raised by its
+          // summoner, not called back from the brink, and without this the
+          // Warden spends her one resurrection on a dead skeleton while a real
+          // comrade is still on the floor beside it.
           this.reviveAlly(a, Math.round(a.stats.maxHealth * Math.min(0.75, 0.4 + h.level * 0.01)));
           revived = true;
         }
@@ -3956,7 +3985,8 @@ export class DungeonScene extends Phaser.Scene {
             a.heal(Math.round(a.stats.maxHealth * 0.6));
             a.restoreMana(Math.round(a.stats.maxMana * 0.4));
             a.grantBuff(8000, time, { dmgMult: 1.2, dr: 0.15 });
-          } else if (a.active && Phaser.Math.Distance.Between(cx, cy, a.x, a.y) < rad) {
+          } else if (a.active && !this.isSummon(a) && Phaser.Math.Distance.Between(cx, cy, a.x, a.y) < rad) {
+            // Judgment raises fallen comrades, not spent conjurations.
             this.reviveAlly(a, Math.round(a.stats.maxHealth * 0.5));
           }
         }
@@ -7401,6 +7431,11 @@ export class DungeonScene extends Phaser.Scene {
       p.revive(0.5);
       p.setPosition(c.x + i * 14, c.y);
     });
+    // A wipe doesn't call conjurations back. Dust any servant that fell rather
+    // than reviving it with the hired allies — the summoner raises fresh ones,
+    // and a party wipe is exactly the case the per-frame crumble sweep can't
+    // catch (the scene stops updating the moment the game-over panel opens).
+    for (const sk of [...this.summons]) if (!sk.alive) this.crumbleSummon(sk);
     this.companions.forEach((comp, i) => {
       if (!comp.alive) comp.revive(0.4);
       comp.setPosition(c.x + Phaser.Math.Between(-16, 16), c.y + 16 + i * 6);
@@ -7645,7 +7680,7 @@ export class DungeonScene extends Phaser.Scene {
   }
 
   private syncHudData(): void {
-    const isSummon = (a: Hero): boolean => !!(a as Companion).isSummon;
+    const isSummon = (a: Hero): boolean => this.isSummon(a);
     const toSlot = (a: Hero): HudHeroSlot => ({
       classId: a.classId,
       name: this.allyName(a),

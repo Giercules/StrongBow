@@ -83,6 +83,9 @@ export const COMPANION_ACTIVE_GAP = 1400; // ms
 export const COMPANION_QUAFF_GAP = 6000; // ms
 /** Health (and, for casters, mana) potions a hired ally brings on the descent. */
 export const COMPANION_FIELD_POTIONS = 2;
+// How long a slain summon lies there before dusting. Hero.die() runs a ~400ms
+// fall, so this lets the kill read as a kill instead of the pet blinking out.
+export const SUMMON_CRUMBLE_MS = 600;
 
 // How close a party Thief must be to work a lock for whoever opened the chest.
 // Generous enough that a companion trailing the leader still counts, tight

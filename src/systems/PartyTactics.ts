@@ -11,6 +11,9 @@ export interface AllySnapshot extends Vec {
   alive: boolean;
   active?: boolean;
   healthRatio: () => number;
+  /** True for conjured servants — nothing can resurrect one, so a dead summon
+   *  must not read as a comrade waiting to be raised. */
+  isSummon?: boolean;
 }
 
 export interface FoeSnapshot extends Vec {
@@ -66,7 +69,12 @@ export function assessPartySituation(
   const minHealth = ratios.length ? Math.min(...ratios) : 1;
   const injuredCount = ratios.filter((r) => r < 0.55).length;
   const criticalCount = ratios.filter((r) => r < 0.35).length;
-  const needsRez = allies.some((a) => a.active !== false && !a.alive);
+  // Only real party members count: a summon can't be resurrected by anyone, so
+  // treating a dead one as "needs rez" makes the Warden hunt a body she can
+  // never raise and flags the whole party as a standing emergency. Hurt summons
+  // DO still count toward the health figures below — a pet being chewed up is a
+  // genuine sign of pressure, and the Warden healing it is real value.
+  const needsRez = allies.some((a) => a.active !== false && !a.alive && !a.isSummon);
 
   const live = liveFoes(foes);
   const threatNearLeader = leader

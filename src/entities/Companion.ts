@@ -14,6 +14,9 @@ export class Companion extends Hero {
   isSummon = false;
   /** ms timestamp when a summon crumbles to dust (0 = permanent). */
   expireAt = 0;
+  /** ms timestamp a SLAIN summon dusts itself (0 = not slain yet). Set when the
+   *  scene notices the death, so the body falls before it turns to ash. */
+  crumbleAt = 0;
   /** ms timestamp the summon was raised (for the lifetime countdown bar). */
   lifeStart = 0;
   /** Thief skeleton: teleport-backstab behaviour + its cooldown gate. */
