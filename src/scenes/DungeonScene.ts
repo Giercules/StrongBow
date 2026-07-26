@@ -37,6 +37,10 @@ import {
   PARTY_SUMMON_CAP,
   COMPANION_TELEPORT_DISTANCE,
   COMPANION_TELEPORT_MS,
+  COMPANION_ACTIVE_GAP,
+  COMPANION_QUAFF_GAP,
+  COMPANION_FIELD_POTIONS,
+  LOCKPICK_REACH,
 } from '../core/constants';
 import * as art from '../rendering/spriteArt';
 import * as overworldArt from '../rendering/overworldArt';
@@ -88,6 +92,9 @@ import {
   wardenWantsAbility,
   vanguardWantsRoar,
   arcanistWantsMeteor,
+  chooseCompanionActive,
+  type ActiveOpportunity,
+  type PartySituation,
   type SongId as TacticSongId,
 } from '../systems/PartyTactics';
 import { InventoryUI } from '../ui/InventoryUI';
@@ -540,6 +547,10 @@ export class DungeonScene extends Phaser.Scene {
   private nextFlowAt = 0;
   /** Per-companion timer tracking how long it has been beyond teleport range. */
   private compFarSince = new Map<Companion, number>();
+  /** Earliest time each companion may spend another level-gated active. */
+  private compNextActive = new Map<Companion, number>();
+  /** Earliest time each companion may reach for its own potion belt. */
+  private compNextQuaff = new Map<Companion, number>();
 
   // ---- town-square hub state (only populated when this.level.town) ----
   private shopUI!: ShopUI;
@@ -949,6 +960,8 @@ export class DungeonScene extends Phaser.Scene {
     this.lavaTick = new Map();
     this.collectedIds = new Set();
     this.compFarSince = new Map();
+    this.compNextActive = new Map();
+    this.compNextQuaff = new Map();
     this.lastRightDown = 0;
     this.magicQueued = false;
     this.townNpcs = [];
@@ -1919,6 +1932,19 @@ export class DungeonScene extends Phaser.Scene {
       const starterId = COMPANION_STARTER[cls];
       const starter = starterId ? Content.item(starterId) : null;
       if (starter) comp.inventory.equipped[migrateEquipKey(starter.slot)] = starter;
+      // A sellsword who took your gold turns up supplied. Casters carry mana as
+      // well: a hired Warden who runs dry stops healing, which is the party's
+      // problem, not hers. See companionQuaff for when they reach for it.
+      for (let k = 0; k < COMPANION_FIELD_POTIONS; k++) {
+        const hp = Content.item('health_potion');
+        if (hp) comp.inventory.add(hp);
+      }
+      if (comp.stats.maxMana >= 55) {
+        for (let k = 0; k < COMPANION_FIELD_POTIONS; k++) {
+          const mp = Content.item('mana_potion');
+          if (mp) comp.inventory.add(mp);
+        }
+      }
       comp.recompute();
       this.companions.push(comp);
       this.allyGroup.add(comp);
@@ -2290,6 +2316,26 @@ export class DungeonScene extends Phaser.Scene {
         const want = decideBardSong(partyTactics);
         this.bardSing(comp, want);
         comp.markAbilityUsed(time);
+      }
+    }
+    // ---- party AI: spend the level-gated actives (secondary/tertiary/ultimate).
+    // These hung off player input alone, so a hired ally fought its whole career
+    // on the level-1 signature and never once cast the other three quarters of
+    // its kit. Snapshotted like the pass above — an ultimate can spawn summons.
+    for (const comp of [...this.companions]) {
+      if (!comp.alive || comp.isSummon) continue;
+      this.companionUseActive(comp, liveMonsters, partyTactics, time);
+    }
+    // ---- self-preservation: drink before dying, and top the casters back up ----
+    // A Warden about to pulse Sanctuary makes a potion a waste, so the party's
+    // own healing is checked first and only then does anyone open their belt.
+    if (!this.level.town && !this.level.interior) {
+      const healerReady = this.allies.some(
+        (a) => a.alive && a.classId === 'warden' && a.canAbility(time) && (settings.get('gameplay').infiniteMana || a.mana >= 15)
+      );
+      for (const comp of [...this.companions]) {
+        if (!comp.alive || comp.isSummon) continue;
+        this.companionQuaff(comp, time, healerReady);
       }
     }
     // Hired Bards retune to the fight; hired Druids shift with the tide of battle.
@@ -2833,6 +2879,96 @@ export class DungeonScene extends Phaser.Scene {
       default:
         return false;
     }
+  }
+
+  /**
+   * Let a hired ally spend one of its level-gated actives.
+   *
+   * The decision itself is pure policy in PartyTactics; this half only measures
+   * the battlefield, asks whether the slot is actually available (unlock level,
+   * cooldown, mana — `canActive` already covers all three) and fires at most one
+   * ability per companion per throttle window. The throttle matters: without it
+   * a level-20 ally coming off a lull would dump all three actives on the same
+   * frame, and six of them doing that would bury the log.
+   */
+  private companionUseActive(comp: Companion, monsters: Monster[], party: PartySituation, time: number): void {
+    if (this.level.town || this.level.interior) return; // no fireworks in the hub
+    if (time < (this.compNextActive.get(comp) ?? 0)) return;
+
+    let packNear = 0;
+    let packMid = 0;
+    let nearestFoe = Infinity;
+    let nearestElite = Infinity;
+    let bossFight = false;
+    for (const m of monsters) {
+      const d = Phaser.Math.Distance.Between(comp.x, comp.y, m.x, m.y);
+      if (d <= 110) packNear++;
+      if (d <= 240) packMid++;
+      if (d < nearestFoe) nearestFoe = d;
+      if ((m.isBoss || m.isElite) && d < nearestElite) nearestElite = d;
+      if (m.isBoss && d < 480) bossFight = true;
+    }
+    // Corpse Explosion detonates bodies, so count the ones lying where the
+    // necromancer would actually aim: around the pack, not around herself.
+    let corpsesNear = 0;
+    if (comp.classId === 'necromancer' && nearestFoe < Infinity) {
+      const aim = this.nearestFoe(comp.x, comp.y, 420);
+      if (aim) {
+        for (const c of this.corpses) {
+          if (Phaser.Math.Distance.Between(aim.x, aim.y, c.x, c.y) <= 170) corpsesNear++;
+        }
+      }
+    }
+    const opp: ActiveOpportunity = {
+      packNear,
+      packMid,
+      nearestFoe,
+      nearestElite,
+      bossFight,
+      corpsesNear,
+      bearForm: comp.bearForm,
+      selfHealth: comp.healthRatio(),
+      selfMana: comp.stats.maxMana > 0 ? comp.mana / comp.stats.maxMana : 0,
+    };
+    const slot = chooseCompanionActive(comp.classId, party, opp, (s) => comp.canActive(s, time));
+    if (!slot) return;
+
+    // useActive returns false when it found nothing to aim at — don't burn the
+    // cooldown on a miss, just let the companion try again next window.
+    if (!this.useActive(comp, slot, time, false)) return;
+    comp.markActive(slot, time);
+    this.compNextActive.set(comp, time + COMPANION_ACTIVE_GAP);
+    // Ultimates are set-pieces and earn a line in the log; the smaller actives
+    // get a floating label over the caster so the party reads as busy, not noisy.
+    const name = activeFor(comp.classId, slot).name;
+    if (slot === 'ultimate') this.showBark(`${this.allyName(comp)} unleashes ${name}!`, 2600, 'combat', '#ffd76a');
+    else this.floatPickup(comp.x, comp.y - 26, name, '#bfe6ff');
+  }
+
+  /**
+   * A hired ally reaches for its own potion belt.
+   *
+   * Health first — a dead Warden heals nobody — and mana second, because a
+   * caster that runs dry silently stops contributing: no Sanctuary, no Meteor,
+   * no raised servants, just a staff-wielder poking things. Both are throttled
+   * so a single bad moment doesn't empty the belt, and the party's own Warden
+   * still gets first refusal: no point burning a potion a heal is about to fix.
+   */
+  private companionQuaff(comp: Companion, time: number, healerReady: boolean): void {
+    if (time < (this.compNextQuaff.get(comp) ?? 0)) return;
+    const hurt = comp.healthRatio() < (healerReady ? 0.28 : 0.42);
+    const manaRatio = comp.stats.maxMana > 0 ? comp.mana / comp.stats.maxMana : 1;
+    const kind: 'health' | 'mana' | null = hurt ? 'health' : manaRatio < 0.2 ? 'mana' : null;
+    if (!kind) return;
+    const item = comp.inventory.firstConsumable(kind);
+    if (!item) return;
+    const res = comp.inventory.consume(item);
+    if (!res.consumed) return;
+    this.compNextQuaff.set(comp, time + COMPANION_QUAFF_GAP);
+    if (res.heal) comp.heal(res.heal);
+    if (res.mana) comp.restoreMana(res.mana);
+    this.floatPickup(comp.x, comp.y - 26, kind === 'health' ? `+${res.heal} HP` : `+${res.mana} MP`, kind === 'health' ? '#7dffa0' : '#8ad0ff');
+    audio.sfx('potion');
   }
 
   /** Live servants raised by this specific caster — caps are per-summoner, so a
@@ -6542,6 +6678,25 @@ export class DungeonScene extends Phaser.Scene {
     return lines[Math.floor(Math.random() * lines.length)];
   }
 
+  /** What to call an ally in barks — summons borrow a hero class for stats, so
+   *  without the override a raised skeleton would announce itself as "Vanguard". */
+  private allyName(a: Hero): string {
+    return (a as Companion).displayName ?? a.def.name;
+  }
+
+  /** The party's nearest able lockpick to (x,y): any living Thief, hired or
+   *  played. Summoned skeleton thieves don't count — they have no hands for it. */
+  private partyLockpicker(x: number, y: number): Hero | null {
+    let best: Hero | null = null;
+    let bd = Infinity;
+    for (const a of this.allies) {
+      if (!a.alive || a.classId !== 'thief' || (a as Companion).isSummon) continue;
+      const d = Phaser.Math.Distance.Between(a.x, a.y, x, y);
+      if (d < LOCKPICK_REACH && d < bd) { bd = d; best = a; }
+    }
+    return best;
+  }
+
   private interact(player: Hero): void {
     if (this.level.town && this.townInteract(player)) return;
     // hail a fellow adventurer to trade (works anywhere you share a map)
@@ -6581,10 +6736,22 @@ export class DungeonScene extends Phaser.Scene {
       const c = this.tileCenter(ch.x, ch.y);
       if (Phaser.Math.Distance.Between(player.x, player.y, c.x, c.y) < 26) {
         if (ch.locked) {
-          if (player.classId === 'thief') {
+          // A thief in the PARTY picks the lock, not just a thief in your hands.
+          // Hiring one at the Fighters Guild is supposed to buy you exactly this
+          // service; gating it on the interacting hero's own class made a hired
+          // Thief no better at a strongbox than the Vanguard standing next to him.
+          const picker = this.partyLockpicker(c.x, c.y);
+          if (picker) {
             ch.locked = false;
-            if (player.gainLockpick(1)) this.showBark(`Lockpicking improved — Lv ${player.lockpickLevel}.`, 2200, 'system');
-            this.showBark('You slip a pick into the lock... *click*.', 2200, 'event');
+            if (picker.gainLockpick(1) && picker.isPlayer) this.showBark(`Lockpicking improved — Lv ${picker.lockpickLevel}.`, 2200, 'system');
+            this.showBark(
+              picker.isPlayer
+                ? 'You slip a pick into the lock... *click*.'
+                : `${this.allyName(picker)} slips a pick into the lock... *click*.`,
+              2400,
+              'event'
+            );
+            this.floatPickup(picker.x, picker.y - 18, 'picked!', '#cfe0ff');
             audio.sfx('key');
           } else if (player.inventory.useKey()) {
             ch.locked = false;
@@ -7481,7 +7648,7 @@ export class DungeonScene extends Phaser.Scene {
     const isSummon = (a: Hero): boolean => !!(a as Companion).isSummon;
     const toSlot = (a: Hero): HudHeroSlot => ({
       classId: a.classId,
-      name: (a as Companion).displayName ?? a.def.name,
+      name: this.allyName(a),
       isPlayer: a.isPlayer,
       playerNum: a.playerNum,
       summon: isSummon(a),

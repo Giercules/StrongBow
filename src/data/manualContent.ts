@@ -200,7 +200,7 @@ export const MANUAL_PAGES: ManualPage[] = [
     body: [
       'Move with WASD (P1) or the Arrow keys (P2), or hold the left mouse button to walk toward the cursor. Or plug in a GAMEPAD: left stick / D-Pad moves, A attacks, X magic, B use, Y dodge, RB ability, RT steal (Thief pickpocket).',
       'Hold attack to strike — each hero differs: Vanguard cleaves, Warden bludgeons, Thief looses arrows, Arcanist and Necromancer hurl bolts.',
-      'Tap magic for an attack (costs mana). Use / interact opens chests (all LOCKED now — spend an Iron Key, or play the Thief to pick them free) and lights shrines.',
+      'Tap magic for an attack (costs mana). Use / interact opens chests (all LOCKED now — spend an Iron Key, or have a THIEF handy to pick them free; a Thief HIRED at the Fighters Guild works the lock just as well as playing one, so long as they are close by) and lights shrines.',
       'Every action is REBINDABLE in Settings -> Keys (both players): move, attack, magic, use, DODGE, class ABILITY, and STEAL. Default dodge is Space and ability is F.',
       'Dodge-roll for brief invulnerability. Your class ABILITY: Vanguard Seismic Slam; Warden SANCTUARY — a burst heal that also RESURRECTS a fallen ally nearby, atop a passive REGEN aura that mends nearby allies and pets (both grow with Warden level).',
     ],
@@ -233,6 +233,9 @@ export const MANUAL_PAGES: ManualPage[] = [
       'Allies no longer follow for free. In Hearthwatch, step into the FIGHTERS GUILD and hire sellswords for your next descent — pay gold per ally (the price rises as you level) and hire as many as you can afford.',
       'The contract lasts a single run: once you return to town it lapses, so re-hire before you descend again.',
       'Hired allies follow whoever moved last, path around corners, spread out instead of stacking, and use their own class abilities when it helps — the Warden heals the hurt, the Vanguard slams clusters, the Arcanist drops meteors, the Thief looses volleys, and a hired Necromancer keeps raising the dead.',
+      'They also grow into their FULL KIT. As an ally levels it unlocks the same secondary (8), tertiary (13) and ultimate (16) actives you do, and it spends them on the party\'s terms: the Vanguard charges gaps and roars to pull a pack off your casters, the Warden lays Consecration and saves Judgment for a wipe, the Arcanist novas what gets inside her guard and blinks out when it hurts, the Thief screens you with Smoke and saves Phantom Assassination for the warden, the Bard rallies as a real fight opens, the Necromancer detonates corpses under a crowd, and the Druid mauls in bear or roots at range. Ultimates are hoarded for boss fights and genuine emergencies rather than spent on the first two grunts.',
+      'A sellsword turns up SUPPLIED: each carries a couple of healing draughts (casters bring mana too) and will drink when badly hurt or run dry — though they hold off if your Warden is about to mend them anyway.',
+      'A hired THIEF earns their fee outside combat too: with one in the party and standing near you, every locked chest is picked free — no Iron Key needed.',
       'Slain foes grant XP to the killer and a share to the whole party. Tune companion behaviour in Settings -> Allies.',
     ],
   },

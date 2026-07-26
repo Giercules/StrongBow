@@ -75,6 +75,20 @@ export const COMPANION_TELEPORT_MS = 900; // grace before a too-far companion bl
 
 export const PLAY_AREA_UI_DEPTH = 9600;
 
+// Minimum gap between one companion's level-gated actives. Without it a hired
+// ally coming off a lull dumps its whole kit on a single frame, and a full party
+// doing that at once is unreadable.
+export const COMPANION_ACTIVE_GAP = 1400; // ms
+/** Minimum gap between a companion's swigs, so one panic doesn't empty the belt. */
+export const COMPANION_QUAFF_GAP = 6000; // ms
+/** Health (and, for casters, mana) potions a hired ally brings on the descent. */
+export const COMPANION_FIELD_POTIONS = 2;
+
+// How close a party Thief must be to work a lock for whoever opened the chest.
+// Generous enough that a companion trailing the leader still counts, tight
+// enough that a thief across the room doesn't pick a lock by telepathy.
+export const LOCKPICK_REACH = 150; // px
+
 export const HUD_REGISTRY_KEY = 'hudData';
 export const LOG_REGISTRY_KEY = 'logData';
 
