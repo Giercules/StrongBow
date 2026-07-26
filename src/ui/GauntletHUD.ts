@@ -6,12 +6,17 @@ import type { HudRegistryData, HudHeroSlot, HudPartyGroup } from '../core/types'
 const W = HUD_PANEL_WIDTH;
 const PAD = 10;
 const PARTY_TOP = 50;
-const PARTY_MAX_H = 258;
+// Leave more room below generators for the controls box (keyboard list is tall).
+const PARTY_MAX_H = 228;
 const GEN_TOP = PARTY_TOP + PARTY_MAX_H + 10;
 const GEN_BOX = 5;
 const GEN_GAP = 8;
 const CTRL_TOP = GEN_TOP + 34;
-const CTRL_H = 96;
+const CTRL_TITLE_PAD = 17; // space for "CONTROLS" header before the first line
+const CTRL_PAD_BOT = 8;
+const CTRL_H_MIN = 108;
+const QUEST_GAP = 6;
+const PANEL_INNER_BOTTOM = 528;
 const MAIN_H_BASE = 52;
 const PET_H_BASE = 17;
 const GROUP_GAP = 3;
@@ -88,10 +93,7 @@ export class GauntletHUD {
     }
     g.lineStyle(1, hexNum(C.hudBorderDk), 1);
     g.lineBetween(PAD, 46, W - PAD, 46);
-    g.fillStyle(0x05060a, 0.6);
-    g.fillRoundedRect(PAD, CTRL_TOP, W - PAD * 2, CTRL_H, 4);
-    g.lineStyle(1, hexNum(C.hudBorderDk), 0.7);
-    g.strokeRoundedRect(PAD, CTRL_TOP, W - PAD * 2, CTRL_H, 4);
+    // Controls box is drawn in update() so its height can grow with the binding list.
   }
 
   private mkText(x: number, y: number, size: number, color: string, opts: Partial<Phaser.Types.GameObjects.Text.TextStyle> = {}): Phaser.GameObjects.Text {
@@ -109,12 +111,20 @@ export class GauntletHUD {
 
     this.ctrlTitle = this.mkText(PAD + 6, CTRL_TOP + 4, 9, C.hudBorder, { fontStyle: 'bold' });
     this.ctrlTitle.setText('CONTROLS');
-    this.ctrlText = this.mkText(PAD + 6, CTRL_TOP + 17, 9.5, C.inkDim, { lineSpacing: 2 });
+    this.ctrlText = this.mkText(PAD + 6, CTRL_TOP + CTRL_TITLE_PAD, 9.5, C.inkDim, { lineSpacing: 2 });
 
-    this.questLabel = this.mkText(PAD, CTRL_TOP + CTRL_H + 4, 8.5, C.hudBorder, { fontStyle: 'bold' });
+    this.questLabel = this.mkText(PAD, CTRL_TOP + CTRL_H_MIN + QUEST_GAP, 8.5, C.hudBorder, { fontStyle: 'bold' });
     this.questLabel.setText('OBJECTIVE');
-    this.questText = this.mkText(PAD, CTRL_TOP + CTRL_H + 16, 9.5, '#cdb88a', { wordWrap: { width: W - PAD * 2 }, lineSpacing: 1, fontStyle: 'italic' });
-    this.questBeatText = this.mkText(PAD, CTRL_TOP + CTRL_H + 16, 9, '#b79bff', { wordWrap: { width: W - PAD * 2 }, lineSpacing: 1, fontStyle: 'italic' });
+    this.questText = this.mkText(PAD, CTRL_TOP + CTRL_H_MIN + QUEST_GAP + 12, 9.5, '#cdb88a', {
+      wordWrap: { width: W - PAD * 2 },
+      lineSpacing: 1,
+      fontStyle: 'italic',
+    });
+    this.questBeatText = this.mkText(PAD, CTRL_TOP + CTRL_H_MIN + QUEST_GAP + 12, 9, '#b79bff', {
+      wordWrap: { width: W - PAD * 2 },
+      lineSpacing: 1,
+      fontStyle: 'italic',
+    });
   }
 
   private ensureMainRow(i: number): MainRow {
@@ -202,12 +212,28 @@ export class GauntletHUD {
     }
     this.bossText.setText(data.bossAlive ? 'WARDEN ALIVE' : data.generatorsLeft <= 0 ? 'EXIT OPEN' : '');
 
+    // Size the controls box to the binding list so the last line sits inside the outline.
     this.ctrlText.setText((data.controls || []).join('\n'));
+    const ctrlTextH = Math.max(this.ctrlText.height || 0, 12);
+    const ctrlH = Math.min(
+      PANEL_INNER_BOTTOM - CTRL_TOP - 56, // reserve room for OBJECTIVE
+      Math.max(CTRL_H_MIN, CTRL_TITLE_PAD + ctrlTextH + CTRL_PAD_BOT)
+    );
+    g.fillStyle(0x05060a, 0.6);
+    g.fillRoundedRect(PAD, CTRL_TOP, W - PAD * 2, ctrlH, 4);
+    g.lineStyle(1, hexNum(C.hudBorderDk), 0.7);
+    g.strokeRoundedRect(PAD, CTRL_TOP, W - PAD * 2, ctrlH, 4);
+    this.ctrlTitle.setY(CTRL_TOP + 4);
+    this.ctrlText.setY(CTRL_TOP + CTRL_TITLE_PAD);
+
+    // OBJECTIVE always sits below the controls box (no overlap with the last key line).
+    const questY = CTRL_TOP + ctrlH + QUEST_GAP;
+    this.questLabel.setY(questY);
+    this.questText.setY(questY + 12);
     this.questText.setText(data.quest || '');
     if (data.questBeat) {
       this.questBeatText.setText(`✻ ${data.questBeat}`).setVisible(true);
-      const beatY = CTRL_TOP + CTRL_H + 16 + this.questText.height + 4;
-      this.questBeatText.setY(beatY);
+      this.questBeatText.setY(questY + 12 + this.questText.height + 4);
     } else {
       this.questBeatText.setText('').setVisible(false);
     }
