@@ -77,16 +77,42 @@ export const PLAY_AREA_UI_DEPTH = 9600;
 
 export const HUD_REGISTRY_KEY = 'hudData';
 export const LOG_REGISTRY_KEY = 'logData';
-/** Default altar count for moderate — kept in sync with DIFFICULTY.moderate. */
-export const GENERATORS_TO_DESTROY = 3;
 
-// Difficulty presets: how many generators the exit demands, and an enemy
-// density multiplier layered on top of the monster-count cheat.
-// requiredGenerators < 0 means "most altars" (see DungeonScene.requiredGenerators).
+// ---- Warden empowerment -----------------------------------------------------
+// No altar is mandatory. The exit opens on the warden's death alone, so a party
+// can march straight past every altar and fight him at full charge — a brutal
+// fight even for a full roster with pets — or tear altars out first and face
+// something progressively more beatable. Every altar destroyed is a slice of the
+// warden's strength, which makes clearing them a lever the player chooses to
+// pull rather than a checklist the exit demands.
+//
+// These are the multipliers at FULL charge (every altar still standing), applied
+// on top of the usual realm/party scaling and interpolated down to 1× as altars
+// fall. See DungeonScene.refreshBossEmpowerment.
+// Health carries most of the weight on purpose. It makes a charged warden a long
+// war of attrition — fought while the altars you skipped keep feeding him adds —
+// which is hard in a way the player can play around. Damage is the lever that
+// turns "hard" into "one-shot", so it moves far less: at realm X a warden
+// already hits for ~190, and doubling that would put a geared level-20 tank at
+// two hits from dead whatever they did.
+export const BOSS_EMPOWER_MAX_HP = 2.9;
+export const BOSS_EMPOWER_MAX_DMG = 1.5;
+export const BOSS_EMPOWER_MAX_ARMOR = 4;
+/** Extra body scale at full charge — the warden visibly swells with the altars. */
+export const BOSS_EMPOWER_MAX_SCALE = 1.22;
+
+// Boss music swaps in at ENTER and back out at EXIT. The gap between the two is
+// deliberate: one radius would flip the track every time a hero drifted across
+// the line. See DungeonScene.updateBossMusic.
+export const BOSS_MUSIC_ENTER_DIST = 280; // px
+export const BOSS_MUSIC_EXIT_DIST = 460; // px
+
+// Difficulty presets: how hard the surviving altars drive the warden, and an
+// enemy density multiplier layered on top of the monster-count cheat.
 export const DIFFICULTY = {
-  easy: { requiredGenerators: 2, enemyMult: 0.7 },
-  moderate: { requiredGenerators: GENERATORS_TO_DESTROY, enemyMult: 1 },
-  hard: { requiredGenerators: -1, enemyMult: 1.35 },
+  easy: { bossEmpowerMult: 0.6, enemyMult: 0.7 },
+  moderate: { bossEmpowerMult: 1, enemyMult: 1 },
+  hard: { bossEmpowerMult: 1.3, enemyMult: 1.35 },
 } as const;
 
 export enum Tile {

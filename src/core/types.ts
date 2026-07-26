@@ -330,9 +330,14 @@ export interface HudPartyGroup {
 
 export interface HudRegistryData {
   groups: HudPartyGroup[];
+  /** Altars still standing (feeding the warden), not altars still owed. */
   generatorsLeft: number;
   generatorsTotal: number;
   bossAlive: boolean;
+  /** 0..1 share of altars still feeding the warden — his empowerment readout. */
+  bossCharge?: number;
+  /** False in caves and arenas, which have altars but no warden and no portal. */
+  hasWarden?: boolean;
   quest: string;
   /** Short DM progress beat appended under the main objective (altar updates, etc.). */
   questBeat?: string;

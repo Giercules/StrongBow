@@ -171,7 +171,7 @@ export function buildDungeon(opts: DungeonOptions): LevelData {
   // locked gate that guards the boss. Connectivity stays guaranteed: each branch
   // is wired straight back to its (already-connected) parent with an L corridor.
   const mkBranch = (x: number, y: number, w: number, h: number): Room => ({ x, y, w, h, cx: x + (w >> 1), cy: y + (h >> 1) });
-  const branchRooms: Room[] = [];
+  const branchRooms: { room: Room; parent: Room }[] = [];
   const branchTarget = Math.min(7, Math.max(3, Math.round(path.length * 0.4)));
   const bdirs: [number, number][] = [[0, -1], [0, 1], [-1, 0], [1, 0]];
   for (let b = 0; b < branchTarget; b++) {
@@ -187,7 +187,7 @@ export function buildDungeon(opts: DungeonOptions): LevelData {
     carveShape(room, bshape === 'hall' ? 'rect' : bshape);
     corridorH(parent.cx, room.cx, parent.cy);
     corridorV(parent.cy, room.cy, room.cx);
-    branchRooms.push(room);
+    branchRooms.push({ room, parent });
   }
 
   const at = (frac: number) => path[Math.max(1, Math.min(path.length - 2, Math.floor(path.length * frac)))];
@@ -308,21 +308,101 @@ export function buildDungeon(opts: DungeonOptions): LevelData {
   spawns.push({ kind: 'playerStart', x: startRoom.cx, y: startRoom.cy });
   spawns.push({ kind: 'npc', x: startRoom.cx - 2, y: startRoom.cy - 1 });
 
+  // ---- spawning altars ------------------------------------------------------
+  // Placement is deliberate, not incidental. The old pass walked the first N
+  // chambers in order and offset each altar by `placed % room.w`, which stacked
+  // every altar in the opening third of the dungeon and dropped them on whatever
+  // tile the arithmetic happened to land on — doorways, hazard pools, corners
+  // clipped out of a circular room. The rules now are:
+  //   * never the entry hall or the boss chamber (nothing to guard there);
+  //   * spread evenly along the whole route, so the back half isn't empty;
+  //   * anchored on the FAR side of each chamber from the corridor the party
+  //     walks in through, so an altar reads as guarding the room rather than
+  //     ambushing the doorway;
+  //   * always on plain floor — never in lava, poison, ice or a corridor;
+  //   * clear of the room centre, which shrines/chests/keys own;
+  //   * paired only in chambers big enough to fight across, flanking the approach.
+  const ALTAR_CENTRE_KEEP_OUT = 2;
+  const isPlainFloor = (x: number, y: number) => tiles[y]?.[x] === Tile.FLOOR;
+
+  /** Nearest plain-floor tile to (x,y) inside `room`, keeping off the centre pad.
+   *  Falls back to allowing the centre pad rather than dropping the altar. */
+  const altarSpot = (room: Room, x: number, y: number): { x: number; y: number } | null => {
+    for (const respectCentre of [true, false]) {
+      for (let r = 0; r <= 6; r++) {
+        for (let dy = -r; dy <= r; dy++)
+          for (let dx = -r; dx <= r; dx++) {
+            if (r > 0 && Math.abs(dx) !== r && Math.abs(dy) !== r) continue; // ring perimeter only
+            const nx = x + dx;
+            const ny = y + dy;
+            if (nx <= room.x || ny <= room.y || nx >= room.x + room.w - 1 || ny >= room.y + room.h - 1) continue;
+            if (
+              respectCentre &&
+              Math.abs(nx - room.cx) <= ALTAR_CENTRE_KEEP_OUT &&
+              Math.abs(ny - room.cy) <= ALTAR_CENTRE_KEEP_OUT
+            ) continue;
+            if (isPlainFloor(nx, ny)) return { x: nx, y: ny };
+          }
+      }
+    }
+    return null;
+  };
+
+  // Eligible chambers: the whole route minus the entry hall, the boss chamber,
+  // and any room a set-piece already dressed (those bring their own guardian).
+  const altarRooms: number[] = [];
+  for (let i = 1; i < path.length - 1; i++) if (!featureRooms.has(i)) altarRooms.push(i);
+
   let placed = 0;
-  for (let i = 1; i < path.length - 1 && placed < opts.maxGenerators; i++) {
-    if (featureRooms.has(i)) continue;
-    const room = path[i];
-    const enemyId = enemies[placed % enemies.length];
-    spawns.push({
-      kind: 'generator',
-      x: room.x + 2 + (placed % Math.max(1, room.w - 3)),
-      y: room.y + 2 + (placed % Math.max(1, room.h - 3)),
-      enemyId,
-      interval: 4200 - placed * 120,
-      maxAlive: 4,
-      hp: 28 + placed * 5,
-    });
-    placed++;
+  if (altarRooms.length > 0 && opts.maxGenerators > 0) {
+    const want = Math.min(opts.maxGenerators, altarRooms.length * 2);
+    // Even stride over the eligible list: an altar in the first chamber, one in
+    // the last, and the rest spaced between. Duplicated indices are where a
+    // chamber earns a second altar.
+    const perRoom = new Map<number, number>();
+    for (let k = 0; k < want; k++) {
+      const idx = altarRooms[Math.min(altarRooms.length - 1, Math.floor((k * altarRooms.length) / want))];
+      perRoom.set(idx, (perRoom.get(idx) ?? 0) + 1);
+    }
+    for (const idx of [...perRoom.keys()].sort((a, b) => a - b)) {
+      if (placed >= opts.maxGenerators) break;
+      const room = path[idx];
+      const prev = path[idx - 1];
+      // The party arrives from `prev`, so pushing along that heading puts the
+      // altar deep in the chamber, past whatever it is spawning.
+      let ax = room.cx - prev.cx;
+      let ay = room.cy - prev.cy;
+      const len = Math.hypot(ax, ay) || 1;
+      ax /= len;
+      ay /= len;
+      const depthX = Math.max(1, (room.w >> 1) - 2);
+      const depthY = Math.max(1, (room.h >> 1) - 2);
+      const anchorX = room.cx + Math.round(ax * depthX);
+      const anchorY = room.cy + Math.round(ay * depthY);
+      // flank perpendicular to the approach when a chamber earns two altars
+      const flankX = -ay;
+      const flankY = ax;
+      const roomy = room.w >= 11 && room.h >= 8;
+      const count = Math.min(perRoom.get(idx) ?? 1, roomy ? 2 : 1);
+      const spread = count > 1 ? Math.max(2, Math.floor(Math.min(room.w, room.h) / 3)) : 0;
+      for (let k = 0; k < count && placed < opts.maxGenerators; k++) {
+        const off = count > 1 ? (k === 0 ? -spread : spread) : 0;
+        const spot = altarSpot(room, Math.round(anchorX + flankX * off), Math.round(anchorY + flankY * off));
+        if (!spot) continue;
+        spawns.push({
+          kind: 'generator',
+          x: spot.x,
+          y: spot.y,
+          enemyId: enemies[placed % enemies.length],
+          // Deeper altars pump harder and take more to break — and because the
+          // altars now march down the route in order, `placed` tracks depth.
+          interval: Math.max(2600, 4200 - placed * 120),
+          maxAlive: 4,
+          hp: 28 + placed * 5,
+        });
+        placed++;
+      }
+    }
   }
 
   chestItems.forEach((itemId, i) => {
@@ -387,9 +467,24 @@ export function buildDungeon(opts: DungeonOptions): LevelData {
   }
 
   // ---- populate branch rooms: loot, the odd guardian, a little decor ----
-  branchRooms.forEach((room, bi) => {
-    if (rng() < 0.45)
-      spawns.push({ kind: 'generator', x: room.cx, y: Math.max(room.y + 1, room.cy - 1), enemyId: enemies[(placed + bi) % enemies.length], interval: 4400, maxAlive: 3, hp: 26 });
+  branchRooms.forEach(({ room, parent }, bi) => {
+    if (rng() < 0.45) {
+      // Same rule as the main route: the altar sits at the back of the side
+      // chamber, away from the corridor in — and off the centre tile, which the
+      // branch chest below claims.
+      let bx = room.cx - parent.cx;
+      let by = room.cy - parent.cy;
+      const blen = Math.hypot(bx, by) || 1;
+      bx /= blen;
+      by /= blen;
+      const spot = altarSpot(
+        room,
+        room.cx + Math.round(bx * Math.max(1, (room.w >> 1) - 2)),
+        room.cy + Math.round(by * Math.max(1, (room.h >> 1) - 2))
+      );
+      if (spot)
+        spawns.push({ kind: 'generator', x: spot.x, y: spot.y, enemyId: enemies[(placed + bi) % enemies.length], interval: 4400, maxAlive: 3, hp: 26 });
+    }
     if (chestItems.length && rng() < 0.5)
       spawns.push({ kind: 'chest', x: room.cx, y: room.cy, itemId: chestItems[bi % chestItems.length] });
     const bn = 2 + Math.floor(rng() * 3);

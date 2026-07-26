@@ -14,7 +14,12 @@ import {
   WALKABLE_TILES,
   HUD_REGISTRY_KEY,
   LOG_REGISTRY_KEY,
-  GENERATORS_TO_DESTROY,
+  BOSS_EMPOWER_MAX_HP,
+  BOSS_EMPOWER_MAX_DMG,
+  BOSS_EMPOWER_MAX_ARMOR,
+  BOSS_EMPOWER_MAX_SCALE,
+  BOSS_MUSIC_ENTER_DIST,
+  BOSS_MUSIC_EXIT_DIST,
   DIFFICULTY,
   WATER_SPEED_MULT,
   LAVA_DPS,
@@ -496,7 +501,28 @@ export class DungeonScene extends Phaser.Scene {
   private generatorsTotal = 0;
   private boss: Monster | null = null;
   private bossAlive = false;
+  /** This map has a warden at all — false in caves and arenas, which carry
+   *  altars but no boss and no exit portal, so the HUD mustn't claim "EXIT OPEN". */
+  private levelHasWarden = false;
   private bossMusicOn = false;
+  // ---- warden empowerment (see refreshBossEmpowerment) ----
+  /** Realm-scaled stats before altar empowerment — the 1× floor we lerp up from. */
+  private bossBaseMaxHealth = 0;
+  private bossBaseDmgMult = 1;
+  private bossBaseArmorBonus = 0;
+  /** Body scale already applied for empowerment, so re-charging stays idempotent. */
+  private bossEmpowerScale = 1;
+  /** 0..1 share of altars still standing — drives the whole empowerment curve. */
+  private bossCharge = 0;
+  // ---- boss music gating ----
+  /** Boss health at the last check; any change counts as the fight being joined. */
+  private bossLastHealth = -1;
+  /** Boss music holds through this timestamp once blows have been traded. */
+  private bossEngagedUntil = 0;
+  /** After the warden dies his theme lingers this long, clear of the victory sting. */
+  private bossMusicReleaseAt = 0;
+  /** The warden introduces himself once, not every time you walk back in. */
+  private bossIntroDone = false;
   private quest = '';
   private startTime = 0;
   private lowHealthWarned = false;
@@ -837,7 +863,9 @@ export class DungeonScene extends Phaser.Scene {
       this.quest = `Delve ${this.level.name}: clear the dens, gather the iron keys, and plunder the locked hoard — then take the cavern mouth back to the surface.`;
       if (!save) void aiService.generateQuest(this.level.name).then((q) => { if (q) this.quest = q; });
     } else {
-      this.quest = `Clear ${this.level.name}: destroy the altars and slay its warden.`;
+      // Altars are optional now, and the objective has to say so plainly or the
+      // player will assume the old "clear the checklist" rule still applies.
+      this.quest = `Clear ${this.level.name}: slay its warden. Every spawning altar left standing feeds him — break what you dare.`;
       if (!save) void aiService.generateQuest(this.level.name).then((q) => { if (q) this.quest = q; });
     }
     // Lead with the chapter's own story beat, then let the Dungeon Master (Grok) layer on top.
@@ -891,7 +919,17 @@ export class DungeonScene extends Phaser.Scene {
     this.generatorsTotal = 0;
     this.boss = null;
     this.bossAlive = false;
+    this.levelHasWarden = false;
     this.bossMusicOn = false;
+    this.bossBaseMaxHealth = 0;
+    this.bossBaseDmgMult = 1;
+    this.bossBaseArmorBonus = 0;
+    this.bossEmpowerScale = 1;
+    this.bossCharge = 0;
+    this.bossLastHealth = -1;
+    this.bossEngagedUntil = 0;
+    this.bossMusicReleaseAt = 0;
+    this.bossIntroDone = false;
     this.lowHealthWarned = false;
     this.questBeat = '';
     this.paused = false;
@@ -1759,6 +1797,7 @@ export class DungeonScene extends Phaser.Scene {
           const boss = this.makeMonster(c.x, c.y, sp.enemyId ?? 'grave_warden');
           this.boss = boss;
           this.bossAlive = true;
+          this.levelHasWarden = true;
           boss.onDeath = () => this.onBossDeath();
           break;
         }
@@ -1782,8 +1821,19 @@ export class DungeonScene extends Phaser.Scene {
     };
     gen.onDestroyed = () => {
       this.generatorsDestroyed++;
-      this.showBark('A spawning altar is destroyed!', 3400, 'combat');
-      const altarsLeft = Math.max(0, this.requiredGenerators() - this.generatorsDestroyed);
+      // Altars feed the warden, so breaking one is a direct hit on him — say so,
+      // because that is the whole reason to detour for them now that the exit
+      // doesn't ask for any.
+      this.refreshBossEmpowerment();
+      const altarsLeft = this.altarsStanding();
+      this.showBark(
+        altarsLeft > 0
+          ? `A spawning altar is destroyed — the warden weakens. (${altarsLeft} still feed him.)`
+          : 'The last spawning altar falls — the warden stands alone.',
+        3400,
+        'combat'
+      );
+      this.syncHudData();
       void aiService
         .generateAltarProgress(this.level.name, altarsLeft)
         .then(({ text, live }) => {
@@ -1793,7 +1843,7 @@ export class DungeonScene extends Phaser.Scene {
           }
         });
       if (altarsLeft === 0) {
-        this.grokNarrate(this.barkContext('the last spawning altar falls — the exit stirs awake'), { force: true });
+        this.grokNarrate(this.barkContext('the last spawning altar falls — the warden is cut off from its power'), { force: true });
       } else if (Math.random() < 0.4) {
         this.grokNarrate(this.barkContext('the heroes shatter a spawning altar', { altarsLeft }));
       }
@@ -1923,7 +1973,7 @@ export class DungeonScene extends Phaser.Scene {
         this.handleHazards(time);
         this.handlePickups();
         this.handleAutoInteractions();
-        this.updateBossMusic();
+        this.updateBossMusic(time);
         if (this.level.arena) this.updateArena(time, delta);
         this.checkExit();
         this.checkGameOver();
@@ -4804,11 +4854,69 @@ export class DungeonScene extends Phaser.Scene {
     if (this.level.town || this.level.interior) return;
     for (const m of this.monsters) this.applyMonsterScaling(m);
     const depth = Content.levelOrder.indexOf(this.level.id);
-    if (depth < 0 || this.level.arena) return;
+    if (depth < 0 || this.level.arena) {
+      this.captureBossBaseline();
+      return;
+    }
     const scale = computeRealmMonsterScale(depth, this.partyLevel(), this.partySize(), false);
     for (const g of this.generators) {
       g.maxHealth = Math.round(g.maxHealth * scale.hpMult);
       g.health = g.maxHealth;
+    }
+    // Realm scaling is the warden's 1× floor; altar empowerment builds on it.
+    this.captureBossBaseline();
+  }
+
+  /** Snapshot the warden's fully realm-scaled stats, then charge him from the
+   *  altars that are still standing. Must run AFTER applyMonsterScaling or the
+   *  baseline would be the raw enemy def and every realm would fight the same. */
+  private captureBossBaseline(): void {
+    const b = this.boss;
+    if (!b || !this.bossAlive) return;
+    this.bossBaseMaxHealth = b.maxHealth;
+    this.bossBaseDmgMult = b.dmgMult;
+    this.bossBaseArmorBonus = b.armorBonus;
+    this.bossEmpowerScale = 1;
+    this.refreshBossEmpowerment();
+  }
+
+  /**
+   * Recompute the warden's strength from the altars still feeding him.
+   *
+   * The exit no longer counts altars — killing the warden is the only
+   * requirement — so a party may walk straight to him. What stops that from
+   * being the strictly optimal line is that every surviving altar is pouring
+   * into him: at full charge he is meant to trouble a full roster running
+   * necromancer pets, and each altar torn out visibly gives some of that back.
+   *
+   * Called on spawn and again on every altar death, so it has to be idempotent:
+   * stats are always recomputed from the stored baseline rather than multiplied
+   * in place, and the wound is preserved as a RATIO so weakening him mid-fight
+   * lowers the ceiling without ever healing him.
+   */
+  private refreshBossEmpowerment(): void {
+    const total = this.generatorsTotal;
+    const charge = total > 0 ? Math.max(0, total - this.generatorsDestroyed) / total : 0;
+    this.bossCharge = charge; // HUD reads this even before the baseline is captured
+    const b = this.boss;
+    if (!b || !this.bossAlive || this.bossBaseMaxHealth <= 0) return;
+
+    const gain = DIFFICULTY[settings.get('gameplay').difficulty].bossEmpowerMult;
+    const lerp = (max: number) => 1 + (max - 1) * charge * gain;
+    const ratio = b.maxHealth > 0 ? b.health / b.maxHealth : 1;
+
+    b.maxHealth = Math.max(1, Math.round(this.bossBaseMaxHealth * lerp(BOSS_EMPOWER_MAX_HP)));
+    b.health = Math.max(1, Math.min(b.maxHealth, Math.round(b.maxHealth * ratio)));
+    b.dmgMult = this.bossBaseDmgMult * lerp(BOSS_EMPOWER_MAX_DMG);
+    b.armorBonus = this.bossBaseArmorBonus + Math.round(BOSS_EMPOWER_MAX_ARMOR * charge * gain);
+
+    // A charged warden is visibly bigger. scaleBy is multiplicative and tick()
+    // rewrites the sprite scale each frame, so step from the scale already
+    // applied to the one this charge wants.
+    const wantScale = lerp(BOSS_EMPOWER_MAX_SCALE);
+    if (Math.abs(wantScale - this.bossEmpowerScale) > 0.005) {
+      b.scaleBy(wantScale / this.bossEmpowerScale);
+      this.bossEmpowerScale = wantScale;
     }
   }
 
@@ -5479,6 +5587,9 @@ export class DungeonScene extends Phaser.Scene {
     }
     // The realm's warden always yields a guaranteed, high-grade themed reward.
     if (this.boss) this.dropLoot(this.boss.x, this.boss.y, 'runed');
+    // His theme dies with him, but not on top of the victory sting — hold it a
+    // beat, then let updateBossMusic hand the realm its own song back.
+    this.bossMusicReleaseAt = this.time.now + 2400;
   }
 
   private floatDamage(x: number, y: number, amount: number, crit: boolean): void {
@@ -5882,30 +5993,58 @@ export class DungeonScene extends Phaser.Scene {
     this.syncNetPeers();
   }
 
-  /** Render/refresh figures for the other players AND server AI NPCs on this map. */
+  /** Render/refresh figures for the other players AND server AI NPCs on this map.
+   *
+   *  Peers arrive as ~12 Hz position snapshots and carry no input state, so a
+   *  figure that merely gets `setPosition` twelve times a second teleports in
+   *  little jumps and never leaves its idle frame — which is exactly what made
+   *  the server NPCs read as green sliding corpses. Each figure is eased toward
+   *  its newest target and animated from the direction it is actually
+   *  travelling, and NPCs wear their class colours like anyone else (the name
+   *  tag is what marks them as server-driven). */
   private syncNetPeers(): void {
     const seen = new Set<string>();
+    const dt = Math.min(64, this.game.loop.delta || 16);
+    // ~70ms time-constant: catches up between snapshots without visible rubber-banding.
+    const k = 1 - Math.exp(-dt / 70);
     for (const peer of net.peers) {
       seen.add(peer.id);
       let g = this.netGhosts.get(peer.id);
       if (!g) {
-        const spr = this.add.sprite(0, 0, `hero-${peer.classId}-sheet`).setAlpha(peer.npc ? 0.78 : 0.55).setScale(HERO_SPRITE_SCALE * settings.spriteScale());
+        const spr = this.add.sprite(0, 0, `hero-${peer.classId}-sheet`).setAlpha(peer.npc ? 0.85 : 0.55).setScale(HERO_SPRITE_SCALE * settings.spriteScale());
         if (this.lightingOn) spr.setLighting(true);
-        if (peer.npc) spr.setTint(0x9affc0); // AI NPCs read green; real players stay natural
         try { spr.play(`${peer.classId}-idle-down`); } catch { /* texture may be absent */ }
         const tag = this.add
           .text(0, -22, peer.npc ? `${peer.name} ~` : peer.name, {
             fontFamily: 'MedievalSharp, "Trebuchet MS", cursive', fontSize: '10px',
-            color: peer.npc ? '#9affc0' : '#bfe6ff', stroke: '#000', strokeThickness: 3,
+            color: peer.npc ? '#e8d2a0' : '#bfe6ff', stroke: '#000', strokeThickness: 3,
           })
           .setOrigin(0.5);
         g = this.add.container(peer.x, peer.y, [spr, tag]);
         g.setData('npc', !!peer.npc);
         g.setData('name', peer.name);
+        g.setData('classId', peer.classId);
+        g.setData('sprite', spr);
+        g.setData('facing', 'down');
         this.netGhosts.set(peer.id, g);
         if (this.netSettled && !peer.npc) this.showBark(`${peer.name} joined the world.`, 2200, 'event');
       }
-      g.setPosition(peer.x, peer.y).setDepth(peer.y);
+      const spr = g.getData('sprite') as Phaser.GameObjects.Sprite | undefined;
+      // A peer who respawned as another class needs a new sheet, or the animation
+      // keys below address frames this sprite isn't carrying.
+      if (spr && g.getData('classId') !== peer.classId) {
+        g.setData('classId', peer.classId);
+        spr.setTexture(`hero-${peer.classId}-sheet`, 0);
+      }
+      const px = g.x;
+      const py = g.y;
+      // Big jumps (a level change, a stalled link catching up) snap; ordinary
+      // walking eases, and it's the easing that produces a believable stride.
+      const far = Phaser.Math.Distance.Between(px, py, peer.x, peer.y) > 160;
+      const nx = far ? peer.x : px + (peer.x - px) * k;
+      const ny = far ? peer.y : py + (peer.y - py) * k;
+      g.setPosition(nx, ny).setDepth(ny);
+      if (spr) this.animateNetPeer(g, spr, peer.classId, nx - px, ny - py, dt);
     }
     for (const [id, g] of this.netGhosts) {
       if (!seen.has(id)) {
@@ -5915,6 +6054,33 @@ export class DungeonScene extends Phaser.Scene {
       }
     }
     this.netSettled = true;
+  }
+
+  /** Drive a peer figure's walk/idle clip from the direction it is actually
+   *  travelling. Nothing about a peer's inputs crosses the wire, so movement is
+   *  inferred from the eased position delta; the last heading is remembered so a
+   *  figure that stops keeps facing the way it was going. */
+  private animateNetPeer(
+    g: Phaser.GameObjects.Container,
+    spr: Phaser.GameObjects.Sprite,
+    classId: string,
+    dx: number,
+    dy: number,
+    dt: number
+  ): void {
+    const speed = (Math.hypot(dx, dy) / Math.max(1, dt)) * 1000; // px/s
+    const moving = speed > 14;
+    let facing = String(g.getData('facing') ?? 'down');
+    if (moving) {
+      facing = Math.abs(dx) > Math.abs(dy) ? (dx < 0 ? 'left' : 'right') : dy < 0 ? 'up' : 'down';
+      g.setData('facing', facing);
+    }
+    const dir = facing === 'left' || facing === 'right' ? 'side' : facing;
+    spr.setFlipX(facing === 'left');
+    const key = `${classId}-${moving ? 'walk' : 'idle'}-${dir}`;
+    if (spr.anims.currentAnim?.key !== key) {
+      try { spr.play(key, true); } catch { /* animation may be absent */ }
+    }
   }
 
   /** Tier 2 co-op role management + host enemy broadcast. Strictly gated: solo
@@ -6887,26 +7053,68 @@ export class DungeonScene extends Phaser.Scene {
     }
   }
 
-  private updateBossMusic(): void {
-    if (this.bossMusicOn || !this.boss || !this.bossAlive) return;
-    const near = this.players.some((p) => p.alive && Phaser.Math.Distance.Between(p.x, p.y, this.boss!.x, this.boss!.y) < 280);
-    if (near) {
-      this.bossMusicOn = true;
-      audio.playMusic('boss');
-      this.dmSetPiece(aiService.generateBossIntro(this.level.name));
+  /**
+   * Swap between the realm's song and the warden's theme as the party closes on
+   * him and again when they break off.
+   *
+   * Two separate radii (280 in, 460 out) keep it from flapping while a hero
+   * hovers on the edge, and any exchange of blows — tracked as a change in the
+   * warden's health — holds the theme for a few seconds more so a fighting
+   * retreat or a ranged duel doesn't drop the music mid-fight. His death, or
+   * simply walking away, hands the realm its own song back.
+   */
+  private updateBossMusic(time: number): void {
+    // `active` matters as well as `bossAlive`: joining a co-op party as a guest
+    // tears down the local enemies, and reading x/y off a destroyed sprite would
+    // strand the theme on forever.
+    if (!this.boss || !this.bossAlive || !this.boss.active) {
+      if (this.bossMusicOn && time >= this.bossMusicReleaseAt) this.restoreLevelMusic();
+      return;
     }
+    const boss = this.boss;
+    if (boss.health !== this.bossLastHealth) {
+      if (this.bossLastHealth >= 0) this.bossEngagedUntil = time + 6000;
+      this.bossLastHealth = boss.health;
+    }
+    let near = Infinity;
+    for (const p of this.players) {
+      if (!p.alive) continue;
+      near = Math.min(near, Phaser.Math.Distance.Between(p.x, p.y, boss.x, boss.y));
+    }
+    if (!this.bossMusicOn) {
+      if (near < BOSS_MUSIC_ENTER_DIST) {
+        this.bossMusicOn = true;
+        audio.playMusic('boss');
+        // The introduction is a one-off; re-approaching shouldn't re-announce him.
+        if (!this.bossIntroDone) {
+          this.bossIntroDone = true;
+          this.dmSetPiece(aiService.generateBossIntro(this.level.name));
+        }
+      }
+      return;
+    }
+    if (near > BOSS_MUSIC_EXIT_DIST && time >= this.bossEngagedUntil) this.restoreLevelMusic();
   }
 
-  /** Generators that must fall before the exit opens, scaled by difficulty. */
-  private requiredGenerators(): number {
-    const need = DIFFICULTY[settings.get('gameplay').difficulty].requiredGenerators;
-    if (need < 0) return Math.max(GENERATORS_TO_DESTROY, Math.ceil(this.generatorsTotal * 0.85));
-    return Math.min(need, this.generatorsTotal);
+  /** Hand the music back to the realm's own composition. */
+  private restoreLevelMusic(): void {
+    this.bossMusicOn = false;
+    this.bossEngagedUntil = 0;
+    if (this.won) return; // victory owns the audio from here
+    audio.setDungeonMusic(this.level.music ?? this.level.theme ?? 'crypt');
+    audio.playMusic('dungeon');
+  }
+
+  /** Altars still standing — the warden's remaining power supply, not a gate. */
+  private altarsStanding(): number {
+    return Math.max(0, this.generatorsTotal - this.generatorsDestroyed);
   }
 
   private checkExit(): void {
     if (this.won) return;
-    if (this.generatorsDestroyed < this.requiredGenerators() || this.bossAlive) return;
+    // The warden's death is the only requirement. Altars are a difficulty dial
+    // the party chooses to turn down (see refreshBossEmpowerment), never a toll.
+    if (this.bossAlive) return;
     const onExit = this.players.some((p) => p.alive && this.tileAt(p.x, p.y) === Tile.EXIT);
     if (onExit) this.win();
   }
@@ -7248,7 +7456,7 @@ export class DungeonScene extends Phaser.Scene {
       event,
       realm: this.level.name,
       heroClass: p?.classId,
-      altarsLeft: Math.max(0, this.requiredGenerators() - this.generatorsDestroyed),
+      altarsLeft: this.altarsStanding(),
       ...extra,
     };
   }
@@ -7305,9 +7513,11 @@ export class DungeonScene extends Phaser.Scene {
     }));
     const data: HudRegistryData = {
       groups,
-      generatorsLeft: Math.max(0, this.requiredGenerators() - this.generatorsDestroyed),
-      generatorsTotal: this.requiredGenerators(),
+      generatorsLeft: this.altarsStanding(),
+      generatorsTotal: this.generatorsTotal,
       bossAlive: this.bossAlive,
+      bossCharge: this.bossCharge,
+      hasWarden: this.levelHasWarden,
       quest: this.quest,
       questBeat: this.questBeat || undefined,
       levelName: this.level.name,
@@ -7565,14 +7775,16 @@ export class DungeonScene extends Phaser.Scene {
     });
     this.generatorsDestroyed = data.generatorsDestroyed;
 
-    if (this.boss) {
-      if (!data.bossAlive) {
-        this.bossAlive = false;
-        this.boss.destroy();
-        this.boss = null;
-      } else {
-        this.boss.health = data.bossHealth || this.boss.health;
-      }
+    if (this.boss && !data.bossAlive) {
+      this.bossAlive = false;
+      this.boss.destroy();
+      this.boss = null;
+    }
+    // Re-charge from the RESTORED altar count first: the max-health ceiling has
+    // to be right before the saved wound is written back on top of it.
+    this.refreshBossEmpowerment();
+    if (this.boss && data.bossAlive) {
+      this.boss.health = Math.min(this.boss.maxHealth, data.bossHealth || this.boss.health);
     }
 
     data.chestsOpened.forEach((op, i) => {

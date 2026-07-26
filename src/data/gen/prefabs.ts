@@ -57,6 +57,49 @@ function ring(room: Room): [number, number][] {
   ];
 }
 
+/**
+ * Push a spawning altar as near to (x,y) as a clean floor tile inside `room`
+ * allows.
+ *
+ * Set-pieces stamp their hazards first and then drop a guardian at a fixed
+ * room-relative offset, so an altar could land in the lava pool a plague pit or
+ * a foundry had just poured, or in the frozen slab a cathedral had iced over —
+ * an altar you either can't reach or can only break by standing in the fire. It
+ * is also a SOLID blocker, so a corner tile clipped out of a circular room left
+ * it embedded in rock. Searching outward for plain floor keeps every set-piece
+ * guardian standing somewhere a party can actually fight it.
+ */
+function altarAt(
+  ctx: PrefabCtx,
+  room: Room,
+  x: number,
+  y: number,
+  spawn: { enemyId: EnemyId; interval: number; maxAlive: number; hp: number }
+): void {
+  let sx = -1;
+  let sy = -1;
+  search: for (let r = 0; r <= 5; r++) {
+    for (let dy = -r; dy <= r; dy++)
+      for (let dx = -r; dx <= r; dx++) {
+        if (r > 0 && Math.abs(dx) !== r && Math.abs(dy) !== r) continue; // ring perimeter only
+        const nx = x + dx;
+        const ny = y + dy;
+        if (nx <= room.x || ny <= room.y || nx >= room.x + room.w - 1 || ny >= room.y + room.h - 1) continue;
+        if (ctx.tiles[ny]?.[nx] === Tile.FLOOR) { sx = nx; sy = ny; break search; }
+      }
+  }
+  if (sx < 0) {
+    // Wall-to-wall hazard (a fully iced or flooded chamber): give the altar its
+    // own stone pad rather than dropping the guardian entirely.
+    if (!inB(ctx, x, y)) return;
+    setFloorTile(ctx, x, y, Tile.FLOOR);
+    if (ctx.tiles[y][x] !== Tile.FLOOR) return; // structural tile — leave it be
+    sx = x;
+    sy = y;
+  }
+  ctx.spawns.push({ kind: 'generator', x: sx, y: sy, ...spawn });
+}
+
 // --- prefabs ----------------------------------------------------------------
 
 // A loot room: chest on a clear pad, coin ring, braziers, one guardian off-centre.
@@ -76,15 +119,7 @@ const treasureVault: Prefab = (room, ctx) => {
     { x: room.cx, y: room.y + 1, key: 'banner' },
   );
   // guardian in a corner — never on the chest
-  ctx.spawns.push({
-    kind: 'generator',
-    x: room.x + 2,
-    y: room.y + 2,
-    enemyId: pick(ctx.enemies, ctx.rng),
-    interval: 4000,
-    maxAlive: 3,
-    hp: 36,
-  });
+  altarAt(ctx, room, room.x + 2, room.y + 2, { enemyId: pick(ctx.enemies, ctx.rng), interval: 4000, maxAlive: 3, hp: 36 });
 };
 
 // A frozen shrine: iced chamber, safe pad, crystals and braziers at the rim.
@@ -115,7 +150,7 @@ const plaguePit: Prefab = (room, ctx) => {
     { x: room.cx, y: room.y + 1, key: 'toxic-mushroom' },
     { x: room.cx - 2, y: room.y + room.h - 2, key: 'toxic-mushroom' },
   );
-  ctx.spawns.push({ kind: 'generator', x: room.x + 2, y: room.cy, enemyId: pick(ctx.enemies, ctx.rng), interval: 3800, maxAlive: 4, hp: 32 });
+  altarAt(ctx, room, room.x + 2, room.cy, { enemyId: pick(ctx.enemies, ctx.rng), interval: 3800, maxAlive: 4, hp: 32 });
 };
 
 // A spike gauntlet: staggered spike lanes, safe strip, chest reward at the far end.
@@ -144,10 +179,9 @@ const arenaRing: Prefab = (room, ctx) => {
     const y = room.y + 2 + Math.floor(ctx.rng() * Math.max(1, room.h - 4));
     if (x !== room.cx || y !== room.cy) ctx.decor.push({ x, y, key: 'blood-stain' });
   }
-  ctx.spawns.push(
-    { kind: 'generator', x: room.x + 2, y: room.cy, enemyId: pick(ctx.enemies, ctx.rng), interval: 3400, maxAlive: 4, hp: 34 },
-    { kind: 'generator', x: room.x + room.w - 3, y: room.cy, enemyId: pick(ctx.enemies, ctx.rng), interval: 3400, maxAlive: 4, hp: 34 }
-  );
+  // twin feeders facing each other across the sand
+  altarAt(ctx, room, room.x + 2, room.cy, { enemyId: pick(ctx.enemies, ctx.rng), interval: 3400, maxAlive: 4, hp: 34 });
+  altarAt(ctx, room, room.x + room.w - 3, room.cy, { enemyId: pick(ctx.enemies, ctx.rng), interval: 3400, maxAlive: 4, hp: 34 });
   for (let i = 0; i < 5; i++) ctx.pickups.push({ kind: 'coin', x: room.cx + (i % 3) - 1, y: room.cy + Math.floor(i / 3), coin: 12 });
 };
 
@@ -178,7 +212,7 @@ const guardianHall: Prefab = (room, ctx) => {
     { x: room.x + 2, y: room.cy, key: 'brazier' },
     { x: room.x + room.w - 3, y: room.cy, key: 'brazier' },
   );
-  ctx.spawns.push({ kind: 'generator', x: room.cx, y: room.cy + 1, enemyId: pick(ctx.enemies, ctx.rng), interval: 3800, maxAlive: 4, hp: 34 });
+  altarAt(ctx, room, room.cx, room.cy + 1, { enemyId: pick(ctx.enemies, ctx.rng), interval: 3800, maxAlive: 4, hp: 34 });
   ctx.pickups.push({ kind: 'coin', x: room.cx, y: room.cy - 1, coin: 16 });
 };
 

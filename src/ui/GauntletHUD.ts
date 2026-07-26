@@ -256,7 +256,7 @@ export class GauntletHUD {
     }
 
     const destroyedN = data.generatorsTotal - data.generatorsLeft;
-    this.genText.setText(`GENERATORS  ${destroyedN}/${data.generatorsTotal}`);
+    this.genText.setText(`ALTARS  ${destroyedN}/${data.generatorsTotal}`);
     // Full-width grid under the label — compute columns so the last box stays inside the panel.
     const cell = GEN_BOX + GEN_GAP;
     const maxCols = Math.max(1, Math.floor((INNER_W + GEN_GAP) / cell));
@@ -285,7 +285,21 @@ export class GauntletHUD {
     }
     const genRows = total > 0 ? Math.ceil(total / cols) : 1;
     this.bossText.setY(genBoxY + genRows * cell + 2);
-    this.bossText.setText(data.bossAlive ? 'WARDEN ALIVE' : data.generatorsLeft <= 0 ? 'EXIT OPEN' : '');
+    // Altars no longer gate the exit — they feed the warden. Show how charged he
+    // is so the trade-off (skip altars, fight something far worse) is legible
+    // before the party walks into his chamber.
+    const chargePct = Math.round(Math.max(0, Math.min(1, data.bossCharge ?? 0)) * 100);
+    const warden = data.hasWarden !== false; // caves/arenas have altars but no warden
+    this.bossText.setText(
+      !warden
+        ? ''
+        : data.bossAlive
+          ? chargePct > 0
+            ? `WARDEN EMPOWERED ${chargePct}%`
+            : 'WARDEN UNFED'
+          : 'EXIT OPEN'
+    );
+    this.bossText.setColor(data.bossAlive && chargePct >= 50 ? C.hpLow : data.bossAlive ? '#e8c98a' : '#8affa0');
 
     // Size the controls box to the binding list, always leaving room for OBJECTIVE.
     this.ctrlText.setFixedSize(0, 0);

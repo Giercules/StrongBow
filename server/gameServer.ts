@@ -57,6 +57,8 @@ const npcs = new Map<string, NpcAgent>();
 let npcSeq = 0;
 const NPC_NAMES = ['Wandering Sellsword', 'Lost Pilgrim', 'Hedge Knight', 'Road Warden', 'Stray Conjurer', 'Masked Rogue', 'Vagrant Healer', 'Wild Forager'];
 const NPC_CLASSES = ['vanguard', 'thief', 'arcanist', 'warden', 'necromancer'];
+/** How far an NPC may stray from the players it is keeping company (px). */
+const NPC_LEASH = 340;
 
 /** Spawn/despawn + wander AI NPCs so they hover near the busiest map's players. */
 function simulateNpcs(now: number): void {
@@ -87,14 +89,30 @@ function simulateNpcs(now: number): void {
   for (const n of npcs.values()) {
     n.levelId = homeMap;
     if (now >= n.retargetAt) {
-      n.retargetAt = now + 1500 + Math.random() * 2500;
-      const ang = Math.random() * Math.PI * 2;
-      const sp = 20 + Math.random() * 30;
-      n.vx = Math.cos(ang) * sp; n.vy = Math.sin(ang) * sp;
+      // Walk-and-stand wander. Drifting in a fresh random direction every couple
+      // of seconds, forever, is what made these read as shambling: travellers
+      // pick somewhere to be, walk there at a believable pace, then stop.
+      const pause = Math.random() < 0.35;
+      n.retargetAt = now + (pause ? 900 + Math.random() * 2200 : 1800 + Math.random() * 2600);
+      if (pause) {
+        n.vx = 0; n.vy = 0;
+      } else {
+        const ang = Math.random() * Math.PI * 2;
+        const sp = 34 + Math.random() * 26; // px/s — reads as a walk, not a crawl
+        n.vx = Math.cos(ang) * sp; n.vy = Math.sin(ang) * sp;
+      }
     }
     n.x += n.vx * 0.12; n.y += n.vy * 0.12;
+    // Soft leash: past the tether they turn back toward the party rather than
+    // ping-ponging off an invisible wall.
     const dx = n.x - ax, dy = n.y - ay, d = Math.hypot(dx, dy) || 1;
-    if (d > 340) { n.x = ax + (dx / d) * 340; n.y = ay + (dy / d) * 340; n.vx = -n.vx; n.vy = -n.vy; }
+    if (d > NPC_LEASH) {
+      n.x = ax + (dx / d) * NPC_LEASH;
+      n.y = ay + (dy / d) * NPC_LEASH;
+      const sp = Math.hypot(n.vx, n.vy) || 40;
+      n.vx = (-dx / d) * sp; n.vy = (-dy / d) * sp;
+      n.retargetAt = now + 1400 + Math.random() * 1600;
+    }
   }
 }
 

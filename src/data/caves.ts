@@ -51,8 +51,13 @@ function buildCave(o: CaveOptions): LevelData {
   spawns.push({ kind: 'door', x: startX, y: startY + 1, interiorId: 'overworld', label: 'Cavern Mouth — leave' });
   decor.push({ x: startX, y: startY + 1, key: 'cave-entrance' });
 
-  // foes: a few spawners through the hall + nook (wild monsters also roam)
-  const gens: [number, number][] = [[14, 12], [30, 13], [11, 21], [36, 6]];
+  // Foes: one spawner per chamber, each set back from the way in so it guards
+  // what lies beyond rather than ambushing the threshold. The corridor enters
+  // the great hall at x22–24, so the hall pair sit wide of it; the nook altar
+  // stands between the entrance and the iron key at (15,21); the alcove altar
+  // holds the gap between the hall and the locked hoard. (Wild monsters roam
+  // besides these.)
+  const gens: [number, number][] = [[13, 11], [31, 12], [13, 21], [35, 7]];
   gens.forEach(([gx, gy], i) => {
     spawns.push({ kind: 'generator', x: gx, y: gy, enemyId: o.foes[i % o.foes.length], interval: 5200, maxAlive: 3, hp: 32 });
   });
