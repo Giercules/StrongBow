@@ -159,11 +159,11 @@ function buildTown() {
     const w = x1 - x0 + 1;
     const wallTop = y0 + 3;
     const wallBot = y1 - 1;
-    const wallRows = Math.max(0, wallBot - wallTop);
+    const wallRows = Math.max(0, wallBot - wallTop + 1);
     const windowRows = /* @__PURE__ */ new Set();
-    if (wallRows >= 5) {
-      windowRows.add(wallTop + Math.max(1, Math.floor(wallRows * 0.38)));
-      windowRows.add(wallTop + Math.floor(wallRows * 0.72));
+    if (wallRows >= 4) {
+      windowRows.add(wallTop + 1);
+      if (wallRows >= 6) windowRows.add(wallTop + Math.floor(wallRows * 0.55));
     } else if (wallRows >= 2) {
       windowRows.add(wallTop + 1);
     }
@@ -186,69 +186,64 @@ function buildTown() {
     decor.push({ x: doorX, y: y1, key: "house-door" });
     const chimX = o.chimneyAt === "right" ? x1 - (w >= 8 ? 2 : 1) : x0 + (w >= 8 ? 2 : 1);
     decor.push({ x: chimX, y: y0, key: "chimney" });
-    if (o.signGlyph) decor.push({ x: Math.min(x1 - 1, doorX + 2), y: y0 + 4, key: `shop-sign-${o.signGlyph}` });
+    if (o.signGlyph) decor.push({ x: Math.min(x1 - 1, doorX + 2), y: y0 + 3, key: `shop-sign-${o.signGlyph}` });
     for (let y = y0 - 1; y <= y1 + 1; y++) for (let x = x0 - 1; x <= x1 + 1; x++) mark(noFoliage, x, y);
   };
-  house(16, 9, 26, 20, "slate", { signGlyph: "anvil", chimneyAt: "right" });
-  spawns.push({ kind: "door", x: 21, y: 20, interiorId: "interior_forge", label: "Brunda's Forge" });
-  house(33, 10, 43, 20, "green", { signGlyph: "vial" });
-  spawns.push({ kind: "door", x: 38, y: 20, interiorId: "interior_apothecary", label: "The Green Vial" });
-  house(48, 8, 60, 20, "red", { signGlyph: "sword", chimneyAt: "right" });
-  decor.push({ x: 47, y: 16, key: "weapon-rack" });
-  decor.push({ x: 61, y: 16, key: "weapon-rack" });
-  spawns.push({ kind: "door", x: 54, y: 20, interiorId: "interior_guild", label: "Fighters Guild" });
-  house(64, 10, 76, 20, "teak", { signGlyph: "tankard" });
-  spawns.push({ kind: "door", x: 70, y: 20, interiorId: "interior_tankard", label: "The Gilded Tankard" });
-  house(82, 9, 92, 20, "blue", { signGlyph: "coin", chimneyAt: "right" });
-  spawns.push({ kind: "merchant", shop: "home", x: 87, y: 21, label: "Your Lodge" });
-  for (let fx = 14; fx <= 32; fx++) {
-    if (fx < 27 || fx > 29) deco(fx, 25, "fence-h");
+  house(15, 10, 25, 18, "slate", { signGlyph: "anvil", chimneyAt: "right" });
+  spawns.push({ kind: "door", x: 20, y: 18, interiorId: "interior_forge", label: "Brunda's Forge" });
+  house(32, 10, 42, 18, "green", { signGlyph: "vial" });
+  spawns.push({ kind: "door", x: 37, y: 18, interiorId: "interior_apothecary", label: "The Green Vial" });
+  house(48, 9, 60, 18, "red", { signGlyph: "sword", chimneyAt: "right" });
+  spawns.push({ kind: "door", x: 54, y: 18, interiorId: "interior_guild", label: "Fighters Guild" });
+  house(65, 10, 76, 18, "teak", { signGlyph: "tankard" });
+  spawns.push({ kind: "door", x: 70, y: 18, interiorId: "interior_tankard", label: "The Gilded Tankard" });
+  house(82, 10, 92, 18, "blue", { signGlyph: "coin", chimneyAt: "right" });
+  spawns.push({ kind: "merchant", shop: "home", x: 87, y: 20, label: "Your Lodge" });
+  for (let fx = 14; fx <= 27; fx++) {
+    if (fx < 19 || fx > 21) deco(fx, 24, "fence-h");
   }
-  for (let fy = 21; fy <= 24; fy++) deco(13, fy, "fence-v");
-  deco(28, 21, "anvil");
-  deco(30, 23, "crate");
-  deco(31, 21, "barrel");
-  deco(29, 24, "cart");
-  deco(15, 22, "wood-pile");
-  deco(14, 24, "brazier");
-  deco(32, 22, "flower-bed");
-  deco(44, 22, "flower-bed");
-  deco(31, 24, "town-bush");
-  deco(45, 24, "town-bush");
-  deco(32, 25, "crop-row");
-  for (let hx = 46; hx <= 62; hx++) deco(hx, 21, "hedge");
+  for (let fy = 19; fy <= 23; fy++) deco(13, fy, "fence-v");
+  deco(16, 22, "anvil");
+  deco(15, 20, "wood-pile");
+  deco(17, 23, "crate");
+  deco(14, 22, "barrel");
+  deco(26, 22, "brazier");
+  deco(28, 22, "flower-bed");
+  deco(30, 23, "flower-bed");
+  deco(43, 22, "flower-bed");
+  deco(29, 24, "town-bush");
+  deco(44, 24, "crop-row");
+  for (let hx = 47; hx <= 61; hx++) deco(hx, 22, "hedge");
   deco(50, 23, "training-dummy");
   deco(58, 23, "training-dummy");
   deco(54, 24, "weapon-rack");
-  deco(47, 23, "weapon-rack");
-  deco(61, 23, "weapon-rack");
-  deco(63, 22, "barrel");
+  deco(48, 24, "weapon-rack");
+  deco(60, 24, "weapon-rack");
+  deco(64, 22, "barrel");
   deco(77, 22, "barrel");
-  deco(65, 23, "crate");
+  deco(66, 23, "crate");
   deco(75, 23, "barrel");
-  deco(64, 24, "brazier");
-  deco(76, 24, "hay-bale");
+  deco(63, 24, "brazier");
+  deco(78, 24, "hay-bale");
   deco(90, 22, "chest");
-  deco(83, 23, "flower-bed");
+  deco(84, 22, "flower-bed");
   deco(91, 23, "flower-bed");
   deco(89, 24, "town-bush");
-  deco(84, 24, "tavern-stool");
-  deco(92, 24, "tavern-stool");
-  for (const bx of [14, 30, 46, 62, 78, 94]) deco(bx, 22, "lamp-post");
-  for (const bx of [28, 44, 80]) deco(bx, 25, "brazier");
-  deco(12, 22, "signpost");
-  house(7, 23, 13, 30, "blue");
-  deco(8, 32, "crop-row");
-  deco(11, 32, "crop-row");
-  deco(6, 26, "town-bush");
-  deco(9, 31, "flower-bed");
-  deco(14, 24, "wood-pile");
-  house(93, 23, 98, 30, "green");
-  deco(94, 32, "flower-bed");
-  deco(97, 26, "town-bush");
-  deco(92, 31, "town-bush");
+  deco(85, 24, "tavern-stool");
+  deco(93, 22, "tavern-stool");
+  for (const bx of [14, 27, 44, 62, 78, 94]) deco(bx, 20, "lamp-post");
+  deco(12, 20, "signpost");
+  house(7, 24, 13, 30, "blue");
+  deco(8, 31, "crop-row");
+  deco(11, 31, "crop-row");
+  deco(6, 27, "town-bush");
+  deco(9, 32, "flower-bed");
+  house(93, 24, 98, 30, "green");
+  deco(94, 31, "flower-bed");
+  deco(97, 27, "town-bush");
+  deco(92, 32, "town-bush");
   const fcx = cx;
-  const fcy = 33;
+  const fcy = 30;
   let poolSumX = 0;
   let poolSumY = 0;
   let poolN = 0;
@@ -267,31 +262,29 @@ function buildTown() {
   const poolCx = Math.round(poolSumX / poolN);
   const poolCy = Math.round(poolSumY / poolN);
   for (const [px, py] of [
-    [fcx - 6, fcy - 4],
-    [fcx + 6, fcy - 4],
-    [fcx - 6, fcy + 4],
-    [fcx + 6, fcy + 4]
+    [fcx - 7, fcy - 5],
+    [fcx + 7, fcy - 5],
+    [fcx - 7, fcy + 5],
+    [fcx + 7, fcy + 5]
   ]) {
     deco(px, py, "pillar");
     decor.push({ x: px, y: py - 1, key: "banner" });
   }
   decor.push({ x: poolCx, y: poolCy, key: "fountain" });
-  deco(49, 26, "statue");
-  deco(56, 26, "statue");
-  for (const hx of [45, 46, 47, 48, 57, 58, 59, 60]) {
-    deco(hx, 27, "hedge");
-    deco(hx, 39, "hedge");
+  deco(48, 24, "statue");
+  deco(56, 24, "statue");
+  for (const hx of [44, 45, 46, 47, 58, 59, 60, 61]) {
+    deco(hx, 25, "hedge");
+    deco(hx, 36, "hedge");
   }
-  for (const [lx, ly] of [[43, 27], [62, 27], [43, 39], [62, 39]]) deco(lx, ly, "lamp-post");
-  deco(46, 30, "flower-bed");
-  deco(59, 30, "flower-bed");
-  deco(46, 37, "flower-bed");
-  deco(59, 37, "flower-bed");
-  deco(48, 35, "tavern-stool");
-  deco(56, 35, "tavern-stool");
-  deco(44, 33, "tavern-stool");
-  deco(60, 33, "tavern-stool");
-  deco(52, 40, "quest-board");
+  for (const [lx, ly] of [[43, 25], [62, 25], [43, 36], [62, 36]]) deco(lx, ly, "lamp-post");
+  deco(45, 27, "flower-bed");
+  deco(60, 27, "flower-bed");
+  deco(45, 34, "flower-bed");
+  deco(60, 34, "flower-bed");
+  deco(47, 32, "tavern-stool");
+  deco(57, 32, "tavern-stool");
+  deco(52, 37, "quest-board");
   const roadTile = (x, y) => {
     if (!inB(x, y) || tiles[y][x] !== 1 /* FLOOR */) return;
     const k = `${x},${y}`;
@@ -300,126 +293,127 @@ function buildTown() {
     decor.push({ x, y, key: "road" });
     mark(noFoliage, x, y);
   };
-  const roadLine = (x0, y0, x1, y1) => {
-    if (x0 === x1) for (let y = Math.min(y0, y1); y <= Math.max(y0, y1); y++) roadTile(x0, y);
-    else for (let x = Math.min(x0, x1); x <= Math.max(x0, x1); x++) roadTile(x, y0);
+  const roadV = (xCenter, y0, y1, width) => {
+    const half = Math.floor((width - 1) / 2);
+    const x0 = xCenter - half;
+    const x1 = xCenter - half + width - 1;
+    for (let y = Math.min(y0, y1); y <= Math.max(y0, y1); y++)
+      for (let x = x0; x <= x1; x++) roadTile(x, y);
   };
-  for (let y = 5; y <= H - 6; y++) {
-    roadTile(cx, y);
-    roadTile(cx + 1, y);
-  }
-  for (let x = 5; x <= W - 6; x++) {
-    roadTile(x, WGATE_Y - 1);
-    roadTile(x, WGATE_Y);
-    roadTile(x, EGATE_Y - 1);
-    roadTile(x, EGATE_Y);
-  }
-  for (let x = 14; x <= 94; x++) {
-    roadTile(x, 21);
-    roadTile(x, 22);
-  }
-  for (const sx of [21, 38, 54, 70, 87]) roadLine(sx, 22, sx, 26);
-  for (let y = 28; y <= 38; y++) for (let x = 44; x <= 61; x++) roadTile(x, y);
+  const roadH = (yCenter, x0, x1, width) => {
+    const half = Math.floor((width - 1) / 2);
+    const y0 = yCenter - half;
+    const y1 = yCenter - half + width - 1;
+    for (let x = Math.min(x0, x1); x <= Math.max(x0, x1); x++)
+      for (let y = y0; y <= y1; y++) roadTile(x, y);
+  };
+  const roadRect = (x0, y0, x1, y1) => {
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) roadTile(x, y);
+  };
+  roadV(cx, 5, H - 6, 3);
+  roadH(WGATE_Y, 5, W - 6, 3);
+  roadH(EGATE_Y, 5, W - 6, 3);
+  roadH(20, 14, 94, 3);
+  for (const sx of [20, 37, 54, 70, 87]) roadV(sx, 18, 20, 2);
+  roadRect(43, 25, 62, 36);
   const GATE_XS = [24, 39, 54, 69, 84];
   const court = (y, first) => {
-    for (let py = y - 3; py <= y + 2; py++) roadLine(GATE_XS[0] - 4, py, GATE_XS[4] + 4, py);
+    roadRect(GATE_XS[0] - 5, y - 3, GATE_XS[4] + 5, y + 2);
     for (let i = 0; i < 5; i++) {
       const x = GATE_XS[i];
       const r = REALMS[first + i];
-      for (let py = y - 2; py <= y + 2; py++) for (let px = x - 3; px <= x + 3; px++) roadTile(px, py);
       spawns.push({ kind: "portal", realmId: r.id, label: r.name, x, y });
-      deco(x - 2, y - 1, "brazier");
-      deco(x + 2, y - 1, "brazier");
+      deco(x - 2, y + 1, "brazier");
+      deco(x + 2, y + 1, "brazier");
       if (i > 0) decor.push({ x: GATE_XS[i - 1] + x >> 1, y: y - 2, key: "banner" });
       mark(noFoliage, x, y);
     }
-    deco(GATE_XS[0] - 8, y, "lamp-post");
-    deco(GATE_XS[4] + 8, y, "lamp-post");
-    deco(GATE_XS[0] - 6, y + 2, "statue");
-    deco(GATE_XS[4] + 6, y + 2, "statue");
+    deco(GATE_XS[0] - 6, y, "lamp-post");
+    deco(GATE_XS[4] + 6, y, "lamp-post");
+    deco(GATE_XS[0] - 4, y + 2, "statue");
+    deco(GATE_XS[4] + 4, y + 2, "statue");
   };
-  court(45, 0);
+  court(44, 0);
   court(97, 5);
   spawns.push({ kind: "playerStart", x: 54, y: 58 });
-  for (let y = 62; y <= 70; y++) for (let x = 16; x <= 38; x++) roadTile(x, y);
-  roadLine(27, 61, 27, 71);
-  roadLine(50, 61, 50, 62);
-  deco(24, 59, "quest-board");
-  deco(19, 61, "stall-red");
-  deco(26, 61, "stall-blue");
-  deco(33, 61, "stall-red");
-  deco(16, 66, "stall-blue");
-  deco(27, 66, "well");
-  deco(36, 64, "cart");
-  deco(37, 69, "crate");
-  deco(39, 69, "barrel");
-  deco(15, 70, "hay-bale");
-  deco(21, 71, "barrel");
-  deco(41, 62, "lamp-post");
-  deco(14, 62, "lamp-post");
-  deco(17, 63, "brazier");
-  deco(35, 63, "brazier");
-  deco(22, 70, "tavern-stool");
-  deco(30, 70, "tavern-stool");
-  deco(12, 64, "signpost");
-  house(62, 57, 72, 65, "thatch", { chimneyAt: "right" });
-  house(78, 57, 88, 65, "teak");
+  roadRect(16, 62, 38, 70);
+  roadV(27, 60, 71, 2);
+  roadH(61, 38, 53, 2);
+  deco(24, 60, "quest-board");
+  deco(19, 63, "stall-red");
+  deco(26, 63, "stall-blue");
+  deco(33, 63, "stall-red");
+  deco(18, 67, "stall-blue");
+  deco(27, 67, "well");
+  deco(35, 66, "cart");
+  deco(36, 69, "crate");
+  deco(37, 69, "barrel");
+  deco(16, 69, "hay-bale");
+  deco(20, 70, "barrel");
+  deco(40, 62, "lamp-post");
+  deco(15, 62, "lamp-post");
+  deco(17, 64, "brazier");
+  deco(34, 64, "brazier");
+  deco(22, 69, "tavern-stool");
+  deco(30, 69, "tavern-stool");
+  deco(14, 64, "signpost");
+  house(62, 58, 72, 64, "thatch", { chimneyAt: "right" });
+  house(78, 58, 88, 64, "teak");
+  roadH(66, 60, 90, 2);
+  roadV(75, 64, 66, 2);
   for (let fx = 62; fx <= 88; fx++) {
     if (fx >= 74 && fx <= 76) continue;
-    deco(fx, 71, "fence-h");
+    deco(fx, 70, "fence-h");
   }
-  for (let fy = 67; fy <= 70; fy++) {
+  for (let fy = 67; fy <= 69; fy++) {
     deco(61, fy, "fence-v");
     deco(89, fy, "fence-v");
   }
-  for (let x = 62; x <= 88; x++) roadTile(x, 66);
   deco(64, 68, "flower-bed");
-  deco(68, 69, "flower-bed");
+  deco(68, 68, "flower-bed");
   deco(82, 68, "flower-bed");
-  deco(86, 69, "flower-bed");
-  deco(66, 67, "town-bush");
-  deco(70, 68, "town-bush");
-  deco(80, 68, "town-bush");
-  deco(84, 67, "town-bush");
-  deco(75, 69, "well");
+  deco(86, 68, "flower-bed");
+  deco(66, 69, "town-bush");
+  deco(84, 69, "town-bush");
+  deco(75, 68, "well");
   deco(72, 69, "wood-pile");
   deco(78, 69, "wood-pile");
-  deco(63, 66, "lamp-post");
-  deco(87, 66, "lamp-post");
-  house(14, 79, 24, 87, "thatch", { chimneyAt: "right" });
-  roadLine(19, EGATE_Y, 19, 78);
-  roadLine(19, 78, 26, 78);
+  deco(62, 66, "lamp-post");
+  deco(88, 66, "lamp-post");
+  house(14, 80, 24, 86, "thatch", { chimneyAt: "right" });
+  roadV(19, EGATE_Y, 79, 2);
+  roadH(79, 19, 28, 2);
   for (let fx = 28; fx <= 44; fx++) {
-    if (fx !== 36 && fx !== 37) deco(fx, 80, "fence-h");
+    if (fx !== 35 && fx !== 36) deco(fx, 80, "fence-h");
     deco(fx, 88, "fence-h");
   }
   for (let fy = 81; fy <= 87; fy++) {
     deco(27, fy, "fence-v");
     deco(45, fy, "fence-v");
   }
-  for (const [hx, hy] of [[30, 83], [34, 85], [38, 82], [42, 85], [31, 87]]) deco(hx, hy, "hay-bale");
-  for (const [cx2, cy2] of [[32, 82], [39, 84], [35, 86], [43, 82]]) deco(cx2, cy2, "crop-row");
+  for (const [hx, hy] of [[30, 83], [34, 85], [38, 82], [42, 85]]) deco(hx, hy, "hay-bale");
+  for (const [cx2, cy2] of [[32, 82], [39, 84], [35, 86], [43, 83]]) deco(cx2, cy2, "crop-row");
   deco(40, 87, "cart");
-  deco(26, 79, "hay-bale");
-  deco(25, 84, "wood-pile");
+  deco(25, 82, "wood-pile");
   deco(13, 80, "signpost");
-  deco(36, 79, "well");
-  house(42, 78, 50, 85, "red");
-  house(57, 78, 65, 85, "thatch", { chimneyAt: "right" });
-  house(90, 78, 97, 85, "slate");
-  for (let x = 40; x <= 98; x++) roadTile(x, 86);
-  for (const [gx, gy] of [[41, 82], [51, 80], [56, 82], [66, 81], [89, 82], [98, 82]]) deco(gx, gy, "town-bush");
-  deco(46, 87, "flower-bed");
-  deco(61, 87, "flower-bed");
-  deco(93, 87, "flower-bed");
-  deco(52, 82, "well");
-  deco(67, 84, "wood-pile");
-  deco(40, 86, "barrel");
-  deco(88, 86, "cart");
-  for (const lx of [45, 62, 94]) deco(lx, 88, "lamp-post");
-  deco(55, 86, "hay-bale");
-  for (let py = 82; py <= 86; py++) for (let px = 79; px <= 85; px++) roadTile(px, py);
-  roadLine(82, 86, 82, 90);
+  deco(36, 81, "well");
+  house(42, 79, 50, 84, "red");
+  house(57, 79, 65, 84, "thatch", { chimneyAt: "right" });
+  house(90, 79, 97, 84, "slate");
+  roadH(86, 40, 98, 2);
+  roadV(cx, 84, 86, 3);
+  for (const [gx, gy] of [[41, 81], [51, 81], [56, 81], [66, 81], [89, 81], [98, 81]])
+    deco(gx, gy, "town-bush");
+  deco(46, 85, "flower-bed");
+  deco(61, 85, "flower-bed");
+  deco(93, 85, "flower-bed");
+  deco(53, 82, "well");
+  deco(67, 83, "wood-pile");
+  deco(40, 85, "barrel");
+  deco(88, 85, "cart");
+  for (const lx of [45, 62, 94]) deco(lx, 87, "lamp-post");
+  roadRect(79, 82, 85, 86);
+  roadV(82, 86, 90, 2);
   deco(79, 82, "pillar");
   deco(85, 82, "pillar");
   deco(79, 86, "pillar");
@@ -434,31 +428,40 @@ function buildTown() {
   deco(77, 84, "lamp-post");
   deco(87, 84, "lamp-post");
   deco(78, 87, "altar");
-  for (let x = 40; x <= 64; x++) roadTile(x, RIVER_Y1 + 1);
-  const nearBridge = (x) => Math.abs(x - cx) <= 4 || Math.abs(x - 23) <= 3 || Math.abs(x - 81) <= 3;
-  for (let x = 8; x <= W - 9; x += 4) {
+  roadH(RIVER_Y1 + 2, 40, 64, 2);
+  const nearBridge = (x) => Math.abs(x - cx) <= 5 || Math.abs(x - 23) <= 4 || Math.abs(x - 81) <= 4;
+  for (let x = 8; x <= W - 9; x += 5) {
     if (nearBridge(x)) continue;
-    decor.push({ x, y: RIVER_Y0 - 1, key: x % 8 === 0 ? "cattail" : "reeds" });
-    decor.push({ x: x + 2, y: RIVER_Y1 + 1, key: x % 8 === 0 ? "reeds" : "cattail" });
+    if (!roadSet.has(`${x},${RIVER_Y0 - 1}`)) decor.push({ x, y: RIVER_Y0 - 1, key: x % 10 === 0 ? "cattail" : "reeds" });
+    if (!roadSet.has(`${x + 2},${RIVER_Y1 + 1}`)) decor.push({ x: x + 2, y: RIVER_Y1 + 1, key: x % 10 === 0 ? "reeds" : "cattail" });
   }
-  for (const [lx, ly] of [[32, 53], [42, 54], [60, 54], [68, 53], [90, 53], [12, 54], [50, 53]])
+  for (const [lx, ly] of [[32, 53], [42, 54], [60, 54], [68, 53], [90, 53], [12, 54]])
     decor.push({ x: lx, y: ly, key: "lilypad" });
   for (const [rx, ry] of [[15, 51], [37, 51], [64, 51], [88, 51], [28, 56], [72, 56], [95, 56]])
     deco(rx, ry, "shore-rock");
   for (const [dx, dy] of [[45, 53], [70, 54], [18, 54], [58, 54]])
     decor.push({ x: dx, y: dy, key: "duck" });
   for (const mx of [22, 48, 57, 81]) deco(mx, RIVER_Y0 - 1, "mooring-post");
-  for (const mx of [23, 52, 80]) deco(mx, RIVER_Y1 + 2, "mooring-post");
-  deco(49, 50, "signpost");
+  for (const mx of [23, 52, 80]) deco(mx, RIVER_Y1 + 3, "mooring-post");
+  deco(48, 50, "signpost");
   deco(56, 57, "signpost");
-  deco(42, 56, "cart");
-  deco(63, 56, "barrel");
-  for (let y = 8; y <= H - 9; y += 6) {
+  for (let y = 8; y <= H - 9; y += 7) {
     decor.push({ x: 5, y, key: "reeds" });
     decor.push({ x: W - 6, y: y + 3, key: "reeds" });
   }
-  for (const [lx, ly] of [[50, 24], [55, 24], [50, 48], [55, 48], [50, 60], [55, 60], [50, 80], [55, 92], [50, 104]])
-    deco(lx, ly, "lamp-post");
+  for (const [lx, ly] of [
+    [50, 22],
+    [55, 22],
+    [50, 40],
+    [55, 40],
+    [50, 48],
+    [55, 48],
+    [50, 60],
+    [55, 60],
+    [50, 80],
+    [55, 92],
+    [50, 104]
+  ]) deco(lx, ly, "lamp-post");
   const foliageOk = (x, y) => inB(x, y) && tiles[y][x] === 1 /* FLOOR */ && !roadSet.has(`${x},${y}`) && !noFoliage.has(`${x},${y}`);
   const tree = (x, y) => {
     if (foliageOk(x, y)) decor.push({ x, y, key: "town-tree" });
@@ -466,85 +469,69 @@ function buildTown() {
   const bush = (x, y) => {
     if (foliageOk(x, y)) decor.push({ x, y, key: "town-bush" });
   };
-  for (let x = 8; x <= W - 9; x += 6) {
+  for (let x = 8; x <= W - 9; x += 7) {
     tree(x, 7);
     tree(x + 3, H - 8);
   }
-  for (let y = 10; y <= H - 11; y += 7) {
+  for (let y = 12; y <= H - 12; y += 8) {
     tree(7, y);
     tree(W - 8, y);
   }
   for (const [tx, ty] of [
-    [12, 26],
-    [16, 28],
-    [20, 26],
-    [24, 28],
-    [12, 31],
-    [20, 31],
-    [28, 27],
-    [32, 29],
-    [36, 26],
-    [16, 41],
-    [24, 40],
-    [32, 41],
-    [72, 26],
-    [76, 29],
-    [80, 26],
-    [84, 29],
-    [88, 26],
-    [92, 29],
-    [68, 40],
-    [76, 41],
+    [12, 38],
+    [18, 40],
+    [28, 38],
+    [76, 38],
     [84, 40],
-    [92, 41]
+    [92, 38],
+    [14, 48],
+    [90, 48],
+    [20, 72],
+    [34, 74],
+    [70, 72]
   ]) tree(tx, ty);
-  for (let x = 11; x <= W - 11; x += 9) {
+  for (let x = 12; x <= W - 12; x += 11) {
+    if (nearBridge(x)) continue;
     tree(x, RIVER_Y0 - 3);
-    tree(x + 4, RIVER_Y1 + 3);
+    tree(x + 5, RIVER_Y1 + 4);
   }
   for (const [bx, by] of [
-    [fcx - 9, fcy],
-    [fcx + 9, fcy],
-    [30, 26],
-    [74, 26],
-    [14, 40],
-    [90, 40],
+    [fcx - 10, fcy],
+    [fcx + 10, fcy],
+    [30, 28],
+    [74, 28],
     [12, 48],
     [92, 48],
     [46, 60],
-    [58, 66],
-    [20, 76],
-    [50, 88],
+    [58, 72],
+    [20, 88],
     [70, 90],
-    [90, 92],
-    [34, 74],
-    [66, 78]
-  ]) {
-    bush(bx, by);
-  }
+    [90, 92]
+  ]) bush(bx, by);
   for (let y = 6; y < H - 6; y++) {
     for (let x = 6; x < W - 6; x++) {
       if (!foliageOk(x, y)) continue;
-      const h = (x * 13 + y * 29) % 23;
+      const h = (x * 13 + y * 29) % 29;
       if (h === 0) decor.push({ x, y, key: "grass-tuft" });
-      else if (h === 11) decor.push({ x, y, key: "wildflowers" });
+      else if (h === 14) decor.push({ x, y, key: "wildflowers" });
     }
   }
   const folk = [
     // Upper Hearthwatch
-    [46, 33, "Crier Bom", "the booming town crier"],
-    [58, 36, "Pib", "a wandering lute-player"],
-    [40, 45, "Garrick", "an off-duty city watchman"],
-    [70, 24, "Sella", "a chambermaid from the Tankard"],
+    [46, 32, "Crier Bom", "the booming town crier"],
+    [58, 33, "Pib", "a wandering lute-player"],
+    [40, 44, "Garrick", "an off-duty city watchman"],
+    [70, 22, "Sella", "a chambermaid from the Tankard"],
     // Lower Hearthwatch
-    [24, 64, "Old Maren", "a stooped flower-seller"],
-    [31, 68, "Tomas", "a nervous merchant down on his luck"],
+    [24, 65, "Old Maren", "a stooped flower-seller"],
+    // Tomas gives the cross-town errand to Sunspire (his sister Amira).
+    [31, 68, "Tomas", "a fretful merchant fearing for his sister in the desert", "tomas"],
     [75, 67, "Hesh", "a hooded fortune-teller"],
-    [82, 86, "Sister Vael", "a road-worn pilgrim of the light"],
-    [30, 79, "Farmer Wen", "a sun-leathered farmhand"],
+    [82, 85, "Sister Vael", "a road-worn pilgrim of the light"],
+    [30, 80, "Farmer Wen", "a sun-leathered farmhand"],
     [60, 97, "Warden Ost", "the keeper of the Deep Court gates"]
   ];
-  folk.forEach(([x, y, label, role]) => spawns.push({ kind: "npc", x, y, label, npcRole: role }));
+  folk.forEach(([x, y, label, role, npcId]) => spawns.push({ kind: "npc", x, y, label, npcRole: role, npcId }));
   for (const [x, y] of [
     [50, 58],
     [58, 58],
@@ -3463,20 +3450,24 @@ function drawGrassTuft(ctx, ox, oy) {
   R2(ctx, ox + 12, oy + 24, 12, 2, g1);
 }
 function drawRoad(ctx, ox, oy, seed = 0) {
-  R2(ctx, ox, oy, 32, 32, "#6a5a42");
-  const stones = ["#7a6a4e", "#5c4c38", "#857258", "#6f5e46"];
-  let s = seed * 2654435761;
+  R2(ctx, ox, oy, 32, 32, "#5a4a36");
+  const stones = ["#7a6a4e", "#6f5e46", "#857258", "#5c4c38", "#8a7858", "#6a5a42"];
+  let s = (seed + 17) * 2654435761;
   const rnd = () => {
     s = s * 1103515245 + 12345 & 2147483647;
     return s / 2147483647;
   };
   for (let gy = 0; gy < 8; gy++) {
     for (let gx = 0; gx < 8; gx++) {
-      R2(ctx, ox + gx * 4, oy + gy * 4, 4, 4, stones[Math.floor(rnd() * stones.length)]);
-      R2(ctx, ox + gx * 4, oy + gy * 4, 4, 1, "#4a3c2c");
-      R2(ctx, ox + gx * 4, oy + gy * 4, 1, 4, "#4a3c2c");
+      const jitter = Math.floor(rnd() * 2);
+      const px = ox + gx * 4 + gy % 2;
+      const py = oy + gy * 4;
+      R2(ctx, px, py, 4 - jitter, 4 - (jitter ? 1 : 0), stones[Math.floor(rnd() * stones.length)]);
+      R2(ctx, px, py + 3, 3, 1, "rgba(40,30,18,0.35)");
     }
   }
+  R2(ctx, ox, oy, 32, 1, "rgba(30,22,12,0.18)");
+  R2(ctx, ox, oy + 31, 32, 1, "rgba(30,22,12,0.22)");
 }
 function drawTownTree(ctx, ox, oy) {
   R2(ctx, ox + 14, oy + 18, 4, 12, "#4a3320");
@@ -3534,47 +3525,62 @@ function drawTownGate(ctx, ox, oy) {
   PX2(ctx, ox + 15, oy + 11, "#e0bd84");
 }
 function pitchedRoof(ctx, ox, oy, base, hi, dk, part) {
+  ctx.clearRect(ox, oy, 32, 32);
   R2(ctx, ox, oy, 32, 32, base);
-  let startY = 0;
   if (part === "ridge") {
-    R2(ctx, ox, oy, 32, 7, dk);
-    R2(ctx, ox, oy + 6, 32, 1, "rgba(0,0,0,0.35)");
-    R2(ctx, ox, oy + 7, 32, 3, hi);
-    R2(ctx, ox, oy + 10, 32, 1, "rgba(0,0,0,0.30)");
-    startY = 12;
+    R2(ctx, ox, oy, 32, 10, dk);
+    R2(ctx, ox, oy + 8, 32, 6, "rgba(0,0,0,0.22)");
+    R2(ctx, ox, oy + 9, 32, 4, hi);
+    R2(ctx, ox, oy + 9, 32, 1, "rgba(255,255,255,0.18)");
+    R2(ctx, ox, oy + 12, 32, 1, "rgba(0,0,0,0.4)");
+    for (let fx = 6; fx < 28; fx += 10) {
+      R2(ctx, ox + fx, oy + 6, 2, 4, dk);
+      PX2(ctx, ox + fx, oy + 5, hi);
+    }
+  } else if (part === "mid") {
+    R2(ctx, ox, oy, 32, 10, "rgba(0,0,0,0.12)");
+    R2(ctx, ox, oy + 18, 32, 14, "rgba(255,255,255,0.04)");
+  } else {
+    R2(ctx, ox, oy, 32, 18, "rgba(0,0,0,0.10)");
+    R2(ctx, ox, oy + 18, 32, 8, "rgba(255,255,255,0.05)");
   }
-  if (part === "mid") R2(ctx, ox, oy + 20, 32, 12, "rgba(0,0,0,0.05)");
-  if (part === "eave") R2(ctx, ox, oy, 32, 26, "rgba(0,0,0,0.09)");
-  for (let ry = startY; ry < 32; ry += 5) {
+  const startY = part === "ridge" ? 14 : 0;
+  for (let ry = startY; ry < (part === "eave" ? 24 : 32); ry += 4) {
     R2(ctx, ox, oy + ry, 32, 1, dk);
     R2(ctx, ox, oy + ry + 1, 32, 1, hi);
-    const off = (ry / 5 | 0) % 2 ? 4 : 0;
-    for (let sx = -off; sx < 32; sx += 8) {
-      R2(ctx, ox + sx + 7, oy + ry + 1, 1, 4, dk);
-      if (sx + 8 < 32) R2(ctx, ox + sx + 8, oy + ry + 2, 1, 3, hi);
+    const off = (ry / 4 | 0) % 2 ? 3 : 0;
+    for (let sx = -off; sx < 32; sx += 7) {
+      R2(ctx, ox + sx + 6, oy + ry + 1, 1, 3, dk);
+      if (sx + 7 < 32) R2(ctx, ox + sx + 7, oy + ry + 2, 1, 2, hi);
     }
   }
   R2(ctx, ox, oy, 2, 32, hi);
+  R2(ctx, ox + 1, oy, 1, 32, "rgba(255,255,255,0.12)");
   R2(ctx, ox + 30, oy, 2, 32, dk);
+  R2(ctx, ox + 30, oy, 1, 32, "rgba(0,0,0,0.2)");
   if (part === "eave") {
-    R2(ctx, ox, oy + 26, 32, 2, dk);
-    R2(ctx, ox, oy + 26, 32, 1, hi);
-    R2(ctx, ox, oy + 29, 32, 2, "rgba(16,10,6,0.35)");
+    R2(ctx, ox, oy + 24, 32, 4, "#4a3420");
+    R2(ctx, ox, oy + 24, 32, 1, "#7a5830");
+    R2(ctx, ox, oy + 27, 32, 1, "#2a1a0c");
+    R2(ctx, ox, oy + 28, 32, 4, "rgba(12,8,4,0.55)");
+    for (let x = 3; x < 30; x += 5) PX2(ctx, ox + x, oy + 28, "#5a7088");
   }
 }
 function thatchRoof(ctx, ox, oy, part) {
   const s0 = "#a3822f", s1 = "#c39a3f", s2 = "#7a5e22", s3 = "#e0c063";
+  ctx.clearRect(ox, oy, 32, 32);
   R2(ctx, ox, oy, 32, 32, s1);
   for (let x = 0; x < 32; x += 2) R2(ctx, ox + x, oy, 1, 32, x % 6 === 0 ? s2 : x % 4 === 0 ? s3 : s0);
   let startY = 2;
   if (part === "ridge") {
-    R2(ctx, ox, oy, 32, 8, s2);
-    R2(ctx, ox, oy + 7, 32, 3, "#6e4a24");
-    R2(ctx, ox, oy + 7, 32, 1, s3);
+    R2(ctx, ox, oy, 32, 10, s2);
+    R2(ctx, ox, oy + 8, 32, 3, "#5a3c18");
+    R2(ctx, ox, oy + 8, 32, 1, s3);
     startY = 12;
   }
-  if (part === "eave") R2(ctx, ox, oy, 32, 22, "rgba(0,0,0,0.08)");
-  for (let ry = startY; ry < 32; ry += 7) {
+  if (part === "mid") R2(ctx, ox, oy + 20, 32, 12, "rgba(0,0,0,0.06)");
+  if (part === "eave") R2(ctx, ox, oy, 32, 20, "rgba(0,0,0,0.10)");
+  for (let ry = startY; ry < (part === "eave" ? 22 : 32); ry += 6) {
     R2(ctx, ox, oy + ry, 32, 2, "rgba(40,26,10,0.45)");
     R2(ctx, ox, oy + ry + 2, 32, 1, s3);
   }
@@ -3582,11 +3588,11 @@ function thatchRoof(ctx, ox, oy, part) {
   R2(ctx, ox + 30, oy, 2, 32, s2);
   if (part === "eave") {
     for (let x = 0; x < 32; x += 3) {
-      const h = 4 + x * 7 % 4;
+      const h = 5 + x * 7 % 4;
       R2(ctx, ox + x, oy + 27 - h, 3, h, s0);
       R2(ctx, ox + x, oy + 27 - h, 3, 1, s3);
     }
-    R2(ctx, ox, oy + 29, 32, 3, "rgba(16,10,6,0.5)");
+    R2(ctx, ox, oy + 28, 32, 4, "rgba(16,10,6,0.55)");
   }
 }
 function drawHouseRoofRed(ctx, ox, oy) {
@@ -3702,86 +3708,104 @@ function drawShopSign(ctx, ox, oy, glyph) {
 }
 function drawHouseDoor(ctx, ox, oy) {
   drawHouseBase(ctx, ox, oy);
-  const st = "#8a8276", stHi = "#a8a092", stDk = "#5f584e", recess = "#241a0e";
-  const wood = "#5a3a1c", woodHi = "#6e4a24", woodDk = "#3a2410";
-  R2(ctx, ox + 5, oy + 10, 6, 3, st);
-  R2(ctx, ox + 21, oy + 10, 6, 3, st);
-  R2(ctx, ox + 8, oy + 8, 16, 4, stHi);
-  R2(ctx, ox + 4, oy + 12, 24, 20, recess);
-  R2(ctx, ox + 5, oy + 13, 22, 18, wood);
-  R2(ctx, ox + 5, oy + 13, 5, 18, woodHi);
-  for (const px of [10, 14, 18, 22]) R2(ctx, ox + px, oy + 13, 1, 18, woodDk);
-  R2(ctx, ox + 5, oy + 13, 22, 2, "#7a5128");
-  R2(ctx, ox + 5, oy + 20, 22, 3, "#3a3f4a");
-  R2(ctx, ox + 5, oy + 27, 22, 3, "#3a3f4a");
-  R2(ctx, ox + 5, oy + 20, 22, 1, "#5a626e");
-  PX2(ctx, ox + 23, oy + 24, "#cfa64e");
+  const st = "#8a8276", stHi = "#a8a092", stDk = "#5f584e", recess = "#1a120a";
+  const wood = "#5a3a1c", woodHi = "#7a5128", woodDk = "#3a2410";
+  R2(ctx, ox + 6, oy + 6, 5, 6, st);
+  R2(ctx, ox + 21, oy + 6, 5, 6, st);
+  R2(ctx, ox + 7, oy + 4, 18, 5, stHi);
+  R2(ctx, ox + 7, oy + 4, 18, 1, "#c8c0b0");
+  R2(ctx, ox + 7, oy + 8, 18, 1, stDk);
+  R2(ctx, ox + 8, oy + 9, 16, 19, recess);
+  R2(ctx, ox + 9, oy + 10, 14, 17, wood);
+  R2(ctx, ox + 9, oy + 10, 3, 17, woodHi);
+  for (const px of [12, 16, 19]) R2(ctx, ox + px, oy + 10, 1, 17, woodDk);
+  R2(ctx, ox + 9, oy + 15, 14, 2, "#3a3f4a");
+  R2(ctx, ox + 9, oy + 22, 14, 2, "#3a3f4a");
+  R2(ctx, ox + 9, oy + 15, 14, 1, "#5a626e");
+  PX2(ctx, ox + 20, oy + 18, "#cfa64e");
+  R2(ctx, ox + 8, oy + 27, 16, 3, st);
+  R2(ctx, ox + 7, oy + 29, 18, 2, stDk);
+  R2(ctx, ox + 8, oy + 27, 16, 1, stHi);
 }
 function drawHouseWall(ctx, ox, oy) {
-  R2(ctx, ox, oy, 32, 32, "#d3c19a");
+  R2(ctx, ox, oy, 32, 32, "#d8c6a0");
   for (const [x, y, c] of [
-    [6, 5, "#c4b088"],
-    [23, 7, "#c4b088"],
-    [10, 20, "#e0cfa4"],
-    [19, 25, "#c4b088"],
-    [27, 17, "#e0cfa4"],
-    [4, 28, "#c4b088"],
-    [29, 3, "#c4b088"],
-    [2, 13, "#c4b088"],
-    [26, 27, "#e0cfa4"]
+    [5, 4, "#c9b58c"],
+    [22, 6, "#c9b58c"],
+    [9, 18, "#e8d8b0"],
+    [18, 24, "#c9b58c"],
+    [26, 14, "#e8d8b0"],
+    [3, 27, "#c9b58c"],
+    [28, 3, "#c9b58c"],
+    [12, 12, "#e0cfa4"]
   ]) PX2(ctx, ox + x, oy + y, c);
-  R2(ctx, ox + 15, oy, 2, 32, "#6e4a24");
-  R2(ctx, ox + 15, oy, 1, 32, "rgba(138,97,50,0.7)");
-  R2(ctx, ox + 16, oy, 1, 32, "rgba(58,36,16,0.6)");
+  R2(ctx, ox + 14, oy, 4, 32, "#6e4a24");
+  R2(ctx, ox + 14, oy, 1, 32, "#8a6132");
+  R2(ctx, ox + 17, oy, 1, 32, "#42301a");
+  R2(ctx, ox, oy + 14, 32, 3, "#6e4a24");
+  R2(ctx, ox, oy + 14, 32, 1, "#8a6132");
+  R2(ctx, ox, oy + 16, 32, 1, "#42301a");
 }
 function drawHousePost(ctx, ox, oy) {
-  drawHouseWall(ctx, ox, oy);
-  R2(ctx, ox + 12, oy, 9, 32, "#6e4a24");
-  R2(ctx, ox + 12, oy, 2, 32, "#8a6132");
-  R2(ctx, ox + 19, oy, 2, 32, "#42301a");
-  PX2(ctx, ox + 16, oy + 7, "#3a2410");
-  PX2(ctx, ox + 16, oy + 24, "#3a2410");
+  R2(ctx, ox, oy, 32, 32, "#d8c6a0");
+  for (const [x, y] of [[6, 5], [24, 20], [10, 26]]) PX2(ctx, ox + x, oy + y, "#c9b58c");
+  R2(ctx, ox + 10, oy, 12, 32, "#6e4a24");
+  R2(ctx, ox + 10, oy, 3, 32, "#8a6132");
+  R2(ctx, ox + 19, oy, 3, 32, "#42301a");
+  for (let i = 0; i < 10; i++) R2(ctx, ox + 4 + i, oy + 8 + i, 3, 2, "#5a3a1c");
+  R2(ctx, ox + 4, oy + 8, 12, 2, "#6e4a24");
+  PX2(ctx, ox + 15, oy + 12, "#3a2410");
+  PX2(ctx, ox + 15, oy + 22, "#3a2410");
 }
 function drawHouseBeam(ctx, ox, oy) {
   drawHouseWall(ctx, ox, oy);
-  R2(ctx, ox, oy, 32, 1, "rgba(18,11,6,0.35)");
-  R2(ctx, ox, oy + 1, 32, 3, "#6e4a24");
-  R2(ctx, ox, oy + 1, 32, 1, "#8a6132");
-  R2(ctx, ox, oy + 3, 32, 1, "#42301a");
+  R2(ctx, ox, oy, 32, 4, "rgba(12,8,4,0.45)");
+  R2(ctx, ox, oy + 3, 32, 5, "#5a3a1c");
+  R2(ctx, ox, oy + 3, 32, 1, "#8a6132");
+  R2(ctx, ox, oy + 7, 32, 1, "#3a2410");
+  for (let x = 4; x < 30; x += 7) PX2(ctx, ox + x, oy + 5, "#3a2410");
 }
 function drawHouseBase(ctx, ox, oy) {
-  drawHouseWall(ctx, ox, oy);
-  R2(ctx, ox, oy + 20, 32, 12, "#8a8276");
-  R2(ctx, ox, oy + 20, 32, 1, "#a8a092");
-  for (let i = 0; i < 32; i += 8) R2(ctx, ox + i, oy + 20, 1, 12, "#5f584e");
-  R2(ctx, ox, oy + 27, 32, 1, "#5f584e");
-  R2(ctx, ox + 3, oy + 23, 4, 2, "#7a7268");
-  R2(ctx, ox + 24, oy + 25, 5, 2, "#7a7268");
+  R2(ctx, ox, oy, 32, 16, "#d8c6a0");
+  for (const [x, y] of [[5, 3], [20, 8], [12, 12]]) PX2(ctx, ox + x, oy + y, "#c9b58c");
+  R2(ctx, ox + 14, oy, 4, 16, "#6e4a24");
+  R2(ctx, ox + 14, oy, 1, 16, "#8a6132");
+  R2(ctx, ox, oy + 14, 32, 18, "#7a7268");
+  for (let ry = 14; ry < 32; ry += 6) {
+    const off = (ry / 6 | 0) % 2 ? 6 : 0;
+    for (let sx = -off; sx < 32; sx += 12) {
+      R2(ctx, ox + sx, oy + ry, 12, 6, "#8a8276");
+      R2(ctx, ox + sx, oy + ry, 12, 1, "#a8a092");
+      R2(ctx, ox + sx + 11, oy + ry, 1, 6, "#5f584e");
+      R2(ctx, ox + sx, oy + ry + 5, 12, 1, "#5f584e");
+    }
+  }
+  R2(ctx, ox, oy + 14, 32, 1, "#5a3a1c");
+  R2(ctx, ox, oy + 30, 32, 2, "#4a443c");
 }
 function drawHouseWindow(ctx, ox, oy) {
   drawHouseWall(ctx, ox, oy);
-  const fr = "#3a2712", wood = "#6e4a24", glassHi = "#6a90b8";
-  R2(ctx, ox + 1, oy + 2, 4, 22, wood);
-  R2(ctx, ox + 27, oy + 2, 4, 22, wood);
-  R2(ctx, ox + 1, oy + 2, 1, 22, "#8a6132");
-  R2(ctx, ox + 27, oy + 2, 1, 22, "#8a6132");
-  R2(ctx, ox + 1, oy + 1, 30, 25, fr);
-  const g = ctx.createLinearGradient(0, oy + 3, 0, oy + 24);
-  g.addColorStop(0, "#3a5a7a");
-  g.addColorStop(1, "#b89058");
+  const fr = "#3a2712", wood = "#6e4a24", woodHi = "#8a6132";
+  R2(ctx, ox + 5, oy + 6, 4, 16, wood);
+  R2(ctx, ox + 23, oy + 6, 4, 16, wood);
+  R2(ctx, ox + 5, oy + 6, 1, 16, woodHi);
+  R2(ctx, ox + 23, oy + 6, 1, 16, woodHi);
+  R2(ctx, ox + 8, oy + 5, 16, 18, fr);
+  const g = ctx.createLinearGradient(0, oy + 7, 0, oy + 20);
+  g.addColorStop(0, "#4a6a88");
+  g.addColorStop(0.55, "#6a90b0");
+  g.addColorStop(1, "#c4a06a");
   ctx.fillStyle = g;
-  ctx.fillRect(ox + 2, oy + 3, 28, 21);
-  R2(ctx, ox + 2, oy + 3, 14, 8, glassHi);
-  R2(ctx, ox + 14, oy + 3, 2, 21, fr);
-  R2(ctx, ox + 2, oy + 12, 28, 3, fr);
-  R2(ctx, ox + 1, oy + 23, 30, 2, "#8a6132");
-  R2(ctx, ox + 1, oy + 23, 30, 1, "#a8843e");
-  R2(ctx, ox + 2, oy + 25, 28, 4, "#5a3a1c");
-  PX2(ctx, ox + 6, oy + 25, "#c8506a");
-  PX2(ctx, ox + 14, oy + 25, "#e0b24e");
-  PX2(ctx, ox + 22, oy + 25, "#6aa0e0");
-  PX2(ctx, ox + 8, oy + 6, "#c8d8e8");
-  PX2(ctx, ox + 20, oy + 9, "#c8d8e8");
+  ctx.fillRect(ox + 9, oy + 6, 14, 15);
+  R2(ctx, ox + 9, oy + 6, 7, 6, "rgba(180,210,230,0.35)");
+  R2(ctx, ox + 15, oy + 6, 2, 15, fr);
+  R2(ctx, ox + 9, oy + 12, 14, 2, fr);
+  R2(ctx, ox + 8, oy + 20, 16, 2, woodHi);
+  R2(ctx, ox + 8, oy + 21, 16, 1, "#5a3a1c");
+  R2(ctx, ox + 10, oy + 22, 12, 4, "#5a3a1c");
+  PX2(ctx, ox + 12, oy + 23, "#c8506a");
+  PX2(ctx, ox + 15, oy + 22, "#e0b24e");
+  PX2(ctx, ox + 18, oy + 23, "#6aa050");
 }
 function drawWoodFloor(ctx, ox, oy) {
   const tones = ["#6e4a28", "#754f2b", "#67451f", "#714c29"];
@@ -4484,6 +4508,18 @@ function drawMooringPost(ctx, ox, oy) {
 // src/rendering/overworldArt.ts
 var overworldArt_exports = {};
 __export(overworldArt_exports, {
+  drawAerialAdobeA: () => drawAerialAdobeA,
+  drawAerialAdobeB: () => drawAerialAdobeB,
+  drawAerialCottageBlue: () => drawAerialCottageBlue,
+  drawAerialCottageGreen: () => drawAerialCottageGreen,
+  drawAerialCottageRed: () => drawAerialCottageRed,
+  drawAerialCottageTeak: () => drawAerialCottageTeak,
+  drawAerialGate: () => drawAerialGate,
+  drawAerialHall: () => drawAerialHall,
+  drawAerialSandgate: () => drawAerialSandgate,
+  drawAerialSandwall: () => drawAerialSandwall,
+  drawAerialTemple: () => drawAerialTemple,
+  drawAerialWall: () => drawAerialWall,
   drawBoar: () => drawBoar,
   drawBoulder: () => drawBoulder,
   drawCaveEntrance: () => drawCaveEntrance,
@@ -4505,6 +4541,7 @@ __export(overworldArt_exports, {
   drawSignpost: () => drawSignpost,
   drawStandingStone: () => drawStandingStone,
   drawSwampCypress: () => drawSwampCypress,
+  drawWardGate: () => drawWardGate,
   drawWildflowers: () => drawWildflowers
 });
 function R3(ctx, x, y, w, h, color) {
@@ -4682,6 +4719,45 @@ function drawObelisk(ctx, ox, oy) {
   PX3(ctx, ox + 14, oy + 28, "#a85cff");
   R3(ctx, ox + 8, oy + 44, 16, 4, "#2a2620");
 }
+function drawWardGate(ctx, ox, oy) {
+  const stone = "#4a4456", stoneLit = "#5f5870", stoneDk = "#2b2730";
+  for (const sx of [3, 23]) {
+    R3(ctx, ox + sx, oy + 8, 6, 34, stoneDk);
+    R3(ctx, ox + sx + 1, oy + 8, 4, 34, stone);
+    R3(ctx, ox + sx + 1, oy + 8, 2, 34, stoneLit);
+    ctx.fillStyle = stoneDk;
+    ctx.beginPath();
+    ctx.moveTo(ox + sx, oy + 8);
+    ctx.lineTo(ox + sx + 3, oy + 4);
+    ctx.lineTo(ox + sx + 6, oy + 8);
+    ctx.closePath();
+    ctx.fill();
+    PX3(ctx, ox + sx + 2, oy + 16, "#bb78ff");
+    PX3(ctx, ox + sx + 3, oy + 22, "#a85cff");
+    PX3(ctx, ox + sx + 2, oy + 30, "#cf9bff");
+  }
+  for (let y = 10; y < 42; y += 1) {
+    const a = 0.16 + 0.14 * Math.sin(y * 0.9);
+    ctx.fillStyle = `rgba(168,92,255,${a.toFixed(3)})`;
+    ctx.fillRect(ox + 9, oy + y, 14, 1);
+  }
+  for (let y = 12; y < 40; y += 4) {
+    PX3(ctx, ox + 11, oy + y, "#d7b6ff");
+    PX3(ctx, ox + 20, oy + y + 2, "#d7b6ff");
+  }
+  R3(ctx, ox + 13, oy + 22, 6, 4, "rgba(191,120,255,0.55)");
+  PX3(ctx, ox + 15, oy + 23, "#f0e0ff");
+  PX3(ctx, ox + 16, oy + 23, "#f0e0ff");
+  PX3(ctx, ox + 15, oy + 24, "#8a4fd0");
+  PX3(ctx, ox + 16, oy + 24, "#8a4fd0");
+  for (let x = 10; x < 22; x += 2) {
+    PX3(ctx, ox + x, oy + 34, "#6a6270");
+    PX3(ctx, ox + x + 1, oy + 35, "#454050");
+  }
+  R3(ctx, ox + 6, oy + 7, 20, 3, stoneDk);
+  R3(ctx, ox + 6, oy + 7, 20, 1, stoneLit);
+  R3(ctx, ox + 6, oy + 43, 20, 4, "#242029");
+}
 function drawRuinPillar(ctx, ox, oy) {
   const a = "#9a8f76", b = "#7d735c", c = "#b6ab90";
   R3(ctx, ox + 10, oy + 6, 12, 22, b);
@@ -4809,6 +4885,121 @@ function drawCrow(ctx, ox, oy) {
   R3(ctx, ox + 6, oy + 6, 4, 1, hi);
   R3(ctx, ox + 4, oy + 8, 2, 1, b);
   PX3(ctx, ox + 12, oy + 6, "#caa23a");
+}
+function aerialPitchRoof(ctx, ox, oy, base, hi, dk) {
+  R3(ctx, ox + 7, oy + 24, 20, 3, "rgba(0,0,0,0.28)");
+  R3(ctx, ox + 5, oy + 8, 22, 17, dk);
+  R3(ctx, ox + 5, oy + 8, 22, 9, base);
+  R3(ctx, ox + 5, oy + 8, 22, 1, hi);
+  R3(ctx, ox + 5, oy + 16, 22, 1, "#00000040");
+  for (let x = 7; x < 26; x += 3) {
+    PX3(ctx, ox + x, oy + 11, hi);
+    PX3(ctx, ox + x + 1, oy + 20, dk);
+  }
+  R3(ctx, ox + 5, oy + 8, 1, 17, hi);
+  R3(ctx, ox + 26, oy + 8, 1, 17, "#00000030");
+  R3(ctx, ox + 20, oy + 4, 3, 5, "#4a3628");
+  R3(ctx, ox + 20, oy + 4, 3, 1, "#6a5038");
+}
+function drawAerialCottageRed(ctx, ox, oy) {
+  aerialPitchRoof(ctx, ox, oy, "#b0452f", "#d9694a", "#6e2418");
+}
+function drawAerialCottageBlue(ctx, ox, oy) {
+  aerialPitchRoof(ctx, ox, oy, "#3d5b88", "#5f83bb", "#243a5c");
+}
+function drawAerialCottageTeak(ctx, ox, oy) {
+  aerialPitchRoof(ctx, ox, oy, "#7a5228", "#a0743c", "#472c12");
+}
+function drawAerialCottageGreen(ctx, ox, oy) {
+  aerialPitchRoof(ctx, ox, oy, "#3f6f3a", "#5fa055", "#254422");
+}
+function drawAerialHall(ctx, ox, oy) {
+  R3(ctx, ox + 3, oy + 26, 26, 3, "rgba(0,0,0,0.3)");
+  R3(ctx, ox + 2, oy + 6, 28, 21, "#5a3e22");
+  R3(ctx, ox + 2, oy + 6, 28, 11, "#7a5230");
+  R3(ctx, ox + 2, oy + 6, 28, 1, "#9a6c40");
+  R3(ctx, ox + 2, oy + 16, 28, 1, "#00000045");
+  for (let x = 4; x < 29; x += 4) {
+    PX3(ctx, ox + x, oy + 10, "#9a6c40");
+    PX3(ctx, ox + x + 1, oy + 21, "#472c12");
+  }
+  R3(ctx, ox + 2, oy + 6, 1, 21, "#9a6c40");
+  R3(ctx, ox + 29, oy + 6, 1, 21, "#00000030");
+  R3(ctx, ox + 15, oy - 1, 1, 8, "#3a2c1a");
+  R3(ctx, ox + 16, oy, 6, 4, "#b0452f");
+  R3(ctx, ox + 16, oy, 6, 1, "#d9694a");
+  PX3(ctx, ox + 18, oy + 1, "#ffd24a");
+}
+function drawAerialWall(ctx, ox, oy, sand = false) {
+  const s0 = sand ? "#b89a62" : "#7a7062", s1 = sand ? "#d4b878" : "#9a9082", s2 = sand ? "#8a6d3e" : "#524a40";
+  R3(ctx, ox + 4, oy + 22, 26, 3, "rgba(0,0,0,0.28)");
+  R3(ctx, ox + 4, oy + 10, 24, 13, s0);
+  R3(ctx, ox + 4, oy + 10, 24, 2, s1);
+  R3(ctx, ox + 4, oy + 14, 24, 5, s2);
+  for (let x = 5; x < 27; x += 4) R3(ctx, ox + x, oy + 10, 2, 2, s1);
+  R3(ctx, ox + 4, oy + 21, 24, 2, s2);
+}
+function drawAerialSandwall(ctx, ox, oy) {
+  drawAerialWall(ctx, ox, oy, true);
+}
+function drawAerialGate(ctx, ox, oy, sand = false) {
+  const s0 = sand ? "#b89a62" : "#7a7062", s1 = sand ? "#d4b878" : "#9a9082", s2 = sand ? "#8a6d3e" : "#524a40";
+  R3(ctx, ox + 2, oy + 24, 28, 3, "rgba(0,0,0,0.3)");
+  for (const tx of [2, 22]) {
+    R3(ctx, ox + tx, oy + 6, 8, 19, s0);
+    R3(ctx, ox + tx, oy + 6, 8, 2, s1);
+    for (let mx = 0; mx < 8; mx += 3) R3(ctx, ox + tx + mx, oy + 6, 2, 2, s1);
+    R3(ctx, ox + tx + 6, oy + 8, 2, 15, s2);
+  }
+  R3(ctx, ox + 10, oy + 12, 12, 13, s2);
+  R3(ctx, ox + 12, oy + 14, 8, 11, "#1a140c");
+  R3(ctx, ox + 10, oy + 11, 12, 2, s1);
+  R3(ctx, ox + 5, oy + 3, 3, 3, sand ? "#c58a1e" : "#b0452f");
+  R3(ctx, ox + 24, oy + 3, 3, 3, sand ? "#c58a1e" : "#b0452f");
+}
+function drawAerialSandgate(ctx, ox, oy) {
+  drawAerialGate(ctx, ox, oy, true);
+}
+function aerialFlatRoof(ctx, ox, oy, dome) {
+  const s0 = "#c9a86a", s1 = "#ddc084", s2 = "#a8814c", s3 = "#8a6638";
+  R3(ctx, ox + 6, oy + 24, 22, 3, "rgba(0,0,0,0.28)");
+  R3(ctx, ox + 5, oy + 7, 23, 18, s2);
+  R3(ctx, ox + 5, oy + 7, 23, 13, s0);
+  R3(ctx, ox + 5, oy + 7, 23, 2, s1);
+  R3(ctx, ox + 5, oy + 7, 2, 13, s1);
+  R3(ctx, ox + 26, oy + 7, 2, 13, s3);
+  for (let x = 8; x < 26; x += 4) PX3(ctx, ox + x, oy + 12, s2);
+  R3(ctx, ox + 20, oy + 9, 4, 4, s3);
+  if (dome) {
+    R3(ctx, ox + 10, oy + 4, 9, 7, s0);
+    R3(ctx, ox + 11, oy + 3, 7, 3, s1);
+    R3(ctx, ox + 13, oy + 1, 2, 3, "#b6791e");
+  }
+}
+function drawAerialAdobeA(ctx, ox, oy) {
+  aerialFlatRoof(ctx, ox, oy, false);
+}
+function drawAerialAdobeB(ctx, ox, oy) {
+  aerialFlatRoof(ctx, ox, oy, true);
+}
+function drawAerialTemple(ctx, ox, oy) {
+  const s0 = "#c9a86a", s1 = "#ddc084", s2 = "#a8814c", s3 = "#8a6638";
+  R3(ctx, ox + 3, oy + 26, 26, 3, "rgba(0,0,0,0.32)");
+  R3(ctx, ox + 3, oy + 18, 26, 8, s2);
+  R3(ctx, ox + 3, oy + 18, 26, 2, s0);
+  R3(ctx, ox + 7, oy + 12, 18, 7, s2);
+  R3(ctx, ox + 7, oy + 12, 18, 2, s0);
+  R3(ctx, ox + 11, oy + 7, 10, 6, s2);
+  R3(ctx, ox + 11, oy + 7, 10, 2, s1);
+  for (let x = 5; x < 27; x += 4) PX3(ctx, ox + x, oy + 22, s3);
+  R3(ctx, ox + 3, oy + 18, 1, 8, s1);
+  R3(ctx, ox + 28, oy + 18, 1, 8, s3);
+  const g0 = "#e8a92a", g1 = "#ffd964", g2 = "#b6791e";
+  R3(ctx, ox + 12, oy + 1, 8, 7, g0);
+  R3(ctx, ox + 13, oy, 6, 8, g1);
+  R3(ctx, ox + 12, oy + 6, 8, 1, g2);
+  PX3(ctx, ox + 15, oy + 3, "#fff0b0");
+  for (const [rx, ry] of [[10, 3], [21, 3], [11, 0], [20, 0]]) PX3(ctx, ox + rx, oy + ry, g1);
 }
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {

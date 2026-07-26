@@ -5,22 +5,33 @@ import type { HudRegistryData, HudHeroSlot, HudPartyGroup } from '../core/types'
 
 const W = HUD_PANEL_WIDTH;
 const PAD = 10;
+const INNER_W = W - PAD * 2;
 const PARTY_TOP = 50;
-// Leave more room below generators for the controls box (keyboard list is tall).
-const PARTY_MAX_H = 228;
-const GEN_TOP = PARTY_TOP + PARTY_MAX_H + 10;
-const GEN_BOX = 5;
-const GEN_GAP = 8;
-const CTRL_TOP = GEN_TOP + 34;
+// Leave room below generators for the controls box (keyboard list is tall).
+const PARTY_MAX_H = 220;
+const GEN_TOP = PARTY_TOP + PARTY_MAX_H + 8;
+// Generator dots sit on their own row under the label so they never clip the frame.
+const GEN_BOX = 7;
+const GEN_GAP = 3;
+const GEN_SECTION_H = 42;
+const CTRL_TOP = GEN_TOP + GEN_SECTION_H;
 const CTRL_TITLE_PAD = 17; // space for "CONTROLS" header before the first line
 const CTRL_PAD_BOT = 8;
-const CTRL_H_MIN = 108;
-const QUEST_GAP = 6;
-const PANEL_INNER_BOTTOM = 528;
+const CTRL_H_MIN = 100;
+const QUEST_GAP = 5;
+/** Hard floor for objective block (label + ~2 lines + beat). */
+const QUEST_RESERVE = 78;
+/** Inner bottom of the HUD panel content (above frame flourish). */
+const PANEL_INNER_BOTTOM = 522;
 const MAIN_H_BASE = 52;
 const PET_H_BASE = 17;
 const GROUP_GAP = 3;
 const PET_INDENT = 10;
+
+/** Display / body faces: titles keep the manuscript look; body stays sharp at small sizes. */
+const FONT_TITLE = 'MedievalSharp, Georgia, serif';
+const FONT_BODY = 'Georgia, "Trebuchet MS", serif';
+const DPI = typeof window !== 'undefined' ? Math.min(2, Math.max(1, window.devicePixelRatio || 1)) : 2;
 
 const CLASS_ICONS: Record<string, string> = {
   vanguard: 'icon-sword',
@@ -72,57 +83,101 @@ export class GauntletHUD {
   }
 
   private buildChrome(): void {
+    // Arcade cabinet side panel: deep navy, hot gold double-frame, neon corner pips.
     const g = this.scene.add.graphics().setDepth(0);
     g.fillStyle(hexNum(C.hudBg), 1);
     g.fillRect(0, 0, W, 540);
+    // inner panel with slight vertical sheen
     g.fillStyle(hexNum(C.hudPanel), 1);
     g.fillRect(4, 4, W - 8, 532);
-    g.lineStyle(2, hexNum(C.hudBorder), 1);
-    g.strokeRect(5, 5, W - 10, 530);
+    g.fillStyle(0xffffff, 0.045);
+    g.fillRect(4, 4, W - 8, 90);
+    g.fillStyle(0xffffff, 0.02);
+    g.fillRect(4, 90, W - 8, 40);
+    // outer gold rail
+    g.lineStyle(3, hexNum(C.hudBorder), 1);
+    g.strokeRect(4, 4, W - 8, 532);
+    // inner dark rail
     g.lineStyle(1, hexNum(C.hudBorderDk), 1);
     g.strokeRect(8, 8, W - 16, 524);
-    g.fillStyle(hexNum(C.ivy), 1);
+    // neon hairline
+    g.lineStyle(1, hexNum(C.hudNeon), 0.45);
+    g.strokeRect(6, 6, W - 12, 528);
+    // corner brackets (arcade cabinet hardware)
+    g.fillStyle(hexNum(C.hudBorder), 1);
     for (const [cx, cy, sx, sy] of [
-      [6, 6, 1, 1],
-      [W - 6, 6, -1, 1],
-      [6, 534, 1, -1],
-      [W - 6, 534, -1, -1],
+      [5, 5, 1, 1],
+      [W - 5, 5, -1, 1],
+      [5, 535, 1, -1],
+      [W - 5, 535, -1, -1],
     ] as [number, number, number, number][]) {
-      g.fillRect(cx, cy, 12 * sx, 3 * sy);
-      g.fillRect(cx, cy, 3 * sx, 12 * sy);
+      g.fillRect(cx, cy, 18 * sx, 3 * sy);
+      g.fillRect(cx, cy, 3 * sx, 18 * sy);
+      g.fillStyle(hexNum(C.hudNeon), 1);
+      g.fillRect(cx + (sx > 0 ? 0 : -5), cy + (sy > 0 ? 0 : -5), 5, 5);
+      g.fillStyle(hexNum(C.ivyHi), 1);
+      g.fillRect(cx + sx * 9, cy + sy * 9, 3, 3);
+      g.fillStyle(hexNum(C.hudBorder), 1);
     }
-    g.lineStyle(1, hexNum(C.hudBorderDk), 1);
-    g.lineBetween(PAD, 46, W - PAD, 46);
+    // title rule with gold caps + neon dots
+    g.lineStyle(1, hexNum(C.hudBorderDk), 0.95);
+    g.lineBetween(PAD + 10, 46, W - PAD - 10, 46);
+    g.fillStyle(hexNum(C.hudBorder), 1);
+    g.fillRect(PAD, 43, 8, 5);
+    g.fillRect(W - PAD - 8, 43, 8, 5);
+    g.fillStyle(hexNum(C.hudNeon), 0.85);
+    g.fillRect(PAD + 2, 44, 4, 3);
+    g.fillRect(W - PAD - 6, 44, 4, 3);
     // Controls box is drawn in update() so its height can grow with the binding list.
   }
 
-  private mkText(x: number, y: number, size: number, color: string, opts: Partial<Phaser.Types.GameObjects.Text.TextStyle> = {}): Phaser.GameObjects.Text {
-    return this.scene.add.text(x, y, '', { fontFamily: 'MedievalSharp, "Trebuchet MS", cursive', fontSize: `${size}px`, color, ...opts }).setDepth(8);
+  private mkText(
+    x: number,
+    y: number,
+    size: number,
+    color: string,
+    opts: Partial<Phaser.Types.GameObjects.Text.TextStyle> & { title?: boolean } = {}
+  ): Phaser.GameObjects.Text {
+    const { title, ...style } = opts;
+    // Integer px sizes + higher canvas resolution keep small HUD type crisp.
+    const px = Math.max(9, Math.round(size));
+    const t = this.scene.add
+      .text(x, y, '', {
+        fontFamily: title ? FONT_TITLE : FONT_BODY,
+        fontSize: `${px}px`,
+        color,
+        ...style,
+      })
+      .setDepth(8)
+      .setResolution(DPI);
+    // Soft drop only on titles — body shadows read as fuzz at small sizes.
+    if (title) t.setShadow(0, 1, '#000000', 2, false, true);
+    return t;
   }
 
   private buildText(): void {
-    this.titleText = this.mkText(W / 2, 12, 18, C.hudBorder, { fontStyle: 'bold' }).setOrigin(0.5, 0);
-    this.titleText.setText('STRONGBOW').setShadow(0, 2, '#000', 4);
-    this.levelText = this.mkText(W / 2, 32, 10, C.inkDim).setOrigin(0.5, 0);
-    this.timerText = this.mkText(W - PAD, 12, 10, C.ink).setOrigin(1, 0);
+    this.titleText = this.mkText(W / 2, 12, 17, C.hudBorder, { title: true, fontStyle: 'bold' }).setOrigin(0.5, 0);
+    this.titleText.setText('STRONGBOW');
+    this.levelText = this.mkText(W / 2, 32, 10, '#a8b0c8').setOrigin(0.5, 0);
+    this.timerText = this.mkText(W - PAD, 12, 11, '#e8ecf4').setOrigin(1, 0);
 
-    this.genText = this.mkText(PAD, GEN_TOP, 11, C.ink, { fontStyle: 'bold' });
-    this.bossText = this.mkText(PAD, GEN_TOP + 14, 10, C.hpLow, { fontStyle: 'bold' });
+    this.genText = this.mkText(PAD, GEN_TOP, 11, '#e8ecf4', { fontStyle: 'bold' });
+    this.bossText = this.mkText(PAD, GEN_TOP + 28, 10, C.hpLow, { fontStyle: 'bold' });
 
-    this.ctrlTitle = this.mkText(PAD + 6, CTRL_TOP + 4, 9, C.hudBorder, { fontStyle: 'bold' });
+    this.ctrlTitle = this.mkText(PAD + 6, CTRL_TOP + 4, 10, C.hudBorder, { title: true, fontStyle: 'bold' });
     this.ctrlTitle.setText('CONTROLS');
-    this.ctrlText = this.mkText(PAD + 6, CTRL_TOP + CTRL_TITLE_PAD, 9.5, C.inkDim, { lineSpacing: 2 });
+    this.ctrlText = this.mkText(PAD + 6, CTRL_TOP + CTRL_TITLE_PAD, 10, '#c4cad8', { lineSpacing: 3 });
 
-    this.questLabel = this.mkText(PAD, CTRL_TOP + CTRL_H_MIN + QUEST_GAP, 8.5, C.hudBorder, { fontStyle: 'bold' });
+    this.questLabel = this.mkText(PAD, CTRL_TOP + CTRL_H_MIN + QUEST_GAP, 10, C.hudBorder, { title: true, fontStyle: 'bold' });
     this.questLabel.setText('OBJECTIVE');
-    this.questText = this.mkText(PAD, CTRL_TOP + CTRL_H_MIN + QUEST_GAP + 12, 9.5, '#cdb88a', {
-      wordWrap: { width: W - PAD * 2 },
-      lineSpacing: 1,
+    this.questText = this.mkText(PAD, CTRL_TOP + CTRL_H_MIN + QUEST_GAP + 12, 11, '#e0d0a8', {
+      wordWrap: { width: INNER_W, useAdvancedWrap: true },
+      lineSpacing: 2,
       fontStyle: 'italic',
     });
-    this.questBeatText = this.mkText(PAD, CTRL_TOP + CTRL_H_MIN + QUEST_GAP + 12, 9, '#b79bff', {
-      wordWrap: { width: W - PAD * 2 },
-      lineSpacing: 1,
+    this.questBeatText = this.mkText(PAD, CTRL_TOP + CTRL_H_MIN + QUEST_GAP + 12, 10, '#c9b0ff', {
+      wordWrap: { width: INNER_W, useAdvancedWrap: true },
+      lineSpacing: 2,
       fontStyle: 'italic',
     });
   }
@@ -198,42 +253,85 @@ export class GauntletHUD {
       row.name.setText('');
     }
 
-    this.genText.setText(`GENERATORS ${data.generatorsTotal - data.generatorsLeft}/${data.generatorsTotal}`);
-    const genBoxY = GEN_TOP + 11;
-    const genBoxX0 = PAD + 108;
-    for (let k = 0; k < data.generatorsTotal; k++) {
-      const col = k % 8;
-      const row = Math.floor(k / 8);
-      const px = genBoxX0 + col * (GEN_BOX + GEN_GAP);
-      const py = genBoxY + row * (GEN_BOX + GEN_GAP);
-      const destroyed = k < data.generatorsTotal - data.generatorsLeft;
-      g.fillStyle(destroyed ? hexNum(C.hpFull) : hexNum(C.inkDim), destroyed ? 1 : 0.35);
+    const destroyedN = data.generatorsTotal - data.generatorsLeft;
+    this.genText.setText(`GENERATORS  ${destroyedN}/${data.generatorsTotal}`);
+    // Full-width grid under the label — compute columns so the last box stays inside the panel.
+    const cell = GEN_BOX + GEN_GAP;
+    const maxCols = Math.max(1, Math.floor((INNER_W + GEN_GAP) / cell));
+    const total = Math.max(0, data.generatorsTotal);
+    const cols = Math.min(maxCols, Math.max(1, total || 1));
+    const genBoxY = GEN_TOP + 15;
+    for (let k = 0; k < total; k++) {
+      const col = k % cols;
+      const row = Math.floor(k / cols);
+      const px = PAD + col * cell;
+      const py = genBoxY + row * cell;
+      // Safety: never draw past the inner right edge
+      if (px + GEN_BOX > W - PAD) continue;
+      const destroyed = k < destroyedN;
+      g.fillStyle(destroyed ? hexNum(C.hpFull) : 0x2a3048, destroyed ? 1 : 0.55);
       g.fillRect(px, py, GEN_BOX, GEN_BOX);
+      if (destroyed) {
+        g.fillStyle(0xffffff, 0.35);
+        g.fillRect(px + 1, py + 1, GEN_BOX - 2, 2);
+        g.lineStyle(1, 0xd0ffd8, 0.85);
+        g.strokeRect(px, py, GEN_BOX, GEN_BOX);
+      } else {
+        g.lineStyle(1, hexNum(C.hudBorderDk), 0.5);
+        g.strokeRect(px, py, GEN_BOX, GEN_BOX);
+      }
     }
+    const genRows = total > 0 ? Math.ceil(total / cols) : 1;
+    this.bossText.setY(genBoxY + genRows * cell + 2);
     this.bossText.setText(data.bossAlive ? 'WARDEN ALIVE' : data.generatorsLeft <= 0 ? 'EXIT OPEN' : '');
 
-    // Size the controls box to the binding list so the last line sits inside the outline.
+    // Size the controls box to the binding list, always leaving room for OBJECTIVE.
+    this.ctrlText.setFixedSize(0, 0);
     this.ctrlText.setText((data.controls || []).join('\n'));
     const ctrlTextH = Math.max(this.ctrlText.height || 0, 12);
-    const ctrlH = Math.min(
-      PANEL_INNER_BOTTOM - CTRL_TOP - 56, // reserve room for OBJECTIVE
-      Math.max(CTRL_H_MIN, CTRL_TITLE_PAD + ctrlTextH + CTRL_PAD_BOT)
-    );
-    g.fillStyle(0x05060a, 0.6);
+    const ctrlHMax = Math.max(72, PANEL_INNER_BOTTOM - CTRL_TOP - QUEST_RESERVE);
+    const ctrlH = Math.min(ctrlHMax, Math.max(CTRL_H_MIN, CTRL_TITLE_PAD + ctrlTextH + CTRL_PAD_BOT));
+    // If the full list is taller than the box, crop the text area (still readable top lines).
+    const ctrlTextMaxH = Math.max(24, ctrlH - CTRL_TITLE_PAD - CTRL_PAD_BOT);
+    this.ctrlText.setFixedSize(INNER_W - 12, Math.min(ctrlTextH, ctrlTextMaxH));
+
+    g.fillStyle(0x05060a, 0.72);
     g.fillRoundedRect(PAD, CTRL_TOP, W - PAD * 2, ctrlH, 4);
-    g.lineStyle(1, hexNum(C.hudBorderDk), 0.7);
+    g.lineStyle(1.5, hexNum(C.hudBorderDk), 0.85);
     g.strokeRoundedRect(PAD, CTRL_TOP, W - PAD * 2, ctrlH, 4);
+    g.lineStyle(1, hexNum(C.hudNeon), 0.22);
+    g.strokeRoundedRect(PAD + 1, CTRL_TOP + 1, W - PAD * 2 - 2, ctrlH - 2, 3);
     this.ctrlTitle.setY(CTRL_TOP + 4);
     this.ctrlText.setY(CTRL_TOP + CTRL_TITLE_PAD);
 
-    // OBJECTIVE always sits below the controls box (no overlap with the last key line).
+    // OBJECTIVE sits below controls and is hard-clamped to the panel floor.
     const questY = CTRL_TOP + ctrlH + QUEST_GAP;
+    const questLabelH = 12;
+    const questBodyY = questY + questLabelH;
+    const questMaxH = Math.max(20, PANEL_INNER_BOTTOM - questBodyY);
     this.questLabel.setY(questY);
-    this.questText.setY(questY + 12);
+    this.questText.setY(questBodyY);
+    // Measure natural wrap height, then crop if it would spill past the frame.
+    this.questText.setFixedSize(0, 0);
+    this.questText.setWordWrapWidth(INNER_W, true);
     this.questText.setText(data.quest || '');
+    const naturalH = Math.max(this.questText.height || 12, 12);
+    const bodyH = Math.min(naturalH, questMaxH);
+    this.questText.setFixedSize(INNER_W, bodyH);
+
     if (data.questBeat) {
-      this.questBeatText.setText(`✻ ${data.questBeat}`).setVisible(true);
-      this.questBeatText.setY(questY + 12 + this.questText.height + 4);
+      const beatY = questBodyY + bodyH + 2;
+      if (beatY + 12 <= PANEL_INNER_BOTTOM) {
+        this.questBeatText.setFixedSize(0, 0);
+        this.questBeatText.setWordWrapWidth(INNER_W, true);
+        this.questBeatText.setText(`✻ ${data.questBeat}`).setVisible(true);
+        this.questBeatText.setY(beatY);
+        const beatMax = Math.max(12, PANEL_INNER_BOTTOM - beatY);
+        const beatH = Math.min(this.questBeatText.height || 12, beatMax);
+        this.questBeatText.setFixedSize(INNER_W, beatH);
+      } else {
+        this.questBeatText.setText('').setVisible(false);
+      }
     } else {
       this.questBeatText.setText('').setVisible(false);
     }
@@ -242,10 +340,44 @@ export class GauntletHUD {
   private drawBubble(g: Phaser.GameObjects.Graphics, x: number, y: number, w: number, h: number, accent: number, alive: boolean): void {
     g.fillStyle(hexNum(C.hudPanel2), 1);
     g.fillRoundedRect(x, y, w, h - 2, 3);
-    g.lineStyle(1, hexNum(C.hudBorderDk), 0.7);
+    // top sheen
+    g.fillStyle(0xffffff, alive ? 0.06 : 0.02);
+    g.fillRoundedRect(x + 1, y + 1, w - 2, Math.max(4, Math.floor((h - 2) * 0.35)), 2);
+    g.lineStyle(1, hexNum(C.hudBorderDk), 0.85);
     g.strokeRoundedRect(x, y, w, h - 2, 3);
-    g.fillStyle(accent, alive ? 1 : 0.3);
+    // class accent bar + soft neon edge
+    g.fillStyle(accent, alive ? 1 : 0.28);
     g.fillRect(x, y, 3, h - 2);
+    if (alive) {
+      g.fillStyle(accent, 0.18);
+      g.fillRect(x + 3, y, 2, h - 2);
+    }
+  }
+
+  /** Arcade status bar: dark well, saturated fill, top highlight stripe. */
+  private drawStatusBar(
+    g: Phaser.GameObjects.Graphics,
+    x: number,
+    y: number,
+    w: number,
+    h: number,
+    ratio: number,
+    fill: number,
+    alpha = 1
+  ): void {
+    const r = Phaser.Math.Clamp(ratio, 0, 1);
+    g.fillStyle(0x000000, 0.62);
+    g.fillRect(x, y, w, h);
+    if (r > 0.01) {
+      g.fillStyle(fill, alpha);
+      g.fillRect(x, y, w * r, h);
+      if (h >= 3) {
+        g.fillStyle(0xffffff, 0.32 * alpha);
+        g.fillRect(x, y, w * r, 1);
+      }
+    }
+    g.lineStyle(1, hexNum(C.hudBorderDk), 0.75);
+    g.strokeRect(x, y, w, h);
   }
 
   private renderMain(
@@ -270,8 +402,8 @@ export class GauntletHUD {
       .setTexture(iconKey)
       .setScale(iconScale);
 
-    const nameSize = Math.max(8, Math.round(11 * scale));
-    const statSize = Math.max(7, Math.round(9 * scale));
+    const nameSize = Math.max(9, Math.round(11 * scale));
+    const statSize = Math.max(8, Math.round(9 * scale));
     const tag = slot.playerNum > 0 ? `P${slot.playerNum}` : 'ALLY';
     const growth = slot.skillPoints + slot.attrPoints;
     row.name
@@ -284,26 +416,19 @@ export class GauntletHUD {
     const barW = w - 14;
     const hpY = y + Math.round(h * 0.42);
     const barH = Math.max(4, Math.round(6 * scale));
-    g.fillStyle(0x000000, 0.5);
-    g.fillRect(barX, hpY, barW, barH);
     const hp = Phaser.Math.Clamp(slot.health / slot.maxHealth, 0, 1);
-    g.fillStyle(hp > 0.5 ? hexNum(C.hpFull) : hp > 0.25 ? hexNum(C.hpMid) : hexNum(C.hpLow), 1);
-    g.fillRect(barX, hpY, barW * hp, barH);
-    g.lineStyle(1, hexNum(C.hudBorderDk), 0.8);
-    g.strokeRect(barX, hpY, barW, barH);
+    const hpCol = hp > 0.5 ? hexNum(C.hpFull) : hp > 0.25 ? hexNum(C.hpMid) : hexNum(C.hpLow);
+    this.drawStatusBar(g, barX, hpY, barW, barH, hp, hpCol);
 
     const mpY = hpY + barH + 2;
     const mpH = Math.max(2, Math.round(3 * scale));
-    g.fillStyle(0x000000, 0.5);
-    g.fillRect(barX, mpY, barW, mpH);
     const mp = slot.maxMana > 0 ? Phaser.Math.Clamp(slot.mana / slot.maxMana, 0, 1) : 0;
-    g.fillStyle(hexNum(C.manaFill), 1);
-    g.fillRect(barX, mpY, barW * mp, mpH);
+    this.drawStatusBar(g, barX, mpY, barW, mpH, mp, hexNum(C.manaFill));
 
     const xpY = mpY + mpH + 1;
     const xp = slot.xpToNext > 0 ? Phaser.Math.Clamp(slot.xp / slot.xpToNext, 0, 1) : 0;
-    g.fillStyle(hexNum(C.xpFill), 0.9);
-    g.fillRect(barX, xpY, barW * xp, Math.max(1, Math.round(2 * scale)));
+    const xpH = Math.max(1, Math.round(2 * scale));
+    this.drawStatusBar(g, barX, xpY, barW, xpH, xp, hexNum(C.xpFill), 0.95);
 
     row.stat
       .setPosition(x + 10, y + h - Math.max(10, Math.round(12 * scale)))
@@ -333,21 +458,18 @@ export class GauntletHUD {
       .setTexture('icon-amulet')
       .setScale(iconScale);
 
-    const nameSize = Math.max(7, Math.round(8 * scale));
+    const nameSize = Math.max(8, Math.round(9 * scale));
     row.name
       .setPosition(x + 20, y + Math.max(2, Math.round((h - nameSize) / 2) - 1))
       .setFontSize(nameSize)
       .setText(`PET - ${slot.name}`)
-      .setColor(slot.alive ? '#b8a8e8' : '#5a6080');
+      .setColor(slot.alive ? '#c8b8f0' : '#6a7088');
 
     const barX = x + w - Math.round(54 * scale);
     const barW = Math.round(48 * scale);
     const barH = Math.max(3, Math.round(4 * scale));
     const barY = y + Math.round((h - barH) / 2);
-    g.fillStyle(0x000000, 0.45);
-    g.fillRect(barX, barY, barW, barH);
     const hp = Phaser.Math.Clamp(slot.health / slot.maxHealth, 0, 1);
-    g.fillStyle(hp > 0.35 ? hexNum(C.hpFull) : hexNum(C.hpLow), 1);
-    g.fillRect(barX, barY, barW * hp, barH);
+    this.drawStatusBar(g, barX, barY, barW, barH, hp, hp > 0.35 ? hexNum(C.hpFull) : hexNum(C.hpLow));
   }
 }

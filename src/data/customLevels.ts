@@ -1,8 +1,8 @@
 import { buildDungeon } from './levelGen';
 
 // Chapters III–X of the Descent into the Undermaw. Each leans on its theme for
-// hazard, enemies, boss, room shapes, decor and set-pieces; only identity, size,
-// difficulty and story beats are specified here. Bosses come from the theme.
+// hazard, enemies, boss, room shapes, decor and set-pieces; identity, size,
+// progressive difficulty and story beats are specified here.
 
 // ---- Chapter III — The Frozen Cathedral ----
 export const LEVEL_FROST = buildDungeon({
@@ -14,8 +14,8 @@ export const LEVEL_FROST = buildDungeon({
   cols: 6,
   rows: 5,
   theme: 'frost',
-  chestItems: ['shade_cloak', 'oak_staff', 'warding_ring'],
-  maxGenerators: 10,
+  chestItems: ['shade_cloak', 'oak_staff', 'warding_ring', 'scroll_mending'],
+  maxGenerators: 9,
   chapter: 'Chapter III',
   subtitle: 'Frostbound nave of the shattered choir.',
   story:
@@ -32,8 +32,8 @@ export const LEVEL_TOXIC = buildDungeon({
   cols: 6,
   rows: 5,
   theme: 'toxic',
-  chestItems: ['hunters_bow', 'leather_jerkin', 'amulet_of_focus'],
-  maxGenerators: 10,
+  chestItems: ['hunters_bow', 'leather_jerkin', 'amulet_of_focus', 'health_potion'],
+  maxGenerators: 9,
   chapter: 'Chapter IV',
   subtitle: 'Plague-drowned vaults beneath the city.',
   story:
@@ -50,12 +50,12 @@ export const LEVEL_CLOCKWORK = buildDungeon({
   cols: 6,
   rows: 5,
   theme: 'clockwork',
-  chestItems: ['iron_sword', 'crypt_plate', 'warding_ring'],
-  maxGenerators: 11,
+  chestItems: ['iron_sword', 'crypt_plate', 'warding_ring', 'dungeon_key'],
+  maxGenerators: 10,
   chapter: 'Chapter V',
   subtitle: 'The guarded treasury of gears and greed.',
   story:
-    'A vault of brass and greed bars the way down. Tear through the Clockwork Vault and break Brass Magnus, the final lock on the descent.',
+    'A vault of brass and greed bars the way down. Tear through the Clockwork Vault and break Brass Magnus, the final lock on the High Court’s path.',
 });
 
 // ---- Chapter VI — The Blood Arena ----
@@ -68,12 +68,12 @@ export const LEVEL_ARENA = buildDungeon({
   cols: 6,
   rows: 5,
   theme: 'arena',
-  chestItems: ['ember_blade', 'iron_sword', 'amulet_of_focus'],
-  maxGenerators: 11,
+  chestItems: ['ember_blade', 'iron_sword', 'amulet_of_focus', 'iron_helm'],
+  maxGenerators: 10,
   chapter: 'Chapter VI',
   subtitle: 'Bleed for the roar of the crowd.',
   story:
-    'The hunger built a Blood Arena to feed on the fallen. Win the pit, then put down its Undying Champion before the gate below will open.',
+    'The hunger built a Blood Arena to feed on the fallen. Win the pit, then put down its Undying Champion before the Deep Court’s gate will open.',
 });
 
 // ---- Chapter VII — The Drowned Bog ----
@@ -86,8 +86,8 @@ export const LEVEL_BOG = buildDungeon({
   cols: 6,
   rows: 5,
   theme: 'bog',
-  chestItems: ['hunters_bow', 'crypt_plate', 'amulet_of_focus'],
-  maxGenerators: 11,
+  chestItems: ['hunters_bow', 'crypt_plate', 'amulet_of_focus', 'scroll_renewal'],
+  maxGenerators: 10,
   chapter: 'Chapter VII',
   subtitle: 'The marsh remembers everyone it swallowed.',
   story:
@@ -104,8 +104,8 @@ export const LEVEL_STORM = buildDungeon({
   cols: 6,
   rows: 5,
   theme: 'storm',
-  chestItems: ['shade_cloak', 'oak_staff', 'amulet_of_focus'],
-  maxGenerators: 12,
+  chestItems: ['shade_cloak', 'oak_staff', 'amulet_of_focus', 'warding_ring'],
+  maxGenerators: 11,
   chapter: 'Chapter VIII',
   subtitle: 'Climb into the eye of the endless gale.',
   story:
@@ -122,8 +122,8 @@ export const LEVEL_SHADOW = buildDungeon({
   cols: 6,
   rows: 5,
   theme: 'shadow',
-  chestItems: ['shade_cloak', 'ember_blade', 'amulet_of_focus'],
-  maxGenerators: 12,
+  chestItems: ['shade_cloak', 'ember_blade', 'amulet_of_focus', 'crypt_knife'],
+  maxGenerators: 11,
   chapter: 'Chapter IX',
   subtitle: 'Where the light goes to be eaten.',
   story:
@@ -140,8 +140,8 @@ export const LEVEL_SANCTUM = buildDungeon({
   cols: 6,
   rows: 5,
   theme: 'sanctum',
-  chestItems: ['crypt_plate', 'ember_blade', 'amulet_of_focus'],
-  maxGenerators: 13,
+  chestItems: ['crypt_plate', 'ember_blade', 'amulet_of_focus', 'iron_sword'],
+  maxGenerators: 12,
   chapter: 'Chapter X',
   subtitle: 'The last door before the hunger itself.',
   story:

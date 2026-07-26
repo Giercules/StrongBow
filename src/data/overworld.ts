@@ -122,28 +122,31 @@ export function buildOverworld(): LevelData {
         if ((dx * dx) / (rxr * rxr) + (dy * dy) / (ryr * ryr) <= 1) setT(cx + dx, cy + dy, Tile.WATER);
   }
 
-  // ---- roads converging on the town (drawn as walkable dirt decor) ----
-  const carveRoad = (x0: number, y0: number, x1: number, y1: number) => {
-    let x = x0, y = y0;
-    let guard = 0;
-    while ((x !== x1 || y !== y1) && guard++ < 600) {
-      for (let w = -1; w <= 1; w++) {
-        const tx = Math.abs(x1 - x0) > Math.abs(y1 - y0) ? x : x + w;
-        const ty = Math.abs(x1 - x0) > Math.abs(y1 - y0) ? y + w : y;
-        if (inB(tx, ty) && tiles[ty][tx] !== Tile.WATER && tiles[ty][tx] !== Tile.VOID) {
-          road.add(key(tx, ty));
-          decor.push({ x: tx, y: ty, key: 'road' });
-        }
-      }
-      if (x < x1) x++; else if (x > x1) x--;
-      if (y < y1) y++; else if (y > y1) y--;
+  // ---- roads: consistent width, orthogonal segments first (professional arteries) ----
+  const stampRoad = (tx: number, ty: number) => {
+    if (!inB(tx, ty) || tiles[ty][tx] === Tile.WATER || tiles[ty][tx] === Tile.VOID) return;
+    const k = key(tx, ty);
+    if (road.has(k)) return;
+    road.add(k);
+    decor.push({ x: tx, y: ty, key: 'road' });
+  };
+  /** Axis-aligned L-path (horizontal then vertical) at a fixed width. */
+  const carveRoad = (x0: number, y0: number, x1: number, y1: number, width = 3) => {
+    const half = Math.floor((width - 1) / 2);
+    // east/west leg first for cleaner junctions at town
+    const xStep = x0 <= x1 ? 1 : -1;
+    for (let x = x0; x !== x1 + xStep; x += xStep) {
+      for (let w = -half; w <= half; w++) stampRoad(x, y0 + w);
+    }
+    const yStep = y0 <= y1 ? 1 : -1;
+    for (let y = y0; y !== y1 + yStep; y += yStep) {
+      for (let w = -half; w <= half; w++) stampRoad(x1 + w, y);
     }
   };
-  // Roads on the eastern homelands side (the west road is now the caravan road
-  // over the warded bridge — see below — so nothing else crosses the river).
-  carveRoad(TOWN_X, TOWN_Y, TOWN_X, 4);          // north road
-  carveRoad(TOWN_X, TOWN_Y, TOWN_X, H - 6);      // south road
-  carveRoad(TOWN_X, TOWN_Y, W - 7, TOWN_Y + 8);  // east road
+  // Eastern homelands arteries (nothing fords the river except the caravan bridge).
+  carveRoad(TOWN_X, TOWN_Y, TOWN_X, 6, 3);           // north road
+  carveRoad(TOWN_X, TOWN_Y, TOWN_X, H - 8, 3);       // south road
+  carveRoad(TOWN_X, TOWN_Y, W - 10, TOWN_Y + 6, 3);  // east road
 
   // ---- towns seen from the air: little walled clusters of rooftops the party
   // walks straight up to and enters through the gate (not a lone grey keep). ----
@@ -182,59 +185,61 @@ export function buildOverworld(): LevelData {
       }
   };
 
-  // Hearthwatch — a green-roofed market town in the central plains.
+  // Hearthwatch — green-roofed market town, central plains.
   stampVillage(TOWN_X, TOWN_Y, {
     roofs: ['aerial-cottage-red', 'aerial-cottage-blue', 'aerial-cottage-teak', 'aerial-cottage-green'],
     hall: 'aerial-hall', wall: 'aerial-wall', gate: 'aerial-gate',
     doorId: 'town', label: 'Hearthwatch Gate', gateSide: 'south', surround: 'gnarled-oak',
   });
-  decor.push({ x: TOWN_X - 5, y: TOWN_Y - 5, key: 'banner' });
-  decor.push({ x: TOWN_X + 5, y: TOWN_Y - 5, key: 'banner' });
+  // Clear approach plaza south of the gate (road + empty lawn).
+  for (let y = TOWN_Y + 5; y <= TOWN_Y + 9; y++)
+    for (let x = TOWN_X - 2; x <= TOWN_X + 2; x++) stampRoad(x, y);
+  decor.push({ x: TOWN_X - 4, y: TOWN_Y - 4, key: 'banner' });
+  decor.push({ x: TOWN_X + 4, y: TOWN_Y - 4, key: 'banner' });
 
-  // Sunspire — the sandstone oasis-town far to the south-west (lower-left desert).
+  // Sunspire — sandstone oasis, far south-west desert.
   const SUN_X = 26, SUN_Y = 108;
   stampVillage(SUN_X, SUN_Y, {
     roofs: ['aerial-adobe-a', 'aerial-adobe-b', 'aerial-adobe-a', 'aerial-adobe-b'],
     hall: 'aerial-temple', wall: 'aerial-sandwall', gate: 'aerial-sandgate',
     doorId: 'desert_town', label: 'Sunspire — the Dune Gate', gateSide: 'north', surround: 'desert-tree',
   });
+  for (let y = SUN_Y - 8; y <= SUN_Y - 5; y++)
+    for (let x = SUN_X - 2; x <= SUN_X + 2; x++) stampRoad(x, y);
 
-  // ---- five frontier settlements, sighted across the wilds but not yet open to
-  // travelers. Each is a real rooftop cluster on the map; trying its gate tells
-  // you it isn't ready ("coming soon"). Scattered across the biomes. ----
-  stampVillage(118, 9, { // northern crags
+  // Frontier settlements (coming soon) — spaced one per biome, not clustered.
+  stampVillage(120, 12, {
     roofs: ['aerial-cottage-teak', 'aerial-cottage-red', 'aerial-cottage-blue', 'aerial-cottage-teak'],
     hall: 'aerial-hall', wall: 'aerial-wall', gate: 'aerial-gate',
     doorId: 'comingsoon', label: 'Ravenfell — the Crag-Hold (coming soon)', gateSide: 'south', surround: 'pine', comingSoon: true,
   });
-  stampVillage(22, 20, { // north-western pinewood
+  stampVillage(18, 28, {
     roofs: ['aerial-cottage-blue', 'aerial-cottage-green', 'aerial-cottage-blue', 'aerial-cottage-teak'],
     hall: 'aerial-hall', wall: 'aerial-wall', gate: 'aerial-gate',
     doorId: 'comingsoon', label: 'Frostmere — the Pale Vigil (coming soon)', gateSide: 'south', surround: 'pine', comingSoon: true,
   });
-  stampVillage(24, 66, { // deep western forest (beyond the gate)
+  stampVillage(20, 72, {
     roofs: ['aerial-cottage-green', 'aerial-cottage-teak', 'aerial-cottage-green', 'aerial-cottage-red'],
     hall: 'aerial-hall', wall: 'aerial-wall', gate: 'aerial-gate',
     doorId: 'comingsoon', label: 'Thornhollow — the Deepwood Refuge (coming soon)', gateSide: 'north', surround: 'gnarled-oak', comingSoon: true,
   });
-  stampVillage(168, 74, { // eastern mire
+  stampVillage(170, 78, {
     roofs: ['aerial-cottage-teak', 'aerial-cottage-green', 'aerial-cottage-teak', 'aerial-cottage-blue'],
     hall: 'aerial-hall', wall: 'aerial-wall', gate: 'aerial-gate',
     doorId: 'comingsoon', label: 'Mirefen Hold — the Bog-Wardens (coming soon)', gateSide: 'north', surround: 'swamp-cypress', comingSoon: true,
   });
-  stampVillage(126, 116, { // south-eastern dunes
+  stampVillage(130, 114, {
     roofs: ['aerial-adobe-a', 'aerial-adobe-b', 'aerial-adobe-a', 'aerial-adobe-b'],
     hall: 'aerial-temple', wall: 'aerial-sandwall', gate: 'aerial-sandgate',
     doorId: 'comingsoon', label: 'Duskmoor — the Ember Bazaar (coming soon)', gateSide: 'north', surround: 'desert-tree', comingSoon: true,
   });
 
-  // party appears just south of Hearthwatch by default (overworldEntry overrides)
+  // Default spawn just south of Hearthwatch (overworldEntry overrides).
   spawns.push({ kind: 'playerStart', x: TOWN_X, y: TOWN_Y + 11 });
 
-  // the caravan road running west from Hearthwatch, over the warded bridge, then
-  // south-west to Sunspire's gate. The bridge is the ONLY crossing of the river.
-  carveRoad(TOWN_X, TOWN_Y, SUN_X, TOWN_Y);       // west along the plains to the ford
-  carveRoad(SUN_X, TOWN_Y, SUN_X, SUN_Y - 5);     // then south through the dunes
+  // Caravan road: west to the ford, then south to Sunspire (only river crossing).
+  carveRoad(TOWN_X, TOWN_Y, SUN_X, TOWN_Y, 3);
+  carveRoad(SUN_X, TOWN_Y, SUN_X, SUN_Y - 6, 3);
 
   // ---- the warded river bridge + the Wanderer's gate ----
   // Plank every water tile the caravan road fords (rows BRIDGE_Y-1..+1), turning
@@ -260,30 +265,40 @@ export function buildOverworld(): LevelData {
   // Yara keeps the bridge from the eastern bank, a step short of her ward.
   spawns.push({ kind: 'npc', x: GATE_X + 2, y: BRIDGE_Y, label: NOMAD_GATE.npcName, npcRole: NOMAD_GATE.npcRole, npcId: NOMAD_GATE.npcId });
 
-  // road signs pointing the way
-  decor.push({ x: TOWN_X + 3, y: TOWN_Y + 12, key: 'signpost' });
-  decor.push({ x: GATE_X + 3, y: BRIDGE_Y - 2, key: 'signpost' });
-  decor.push({ x: SUN_X - 2, y: SUN_Y - 6, key: 'signpost' });
+  // Road signs at junctions (off the carriageway so they don't block the path).
+  decor.push({ x: TOWN_X + 4, y: TOWN_Y + 10, key: 'signpost' });
+  decor.push({ x: GATE_X + 4, y: BRIDGE_Y - 3, key: 'signpost' });
+  decor.push({ x: SUN_X + 4, y: SUN_Y - 7, key: 'signpost' });
+  decor.push({ x: TOWN_X + 3, y: 20, key: 'signpost' });
 
-  // ---- landmark POIs (decorative; no combat yet) ----
-  decor.push({ x: 150, y: 116, key: 'obelisk' }); // sunken obelisk, deep desert
-  for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1], [-1, -1], [1, 1]] as number[][])
-    decor.push({ x: 40 + dx * 3, y: 70 + dy * 3, key: 'standing-stone' }); // forest stone circle
-  for (const [sx, sy] of [[120, 18], [126, 22], [123, 16]] as number[][])
-    decor.push({ x: sx, y: sy, key: 'ruin-pillar' }); // ruined watch on a hill
-  decor.push({ x: 30, y: 12, key: 'cave-entrance' });   // mountain mine
-  decor.push({ x: 168, y: 30, key: 'cave-entrance' });  // foothill cave
-  // enterable cave mini-dungeons (use the mouth to go in; a mouth door leads back)
-  spawns.push({ kind: 'door', x: 30, y: 12, interiorId: 'cave_mine', label: 'Collapsed Silver Mine' });
-  spawns.push({ kind: 'door', x: 168, y: 30, interiorId: 'cave_hollow', label: 'The Hollow Beneath' });
-  decor.push({ x: 64, y: 110, key: 'ruin-pillar' });    // crossroads ruin
-  for (const [x, y] of [[148, 70], [176, 96]] as number[][]) decor.push({ x, y, key: 'reeds' });
+  // ---- landmark POIs — one signature site per biome, set back from roads ----
+  decor.push({ x: 152, y: 112, key: 'obelisk' }); // desert
+  // forest stone circle (compact)
+  for (const [dx, dy] of [[-2, 0], [2, 0], [0, -2], [0, 2], [-2, -2], [2, 2]] as number[][]) {
+    decor.push({ x: 38 + dx, y: 68 + dy, key: 'standing-stone' });
+    occupied.add(key(38 + dx, 68 + dy));
+  }
+  // mountain ruin
+  for (const [sx, sy] of [[118, 16], [122, 18], [120, 14]] as number[][]) {
+    decor.push({ x: sx, y: sy, key: 'ruin-pillar' });
+    occupied.add(key(sx, sy));
+  }
+  // enterable caves on short spurs off the main network
+  decor.push({ x: 32, y: 14, key: 'cave-entrance' });
+  decor.push({ x: 164, y: 28, key: 'cave-entrance' });
+  carveRoad(TOWN_X, 14, 32, 14, 2);
+  carveRoad(TOWN_X + 20, TOWN_Y - 10, 164, 28, 2);
+  spawns.push({ kind: 'door', x: 32, y: 14, interiorId: 'cave_mine', label: 'Collapsed Silver Mine' });
+  spawns.push({ kind: 'door', x: 164, y: 28, interiorId: 'cave_hollow', label: 'The Hollow Beneath' });
+  // swamp reed banks already read from scatter; one ruin marker near Mirefen approach
+  decor.push({ x: 160, y: 70, key: 'ruin-pillar' });
 
-  // a handful of coins/foragables along the roads for a little reward loop
-  for (const [x, y] of [[TOWN_X, 80], [40, TOWN_Y - 6], [150, 56], [TOWN_X, 16]] as number[][])
-    pickups.push({ kind: 'coin', x, y, coin: 25 });
+  // Light coin trail along the main caravan road (reward for following the path).
+  for (const [x, y] of [
+    [TOWN_X, 72], [TOWN_X, 28], [80, TOWN_Y], [50, TOWN_Y], [SUN_X, 80], [140, TOWN_Y + 6],
+  ] as number[][]) pickups.push({ kind: 'coin', x, y, coin: 20 });
 
-  // ---- scatter biome detail (deterministic so the map is stable) ----
+  // ---- scatter biome detail (deterministic; keep roads & landmarks clear) ----
   const free = (x: number, y: number): boolean =>
     inB(x, y) && !occupied.has(key(x, y)) && !road.has(key(x, y)) &&
     tiles[y][x] !== Tile.WATER && tiles[y][x] !== Tile.VOID;
@@ -292,31 +307,38 @@ export function buildOverworld(): LevelData {
     occupied.add(key(x, y));
     decor.push({ x, y, key: k });
   };
-  // hash-based pseudo-random density per biome
-  const DECOR_CAP = 2200; // keep the live sprite/Y-sort count sane on the big map
+  // Near-road buffer: leave a 1-tile shoulder free of trees so arteries read clean.
+  const nearRoad = (x: number, y: number): boolean => {
+    for (let dy = -1; dy <= 1; dy++)
+      for (let dx = -1; dx <= 1; dx++)
+        if (road.has(key(x + dx, y + dy))) return true;
+    return false;
+  };
+  const DECOR_CAP = 1600;
   for (let y = 2; y < H - 2 && decor.length < DECOR_CAP; y++) {
     for (let x = 2; x < W - 2; x++) {
-      if (!free(x, y)) continue;
+      if (!free(x, y) || nearRoad(x, y)) continue;
       const b = biomeAt(x, y);
       const h = (x * 73856093) ^ (y * 19349663);
       const hh = (h >>> 0) % 100;
+      // Density tuned per biome: forests denser, plains airier, desert sparse.
       if (b === 'forest') {
-        if (hh < 9) place(x, y, hh % 2 ? 'gnarled-oak' : 'pine');
-        else if (hh < 12) place(x, y, 'wildflowers');
-        else if (hh < 14) place(x, y, 'boulder');
+        if (hh < 11) place(x, y, hh % 3 === 0 ? 'pine' : 'gnarled-oak');
+        else if (hh < 14) place(x, y, 'wildflowers');
+        else if (hh < 15) place(x, y, 'boulder');
       } else if (b === 'mountain') {
-        if (hh < 6) place(x, y, 'boulder');
-        else if (hh < 11) place(x, y, 'pine');
+        if (hh < 7) place(x, y, 'boulder');
+        else if (hh < 10) place(x, y, 'pine');
       } else if (b === 'desert') {
-        if (hh < 4) place(x, y, 'desert-tree');
-        else if (hh < 7) place(x, y, 'boulder');
+        if (hh < 3) place(x, y, 'desert-tree');
+        else if (hh < 5) place(x, y, 'boulder');
       } else if (b === 'swamp') {
-        if (hh < 7) place(x, y, 'swamp-cypress');
+        if (hh < 8) place(x, y, 'swamp-cypress');
         else if (hh < 12) place(x, y, 'reeds');
-      } else { // plains
-        if (hh < 3) place(x, y, hh % 2 ? 'gnarled-oak' : 'pine');
-        else if (hh < 6) place(x, y, 'wildflowers');
-        else if (hh < 8) place(x, y, 'boulder');
+      } else { // plains — open country, light scatter
+        if (hh < 2) place(x, y, 'gnarled-oak');
+        else if (hh < 5) place(x, y, 'wildflowers');
+        else if (hh < 6) place(x, y, 'boulder');
       }
     }
   }
@@ -335,10 +357,10 @@ export function buildOverworld(): LevelData {
     ambientColor: 0x0e1a10,
     town: true,
     overworld: true,
-    subtitle: 'The weary surface above the Undermaw.',
+    subtitle: 'Roads, biomes, and the warded west — above the Undermaw.',
     chapter: 'The Overworld',
     story:
-      'Beyond Hearthwatch’s walls the land stretches wide and uneasy — forest, foothill, desert and bog, all touched by the hunger below. Roads thread through the wilds; follow them, or wander and see what the surface still hides.',
+      'Beyond Hearthwatch the land opens in five temperaments: plains, forest, mountain, desert, and bog. Follow the caravan roads; the great river cuts the map in two, and only Yara’s bridge grants the west. Caves, ruins, and distant holds wait on the horizon.',
   };
 }
 

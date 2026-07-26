@@ -14,7 +14,8 @@ export const LEVEL2 = buildDungeon({
   generatorEnemies: ['imp', 'bone_archer', 'demon', 'imp', 'brute', 'bone_archer', 'demon', 'brute'],
   bossId: 'molten_colossus',
   hazard: 'lava',
-  maxGenerators: 10,
+  maxGenerators: 9,
+  chestItems: ['ember_blade', 'iron_helm', 'traveler_boots', 'mana_potion'],
   // A nomad's lost family heirloom, carried down when the seals broke, waits in
   // a chest here — recover it to buy passage across the river gate on the
   // overworld (see NOMAD_GATE in data/overworld.ts).
@@ -22,5 +23,5 @@ export const LEVEL2 = buildDungeon({
   chapter: 'Chapter II',
   subtitle: 'Fire wells up from the world’s wound.',
   story:
-    'Below the crypt the rock runs molten. The dead here are forged in fire — burn through them and break the Molten Colossus at the cavern’s heart.',
+    'Below the crypt the rock runs molten. The dead here are forged in fire — burn through them and break the Molten Colossus at the cavern’s heart. Somewhere in the heat lies a silver locket that will open the west road above.',
 });

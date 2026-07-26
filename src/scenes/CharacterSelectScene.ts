@@ -7,6 +7,7 @@ import { MenuPad } from '../ui/MenuPad';
 import type { HeroClassId } from '../core/types';
 
 const numHex = (n: number): string => '#' + n.toString(16).padStart(6, '0');
+const hexNum = (s: string): number => parseInt(s.replace('#', ''), 16);
 
 export class CharacterSelectScene extends Phaser.Scene {
   private twoPlayer = false;
@@ -44,12 +45,40 @@ export class CharacterSelectScene extends Phaser.Scene {
 
     this.cameras.main.fadeIn(220, 0, 0, 0);
     const g = this.add.graphics();
-    g.fillGradientStyle(0x10131f, 0x10131f, 0x05060a, 0x05060a, 1);
+    g.fillGradientStyle(0x10131f, 0x10131f, 0x03050c, 0x03050c, 1);
     g.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+    // Arcade cabinet outer frame
+    const frame = this.add.graphics().setDepth(50);
+    frame.lineStyle(4, 0x2a1c0a, 1);
+    frame.strokeRect(8, 8, GAME_WIDTH - 16, GAME_HEIGHT - 16);
+    frame.lineStyle(2, hexNum(C.hudBorder), 0.95);
+    frame.strokeRect(13, 13, GAME_WIDTH - 26, GAME_HEIGHT - 26);
+    frame.lineStyle(1, hexNum(C.hudBorderDk), 0.85);
+    frame.strokeRect(17, 17, GAME_WIDTH - 34, GAME_HEIGHT - 34);
+    frame.lineStyle(1, hexNum(C.hudNeon), 0.35);
+    frame.strokeRect(15, 15, GAME_WIDTH - 30, GAME_HEIGHT - 30);
+    for (const [px, py, sx, sy] of [
+      [15, 15, 1, 1], [GAME_WIDTH - 15, 15, -1, 1],
+      [15, GAME_HEIGHT - 15, 1, -1], [GAME_WIDTH - 15, GAME_HEIGHT - 15, -1, -1],
+    ] as [number, number, number, number][]) {
+      frame.fillStyle(hexNum(C.hudBorder), 1);
+      frame.fillRect(px, py, 22 * sx, 3 * sy);
+      frame.fillRect(px, py, 3 * sx, 22 * sy);
+      frame.fillStyle(hexNum(C.hudNeon), 1);
+      frame.fillRect(px + (sx > 0 ? 0 : -5), py + (sy > 0 ? 0 : -5), 5, 5);
+    }
+    this.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'fx-vignette').setDisplaySize(GAME_WIDTH, GAME_HEIGHT).setDepth(1).setAlpha(0.55);
+    this.add.particles(0, GAME_HEIGHT, 'fx-glow-warm', {
+      x: { min: 0, max: GAME_WIDTH }, y: { min: GAME_HEIGHT - 6, max: GAME_HEIGHT },
+      speedY: { min: -28, max: -10 }, lifespan: 3200, scale: { start: 0.4, end: 0 },
+      alpha: { start: 0.35, end: 0 }, frequency: 280, blendMode: 'ADD',
+    }).setDepth(2);
 
     this.prompt = this.add
       .text(GAME_WIDTH / 2, 44, '', { fontFamily: 'MedievalSharp, "Trebuchet MS", cursive', fontSize: '24px', color: C.ink, fontStyle: 'bold' })
-      .setOrigin(0.5);
+      .setOrigin(0.5)
+      .setDepth(10)
+      .setShadow(0, 2, '#000000', 4, true, true);
 
     this.highlight = this.add.graphics().setDepth(20);
 
@@ -67,20 +96,29 @@ export class CharacterSelectScene extends Phaser.Scene {
 
     // one wide detail strip below the row shows the HIGHLIGHTED hero's story —
     // seven cards leave no room for per-card prose without overflowing.
-    const dg = this.add.graphics();
-    dg.fillStyle(0x0d1322, 0.96);
+    const dg = this.add.graphics().setDepth(8);
+    dg.fillStyle(0x0a1020, 0.97);
     dg.fillRoundedRect(GAME_WIDTH / 2 - 360, 384, 720, 108, 8);
-    dg.lineStyle(1.5, 0x6e521f, 1);
+    dg.fillStyle(0xffffff, 0.04);
+    dg.fillRoundedRect(GAME_WIDTH / 2 - 356, 388, 712, 28, 4);
+    dg.lineStyle(2.5, hexNum(C.hudBorder), 1);
     dg.strokeRoundedRect(GAME_WIDTH / 2 - 360, 384, 720, 108, 8);
+    dg.lineStyle(1, hexNum(C.hudBorderDk), 1);
+    dg.strokeRoundedRect(GAME_WIDTH / 2 - 356, 388, 712, 100, 6);
+    dg.lineStyle(1, hexNum(C.hudNeon), 0.4);
+    dg.strokeRoundedRect(GAME_WIDTH / 2 - 358, 386, 716, 104, 7);
     this.detailName = this.add
       .text(GAME_WIDTH / 2, 396, '', { fontFamily: 'MedievalSharp, "Trebuchet MS", cursive', fontSize: '15px', color: '#ffe9a8', fontStyle: 'bold' })
-      .setOrigin(0.5, 0);
+      .setOrigin(0.5, 0)
+      .setDepth(9);
     this.detailSig = this.add
       .text(GAME_WIDTH / 2, 418, '', { fontFamily: 'MedievalSharp, "Trebuchet MS", cursive', fontSize: '12px', color: C.ink, align: 'center', wordWrap: { width: 680 } })
-      .setOrigin(0.5, 0);
+      .setOrigin(0.5, 0)
+      .setDepth(9);
     this.detailBlurb = this.add
       .text(GAME_WIDTH / 2, 458, '', { fontFamily: 'MedievalSharp, "Trebuchet MS", cursive', fontSize: '11px', color: C.inkDim, align: 'center', wordWrap: { width: 680 } })
-      .setOrigin(0.5, 0);
+      .setOrigin(0.5, 0)
+      .setDepth(9);
 
     this.add
       .text(GAME_WIDTH / 2, GAME_HEIGHT - 24, '◀ ▶ / A D to move   ·   ENTER or click to choose   ·   1–7 quick pick', {
@@ -88,7 +126,8 @@ export class CharacterSelectScene extends Phaser.Scene {
         fontSize: '12px',
         color: C.inkDim,
       })
-      .setOrigin(0.5);
+      .setOrigin(0.5)
+      .setDepth(10);
 
     this.updatePrompt();
     this.updateHighlight();
@@ -115,15 +154,25 @@ export class CharacterSelectScene extends Phaser.Scene {
   private buildCard(cls: HeroClassId, x: number, y: number, w: number, h: number, idx: number): Phaser.GameObjects.Container {
     const def = HEROES[cls];
     const color = CLASS_HUD_COLORS[cls];
-    const cont = this.add.container(x, y);
+    const cont = this.add.container(x, y).setDepth(5);
 
     const bg = this.add.graphics();
-    bg.fillStyle(0x0d1322, 1);
+    bg.fillStyle(0x0a1020, 1);
     bg.fillRoundedRect(0, 0, w, h, 8);
-    bg.lineStyle(2, color, 0.9);
+    bg.fillStyle(0xffffff, 0.04);
+    bg.fillRoundedRect(2, 2, w - 4, 40, 6);
+    bg.lineStyle(2, color, 0.95);
     bg.strokeRoundedRect(0, 0, w, h, 8);
-    bg.fillStyle(color, 0.16);
+    bg.lineStyle(1, 0x8a6418, 0.7);
+    bg.strokeRoundedRect(3, 3, w - 6, h - 6, 6);
+    bg.fillStyle(color, 0.2);
     bg.fillRoundedRect(0, 0, w, 56, 8);
+    // neon corner pips
+    bg.fillStyle(0xffe9a0, 0.9);
+    bg.fillRect(4, 4, 4, 4);
+    bg.fillRect(w - 8, 4, 4, 4);
+    bg.fillRect(4, h - 8, 4, 4);
+    bg.fillRect(w - 8, h - 8, 4, 4);
     cont.add(bg);
 
     // the name shrinks to fit the card so seven-across never overflows
@@ -131,9 +180,10 @@ export class CharacterSelectScene extends Phaser.Scene {
     cont.add(this.add.text(w / 2, 12, def.name, { fontFamily: 'MedievalSharp, "Trebuchet MS", cursive', fontSize: `${nameSize}px`, color: numHex(color), fontStyle: 'bold' }).setOrigin(0.5, 0));
     cont.add(this.add.text(w / 2, 36, def.role.toUpperCase(), { fontFamily: 'MedievalSharp, "Trebuchet MS", cursive', fontSize: '10px', color: C.inkDim }).setOrigin(0.5, 0));
 
+    cont.add(this.add.image(w / 2, 118, 'fx-light').setScale(1.1).setAlpha(0.22).setBlendMode(Phaser.BlendModes.ADD).setTint(color));
     const spr = this.add.sprite(w / 2, 118, `hero-${cls}-sheet`).setScale(1.9);
     spr.play(`${cls}-idle-down`);
-    cont.add(this.add.image(w / 2, 144, 'fx-shadow').setScale(1.8).setAlpha(0.5));
+    cont.add(this.add.image(w / 2, 144, 'fx-shadow').setScale(1.8).setAlpha(0.55));
     cont.add(spr);
     this.tweens.add({ targets: spr, y: 112, duration: 1100 + idx * 90, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
 
@@ -148,10 +198,16 @@ export class CharacterSelectScene extends Phaser.Scene {
       const sy = 186 + i * 22;
       cont.add(this.add.text(10, sy, st[0], { fontFamily: 'MedievalSharp, "Trebuchet MS", cursive', fontSize: '10px', color: C.inkDim }).setOrigin(0, 0.5));
       const bar = this.add.graphics();
-      bar.fillStyle(0x000000, 0.5);
-      bar.fillRect(40, sy - 5, w - 50, 9);
+      const bw = w - 50;
+      const fillW = bw * Phaser.Math.Clamp(st[1] / st[2], 0, 1);
+      bar.fillStyle(0x000000, 0.6);
+      bar.fillRect(40, sy - 5, bw, 9);
       bar.fillStyle(color, 1);
-      bar.fillRect(40, sy - 5, (w - 50) * Phaser.Math.Clamp(st[1] / st[2], 0, 1), 9);
+      bar.fillRect(40, sy - 5, fillW, 9);
+      bar.fillStyle(0xffffff, 0.28);
+      bar.fillRect(40, sy - 5, fillW, 2);
+      bar.lineStyle(1, 0x8a6418, 0.6);
+      bar.strokeRect(40, sy - 5, bw, 9);
       cont.add(bar);
     });
 
@@ -175,9 +231,18 @@ export class CharacterSelectScene extends Phaser.Scene {
 
   private updateHighlight(): void {
     const card = this.cards[this.cursor];
+    const gold = parseInt(C.hudBorder.slice(1), 16);
+    const neon = parseInt(C.hudNeon.slice(1), 16);
     this.highlight.clear();
-    this.highlight.lineStyle(4, parseInt(C.hudBorder.slice(1), 16), 1);
-    this.highlight.strokeRoundedRect(card.x - 3, card.y - 3, this.cardW + 6, this.cardH + 6, 10);
+    this.highlight.lineStyle(4, gold, 1);
+    this.highlight.strokeRoundedRect(card.x - 4, card.y - 4, this.cardW + 8, this.cardH + 8, 10);
+    this.highlight.lineStyle(1.5, neon, 0.75);
+    this.highlight.strokeRoundedRect(card.x - 1, card.y - 1, this.cardW + 2, this.cardH + 2, 8);
+    this.highlight.fillStyle(neon, 1);
+    this.highlight.fillRect(card.x - 2, card.y - 2, 5, 5);
+    this.highlight.fillRect(card.x + this.cardW - 3, card.y - 2, 5, 5);
+    this.highlight.fillRect(card.x - 2, card.y + this.cardH - 3, 5, 5);
+    this.highlight.fillRect(card.x + this.cardW - 3, card.y + this.cardH - 3, 5, 5);
     // the detail strip tells the highlighted hero's story
     const def = HEROES[ALL_CLASSES[this.cursor]];
     if (this.detailName) {

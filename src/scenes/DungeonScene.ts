@@ -8,6 +8,9 @@ import {
   Tile,
   HERO_SPRITE_SCALE,
   NPC_SPRITE_SCALE,
+  ENEMY_SPRITE_BASE,
+  ENEMY_SCALE_DEFAULT,
+  SPRITE_SCALE_DEFAULT,
   WALKABLE_TILES,
   HUD_REGISTRY_KEY,
   LOG_REGISTRY_KEY,
@@ -40,6 +43,7 @@ import type { Modal } from '../ui/uiHelpers';
 import { getTheme } from '../data/gen/themes';
 import { settings } from '../core/GameSettings';
 import { formatHudControls, formatHudControlsPad } from '../core/KeyBindings';
+import { decorBlocks } from '../core/decorCollision';
 import type { HeroClassId, LevelData, HudRegistryData, HudHeroSlot, HudPartyGroup, ItemDefinition, ItemSlot, EnemyId, Grade, ThemeId, LogEntry, LogRegistryData } from '../core/types';
 import { migrateEquipKey, migrateItemSlot } from '../core/equipment';
 import { Content } from '../content/ContentRegistry';
@@ -187,18 +191,19 @@ interface Atmosphere {
   mode: 'rise' | 'fall' | 'drift';
   frequency: number;
 }
+// Saturated edge grades + hotter particles for a true arcade cabinet read.
 const ATMOSPHERE: Record<ThemeId, Atmosphere> = {
-  crypt: { lightTint: 0xfff0d0, particleTint: 0x8a93bd, flameTint: 0xff9a3a, portalTint: 0xb58aff, edgeTint: 0x24305a, mode: 'drift', frequency: 520 },
-  molten: { lightTint: 0xffb070, particleTint: 0xff8a1e, flameTint: 0xff8a1e, portalTint: 0xff9a3a, edgeTint: 0x6a1e08, mode: 'rise', frequency: 150 },
-  frost: { lightTint: 0xbfe0ff, particleTint: 0xeaf6ff, flameTint: 0x9fd0ff, portalTint: 0x7fd0ff, edgeTint: 0x1d4a72, mode: 'fall', frequency: 130 },
-  toxic: { lightTint: 0xa8e08a, particleTint: 0x8ce05a, flameTint: 0x9ce05a, portalTint: 0x9ce05a, edgeTint: 0x1e4a1c, mode: 'rise', frequency: 240 },
-  clockwork: { lightTint: 0xe6c264, particleTint: 0xffd24a, flameTint: 0xffb84a, portalTint: 0xffd24a, edgeTint: 0x4a3a16, mode: 'fall', frequency: 380 },
-  arena: { lightTint: 0xff9a7a, particleTint: 0xff8a1e, flameTint: 0xff7a3a, portalTint: 0xff7a3a, edgeTint: 0x6a1410, mode: 'rise', frequency: 200 },
-  bog: { lightTint: 0x9fd0a0, particleTint: 0x7fce58, flameTint: 0x8fd06a, portalTint: 0x8fd06a, edgeTint: 0x1c3a22, mode: 'drift', frequency: 240 },
-  storm: { lightTint: 0xb0c8ff, particleTint: 0xcfe0ff, flameTint: 0xcfe0ff, portalTint: 0xcfe0ff, edgeTint: 0x222a5a, mode: 'fall', frequency: 110 },
-  shadow: { lightTint: 0x9a7ab0, particleTint: 0x8a6ab0, flameTint: 0xb58aff, portalTint: 0xc79bff, edgeTint: 0x281a44, mode: 'drift', frequency: 300 },
-  sanctum: { lightTint: 0xffe0a0, particleTint: 0xffd24a, flameTint: 0xffd24a, portalTint: 0xffe7a0, edgeTint: 0x5a4a1e, mode: 'rise', frequency: 220 },
-  town: { lightTint: 0xfff2d8, particleTint: 0xffe6b0, flameTint: 0xffb46a, portalTint: 0xc79bff, edgeTint: 0x3a2e18, mode: 'drift', frequency: 640 },
+  crypt: { lightTint: 0xfff2d8, particleTint: 0xa8b4e0, flameTint: 0xffa040, portalTint: 0xc8a0ff, edgeTint: 0x2a3a78, mode: 'drift', frequency: 380 },
+  molten: { lightTint: 0xffc080, particleTint: 0xff9030, flameTint: 0xff7a18, portalTint: 0xffa040, edgeTint: 0x8a2808, mode: 'rise', frequency: 110 },
+  frost: { lightTint: 0xd0f0ff, particleTint: 0xf0fbff, flameTint: 0xa8e0ff, portalTint: 0x80e0ff, edgeTint: 0x1a5a90, mode: 'fall', frequency: 95 },
+  toxic: { lightTint: 0xb8f090, particleTint: 0x98f060, flameTint: 0xa0f050, portalTint: 0xa8f060, edgeTint: 0x246a20, mode: 'rise', frequency: 180 },
+  clockwork: { lightTint: 0xffd878, particleTint: 0xffe060, flameTint: 0xffc040, portalTint: 0xffe060, edgeTint: 0x6a4a12, mode: 'fall', frequency: 280 },
+  arena: { lightTint: 0xffa888, particleTint: 0xff9040, flameTint: 0xff7030, portalTint: 0xff8040, edgeTint: 0x8a1810, mode: 'rise', frequency: 150 },
+  bog: { lightTint: 0xb0e8b0, particleTint: 0x90e060, flameTint: 0x98e070, portalTint: 0x98e070, edgeTint: 0x245a30, mode: 'drift', frequency: 180 },
+  storm: { lightTint: 0xc8dcff, particleTint: 0xe0f0ff, flameTint: 0xd8ecff, portalTint: 0xd0e8ff, edgeTint: 0x2a3a80, mode: 'fall', frequency: 85 },
+  shadow: { lightTint: 0xb090d0, particleTint: 0xa080d0, flameTint: 0xc898ff, portalTint: 0xd8a8ff, edgeTint: 0x3a2060, mode: 'drift', frequency: 220 },
+  sanctum: { lightTint: 0xffe8b0, particleTint: 0xffe060, flameTint: 0xffd848, portalTint: 0xfff0b0, edgeTint: 0x7a6020, mode: 'rise', frequency: 160 },
+  town: { lightTint: 0xfff6e0, particleTint: 0xffe8b8, flameTint: 0xffb868, portalTint: 0xd0a8ff, edgeTint: 0x4a3820, mode: 'drift', frequency: 480 },
 };
 
 function townsfolkVariant(role: string): number {
@@ -262,6 +267,31 @@ const DECOR_FLAVOR: Record<string, string> = {
   idol: 'A gilded idol regards you with patient, empty eyes.',
   altar: 'An altar of pale stone, worn smooth by ten thousand prayers.',
   brazier: 'A standing brazier, its sacred flame refusing the dark.',
+  'forge-furnace': 'A roaring furnace mouth — Brunda’s fire, hot enough to soften god-steel.',
+  'forge-hood': 'A soot-black iron hood, channelling the furnace’s fury into the flue.',
+  'forge-bellows': 'Leather bellows, cracked with heat and still breathing life into the coals.',
+  'forge-trough': 'A stone quench trough. Water hisses at the memory of hot iron.',
+  'forge-workbench': 'A scarred oak bench: hammers, tongs, and a billet still warm.',
+  'forge-ingots': 'Stacked iron ingots, dark and honest, waiting for the hammer.',
+  'forge-ore': 'A rough heap of raw ore, still smelling of the deep earth.',
+  'forge-slag': 'Cooled slag — the waste of a hundred swords.',
+  'forge-weapon-wall': 'Finished blades hang in a proud row, catching the firelight.',
+  anvil: 'A master anvil, its face polished by a lifetime of honest work.',
+  'guild-desk': 'A muster desk — contracts, quills, and a purse of hiring coin.',
+  'guild-trophy': 'Shields and helms of guild-kin who did not come home empty-handed.',
+  'guild-ring': 'Chalk of the practice ring. Blood and sweat have worn the stone smooth.',
+  'herb-bundle': 'Drying herbs — mint, wolfsbane, and things the law pretends not to name.',
+  'mortar-pestle': 'A stone mortar, still dusted with green powder.',
+  'potion-case': 'A case of sealed vials. Each glows with a promise — or a warning.',
+  'tavern-stage': 'A raised board for ballads, boasts, and the occasional brawl.',
+  'ale-kegs': 'Stacked kegs, branded with the Tankard’s seal.',
+  'bar-back': 'Bottles catch the firelight in a hundred colours of trouble.',
+  hearth: 'A stone hearth big enough to roast a boar — and warm half the room.',
+  'lodge-bed': 'A real bed. The sheets still smell faintly of woodsmoke and relief.',
+  'lodge-wardrobe': 'An oak wardrobe — spare cloaks, a spare name if you need one.',
+  'lodge-table': 'A scarred strategy table. The map is already out of date.',
+  'lodge-chair': 'A fireside chair that has held more worries than it has guests.',
+  'trophy-plinth': 'A waiting plinth. The Undermaw still owes you its next name.',
   'bog-stump': 'A rotted stump, soft as flesh, weeping black water.',
   lilypad: 'Lilies float on water too still to trust.',
 };
@@ -328,6 +358,8 @@ export class DungeonScene extends Phaser.Scene {
   private generators: Generator[] = [];
   private foundGens = new Set<Generator>(); // generators revealed on the minimap once explored near
   private blockers: Phaser.GameObjects.Rectangle[] = [];
+  /** Tiles occupied by solid free-standing decor (trees, carts, fences, …). */
+  private solidDecor = new Set<string>();
   private lockedDoors: LockedDoor[] = [];
   /** The Wanderer's warded river bridge: the tiles it seals (until its quest
    *  flag is set) plus the barrier sprites/bodies to tear down when it opens. */
@@ -459,6 +491,8 @@ export class DungeonScene extends Phaser.Scene {
   private portals: { sprite: Phaser.GameObjects.Sprite; realmId: string; label: string; x: number; y: number }[] = [];
   private doors: { x: number; y: number; interiorId: string; label: string; dir?: 'north' | 'south' | 'east' | 'west'; comingSoon?: boolean }[] = [];
   private returnPortal: { x: number; y: number } | null = null;
+  /** Suppress auto-door entry briefly after load so exits don't immediately re-enter. */
+  private doorGraceUntil = 0;
   private sneakGfx?: Phaser.GameObjects.Graphics;
   private merchants: { sprite: Phaser.GameObjects.Sprite; shop: ShopKind; label: string; x: number; y: number }[] = [];
   private townLife: Phaser.GameObjects.Sprite[] = [];
@@ -585,6 +619,7 @@ export class DungeonScene extends Phaser.Scene {
     this.spawnFamiliar();
     this.spawnRescueCage();
     if (this.level.town) this.spawnLodgeTrophies();
+    this.doorGraceUntil = this.time.now + 1600;
     if (this.level.town && !carry && !save) {
       // fresh campaign: each hero starts with 100 gold + a health & mana potion
       for (const p of this.players) {
@@ -621,7 +656,8 @@ export class DungeonScene extends Phaser.Scene {
       .image(PLAY_AREA_WIDTH / 2, GAME_HEIGHT / 2, 'fx-vignette')
       .setScrollFactor(0)
       .setDisplaySize(PLAY_AREA_WIDTH, GAME_HEIGHT)
-      .setDepth(DEPTH.VIGNETTE);
+      .setDepth(DEPTH.VIGNETTE)
+      .setAlpha(0.94);
     this.edgeGrade = this.add
       .image(PLAY_AREA_WIDTH / 2, GAME_HEIGHT / 2, 'fx-edge')
       .setScrollFactor(0)
@@ -629,14 +665,28 @@ export class DungeonScene extends Phaser.Scene {
       .setDepth(DEPTH.VIGNETTE + 1)
       .setTint(atmo.edgeTint)
       .setBlendMode(Phaser.BlendModes.ADD)
-      .setAlpha(0.5);
+      .setAlpha(0.78);
+    // CRT-style scanline haze (play area only — not camera post FX).
+    const scan = this.add.graphics().setScrollFactor(0).setDepth(DEPTH.VIGNETTE + 2).setAlpha(0.055);
+    for (let y = 0; y < GAME_HEIGHT; y += 3) {
+      scan.fillStyle(0x000000, 1);
+      scan.fillRect(0, y, PLAY_AREA_WIDTH, 1);
+    }
+    // Soft top/bottom bezel darken for cabinet framing
+    const bezel = this.add.graphics().setScrollFactor(0).setDepth(DEPTH.VIGNETTE + 3);
+    bezel.fillStyle(0x000000, 0.22);
+    bezel.fillRect(0, 0, PLAY_AREA_WIDTH, 10);
+    bezel.fillRect(0, GAME_HEIGHT - 10, PLAY_AREA_WIDTH, 10);
+    bezel.fillStyle(0x000000, 0.12);
+    bezel.fillRect(0, 0, 8, GAME_HEIGHT);
+    bezel.fillRect(PLAY_AREA_WIDTH - 8, 0, 8, GAME_HEIGHT);
     // A soft travelling glow only when there are no real lights (non-enhanced);
     // enhanced mode gets an actual party light instead (except cozy interiors).
     if (!this.lightingOn) {
       this.partyLight = this.add
         .image(this.cameraTarget.x, this.cameraTarget.y, 'fx-light')
-        .setScale(2.6)
-        .setAlpha(0.3)
+        .setScale(3.1)
+        .setAlpha(0.42)
         .setTint(atmo.lightTint)
         .setBlendMode(Phaser.BlendModes.ADD)
         .setDepth(DEPTH.VIGNETTE - 1);
@@ -770,6 +820,7 @@ export class DungeonScene extends Phaser.Scene {
     this.groundZones = [];
     this.corpses = [];
     this.blockers = [];
+    this.solidDecor.clear();
     this.lockedDoors = [];
     this.chests = [];
     this.shrines = [];
@@ -847,6 +898,7 @@ export class DungeonScene extends Phaser.Scene {
     if (t === Tile.WALL || t === Tile.LOCKED_DOOR || t === Tile.VOID) return false;
     if (t === Tile.WATER && this.waterSolid()) return false; // deep water blocks pathing off the bridges
     if (this.gateBlocks(tx, ty)) return false; // the Wanderer's ward seals the bridge until the heirloom is paid
+    if (this.solidDecor.has(`${tx},${ty}`)) return false; // trees, carts, fences, signs, …
     return true;
   }
 
@@ -917,7 +969,7 @@ export class DungeonScene extends Phaser.Scene {
         else if (tile === Tile.SAND) overworldArt.drawSandGround(bgCtx, px, py, fseed);
         else if (tile === Tile.MUD) overworldArt.drawMudGround(bgCtx, px, py, fseed);
         else if (tile === Tile.ROCK) overworldArt.drawRockGround(bgCtx, px, py, fseed);
-        else art.drawFloor(bgCtx, px, py, fseed + 1000, ta.floor);
+        else art.drawFloor(bgCtx, px, py, fseed + 1000, ta.floor, this.level.theme ?? 'crypt');
         if (tile === Tile.DOOR) art.drawDoor(bgCtx, px, py, false);
         else if (tile === Tile.ICE) art.drawIce(bgCtx, px, py, x * 131 + y * 17 + 7);
       }
@@ -953,6 +1005,11 @@ export class DungeonScene extends Phaser.Scene {
               const chh = Math.min(5, py - 1 - cyy);
               bgCtx.fillStyle = course % 2 === 0 ? ta.face.upper : ta.face.lower;
               bgCtx.fillRect(px, cyy, TILE_SIZE, chh);
+              // subtle top bevel on each course for arcade brick read
+              bgCtx.fillStyle = ta.wall.hi;
+              bgCtx.globalAlpha = 0.22;
+              bgCtx.fillRect(px, cyy, TILE_SIZE, 1);
+              bgCtx.globalAlpha = 1;
               bgCtx.fillStyle = ta.face.line;
               bgCtx.fillRect(px, cyy + chh, TILE_SIZE, 1);
               const off = course % 2 === 0 ? 4 : 8;
@@ -961,9 +1018,9 @@ export class DungeonScene extends Phaser.Scene {
             }
             // vertical light falloff — darkest toward the base (ambient occlusion)
             const fg = bgCtx.createLinearGradient(0, topY, 0, py);
-            fg.addColorStop(0, 'rgba(255,255,255,0.08)');
-            fg.addColorStop(0.5, 'rgba(0,0,0,0)');
-            fg.addColorStop(1, 'rgba(0,0,0,0.5)');
+            fg.addColorStop(0, 'rgba(255,255,255,0.12)');
+            fg.addColorStop(0.45, 'rgba(0,0,0,0)');
+            fg.addColorStop(1, 'rgba(0,0,0,0.55)');
             bgCtx.fillStyle = fg;
             bgCtx.fillRect(px, topY, TILE_SIZE, F);
             // themed mural carved mid-face (clearly visible on the tall wall)
@@ -1116,7 +1173,7 @@ export class DungeonScene extends Phaser.Scene {
     // Floor-level decor renders UNDER characters (DEPTH.FLOOR+1). Interior floor
     // coverings (wood-floor, rug) must be here or they clip anyone standing on
     // them — the "npcs/character vanish on the shop floor" bug.
-    const flatDecor = new Set(['blood-stain', 'lilypad', 'sanctum-glyph', 'void-rift', 'lava-crack', 'rune-circle', 'road', 'grass-tuft', 'bridge-plank', 'chain', 'wood-floor', 'rug', 'flower-bed', 'wildflowers', 'crop-row', 'desert-road', 'market-mat', 'sand-dune']);
+    const flatDecor = new Set(['blood-stain', 'lilypad', 'sanctum-glyph', 'void-rift', 'lava-crack', 'rune-circle', 'road', 'grass-tuft', 'bridge-plank', 'chain', 'wood-floor', 'forge-floor', 'forge-embers', 'guild-floor', 'guild-ring', 'apothecary-floor', 'lodge-floor', 'rug', 'flower-bed', 'wildflowers', 'crop-row', 'desert-road', 'market-mat', 'sand-dune']);
     const swayDecor = new Set(['banner', 'vines', 'frost-banner', 'cloth', 'cattail', 'toxic-mushroom', 'town-tree', 'town-bush', 'palm', 'palm-small', 'papyrus', 'sun-banner']);
     const glowDecor: Record<string, string> = {
       crystal: 'fx-glow-magic',
@@ -1133,9 +1190,14 @@ export class DungeonScene extends Phaser.Scene {
       'hanging-lantern': 'fx-glow-warm',
       'fire-bowl': 'fx-glow-warm',
       'clay-oven': 'fx-glow-warm',
+      'forge-furnace': 'fx-glow-warm',
+      'forge-hood': 'fx-glow-warm',
+      hearth: 'fx-glow-warm',
+      'potion-case': 'fx-glow-magic',
+      'bar-back': 'fx-glow-warm',
     };
     // Glowing props that are heavy and planted on the ground — they must not bob.
-    const GROUNDED_GLOW = new Set(['brazier', 'idol', 'lamp-post', 'gauge', 'sun-idol', 'sun-spire', 'fire-bowl', 'clay-oven', 'hanging-lantern']);
+    const GROUNDED_GLOW = new Set(['brazier', 'idol', 'lamp-post', 'gauge', 'sun-idol', 'sun-spire', 'fire-bowl', 'clay-oven', 'hanging-lantern', 'forge-furnace', 'forge-hood', 'hearth', 'potion-case', 'bar-back']);
     const US = 0.75; // upright decor scale (HD decor is 2x res; halved to keep size)
     const FS = 0.65; // flat (floor) decor scale (HD decor is 2x res)
     // Building facade tiles are authored at the native 32px tile size, so they
@@ -1147,9 +1209,28 @@ export class DungeonScene extends Phaser.Scene {
       'shop-sign-anvil', 'shop-sign-vial', 'shop-sign-sword', 'shop-sign-tankard', 'shop-sign-coin', 'shop-sign-loaf',
       // Sunspire sandstone facades (native 32px — draw 1:1 so they tile seamlessly)
       'adobe-wall', 'adobe-roof', 'adobe-eave', 'adobe-base', 'adobe-window', 'adobe-door', 'adobe-post', 'rampart',
+      // Interior cladding (native 32px)
+      'forge-wall', 'forge-floor', 'apothecary-wall', 'apothecary-floor', 'guild-wall', 'guild-floor', 'tavern-wall',
+      'lodge-wall', 'lodge-floor',
     ]);
     for (const col of ['red', 'blue', 'green', 'teak', 'slate', 'thatch'])
       for (const part of ['roof', 'mid', 'eave']) buildingTiles.add(`house-${part}-${col}`);
+    // Solid free-standing props get one physics body per tile (pathing + Arcade).
+    // Skip tiles the tilemap already sealed (walls / deep water) to avoid doubles.
+    const sealedTile = (x: number, y: number) => {
+      if (y < 0 || y >= H || x < 0 || x >= W) return true;
+      const tt = t[y][x];
+      return tt === Tile.WALL || tt === Tile.VOID || tt === Tile.LOCKED_DOOR || (solidWater && tt === Tile.WATER);
+    };
+    const markSolidDecor = (x: number, y: number) => {
+      const k = `${x},${y}`;
+      if (this.solidDecor.has(k) || sealedTile(x, y)) return;
+      this.solidDecor.add(k);
+      const c = this.tileCenter(x, y);
+      // Slightly inset so corners between props don't snag the hitbox as hard.
+      this.addBlocker(c.x, c.y, TILE_SIZE * 0.9, TILE_SIZE * 0.9);
+    };
+
     for (const d of this.level.decor ?? []) {
       const dc = this.tileCenter(d.x, d.y);
       if (flatDecor.has(d.key)) {
@@ -1170,11 +1251,20 @@ export class DungeonScene extends Phaser.Scene {
           const gl = this.add.image(dc.x, dc.y, glowKey).setScale(1.7).setAlpha(ga).setBlendMode(Phaser.BlendModes.ADD).setDepth(DEPTH.FLOOR + 2);
           this.tweens.add({ targets: gl, alpha: { from: ga * 0.6, to: ga }, scale: { from: 1.5, to: 2 }, duration: 1200 + Math.random() * 700, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
         }
+        // Forge ember carpet: warm pulse underfoot leading to the grand furnace.
+        if (d.key === 'forge-embers') {
+          const gl = this.add.image(dc.x, dc.y, 'fx-glow-warm').setScale(1.1).setAlpha(0.22).setBlendMode(Phaser.BlendModes.ADD).setDepth(DEPTH.FLOOR + 2);
+          this.tweens.add({ targets: gl, alpha: { from: 0.12, to: 0.32 }, scale: { from: 0.95, to: 1.25 }, duration: 900 + Math.random() * 500, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+        }
       } else if (glowDecor[d.key]) {
-        const s = this.add.image(dc.x, dc.y, d.key).setDepth(dc.y - 2).setScale(US);
-        // Hearthwatch props glow much softer than crypt fixtures.
-        const gw = cozyLighting ? 0.1 : 1;
-        const gScale = cozyLighting ? 1.0 : 1.7;
+        // Forge fire set-pieces keep a strong glow even in cozy interiors — the
+        // grand furnace is the room's awe beat and must not wash out to candle-dim.
+        const setPiece =
+          d.key === 'forge-furnace' || d.key === 'forge-hood' || d.key === 'hearth' ||
+          d.key === 'potion-case' || d.key === 'bar-back';
+        const s = this.add.image(dc.x, dc.y, d.key).setDepth(dc.y - 2).setScale(setPiece ? 1 : US);
+        const gw = setPiece ? 1 : cozyLighting ? 0.1 : 1;
+        const gScale = setPiece ? (d.key === 'hearth' || d.key.startsWith('forge-') ? 2.2 : 1.6) : cozyLighting ? 1.0 : 1.7;
         const glow = this.add.image(dc.x, dc.y, glowDecor[d.key]).setScale(gScale).setAlpha(0.3 * gw).setBlendMode(Phaser.BlendModes.ADD).setDepth(dc.y - 3);
         this.tweens.add({ targets: glow, alpha: { from: 0.18 * gw, to: 0.42 * gw }, scale: { from: gScale * 0.82, to: gScale * 1.18 }, duration: 1100 + Math.random() * 600, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
         // Heavy ground-fixed props (braziers, lamp-posts, idols) stay planted;
@@ -1213,6 +1303,7 @@ export class DungeonScene extends Phaser.Scene {
       } else {
         this.add.image(dc.x, dc.y, d.key).setDepth(dc.y - 2).setScale(US);
       }
+      if (decorBlocks(d.key)) markSolidDecor(d.x, d.y);
     }
   }
 
@@ -1563,12 +1654,16 @@ export class DungeonScene extends Phaser.Scene {
           this.shadows.add(spr, 4);
           spr.setTint(0xbcd0e8); // locked chests read cooler/steely until opened
           this.chests.push({ sprite: spr, itemId: sp.itemId ?? 'health_potion', questItemId: sp.questItemId, opened: false, locked: true, x: sp.x, y: sp.y });
+          this.solidDecor.add(`${sp.x},${sp.y}`);
+          this.addBlocker(c.x, c.y, TILE_SIZE * 0.9, TILE_SIZE * 0.9);
           break;
         }
         case 'shrine': {
           const spr = this.add.image(c.x, c.y, 'shrine').setDepth(c.y);
           this.add.image(c.x, c.y - 6, 'fx-glow-magic').setScale(1.6).setAlpha(0.3).setBlendMode(Phaser.BlendModes.ADD).setDepth(c.y - 1);
           this.shrines.push({ sprite: spr, used: false, x: sp.x, y: sp.y });
+          this.solidDecor.add(`${sp.x},${sp.y}`);
+          this.addBlocker(c.x, c.y, TILE_SIZE * 0.9, TILE_SIZE * 0.9);
           break;
         }
         case 'key': {
@@ -1725,6 +1820,7 @@ export class DungeonScene extends Phaser.Scene {
         this.updateWardenRegen(delta);
         this.updateAuras(time);
         this.handlePickups();
+        this.checkAutoDoors();
         if (this.level.overworld) this.updateOverworldDanger(time);
       } else {
         // In co-op, a guest's enemies are owned by the host (see updateCoop);
@@ -2142,8 +2238,8 @@ export class DungeonScene extends Phaser.Scene {
   }
 
   /** If a rescue contract targets this realm, cage a villager in a far corner. */
-  /** Stone-grey warden busts on plinths along the Lodge lawn — one trophy per
-   *  cleared realm, so your victories are on show every time you come home. */
+  /** Stone-grey warden busts on plinths — one trophy per cleared realm.
+   *  Outdoor lawn (legacy row) or the lodge's east trophy hall. */
   private spawnLodgeTrophies(): void {
     const BOSS_SHEETS = [
       'monster-boss-sheet',
@@ -2158,17 +2254,49 @@ export class DungeonScene extends Phaser.Scene {
       'monster-hollow_king-sheet',
     ];
     const cleared = Math.min(this.unlockedRealms() - 1, BOSS_SHEETS.length);
+    if (cleared <= 0) return;
+
+    // Inside the lodge: use trophy-plinth decor positions (east hall).
+    if (this.level.id === 'interior_lodge') {
+      const plinths = (this.level.decor ?? []).filter((d) => d.key === 'trophy-plinth');
+      for (let i = 0; i < Math.min(cleared, plinths.length); i++) {
+        const p = plinths[i];
+        const c = this.tileCenter(p.x, p.y);
+        this.add.image(c.x, c.y - 12, BOSS_SHEETS[i]).setDepth(c.y + 1).setScale(0.28).setTint(0xb8b0a2);
+      }
+      if (plinths.length) {
+        const c = this.tileCenter(25, 3);
+        this.add
+          .text(c.x, c.y, 'Trophies of the fallen wardens', {
+            fontFamily: 'MedievalSharp, "Trebuchet MS", cursive',
+            fontSize: '10px',
+            color: '#cfc4a8',
+            stroke: '#000',
+            strokeThickness: 3,
+          })
+          .setOrigin(0.5, 0)
+          .setDepth(c.y + 40);
+      }
+      return;
+    }
+
+    // Outdoor lawn south of the lodge on Merchant's Row (town square only).
+    if (this.level.id !== 'town') return;
     for (let i = 0; i < cleared; i++) {
       const c = this.tileCenter(82 + i, 24);
       this.add.image(c.x, c.y + 4, 'pillar').setDepth(c.y).setScale(0.55);
       this.add.image(c.x, c.y - 10, BOSS_SHEETS[i]).setDepth(c.y + 1).setScale(0.24).setTint(0xb8b0a2);
     }
-    if (cleared > 0) {
-      const c = this.tileCenter(82, 26);
-      this.add
-        .text(c.x, c.y, 'Trophies of the fallen wardens', { fontFamily: 'MedievalSharp, "Trebuchet MS", cursive', fontSize: '10px', color: '#cfc4a8', stroke: '#000', strokeThickness: 3 })
-        .setDepth(c.y + 40);
-    }
+    const c = this.tileCenter(82, 26);
+    this.add
+      .text(c.x, c.y, 'Trophies of the fallen wardens', {
+        fontFamily: 'MedievalSharp, "Trebuchet MS", cursive',
+        fontSize: '10px',
+        color: '#cfc4a8',
+        stroke: '#000',
+        strokeThickness: 3,
+      })
+      .setDepth(c.y + 40);
   }
 
   private spawnRescueCage(): void {
@@ -2352,12 +2480,12 @@ export class DungeonScene extends Phaser.Scene {
     const p = this.add.particles(0, 0, 'fx-glow-white', {
       x: { min: 0, max: PLAY_AREA_WIDTH },
       y,
-      lifespan: a.mode === 'drift' ? 5200 : 4200,
+      lifespan: a.mode === 'drift' ? 5200 : 4000,
       speedX,
       speedY,
-      scale: { start: 0.5, end: 0 },
-      alpha: { start: 0.45, end: 0 },
-      frequency: a.frequency,
+      scale: { start: 0.72, end: 0 },
+      alpha: { start: 0.68, end: 0 },
+      frequency: Math.max(50, Math.floor(a.frequency * 0.7)),
       tint: a.particleTint,
       blendMode: 'ADD',
     });
@@ -5573,7 +5701,11 @@ export class DungeonScene extends Phaser.Scene {
       seen.add(e.netId);
       let ce = this.coopEnemies.get(e.netId);
       if (!ce) {
-        const scale = (ENEMIES[e.enemyId as EnemyId]?.scale ?? 1) * 0.56 * settings.spriteScale();
+        const scale =
+          (ENEMIES[e.enemyId as EnemyId]?.scale ?? 1) *
+          ENEMY_SPRITE_BASE *
+          ENEMY_SCALE_DEFAULT *
+          (settings.spriteScale() / SPRITE_SCALE_DEFAULT);
         const spr = this.add.sprite(e.x, e.y, `monster-${e.enemyId}-sheet`).setScale(scale);
         if (this.lightingOn) spr.setLighting(true);
         try { spr.play(`${e.enemyId}-walk`); } catch { /* no walk anim for this sheet */ }
@@ -5691,7 +5823,7 @@ export class DungeonScene extends Phaser.Scene {
       }
     }
     if (bestP) {
-      this.usePortal(bestP);
+      this.promptPortal(player, bestP);
       return true;
     }
     let bestM: (typeof this.merchants)[number] | null = null;
@@ -5710,10 +5842,11 @@ export class DungeonScene extends Phaser.Scene {
     if (this.returnPortal) {
       const rc = this.tileCenter(this.returnPortal.x, this.returnPortal.y);
       if (Phaser.Math.Distance.Between(player.x, player.y, rc.x, rc.y) < 32) {
-        this.useReturnPortal();
+        this.promptReturnPortal(player);
         return true;
       }
     }
+    // Building doors auto-enter on walk-in; interact still works as a backup.
     let bestD: (typeof this.doors)[number] | null = null;
     let bdd = 42;
     for (const dr of this.doors) {
@@ -5731,14 +5864,63 @@ export class DungeonScene extends Phaser.Scene {
     return false;
   }
 
-  private usePortal(p: { realmId: string; label: string }): void {
+  /** Walk onto a door tile to enter (no prompt). Portals still require Use. */
+  private checkAutoDoors(): void {
+    if (this.won || this.paused || this.anyOverlayOpen()) return;
+    if (this.time.now < this.doorGraceUntil) return;
+    const player = this.leader();
+    if (!player?.alive) return;
+    for (const dr of this.doors) {
+      if (dr.comingSoon) continue;
+      const c = this.tileCenter(dr.x, dr.y);
+      // Tight radius: must step onto the door, not merely brush past.
+      if (Phaser.Math.Distance.Between(player.x, player.y, c.x, c.y) < TILE_SIZE * 0.7) {
+        this.enterInterior(dr);
+        return;
+      }
+    }
+  }
+
+  private promptPortal(player: Hero, p: { realmId: string; label: string }): void {
     const idx = Content.levelOrder.indexOf(p.realmId);
     if (idx < 0 || idx >= this.unlockedRealms()) {
       audio.sfx('ui_move');
       this.showBark(`The gate to ${p.label} is sealed — clear the realm before it to break the seal.`, 5200);
       return;
     }
-    this.enterRealm(p.realmId, p.label);
+    if (this.dialogueUI.isOpen()) return;
+    this.closeAllOverlays();
+    audio.sfx('ui_select');
+    this.dialogueUI.open(player, p.label, 'a realm gate of the Undermaw', {
+      quest: {
+        line: `Descend into ${p.label}? Steel yourself — the Undermaw does not forgive the unready.`,
+        action: {
+          label: 'DESCEND',
+          fn: () => {
+            this.dialogueUI.close();
+            this.enterRealm(p.realmId, p.label);
+          },
+        },
+      },
+    });
+  }
+
+  private promptReturnPortal(player: Hero): void {
+    if (this.dialogueUI.isOpen()) return;
+    this.closeAllOverlays();
+    audio.sfx('ui_select');
+    this.dialogueUI.open(player, 'Return Portal', 'a shimmering gate back to the depths', {
+      quest: {
+        line: 'Step back through the portal into the Undermaw?',
+        action: {
+          label: 'RETURN',
+          fn: () => {
+            this.dialogueUI.close();
+            this.useReturnPortal();
+          },
+        },
+      },
+    });
   }
 
   private enterRealm(realmId: string, label: string): void {

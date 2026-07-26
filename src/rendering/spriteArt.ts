@@ -34,11 +34,12 @@ export const PX = (ctx: Ctx, x: number, y: number, c: string) => {
  * device pixels (call from un-transformed contexts only). Gives sprites a bold
  * arcade silhouette that pops against the floor.
  */
-export function outlineRegion(ctx: Ctx, x: number, y: number, w: number, h: number, color = '#0a0a14'): void {
+export function outlineRegion(ctx: Ctx, x: number, y: number, w: number, h: number, color = '#05050c'): void {
+  // Bold 1px silhouette so characters pop on busy floors (arcade cabinet read).
   const img = ctx.getImageData(x, y, w, h);
   const d = img.data;
   const a = (px: number, py: number): boolean =>
-    px >= 0 && py >= 0 && px < w && py < h && d[(py * w + px) * 4 + 3] > 40;
+    px >= 0 && py >= 0 && px < w && py < h && d[(py * w + px) * 4 + 3] > 36;
   const r = parseInt(color.slice(1, 3), 16);
   const g = parseInt(color.slice(3, 5), 16);
   const b = parseInt(color.slice(5, 7), 16);
@@ -46,8 +47,12 @@ export function outlineRegion(ctx: Ctx, x: number, y: number, w: number, h: numb
   for (let py = 0; py < h; py++) {
     for (let px = 0; px < w; px++) {
       const i = (py * w + px) * 4;
-      if (d[i + 3] > 40) continue;
-      if (a(px - 1, py) || a(px + 1, py) || a(px, py - 1) || a(px, py + 1)) todo.push(i);
+      if (d[i + 3] > 36) continue;
+      // include diagonals for a slightly thicker, more "sticker" arcade edge
+      if (
+        a(px - 1, py) || a(px + 1, py) || a(px, py - 1) || a(px, py + 1) ||
+        a(px - 1, py - 1) || a(px + 1, py - 1) || a(px - 1, py + 1) || a(px + 1, py + 1)
+      ) todo.push(i);
     }
   }
   for (const i of todo) {
@@ -75,9 +80,11 @@ export function softShade(ctx: Ctx, x: number, y: number, w: number, h: number):
       const i = (py * w + px) * 4;
       if (src[i + 3] <= 40) continue;
       let f = 0;
-      if (!a(px, py - 1) || !a(px - 1, py)) f += 0.22; // upper-left rim light
-      if (!a(px, py + 1) || !a(px + 1, py)) f -= 0.2; // lower-right form shadow
-      f -= (py / h) * 0.07; // gentle vertical falloff
+      // Hot upper-left rim + deep form shadow = arcade cabinet sticker depth
+      if (!a(px, py - 1) || !a(px - 1, py)) f += 0.34;
+      if (!a(px - 1, py - 1)) f += 0.12; // diagonal highlight pip
+      if (!a(px, py + 1) || !a(px + 1, py)) f -= 0.28;
+      f -= (py / h) * 0.1; // gentle vertical falloff
       if (f !== 0) {
         d[i] = clamp(src[i] * (1 + f));
         d[i + 1] = clamp(src[i + 1] * (1 + f));
@@ -99,57 +106,72 @@ export function rng(seed: number): () => number {
 // ============================================================================
 // TILES
 // ============================================================================
-export function drawFloor(ctx: Ctx, ox: number, oy: number, seed: number, fp: FloorColors = DEFAULT_FLOOR): void {
+export function drawFloor(ctx: Ctx, ox: number, oy: number, seed: number, fp: FloorColors = DEFAULT_FLOOR, theme: ThemeId = 'crypt'): void {
   const r = rng(seed);
   R(ctx, ox, oy, 16, 16, fp.f1);
+  // Per-theme dither density / pattern bias
+  const dens =
+    theme === 'molten' ? 0.48
+    : theme === 'frost' ? 0.4
+    : theme === 'toxic' ? 0.46
+    : theme === 'clockwork' ? 0.36
+    : theme === 'arena' ? 0.34
+    : theme === 'bog' ? 0.5
+    : theme === 'storm' ? 0.42
+    : theme === 'shadow' ? 0.38
+    : theme === 'sanctum' ? 0.32
+    : theme === 'town' ? 0.3
+    : 0.42;
   for (let y = 0; y < 16; y++) {
     for (let x = 0; x < 16; x++) {
       const n = r();
-      if (n < 0.14) PX(ctx, ox + x, oy + y, fp.f0);
-      else if (n < 0.26) PX(ctx, ox + x, oy + y, fp.f2);
-      else if (n < 0.32) PX(ctx, ox + x, oy + y, fp.f3);
-      else if (n < 0.345) PX(ctx, ox + x, oy + y, fp.hi);
+      if (n < dens * 0.38) PX(ctx, ox + x, oy + y, fp.f0);
+      else if (n < dens * 0.72) PX(ctx, ox + x, oy + y, fp.f2);
+      else if (n < dens * 0.9) PX(ctx, ox + x, oy + y, fp.f3);
+      else if (n < dens) PX(ctx, ox + x, oy + y, fp.hi);
     }
   }
-  // faint flagstone seams along the top/left edges
-  ctx.globalAlpha = 0.5;
+  // Flagstone seams — stronger on stone themes
+  const seamA = theme === 'clockwork' || theme === 'arena' || theme === 'sanctum' ? 0.7 : 0.5;
+  ctx.globalAlpha = seamA;
   R(ctx, ox, oy, 16, 1, fp.f0);
   R(ctx, ox, oy, 1, 16, fp.f0);
+  if (theme === 'clockwork' || theme === 'sanctum' || theme === 'arena') {
+    R(ctx, ox + 8, oy, 1, 16, fp.f0);
+    R(ctx, ox, oy + 8, 16, 1, fp.f0);
+  }
   ctx.globalAlpha = 1;
 
-  // one decorative feature per tile for variety (cracks, moss, gravel, puddle, flagstone)
+  // Shared crack / gravel base deco, then theme overlays
   const deco = r();
-  if (deco < 0.13) {
-    // puddle - dark reflective water
+  if (deco < 0.12) {
     const pcx = ox + 4 + Math.floor(r() * 7);
     const pcy = oy + 6 + Math.floor(r() * 5);
-    ctx.fillStyle = 'rgba(18,30,50,0.6)';
+    const puddle =
+      theme === 'molten' ? 'rgba(90,20,0,0.55)'
+      : theme === 'toxic' ? 'rgba(30,70,20,0.55)'
+      : theme === 'frost' ? 'rgba(40,80,110,0.5)'
+      : theme === 'shadow' ? 'rgba(20,10,40,0.55)'
+      : 'rgba(18,30,50,0.6)';
+    ctx.fillStyle = puddle;
     ctx.beginPath();
     ctx.ellipse(pcx, pcy, 4, 2.6, 0, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillStyle = 'rgba(20,32,52,0.4)';
-    ctx.beginPath();
-    ctx.ellipse(pcx, pcy + 1, 5, 3, 0, 0, Math.PI * 2);
-    ctx.fill();
-    PX(ctx, pcx - 1, pcy - 1, '#5f7ea6');
-    PX(ctx, pcx + 1, pcy, '#48648a');
-  } else if (deco < 0.27) {
-    // scattered gravel / pebbles
+    PX(ctx, pcx - 1, pcy - 1, theme === 'molten' ? '#ff8a1e' : theme === 'toxic' ? '#8ce05a' : '#5f7ea6');
+  } else if (deco < 0.26) {
     for (let i = 0; i < 6; i++) {
       const gx = ox + 2 + Math.floor(r() * 12);
       const gy = oy + 2 + Math.floor(r() * 12);
       PX(ctx, gx, gy, r() < 0.5 ? fp.f0 : fp.hi);
     }
   } else if (deco < 0.34) {
-    // big cracked flagstone seam (cross)
     ctx.globalAlpha = 0.6;
     R(ctx, ox + 8, oy + 1, 1, 14, fp.crack);
     R(ctx, ox + 1, oy + 8, 14, 1, fp.crack);
     ctx.globalAlpha = 0.3;
     R(ctx, ox + 9, oy + 1, 1, 14, fp.hi);
     ctx.globalAlpha = 1;
-  } else if (deco < 0.5) {
-    // jagged crack
+  } else if (deco < 0.48) {
     let cx = ox + 3 + Math.floor(r() * 9);
     let cy = oy + 3 + Math.floor(r() * 9);
     for (let i = 0; i < 5; i++) {
@@ -157,14 +179,144 @@ export function drawFloor(ctx: Ctx, ox: number, oy: number, seed: number, fp: Fl
       cx += r() < 0.5 ? 1 : 0;
       cy += r() < 0.5 ? 1 : -1;
     }
-  } else if (deco < 0.62) {
-    // moss patch
+  } else if (deco < 0.6) {
     const mx = ox + 2 + Math.floor(r() * 11);
     const my = oy + 2 + Math.floor(r() * 11);
     PX(ctx, mx, my, fp.moss);
     PX(ctx, mx + 1, my, fp.moss);
     PX(ctx, mx, my + 1, fp.moss);
     PX(ctx, mx + 1, my + 1, fp.moss);
+  }
+
+  // Theme-specific flourishes so every realm's floor is instantly readable
+  drawFloorThemeAccent(ctx, ox, oy, theme, r);
+}
+
+/** Extra floor paint layered after base dither — embers, frost, gears, etc. */
+function drawFloorThemeAccent(ctx: Ctx, ox: number, oy: number, theme: ThemeId, r: () => number): void {
+  switch (theme) {
+    case 'molten':
+      if (r() < 0.45) {
+        const x = ox + 2 + Math.floor(r() * 11);
+        const y = oy + 2 + Math.floor(r() * 11);
+        PX(ctx, x, y, '#c43c06');
+        PX(ctx, x + 1, y, '#ff8a1e');
+        if (r() < 0.4) PX(ctx, x, y + 1, '#ffd98a');
+      }
+      if (r() < 0.2) {
+        R(ctx, ox + 3 + Math.floor(r() * 8), oy + 10, 4, 1, '#5a1500');
+      }
+      break;
+    case 'frost':
+      for (let i = 0; i < 4; i++) {
+        if (r() < 0.55) PX(ctx, ox + 1 + Math.floor(r() * 14), oy + 1 + Math.floor(r() * 14), '#eaf6ff');
+      }
+      if (r() < 0.3) {
+        const x = ox + 4 + Math.floor(r() * 8);
+        const y = oy + 4 + Math.floor(r() * 8);
+        R(ctx, x, y, 3, 1, '#bfe9ff');
+        R(ctx, x + 1, y - 1, 1, 3, '#bfe9ff');
+      }
+      break;
+    case 'toxic':
+      if (r() < 0.4) {
+        const x = ox + 3 + Math.floor(r() * 10);
+        const y = oy + 3 + Math.floor(r() * 10);
+        PX(ctx, x, y, '#8ce05a');
+        PX(ctx, x + 1, y, '#3f8a3a');
+        PX(ctx, x, y + 1, '#b6f06a');
+      }
+      if (r() < 0.25) R(ctx, ox + 6, oy + 12, 1, 3, '#6fae3a');
+      break;
+    case 'clockwork':
+      if (r() < 0.35) {
+        const x = ox + 4 + Math.floor(r() * 8);
+        const y = oy + 4 + Math.floor(r() * 8);
+        PX(ctx, x, y, '#e6c264');
+        PX(ctx, x + 1, y, '#9a7b3a');
+        PX(ctx, x, y + 1, '#9a7b3a');
+        PX(ctx, x + 1, y + 1, '#e6c264');
+      }
+      if (r() < 0.25) {
+        ctx.globalAlpha = 0.45;
+        R(ctx, ox + 2, oy + 7, 12, 1, '#4a3812');
+        ctx.globalAlpha = 1;
+      }
+      break;
+    case 'arena':
+      if (r() < 0.3) {
+        for (let i = 0; i < 3; i++) PX(ctx, ox + 3 + Math.floor(r() * 10), oy + 4 + Math.floor(r() * 8), '#9c1818');
+      }
+      if (r() < 0.2) {
+        R(ctx, ox + 2, oy + 2, 12, 1, '#d8b87a');
+        R(ctx, ox + 2, oy + 13, 12, 1, '#d8b87a');
+      }
+      break;
+    case 'bog':
+      if (r() < 0.5) {
+        const x = ox + 2 + Math.floor(r() * 12);
+        const y = oy + 2 + Math.floor(r() * 12);
+        PX(ctx, x, y, '#4a7a38');
+        PX(ctx, x + 1, y, '#3f7a34');
+        PX(ctx, x, y + 1, '#244d1e');
+      }
+      if (r() < 0.22) {
+        ctx.fillStyle = 'rgba(20,40,18,0.45)';
+        ctx.beginPath();
+        ctx.ellipse(ox + 8, oy + 10, 5, 2.5, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      break;
+    case 'storm':
+      for (let i = 0; i < 3; i++) {
+        if (r() < 0.5) PX(ctx, ox + 1 + Math.floor(r() * 14), oy + 1 + Math.floor(r() * 14), '#b0c8ff');
+      }
+      if (r() < 0.22) {
+        const x = ox + 5 + Math.floor(r() * 6);
+        const y = oy + 3 + Math.floor(r() * 8);
+        R(ctx, x, y, 1, 4, '#cfe0ff');
+        R(ctx, x - 1, y + 1, 3, 1, '#eaf4ff');
+      }
+      break;
+    case 'shadow':
+      if (r() < 0.4) {
+        ctx.globalAlpha = 0.5;
+        R(ctx, ox + 2 + Math.floor(r() * 8), oy + 2 + Math.floor(r() * 8), 4, 3, '#0c0814');
+        ctx.globalAlpha = 1;
+      }
+      if (r() < 0.28) {
+        PX(ctx, ox + 4 + Math.floor(r() * 8), oy + 4 + Math.floor(r() * 8), '#8a6ab0');
+        PX(ctx, ox + 5 + Math.floor(r() * 6), oy + 6 + Math.floor(r() * 6), '#b58aff');
+      }
+      break;
+    case 'sanctum':
+      if (r() < 0.35) {
+        const x = ox + 5 + Math.floor(r() * 6);
+        const y = oy + 5 + Math.floor(r() * 6);
+        R(ctx, x, y, 3, 1, '#e6c264');
+        R(ctx, x + 1, y - 1, 1, 3, '#e6c264');
+        PX(ctx, x + 1, y, '#fff0b0');
+      }
+      if (r() < 0.2) {
+        for (const [dx, dy] of [[2, 2], [13, 2], [2, 13], [13, 13]] as [number, number][]) {
+          PX(ctx, ox + dx, oy + dy, '#ecdca6');
+        }
+      }
+      break;
+    case 'town':
+      if (r() < 0.3) {
+        PX(ctx, ox + 3 + Math.floor(r() * 10), oy + 4 + Math.floor(r() * 8), '#7fb84a');
+        PX(ctx, ox + 4 + Math.floor(r() * 8), oy + 6 + Math.floor(r() * 6), '#6fa050');
+      }
+      break;
+    default: // crypt
+      if (r() < 0.25) {
+        for (let i = 0; i < 2; i++) PX(ctx, ox + 3 + Math.floor(r() * 10), oy + 4 + Math.floor(r() * 8), '#3a4566');
+      }
+      if (r() < 0.12) {
+        R(ctx, ox + 5, oy + 11, 6, 1, '#1c130b');
+      }
+      break;
   }
 }
 
@@ -178,9 +330,9 @@ export function drawWall(ctx: Ctx, ox: number, oy: number, cap: boolean, seed = 
     R(ctx, ox, oy + ry, 16, 1, wp.mortar);
     for (let bx = 0; bx < 16; bx += 8) {
       const x = ox + ((bx + offset) % 16);
-      // brick face with subtle per-brick tone variation
+      // brick face with punchier per-brick tone variation (arcade depth)
       const v = r();
-      const face = v < 0.34 ? wp.mid : v < 0.7 ? wp.base : wp.lit;
+      const face = v < 0.3 ? wp.mid : v < 0.62 ? wp.base : v < 0.88 ? wp.lit : wp.hi;
       R(ctx, x, oy + ry + 1, 7, 3, face);
       // top-left bevel highlight (light from upper-left)
       R(ctx, x, oy + ry + 1, 7, 1, wp.hi);
@@ -191,19 +343,20 @@ export function drawWall(ctx: Ctx, ox: number, oy: number, cap: boolean, seed = 
       // vertical mortar groove
       R(ctx, x + 7, oy + ry + 1, 1, 3, wp.mortar);
       // weathering: occasional crack or moss fleck
-      if (r() < 0.14) PX(ctx, x + 1 + Math.floor(r() * 4), oy + ry + 2, wp.mortar);
-      else if (r() < 0.08) PX(ctx, x + 2 + Math.floor(r() * 3), oy + ry + 2, wp.dark);
+      if (r() < 0.16) PX(ctx, x + 1 + Math.floor(r() * 4), oy + ry + 2, wp.mortar);
+      else if (r() < 0.1) PX(ctx, x + 2 + Math.floor(r() * 3), oy + ry + 2, wp.dark);
+      else if (r() < 0.06) PX(ctx, x + 3 + Math.floor(r() * 2), oy + ry + 1, wp.hi);
     }
   }
   // grounding shadow at the very bottom edge
-  ctx.globalAlpha = 0.4;
+  ctx.globalAlpha = 0.45;
   R(ctx, ox, oy + 14, 16, 2, wp.dark);
   ctx.globalAlpha = 1;
   if (cap) {
     R(ctx, ox, oy, 16, 3, wp.topLit);
     R(ctx, ox, oy, 16, 1, wp.hi);
     R(ctx, ox, oy + 3, 16, 1, wp.topDark);
-    ctx.globalAlpha = 0.25;
+    ctx.globalAlpha = 0.3;
     R(ctx, ox, oy + 4, 16, 2, wp.hi);
     ctx.globalAlpha = 1;
   }
@@ -224,65 +377,92 @@ export function drawWallRoof(ctx: Ctx, ox: number, oy: number, theme: ThemeId, s
   };
   switch (theme) {
     case 'molten':
-      blob('#7a1a06', 2);
-      dots('#ff8a1e', 6);
-      dots('#ffd98a', 2);
+      blob('#7a1a06', 3);
+      dots('#ff8a1e', 8);
+      dots('#ffd98a', 3);
+      if (r() < 0.45) R(ctx, ox + 2 + Math.floor(r() * 10), oy + 12, 3, 2, '#c43c06');
       break;
     case 'frost':
-      dots('#dff1ff', 7);
-      dots('#bfe9ff', 4);
-      blob('#eaf6ff', 2);
+      dots('#dff1ff', 9);
+      dots('#bfe9ff', 5);
+      blob('#eaf6ff', 3);
+      if (r() < 0.4) {
+        R(ctx, ox + 3, oy + 2, 1, 5, '#cfeaff');
+        R(ctx, ox + 12, oy + 6, 1, 6, '#bfe9ff');
+      }
       break;
     case 'toxic':
-      blob('#3f8a3a', 3);
-      dots('#8ce05a', 4);
-      R(ctx, ox + 4 + Math.floor(r() * 8), oy + 8, 1, 4, '#6fae3a'); // drip
+      blob('#3f8a3a', 4);
+      dots('#8ce05a', 6);
+      R(ctx, ox + 4 + Math.floor(r() * 8), oy + 8, 1, 5, '#6fae3a');
+      if (r() < 0.35) {
+        PX(ctx, ox + 6, oy + 4, '#b6f06a');
+        PX(ctx, ox + 10, oy + 10, '#eaff8a');
+      }
       break;
     case 'clockwork':
-      for (const [dx, dy] of [[3, 3], [12, 3], [3, 12], [12, 12]] as [number, number][]) {
+      for (const [dx, dy] of [[3, 3], [12, 3], [3, 12], [12, 12], [8, 8]] as [number, number][]) {
         PX(ctx, ox + dx, oy + dy, '#e6c264');
         PX(ctx, ox + dx, oy + dy + 1, '#7a5e2a');
       }
-      ctx.globalAlpha = 0.5;
+      ctx.globalAlpha = 0.55;
       R(ctx, ox, oy + 8, 16, 1, '#2a2214');
+      R(ctx, ox + 8, oy, 1, 16, '#2a2214');
       ctx.globalAlpha = 1;
       break;
     case 'arena':
-      blob('#9c1818', 2);
-      dots('#5a0e0e', 3);
-      dots('#caa56a', 3);
+      blob('#9c1818', 3);
+      dots('#5a0e0e', 4);
+      dots('#caa56a', 4);
+      if (r() < 0.4) {
+        R(ctx, ox + 1, oy + 1, 14, 1, '#d8b87a');
+        R(ctx, ox + 1, oy + 14, 14, 1, '#d8b87a');
+      }
       break;
     case 'bog':
-      blob('#3f7a34', 4);
-      blob('#244d1e', 2);
-      dots('#7fce58', 3);
+      blob('#3f7a34', 5);
+      blob('#244d1e', 3);
+      dots('#7fce58', 5);
+      if (r() < 0.4) R(ctx, ox + 5 + Math.floor(r() * 6), oy + 2, 1, 6, '#5e8a3a');
       break;
     case 'storm':
-      dots('#b0c8ff', 5);
-      dots('#ffffff', 2);
-      if (r() < 0.5) {
+      dots('#b0c8ff', 7);
+      dots('#ffffff', 3);
+      if (r() < 0.55) {
         const x = ox + 4 + Math.floor(r() * 8);
-        const y = oy + 4 + Math.floor(r() * 8);
+        const y = oy + 3 + Math.floor(r() * 8);
         R(ctx, x - 1, y, 3, 1, '#cfe0ff');
-        R(ctx, x, y - 1, 1, 3, '#cfe0ff');
+        R(ctx, x, y - 1, 1, 5, '#eaf4ff');
+        R(ctx, x + 1, y + 2, 2, 1, '#ffffff');
       }
       break;
     case 'shadow':
-      blob('#0c0814', 3);
-      dots('#8a6ab0', 3);
+      blob('#0c0814', 4);
+      dots('#8a6ab0', 5);
+      if (r() < 0.4) {
+        PX(ctx, ox + 7, oy + 7, '#c79bff');
+        PX(ctx, ox + 8, oy + 8, '#b58aff');
+      }
       break;
     case 'sanctum':
-      dots('#ffd24a', 3);
-      dots('#ecdca6', 3);
-      if (r() < 0.5) {
+      dots('#ffd24a', 5);
+      dots('#ecdca6', 5);
+      if (r() < 0.55) {
         const x = ox + 5 + Math.floor(r() * 6);
         const y = oy + 5 + Math.floor(r() * 6);
         R(ctx, x, y, 3, 1, '#e6c264');
         R(ctx, x + 1, y - 1, 1, 3, '#e6c264');
+        PX(ctx, x + 1, y, '#fff0b0');
       }
       break;
+    case 'town':
+      dots('#e0bd84', 3);
+      dots('#6fa050', 2);
+      break;
     default: // crypt
-      dots('#3a4566', 3);
+      dots('#3a4566', 4);
+      dots('#1b2a55', 2);
+      if (r() < 0.3) blob('#0c1430', 1);
       break;
   }
 }
@@ -308,15 +488,33 @@ export function drawWallArt(ctx: Ctx, ox: number, oy: number, theme: ThemeId, se
   const cx = ox + 8;
   const cy = oy + 7;
   const r = rng(seed * 2654435761 + 7);
-  const motif = Math.floor(r() * 5);
+  // Prefer theme-signature motifs (0–2) over shared (3–6)
+  const motifPool =
+    theme === 'molten' ? [0, 1, 5]
+    : theme === 'frost' ? [0, 1, 6]
+    : theme === 'toxic' ? [0, 2, 5]
+    : theme === 'clockwork' ? [1, 4, 5]
+    : theme === 'storm' ? [0, 2, 6]
+    : theme === 'shadow' ? [0, 1, 3]
+    : theme === 'sanctum' ? [0, 1, 4]
+    : theme === 'arena' ? [2, 3, 4]
+    : theme === 'bog' ? [2, 3, 5]
+    : [0, 1, 2, 3, 4];
+  const motif = motifPool[Math.floor(r() * motifPool.length)];
 
   // carved recess + lit top edge (common to all motifs)
-  ctx.fillStyle = 'rgba(0,0,0,0.45)';
+  ctx.fillStyle = 'rgba(0,0,0,0.5)';
   ctx.fillRect(ox + 2, oy + 1, 12, 12);
-  ctx.fillStyle = 'rgba(255,255,255,0.08)';
+  ctx.fillStyle = 'rgba(255,255,255,0.1)';
   ctx.fillRect(ox + 2, oy + 1, 12, 1);
-  ctx.fillStyle = 'rgba(0,0,0,0.4)';
+  ctx.fillStyle = 'rgba(0,0,0,0.45)';
   ctx.fillRect(ox + 2, oy + 12, 12, 1);
+  // thin gold/accent frame
+  ctx.globalAlpha = 0.55;
+  R(ctx, ox + 2, oy + 1, 12, 1, col);
+  R(ctx, ox + 2, oy + 1, 1, 12, col);
+  R(ctx, ox + 13, oy + 1, 1, 12, col);
+  ctx.globalAlpha = 1;
 
   if (motif === 0) {
     // rune ring + cross sigil
@@ -343,15 +541,15 @@ export function drawWallArt(ctx: Ctx, ox: number, oy: number, theme: ThemeId, se
     ctx.fillRect(cx - 2, cy - 3, 1, 7);
   } else if (motif === 3) {
     // gargoyle visage with glowing eyes
-    R(ctx, cx - 3, cy - 2, 6, 1, col); // brow
-    R(ctx, cx - 2, cy - 1, 1, 2, col); // eyes
+    R(ctx, cx - 3, cy - 2, 6, 1, col);
+    R(ctx, cx - 2, cy - 1, 1, 2, col);
     R(ctx, cx + 1, cy - 1, 1, 2, col);
     PX(ctx, cx - 2, cy - 1, '#ffffff');
     PX(ctx, cx + 1, cy - 1, '#ffffff');
-    R(ctx, cx - 2, cy + 2, 4, 1, col); // mouth
+    R(ctx, cx - 2, cy + 2, 4, 1, col);
     PX(ctx, cx - 2, cy + 3, col);
     PX(ctx, cx + 1, cy + 3, col);
-  } else {
+  } else if (motif === 4) {
     // mounted round shield / boss with rivets
     ctx.strokeStyle = col;
     ctx.lineWidth = 1;
@@ -361,6 +559,40 @@ export function drawWallArt(ctx: Ctx, ox: number, oy: number, theme: ThemeId, se
     R(ctx, cx - 1, cy - 1, 2, 2, col);
     PX(ctx, cx, cy, '#ffffff');
     for (const [dx, dy] of [[0, -4], [0, 4], [-4, 0], [4, 0]] as [number, number][]) PX(ctx, cx + dx, cy + dy, col);
+  } else if (motif === 5) {
+    // theme-specific: flame / spore / cog
+    if (theme === 'molten') {
+      R(ctx, cx - 1, cy + 2, 2, 3, col);
+      R(ctx, cx - 2, cy, 4, 2, col);
+      R(ctx, cx - 1, cy - 2, 2, 2, '#ffffff');
+      PX(ctx, cx, cy - 3, '#ffd98a');
+    } else if (theme === 'toxic' || theme === 'bog') {
+      R(ctx, cx - 2, cy + 1, 4, 2, col);
+      PX(ctx, cx - 1, cy, col);
+      PX(ctx, cx + 1, cy, col);
+      PX(ctx, cx, cy - 1, '#ffffff');
+      PX(ctx, cx - 2, cy + 3, col);
+      PX(ctx, cx + 2, cy + 3, col);
+    } else {
+      // cog teeth
+      for (let a = 0; a < 8; a++) {
+        const ang = (a / 8) * Math.PI * 2;
+        PX(ctx, cx + Math.round(Math.cos(ang) * 4), cy + Math.round(Math.sin(ang) * 4), col);
+      }
+      R(ctx, cx - 1, cy - 1, 2, 2, '#ffffff');
+    }
+  } else {
+    // bolt / icicle / spark
+    if (theme === 'frost') {
+      R(ctx, cx, cy - 4, 1, 8, col);
+      R(ctx, cx - 1, cy - 2, 3, 1, col);
+      R(ctx, cx - 2, cy, 5, 1, '#ffffff');
+    } else {
+      R(ctx, cx, cy - 4, 1, 3, col);
+      R(ctx, cx - 1, cy - 1, 3, 1, col);
+      R(ctx, cx + 1, cy, 1, 4, col);
+      PX(ctx, cx + 1, cy + 4, '#ffffff');
+    }
   }
 }
 
@@ -1314,29 +1546,46 @@ export function drawRing(ctx: Ctx, ox: number, frame: number, color: string): vo
 }
 
 export function drawGlowDot(ctx: Ctx, color: string): void {
+  // Hot white core → saturated mid → soft fade. Reads as true arcade bloom under ADD.
+  const mid = color.replace(/,\s*[\d.]+\)$/, ',0.55)');
   const g = ctx.createRadialGradient(8, 8, 0, 8, 8, 8);
-  g.addColorStop(0, color);
+  g.addColorStop(0, 'rgba(255,255,255,1)');
+  g.addColorStop(0.22, color);
+  g.addColorStop(0.55, mid);
   g.addColorStop(1, 'rgba(0,0,0,0)');
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, 16, 16);
 }
 
 export function drawVignette(ctx: Ctx, w: number, h: number): void {
-  const g = ctx.createRadialGradient(w / 2, h / 2, h * 0.28, w / 2, h / 2, h * 0.85);
+  // Cabinet CRT vignette — clear playfield centre, deep navy-black edges.
+  const g = ctx.createRadialGradient(w / 2, h / 2, h * 0.18, w / 2, h / 2, h * 0.92);
   g.addColorStop(0, 'rgba(0,0,0,0)');
-  g.addColorStop(0.55, 'rgba(0,0,0,0.18)');
-  g.addColorStop(1, 'rgba(3,4,9,0.92)');
+  g.addColorStop(0.42, 'rgba(0,0,0,0.08)');
+  g.addColorStop(0.68, 'rgba(0,0,0,0.28)');
+  g.addColorStop(0.86, 'rgba(0,0,0,0.55)');
+  g.addColorStop(1, 'rgba(2,3,10,0.98)');
   ctx.fillStyle = g;
+  ctx.fillRect(0, 0, w, h);
+  // Soft horizontal film grain strips near top/bottom (arcade monitor bezel)
+  const edge = ctx.createLinearGradient(0, 0, 0, h);
+  edge.addColorStop(0, 'rgba(0,0,0,0.35)');
+  edge.addColorStop(0.08, 'rgba(0,0,0,0)');
+  edge.addColorStop(0.92, 'rgba(0,0,0,0)');
+  edge.addColorStop(1, 'rgba(0,0,0,0.4)');
+  ctx.fillStyle = edge;
   ctx.fillRect(0, 0, w, h);
 }
 
 // White-edged radial (transparent centre) — tints cleanly to give each level a
 // coloured screen-edge grade layered over the dark vignette.
 export function drawEdgeTint(ctx: Ctx, w: number, h: number): void {
-  const g = ctx.createRadialGradient(w / 2, h / 2, h * 0.34, w / 2, h / 2, h * 0.92);
+  const g = ctx.createRadialGradient(w / 2, h / 2, h * 0.28, w / 2, h / 2, h * 0.96);
   g.addColorStop(0, 'rgba(255,255,255,0)');
-  g.addColorStop(0.7, 'rgba(255,255,255,0.08)');
-  g.addColorStop(1, 'rgba(255,255,255,0.55)');
+  g.addColorStop(0.55, 'rgba(255,255,255,0.04)');
+  g.addColorStop(0.78, 'rgba(255,255,255,0.16)');
+  g.addColorStop(0.92, 'rgba(255,255,255,0.38)');
+  g.addColorStop(1, 'rgba(255,255,255,0.72)');
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, w, h);
 }

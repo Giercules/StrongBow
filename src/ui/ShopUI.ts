@@ -8,25 +8,20 @@ import { ItemTooltip } from './ItemTooltip';
 import { questLog } from '../systems/QuestSystem';
 import { salvageYield, reforgeCost, ascendCost, canAfford, pay, grant, fmtCost, reforge, ascend, gradeTag } from '../systems/CraftSystem';
 import { MenuNav } from './MenuNav';
+import { C } from '../rendering/Palette';
 
 const SERIF = 'MedievalSharp, Georgia, serif';
 const TITLE = 'Cinzel, Georgia, serif';
 const hx = (s: string): number => parseInt(s.replace('#', ''), 16);
-const PAGE = '#e9dcc0';
-const PAGE2 = '#f2e9d0';
-const GOLD = '#b8923a';
-const GOLD_DK = '#6e521f';
-const INK = '#3a2a16';
-const HEAD = '#7a2a2a';
-const PANEL_W = 460;
-const PANEL_H = 372;
+const PANEL_W = 500;
+const PANEL_H = 420;
 
 const RARITY_COLOR: Record<Rarity, string> = {
-  common: '#c8c8c8',
-  uncommon: '#6fcf6f',
-  rare: '#5aa0ff',
-  epic: '#c77dff',
-  legendary: '#ffb43a',
+  common: '#c8d0e0',
+  uncommon: '#6fe07a',
+  rare: '#5ab0ff',
+  epic: '#d08cff',
+  legendary: '#ffd24a',
 };
 
 interface StockEntry {
@@ -114,7 +109,7 @@ export class ShopUI {
     this.haggleDiscount = 0;
     this.onClosed = onClosed;
     this.backdrop = this.scene.add
-      .rectangle(PLAY_AREA_WIDTH / 2, GAME_HEIGHT / 2, PLAY_AREA_WIDTH, GAME_HEIGHT, 0x05060a, 0.72)
+      .rectangle(PLAY_AREA_WIDTH / 2, GAME_HEIGHT / 2, PLAY_AREA_WIDTH, GAME_HEIGHT, 0x03050c, 0.78)
       .setScrollFactor(0)
       .setDepth(PLAY_AREA_UI_DEPTH + 5)
       .setInteractive();
@@ -150,7 +145,6 @@ export class ShopUI {
   }
 
   private charismaDiscount(): number {
-    // silver tongue + haggling + the town's opinion of you (reputation)
     return Math.min(MAX_SHOP_BUY_DISCOUNT, (this.buyer.charisma ?? 0) * 0.03 + this.haggleDiscount + questLog.repDiscount());
   }
   private sellBonus(): number {
@@ -213,7 +207,12 @@ export class ShopUI {
   }
 
   private sell(item: ItemDefinition): void {
-    if (item.quest) { this.status = 'That is not for sale.'; audio.sfx('ui_move'); this.render(); return; }
+    if (item.quest) {
+      this.status = 'That is not for sale.';
+      audio.sfx('ui_move');
+      this.render();
+      return;
+    }
     const v = this.sellValue(item);
     const i = this.buyer.inventory.bag.indexOf(item);
     if (i < 0) return;
@@ -224,6 +223,53 @@ export class ShopUI {
     this.status = `Sold ${item.name} for ${v}g.` + (lvl ? `  Charisma ${this.buyer.charisma}!` : '');
     audio.sfx('coin');
     this.render();
+  }
+
+  private drawArcadeFrame(g: Phaser.GameObjects.Graphics, x0: number, y0: number, w: number, h: number): void {
+    // Outer deep plate
+    g.fillStyle(hx(C.hudBg), 0.98);
+    g.fillRoundedRect(x0 - 6, y0 - 6, w + 12, h + 12, 10);
+    // Inner navy panel
+    g.fillStyle(hx(C.hudPanel), 1);
+    g.fillRoundedRect(x0, y0, w, h, 8);
+    // Top sheen
+    g.fillStyle(0xffffff, 0.05);
+    g.fillRoundedRect(x0 + 4, y0 + 4, w - 8, 36, 4);
+    // Gold double-rail
+    g.lineStyle(3, hx(C.hudBorder), 1);
+    g.strokeRoundedRect(x0 + 2, y0 + 2, w - 4, h - 4, 7);
+    g.lineStyle(1, hx(C.hudBorderDk), 1);
+    g.strokeRoundedRect(x0 + 7, y0 + 7, w - 14, h - 14, 5);
+    // Neon hairline
+    g.lineStyle(1, hx(C.hudNeon), 0.45);
+    g.strokeRoundedRect(x0 + 4, y0 + 4, w - 8, h - 8, 6);
+    // Corner brackets + neon pips
+    g.fillStyle(hx(C.hudBorder), 1);
+    for (const [px, py, sx, sy] of [
+      [x0 + 3, y0 + 3, 1, 1],
+      [x0 + w - 3, y0 + 3, -1, 1],
+      [x0 + 3, y0 + h - 3, 1, -1],
+      [x0 + w - 3, y0 + h - 3, -1, -1],
+    ] as [number, number, number, number][]) {
+      g.fillRect(px, py, 16 * sx, 3 * sy);
+      g.fillRect(px, py, 3 * sx, 16 * sy);
+    }
+    g.fillStyle(hx(C.hudNeon), 1);
+    for (const [px, py] of [
+      [x0 + 5, y0 + 5],
+      [x0 + w - 9, y0 + 5],
+      [x0 + 5, y0 + h - 9],
+      [x0 + w - 9, y0 + h - 9],
+    ] as [number, number][]) {
+      g.fillRect(px, py, 4, 4);
+    }
+    // Title plaque
+    g.fillStyle(hx(C.hudBorderDk), 1);
+    g.fillRoundedRect(x0 + 48, y0 - 4, w - 96, 30, 6);
+    g.fillStyle(hx(C.hudBorder), 1);
+    g.fillRoundedRect(x0 + 50, y0 - 2, w - 100, 26, 5);
+    g.fillStyle(hx(C.hudNeon), 0.4);
+    g.fillRoundedRect(x0 + 56, y0, w - 112, 8, 3);
   }
 
   private render(): void {
@@ -237,32 +283,49 @@ export class ShopUI {
     const y0 = cy - PANEL_H / 2;
 
     const g = this.scene.add.graphics();
-    g.fillStyle(hx('#241a0c'), 1);
-    g.fillRoundedRect(x0 - 4, y0 - 4, PANEL_W + 8, PANEL_H + 8, 12);
-    g.fillStyle(hx(GOLD), 1);
-    g.fillRoundedRect(x0, y0, PANEL_W, PANEL_H, 10);
-    g.fillStyle(hx(GOLD_DK), 1);
-    g.fillRoundedRect(x0 + 4, y0 + 4, PANEL_W - 8, PANEL_H - 8, 8);
-    g.fillStyle(hx(PAGE), 1);
-    g.fillRoundedRect(x0 + 8, y0 + 8, PANEL_W - 16, PANEL_H - 16, 6);
+    this.drawArcadeFrame(g, x0, y0, PANEL_W, PANEL_H);
     this.pin(g);
 
-    this.text(cx, y0 + 12, this.title.toUpperCase(), HEAD, 21, TITLE).setOrigin(0.5, 0);
+    // Title on gold plaque
+    this.text(cx, y0 + 11, this.title.toUpperCase(), '#1a1206', 16, TITLE, true).setOrigin(0.5, 0.5);
+
     const cha = this.buyer.charisma ?? 0;
     const discPct = Math.round(this.charismaDiscount() * 100);
     const sellPct = Math.round(this.sellBonus() * 100);
-    const meta = this.mode === 'buy'
-      ? `Gold: ${this.buyer.inventory.gold}    Charisma: ${cha}` + (discPct ? `   (-${discPct}% prices)` : '')
-      : `Gold: ${this.buyer.inventory.gold}    Charisma: ${cha}` + (sellPct ? `   (+${sellPct}% payout)` : '');
-    this.text(cx, y0 + 38, meta, GOLD_DK, 12).setOrigin(0.5, 0);
 
-    this.button(x0 + 92, y0 + 60, 64, 22, 'BUY', this.mode !== 'buy', () => this.setMode('buy'));
-    this.button(x0 + 166, y0 + 60, 64, 22, 'SELL', this.mode !== 'sell', () => this.setMode('sell'));
-    if (this.shop === 'blacksmith') this.button(x0 + 240, y0 + 60, 64, 22, 'CRAFT', this.mode !== 'craft', () => this.setMode('craft'));
-    if (this.mode === 'buy' && cha >= 1) this.button(x0 + PANEL_W - 96, y0 + 60, 130, 24, this.haggled ? 'HAGGLED' : 'HAGGLE', !this.haggled, () => this.haggle());
+    // Mode tabs
+    const tabY = y0 + 42;
+    let tabX = x0 + 78;
+    this.tab(tabX, tabY, 78, 26, 'BUY', this.mode === 'buy', () => this.setMode('buy'));
+    tabX += 88;
+    this.tab(tabX, tabY, 78, 26, 'SELL', this.mode === 'sell', () => this.setMode('sell'));
+    tabX += 88;
+    if (this.shop === 'blacksmith') {
+      this.tab(tabX, tabY, 78, 26, 'CRAFT', this.mode === 'craft', () => this.setMode('craft'));
+      tabX += 88;
+    }
+    if (this.mode === 'buy' && cha >= 1) {
+      this.button(x0 + PANEL_W - 78, tabY, 120, 26, this.haggled ? 'HAGGLED' : 'HAGGLE', !this.haggled, () => this.haggle());
+    }
 
-    const top = y0 + 92;
-    const rowH = 44;
+    // Gold meter strip
+    const metaY = y0 + 68;
+    const metaG = this.scene.add.graphics();
+    metaG.fillStyle(0x05060a, 0.75);
+    metaG.fillRoundedRect(x0 + 18, metaY, PANEL_W - 36, 22, 4);
+    metaG.lineStyle(1, hx(C.hudBorderDk), 0.7);
+    metaG.strokeRoundedRect(x0 + 18, metaY, PANEL_W - 36, 22, 4);
+    this.pin(metaG);
+    const meta =
+      this.mode === 'buy'
+        ? `◆ ${this.buyer.inventory.gold}g   ·   CHA ${cha}` + (discPct ? `   ·   −${discPct}%` : '')
+        : this.mode === 'sell'
+          ? `◆ ${this.buyer.inventory.gold}g   ·   CHA ${cha}` + (sellPct ? `   ·   +${sellPct}% sell` : '')
+          : `◆ ${this.buyer.inventory.gold}g   ·   Bring gear to the forge`;
+    this.text(cx, metaY + 11, meta, C.hudBorder, 12).setOrigin(0.5, 0.5);
+
+    const top = y0 + 100;
+    const rowH = 46;
     const PAGE_SIZE = 4;
 
     let count = 0;
@@ -283,11 +346,10 @@ export class ShopUI {
       this.pages(cx, x0, y0, totalPages);
     } else if (this.mode === 'craft') {
       const inv = this.buyer.inventory;
-      this.text(x0 + 24, top - 20, `Materials:  ${inv.materials.scrap} scrap iron  ·  ${inv.materials.essence} arcane essence  ·  ${inv.materials.shard} godshards`, GOLD_DK, 11, SERIF, true);
-      // every piece of gear you carry or wear can be worked at the forge
+      this.text(x0 + 24, top - 18, `Materials:  ${inv.materials.scrap} scrap  ·  ${inv.materials.essence} essence  ·  ${inv.materials.shard} shards`, C.inkDim, 11, SERIF, true);
       const gear = [...inv.equippedList(), ...inv.bag.filter((b) => b.slot !== 'consumable')];
       count = gear.length;
-      if (count === 0) this.text(cx, top + 30, 'Nothing to work — bring Brunda some gear.', INK, 13).setOrigin(0.5, 0);
+      if (count === 0) this.text(cx, top + 30, 'Nothing to work — bring Brunda some gear.', C.inkDim, 13).setOrigin(0.5, 0);
       const totalPages = Math.max(1, Math.ceil(count / PAGE_SIZE));
       this.page = Math.min(Math.max(this.page, 0), totalPages - 1);
       const rows = gear.slice(this.page * PAGE_SIZE, this.page * PAGE_SIZE + PAGE_SIZE);
@@ -296,10 +358,9 @@ export class ShopUI {
       });
       this.pages(cx, x0, y0, totalPages);
     } else {
-      // Quest items (a lost heirloom, etc.) can never be sold — hide them.
       const bag = this.buyer.inventory.bag.filter((it) => !it.quest);
       count = bag.length;
-      if (count === 0) this.text(cx, top + 30, 'Your bag is empty.', INK, 13).setOrigin(0.5, 0);
+      if (count === 0) this.text(cx, top + 30, 'Your bag is empty.', C.inkDim, 13).setOrigin(0.5, 0);
       const totalPages = Math.max(1, Math.ceil(count / PAGE_SIZE));
       this.page = Math.min(Math.max(this.page, 0), totalPages - 1);
       const rows = bag.slice(this.page * PAGE_SIZE, this.page * PAGE_SIZE + PAGE_SIZE);
@@ -309,39 +370,49 @@ export class ShopUI {
       this.pages(cx, x0, y0, totalPages);
     }
 
-    if (this.status) this.text(cx, y0 + PANEL_H - 50, this.status, HEAD, 12).setOrigin(0.5, 0);
-    this.button(cx, y0 + PANEL_H - 24, 132, 28, 'LEAVE', true, () => this.close());
+    if (this.status) this.text(cx, y0 + PANEL_H - 54, this.status, C.hpMid, 12).setOrigin(0.5, 0);
+    this.button(cx, y0 + PANEL_H - 26, 140, 30, 'LEAVE', true, () => this.close());
     this.nav.end();
   }
 
   private itemRow(x0: number, ry: number, rowH: number, def: ItemDefinition, name: string, priceLabel: string, can: boolean, fn: () => void): void {
     const panel = this.scene.add.graphics();
-    panel.fillStyle(hx(PAGE2), 1);
+    panel.fillStyle(hx(C.hudPanel2), 1);
     panel.fillRoundedRect(x0 + 18, ry, PANEL_W - 36, rowH - 8, 5);
-    panel.lineStyle(1.5, hx(GOLD_DK), 0.8);
+    panel.fillStyle(0xffffff, 0.04);
+    panel.fillRoundedRect(x0 + 20, ry + 2, PANEL_W - 40, 10, 3);
+    panel.lineStyle(1.5, hx(C.hudBorderDk), 0.85);
     panel.strokeRoundedRect(x0 + 18, ry, PANEL_W - 36, rowH - 8, 5);
+    panel.lineStyle(1, hx(C.hudNeon), 0.2);
+    panel.strokeRoundedRect(x0 + 19, ry + 1, PANEL_W - 38, rowH - 10, 4);
+    // rarity accent bar
+    panel.fillStyle(hx(RARITY_COLOR[def.rarity] ?? C.ink), 0.9);
+    panel.fillRect(x0 + 18, ry + 2, 3, rowH - 12);
     this.pin(panel);
-    this.pin(this.scene.add.image(x0 + 40, ry + (rowH - 8) / 2, def.icon).setScale(1.6));
-    this.text(x0 + 60, ry + 5, name, RARITY_COLOR[def.rarity] ?? INK, 13.5, SERIF, true);
-    this.text(x0 + 60, ry + 22, this.slotLine(def), INK, 10);
-    this.button(x0 + PANEL_W - 86, ry + (rowH - 8) / 2, 110, 26, priceLabel, can, fn);
+    this.pin(this.scene.add.image(x0 + 42, ry + (rowH - 8) / 2, def.icon).setScale(1.65));
+    this.text(x0 + 62, ry + 6, name, RARITY_COLOR[def.rarity] ?? C.ink, 13.5, SERIF, true);
+    this.text(x0 + 62, ry + 24, this.slotLine(def), C.inkDim, 10);
+    this.button(x0 + PANEL_W - 86, ry + (rowH - 8) / 2, 110, 28, priceLabel, can, fn);
     const hz = this.scene.add.zone(x0 + 18, ry, PANEL_W - 160, rowH - 8).setScrollFactor(0).setOrigin(0, 0).setInteractive({ useHandCursor: true });
     hz.on('pointerover', () => this.tip.show(def, x0 + 18, ry, 'right'));
     hz.on('pointerout', () => this.tip.hide());
     this.pin(hz);
   }
 
-  /** One forge-work row: name/grade + SALVAGE / REFORGE / ASCEND actions. */
   private craftRow(x0: number, ry: number, rowH: number, item: ItemDefinition, equipped: boolean): void {
     const panel = this.scene.add.graphics();
-    panel.fillStyle(hx(PAGE2), 1);
+    panel.fillStyle(hx(C.hudPanel2), 1);
     panel.fillRoundedRect(x0 + 18, ry, PANEL_W - 36, rowH - 8, 5);
-    panel.lineStyle(1.5, hx(GOLD_DK), 0.8);
+    panel.fillStyle(0xffffff, 0.04);
+    panel.fillRoundedRect(x0 + 20, ry + 2, PANEL_W - 40, 10, 3);
+    panel.lineStyle(1.5, hx(C.hudBorderDk), 0.85);
     panel.strokeRoundedRect(x0 + 18, ry, PANEL_W - 36, rowH - 8, 5);
+    panel.fillStyle(hx(RARITY_COLOR[item.rarity] ?? C.ink), 0.9);
+    panel.fillRect(x0 + 18, ry + 2, 3, rowH - 12);
     this.pin(panel);
-    this.pin(this.scene.add.image(x0 + 40, ry + (rowH - 8) / 2, item.icon).setScale(1.6));
-    this.text(x0 + 60, ry + 5, `${item.name}${equipped ? '  (worn)' : ''}`, RARITY_COLOR[item.rarity] ?? INK, 12, SERIF, true);
-    this.text(x0 + 60, ry + 21, gradeTag(item), GOLD_DK, 10);
+    this.pin(this.scene.add.image(x0 + 42, ry + (rowH - 8) / 2, item.icon).setScale(1.65));
+    this.text(x0 + 62, ry + 6, `${item.name}${equipped ? '  (worn)' : ''}`, RARITY_COLOR[item.rarity] ?? C.ink, 12, SERIF, true);
+    this.text(x0 + 62, ry + 23, gradeTag(item), C.hudBorder, 10);
     const hz = this.scene.add.zone(x0 + 18, ry, 180, rowH - 8).setScrollFactor(0).setOrigin(0, 0).setInteractive({ useHandCursor: true });
     hz.on('pointerover', () => this.tip.show(item, x0 + 18, ry, 'right'));
     hz.on('pointerout', () => this.tip.hide());
@@ -407,9 +478,9 @@ export class ShopUI {
 
   private pages(cx: number, x0: number, y0: number, totalPages: number): void {
     if (totalPages <= 1) return;
-    this.text(cx, y0 + PANEL_H - 50, `Page ${this.page + 1} / ${totalPages}`, GOLD_DK, 11).setOrigin(0.5, 1);
-    this.button(x0 + 66, y0 + PANEL_H - 24, 84, 28, '◀ Prev', this.page > 0, () => this.gotoPage(this.page - 1));
-    this.button(x0 + PANEL_W - 66, y0 + PANEL_H - 24, 84, 28, 'Next ▶', this.page < totalPages - 1, () => this.gotoPage(this.page + 1));
+    this.text(cx, y0 + PANEL_H - 54, `Page ${this.page + 1} / ${totalPages}`, C.inkDim, 11).setOrigin(0.5, 1);
+    this.button(x0 + 70, y0 + PANEL_H - 26, 90, 30, '◀ Prev', this.page > 0, () => this.gotoPage(this.page - 1));
+    this.button(x0 + PANEL_W - 70, y0 + PANEL_H - 26, 90, 30, 'Next ▶', this.page < totalPages - 1, () => this.gotoPage(this.page + 1));
   }
 
   private gotoPage(p: number): void {
@@ -441,28 +512,74 @@ export class ShopUI {
     );
   }
 
-  private button(x: number, y: number, w: number, h: number, label: string, enabled: boolean, fn: () => void): void {
+  /** Active tab = gold fill; inactive = navy with gold rim. */
+  private tab(x: number, y: number, w: number, h: number, label: string, active: boolean, fn: () => void, locked = false): void {
     const cont = this.scene.add.container(x, y).setScrollFactor(0);
     const g = this.scene.add.graphics().setScrollFactor(0);
-    g.fillStyle(hx(enabled ? PAGE : '#cbb98f'), 1);
-    g.fillRoundedRect(-w / 2, -h / 2, w, h, 5);
-    g.lineStyle(2, hx(GOLD_DK), 1);
-    g.strokeRoundedRect(-w / 2, -h / 2, w, h, 5);
+    if (active && !locked) {
+      g.fillStyle(hx(C.hudBorder), 1);
+      g.fillRoundedRect(-w / 2, -h / 2, w, h, 5);
+      g.fillStyle(hx(C.hudNeon), 0.35);
+      g.fillRoundedRect(-w / 2 + 2, -h / 2 + 2, w - 4, 6, 3);
+    } else {
+      g.fillStyle(hx(C.hudPanel2), 1);
+      g.fillRoundedRect(-w / 2, -h / 2, w, h, 5);
+      g.lineStyle(1.5, hx(locked ? C.hudBorderDk : C.hudBorder), locked ? 0.5 : 0.85);
+      g.strokeRoundedRect(-w / 2, -h / 2, w, h, 5);
+    }
     cont.add(g);
     cont.add(
       this.scene.add
-        .text(0, 0, label, { fontFamily: SERIF, fontSize: '13px', color: enabled ? INK : '#8a7a55', fontStyle: 'bold' })
+        .text(0, 0, label, {
+          fontFamily: SERIF,
+          fontSize: '12px',
+          color: active && !locked ? '#1a1206' : locked ? '#6a7088' : C.ink,
+          fontStyle: 'bold',
+        })
+        .setOrigin(0.5)
+        .setScrollFactor(0)
+    );
+    if (!locked) {
+      const z = this.scene.add.zone(0, 0, w, h).setScrollFactor(0).setInteractive({ useHandCursor: true });
+      z.on('pointerdown', fn);
+      cont.add(z);
+      this.nav.register(x, y, w, h, fn);
+    }
+    this.container!.add(cont);
+  }
+
+  private button(x: number, y: number, w: number, h: number, label: string, enabled: boolean, fn: () => void): void {
+    const cont = this.scene.add.container(x, y).setScrollFactor(0);
+    const g = this.scene.add.graphics().setScrollFactor(0);
+    g.fillStyle(hx(enabled ? C.hudPanel2 : C.hudBg), 1);
+    g.fillRoundedRect(-w / 2, -h / 2, w, h, 5);
+    if (enabled) {
+      g.fillStyle(0xffffff, 0.06);
+      g.fillRoundedRect(-w / 2 + 2, -h / 2 + 2, w - 4, Math.max(4, h * 0.35), 3);
+    }
+    g.lineStyle(enabled ? 2 : 1.5, hx(enabled ? C.hudBorder : C.hudBorderDk), enabled ? 1 : 0.55);
+    g.strokeRoundedRect(-w / 2, -h / 2, w, h, 5);
+    if (enabled) {
+      g.lineStyle(1, hx(C.hudNeon), 0.35);
+      g.strokeRoundedRect(-w / 2 + 2, -h / 2 + 2, w - 4, h - 4, 4);
+    }
+    cont.add(g);
+    cont.add(
+      this.scene.add
+        .text(0, 0, label, {
+          fontFamily: SERIF,
+          fontSize: '13px',
+          color: enabled ? C.ink : '#5a6080',
+          fontStyle: 'bold',
+        })
         .setOrigin(0.5)
         .setScrollFactor(0)
     );
     if (enabled) {
-      // The interactive zone MUST be pinned individually — container children do
-      // not inherit scrollFactor(0), so an un-pinned zone's hit area drifts with
-      // the camera scroll (e.g. inside the centred shop interiors) and clicks miss.
       const z = this.scene.add.zone(0, 0, w, h).setScrollFactor(0).setInteractive({ useHandCursor: true });
       z.on('pointerdown', fn);
       cont.add(z);
-      this.nav.register(x, y, w, h, fn); // keyboard/pad focus target
+      this.nav.register(x, y, w, h, fn);
     }
     this.container!.add(cont);
   }

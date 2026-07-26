@@ -14,10 +14,11 @@ export const LEVEL1 = buildDungeon({
   generatorEnemies: ['grunt', 'grunt', 'ghost', 'grunt', 'demon', 'ghost', 'bone_archer', 'demon'],
   bossId: 'grave_warden',
   hazard: 'both',
-  maxGenerators: 9,
+  maxGenerators: 8,
+  chestItems: ['leather_jerkin', 'oak_shield', 'health_potion', 'dungeon_key'],
   startWeapon: 'crypt_knife',
   chapter: 'Chapter I',
-  subtitle: 'The dead do not rest easy here.',
+  subtitle: 'Where the seals first broke.',
   story:
     'The seals beneath the world have broken. Descend into the Sunken Crypt, shatter the spawning altars, and put the Grave Warden back in the ground.',
 });

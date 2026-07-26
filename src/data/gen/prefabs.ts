@@ -59,35 +59,46 @@ function ring(room: Room): [number, number][] {
 
 // --- prefabs ----------------------------------------------------------------
 
-// A loot room: a strong chest ringed with coins, flanked by cogs, with one
-// guardian that spawns to defend it.
+// A loot room: chest on a clear pad, coin ring, braziers, one guardian off-centre.
 const treasureVault: Prefab = (room, ctx) => {
   const item = pick(ctx.chestItems.length ? ctx.chestItems : ['iron_sword'], ctx.rng);
+  // clear pad around the chest so it never shares a tile with a spawner
+  for (let dy = -1; dy <= 1; dy++)
+    for (let dx = -1; dx <= 1; dx++) setFloorTile(ctx, room.cx + dx, room.cy + dy, Tile.FLOOR);
   ctx.spawns.push({ kind: 'chest', x: room.cx, y: room.cy, itemId: item });
-  const coins: [number, number][] = [
-    [room.cx - 1, room.cy - 1],
-    [room.cx + 1, room.cy - 1],
-    [room.cx - 1, room.cy + 1],
-    [room.cx + 1, room.cy + 1],
-  ];
-  for (const [x, y] of coins) ctx.pickups.push({ kind: 'coin', x, y, coin: 12 + Math.floor(ctx.rng() * 14) });
-  ctx.decor.push({ x: room.cx - 2, y: room.cy, key: 'cog' }, { x: room.cx + 2, y: room.cy, key: 'cog' });
-  ctx.spawns.push({ kind: 'generator', x: room.cx, y: room.cy - 2, enemyId: pick(ctx.enemies, ctx.rng), interval: 4200, maxAlive: 3, hp: 34 });
+  for (const [x, y] of [
+    [room.cx - 2, room.cy - 1], [room.cx + 2, room.cy - 1],
+    [room.cx - 2, room.cy + 1], [room.cx + 2, room.cy + 1],
+  ] as [number, number][]) ctx.pickups.push({ kind: 'coin', x, y, coin: 14 + Math.floor(ctx.rng() * 16) });
+  ctx.decor.push(
+    { x: room.cx - 3, y: room.cy, key: 'brazier' },
+    { x: room.cx + 3, y: room.cy, key: 'brazier' },
+    { x: room.cx, y: room.y + 1, key: 'banner' },
+  );
+  // guardian in a corner — never on the chest
+  ctx.spawns.push({
+    kind: 'generator',
+    x: room.x + 2,
+    y: room.y + 2,
+    enemyId: pick(ctx.enemies, ctx.rng),
+    interval: 4000,
+    maxAlive: 3,
+    hp: 36,
+  });
 };
 
-// A frozen shrine: the whole chamber ices over (leaving a stable pad under the
-// shrine) and crystals ring the altar.
+// A frozen shrine: iced chamber, safe pad, crystals and braziers at the rim.
 const frozenAltar: Prefab = (room, ctx) => {
   for (let y = room.y + 1; y < room.y + room.h - 1; y++)
     for (let x = room.x + 1; x < room.x + room.w - 1; x++) setFloorTile(ctx, x, y, Tile.ICE);
-  // stable footing directly under and around the shrine
   for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) setFloorTile(ctx, room.cx + dx, room.cy + dy, Tile.FLOOR);
   ctx.spawns.push({ kind: 'shrine', x: room.cx, y: room.cy });
   for (const [x, y] of ring(room)) ctx.decor.push({ x, y, key: 'crystal' });
+  ctx.decor.push({ x: room.cx - 2, y: room.cy - 2, key: 'icicle' }, { x: room.cx + 2, y: room.cy - 2, key: 'icicle' });
+  ctx.decor.push({ x: room.cx, y: room.y + 1, key: 'frost-banner' });
 };
 
-// A plague pit: a poison pool in the middle, vines hanging at the rim, a
-// guardian lurking on the bank.
+// A plague pit: poison pool, vine-choked rim, guardian on a bank tile.
 const plaguePit: Prefab = (room, ctx) => {
   const rx = Math.max(2, (room.w >> 1) - 2);
   const ry = Math.max(1, (room.h >> 1) - 2);
@@ -95,62 +106,80 @@ const plaguePit: Prefab = (room, ctx) => {
     for (let x = -rx; x <= rx; x++) {
       if ((x * x) / (rx * rx) + (y * y) / (ry * ry) <= 1) setFloorTile(ctx, room.cx + x, room.cy + y, Tile.POISON);
     }
+  // dry bank at corners
+  setFloorTile(ctx, room.x + 2, room.cy, Tile.FLOOR);
+  setFloorTile(ctx, room.x + room.w - 3, room.cy, Tile.FLOOR);
   ctx.decor.push(
     { x: room.x + 2, y: room.y + 1, key: 'vines' },
     { x: room.x + room.w - 3, y: room.y + 1, key: 'vines' },
-    { x: room.cx, y: room.y + 1, key: 'vines' }
+    { x: room.cx, y: room.y + 1, key: 'toxic-mushroom' },
+    { x: room.cx - 2, y: room.y + room.h - 2, key: 'toxic-mushroom' },
   );
-  ctx.spawns.push({ kind: 'generator', x: room.x + 2, y: room.cy, enemyId: pick(ctx.enemies, ctx.rng), interval: 3800, maxAlive: 4, hp: 30 });
+  ctx.spawns.push({ kind: 'generator', x: room.x + 2, y: room.cy, enemyId: pick(ctx.enemies, ctx.rng), interval: 3800, maxAlive: 4, hp: 32 });
 };
 
-// A spike gauntlet: rows of telegraphed spike traps guarding a reward at the
-// far end of the chamber.
+// A spike gauntlet: staggered spike lanes, safe strip, chest reward at the far end.
 const spikeGauntlet: Prefab = (room, ctx) => {
   const y0 = room.cy - 1;
   const y1 = room.cy + 1;
+  // keep a safe centre lane for skilled pathing
   for (let x = room.x + 2; x < room.x + room.w - 3; x++) {
-    if ((x - room.x) % 2 === 0) setFloorTile(ctx, x, y0, Tile.SPIKES);
-    if ((x - room.x) % 2 === 1) setFloorTile(ctx, x, y1, Tile.SPIKES);
+    if ((x - room.x) % 3 === 0) setFloorTile(ctx, x, y0, Tile.SPIKES);
+    if ((x - room.x) % 3 === 1) setFloorTile(ctx, x, y1, Tile.SPIKES);
+    setFloorTile(ctx, x, room.cy, Tile.FLOOR);
   }
   const item = pick(ctx.chestItems.length ? ctx.chestItems : ['oak_staff'], ctx.rng);
-  ctx.spawns.push({ kind: 'chest', x: room.x + room.w - 2, y: room.cy, itemId: item });
-  ctx.pickups.push({ kind: 'coin', x: room.x + room.w - 2, y: room.cy - 1, coin: 18 });
+  ctx.spawns.push({ kind: 'chest', x: room.x + room.w - 3, y: room.cy, itemId: item });
+  ctx.pickups.push({ kind: 'coin', x: room.x + room.w - 3, y: room.cy - 1, coin: 20 });
+  ctx.pickups.push({ kind: 'potion', x: room.x + room.w - 3, y: room.cy + 1, itemId: 'health_potion' });
+  ctx.decor.push({ x: room.x + 2, y: room.y + 1, key: 'skull-pike' }, { x: room.x + room.w - 3, y: room.y + 1, key: 'skull-pike' });
 };
 
-// The arena ring: bloodstained sand, skulls on pikes, and two generators that
-// feed the slaughter.
+// The arena ring: pike circle, bloodstains, twin feeders, coin purse in the sand.
 const arenaRing: Prefab = (room, ctx) => {
   for (const [x, y] of ring(room)) ctx.decor.push({ x, y, key: 'skull-pike' });
-  for (let i = 0; i < 5; i++) {
+  ctx.decor.push({ x: room.cx, y: room.y + 1, key: 'banner' }, { x: room.cx, y: room.y + room.h - 2, key: 'banner' });
+  for (let i = 0; i < 6; i++) {
     const x = room.x + 2 + Math.floor(ctx.rng() * Math.max(1, room.w - 4));
     const y = room.y + 2 + Math.floor(ctx.rng() * Math.max(1, room.h - 4));
-    ctx.decor.push({ x, y, key: 'blood-stain' });
+    if (x !== room.cx || y !== room.cy) ctx.decor.push({ x, y, key: 'blood-stain' });
   }
   ctx.spawns.push(
-    { kind: 'generator', x: room.x + 2, y: room.cy, enemyId: pick(ctx.enemies, ctx.rng), interval: 3600, maxAlive: 4, hp: 32 },
-    { kind: 'generator', x: room.x + room.w - 3, y: room.cy, enemyId: pick(ctx.enemies, ctx.rng), interval: 3600, maxAlive: 4, hp: 32 }
+    { kind: 'generator', x: room.x + 2, y: room.cy, enemyId: pick(ctx.enemies, ctx.rng), interval: 3400, maxAlive: 4, hp: 34 },
+    { kind: 'generator', x: room.x + room.w - 3, y: room.cy, enemyId: pick(ctx.enemies, ctx.rng), interval: 3400, maxAlive: 4, hp: 34 }
   );
-  for (let i = 0; i < 4; i++) ctx.pickups.push({ kind: 'coin', x: room.cx, y: room.cy, coin: 10 });
+  for (let i = 0; i < 5; i++) ctx.pickups.push({ kind: 'coin', x: room.cx + (i % 3) - 1, y: room.cy + Math.floor(i / 3), coin: 12 });
 };
 
-// Decorative crystal cluster — pure ambience for frost levels.
+// Crystal cluster — frost/storm ambience with a small reward.
 const crystalCluster: Prefab = (room, ctx) => {
-  const n = 4 + Math.floor(ctx.rng() * 3);
+  const n = 5 + Math.floor(ctx.rng() * 4);
   for (let i = 0; i < n; i++) {
     const x = room.x + 1 + Math.floor(ctx.rng() * Math.max(1, room.w - 2));
     const y = room.y + 1 + Math.floor(ctx.rng() * Math.max(1, room.h - 2));
-    if (ctx.tiles[y]?.[x] === Tile.FLOOR || ctx.tiles[y]?.[x] === Tile.ICE) ctx.decor.push({ x, y, key: 'crystal' });
+    if (ctx.tiles[y]?.[x] === Tile.FLOOR || ctx.tiles[y]?.[x] === Tile.ICE) {
+      ctx.decor.push({ x, y, key: i % 2 ? 'crystal' : 'sky-crystal' });
+    }
   }
+  setFloorTile(ctx, room.cx, room.cy, Tile.FLOOR);
+  ctx.pickups.push({ kind: 'potion', x: room.cx, y: room.cy, itemId: 'mana_potion' });
 };
 
-// A pillared guardian hall: rows of pillars, banners, and a defender.
+// A pillared guardian hall: colonnade, banners, defender off the centre line.
 const guardianHall: Prefab = (room, ctx) => {
   for (let x = room.x + 2; x < room.x + room.w - 2; x += 3) {
     ctx.decor.push({ x, y: room.y + 1, key: 'pillar' });
     ctx.decor.push({ x, y: room.y + room.h - 2, key: 'pillar' });
   }
-  ctx.decor.push({ x: room.cx, y: room.y + 1, key: 'banner' });
-  ctx.spawns.push({ kind: 'generator', x: room.cx, y: room.cy, enemyId: pick(ctx.enemies, ctx.rng), interval: 4000, maxAlive: 4, hp: 30 });
+  ctx.decor.push(
+    { x: room.cx, y: room.y + 1, key: 'banner' },
+    { x: room.cx - 3, y: room.y + 1, key: 'banner' },
+    { x: room.cx + 3, y: room.y + 1, key: 'banner' },
+    { x: room.x + 2, y: room.cy, key: 'brazier' },
+    { x: room.x + room.w - 3, y: room.cy, key: 'brazier' },
+  );
+  ctx.spawns.push({ kind: 'generator', x: room.cx, y: room.cy + 1, enemyId: pick(ctx.enemies, ctx.rng), interval: 3800, maxAlive: 4, hp: 34 });
+  ctx.pickups.push({ kind: 'coin', x: room.cx, y: room.cy - 1, coin: 16 });
 };
 
 export const PREFABS: Record<SetPieceId, Prefab> = {

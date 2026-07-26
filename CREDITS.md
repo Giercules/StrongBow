@@ -88,6 +88,20 @@ that's fine — drop the files in `public/assets/sprites/` and I can write a sma
 adapter that re-slices them onto this layout. Tell me each sheet's pixel size and
 how its frames are arranged (or just let me inspect the files).
 
+## Music — HydroGene (CC0)
+
+The looping soundtrack under `public/audio/*.mp3` is by
+**[HydroGene](https://hydrogene.itch.io)** (also on
+[OpenGameArt](https://opengameart.org/users/hydrogene)).
+
+- License: **[CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/)** (public domain)
+- Full 16-bit pack: https://hydrogene.itch.io/high-quality-16-bit-music
+- Credits are not legally required for CC0; we list HydroGene here with thanks.
+
+Track assignment for each realm / town / boss / menu is documented in
+`public/audio/README.md`. If a file is missing, StrongBow falls back to its
+built-in procedural compositions.
+
 ## ⚠️ A note on ripped game sprites
 
 Sprites extracted from commercial games (e.g. Gauntlet / Gauntlet II on sprite-rip

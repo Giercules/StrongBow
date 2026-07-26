@@ -1,62 +1,49 @@
-# Optional real-audio overrides
+# Game soundtrack — HydroGene (CC0)
 
-StrongBow ships with a fully self-contained **procedural** soundtrack — every
-realm, town, overworld, cave, boss fight, and the title menu has its own **full
-multi-section song** (90–150 seconds) with rock, ballad, folk, and epic
-orchestral layers. No external files are required.
+StrongBow’s music is provided as **looping MP3 files** in this folder. At boot
+the audio system detects each file and plays it instead of the procedural
+fallback engine.
 
-If you want to swap in recorded tracks (epic ballads, orchestral scores, metal
-anthems, etc.), drop audio files here. The game detects them at runtime and
-uses them instead of the procedural version for that slot.
+All tracks bundled here are by **[HydroGene](https://hydrogene.itch.io)**
+(also published on [OpenGameArt](https://opengameart.org/users/hydrogene)),
+released under **[CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/)**
+(public domain — free for commercial use, attribution optional but appreciated).
 
-## Per-realm dungeon tracks
+Full 16-bit pack: https://hydrogene.itch.io/high-quality-16-bit-music  
+8-bit / JRPG catalogue: https://hydrogene.itch.io
 
-| File name        | Plays during                    |
-| ---------------- | ------------------------------- |
-| `crypt.mp3`      | Sunken Crypt                    |
-| `molten.mp3`     | Molten Deep                     |
-| `frost.mp3`      | Frozen Cathedral                |
-| `toxic.mp3`      | Toxic Undercroft                |
-| `clockwork.mp3`  | Clockwork Vault                 |
-| `arena.mp3`      | Blood Arena                     |
-| `bog.mp3`        | Drowned Bog                     |
-| `storm.mp3`      | Storm Spire                     |
-| `shadow.mp3`     | Shadow Warren                   |
-| `sanctum.mp3`    | Sanctum of the Undermaw         |
+## Track map (game id → HydroGene piece)
 
-## Town, overworld & cave tracks
+| File | Plays during | HydroGene source |
+| ---- | ------------ | ---------------- |
+| `banner.mp3` | Title + character select | *Determination* |
+| `menu.mp3` | Selectable “minstrel” track | *Jester Theme* |
+| `boss.mp3` | Boss fights | *Danger Strong Boss* |
+| `town.mp3` | Hearthwatch square | *RPG Project — Town* |
+| `wilds.mp3` | Overworld | *RPG Project — Overworld Map* |
+| `tavern.mp3` | Shop / lodge interiors | *Jester Battle* |
+| `sunspire.mp3` | Sunspire desert town | *Unknown Planet* |
+| `mine.mp3` | Collapsed Silver Mine | *JRPG End Dungeon* |
+| `hollow.mp3` | The Hollow Beneath | *MonsterVania #1* |
+| `crypt.mp3` | Sunken Crypt | *Perilous Dungeon* |
+| `molten.mp3` | Molten Deep | *Last Mission* |
+| `frost.mp3` | Frozen Cathedral | *The Quiet Spy* |
+| `toxic.mp3` | Toxic Undercroft | *MonsterVania — Ghost Land* |
+| `clockwork.mp3` | Clockwork Vault | *Mechanical Complex* |
+| `arena.mp3` | Blood Arena | *16-bit Battle Theme I* |
+| `bog.mp3` | Drowned Bog | *MonsterVania #2* |
+| `storm.mp3` | Storm Spire | *Rush Point* |
+| `shadow.mp3` | Shadow Warren | *Infinite Darkness* |
+| `sanctum.mp3` | Sanctum of the Undermaw | *Truth* |
+| `theme.mp3` | Legacy dungeon fallback | *Perilous Dungeon* |
 
-Each town, area, and cave now has its **own** song (they no longer share one
-town theme):
+## Replacing a track
 
-| File name        | Plays during                          |
-| ---------------- | ------------------------------------- |
-| `town.mp3`       | Hearthwatch town square               |
-| `sunspire.mp3`   | Sunspire (desert oasis-town)          |
-| `wilds.mp3`      | The Wilds of Hearthwatch (overworld)  |
-| `tavern.mp3`     | Town interiors (tavern/guild/forge/…) |
-| `mine.mp3`       | The Collapsed Silver Mine (cave)      |
-| `hollow.mp3`     | The Hollow Beneath (cave)             |
+1. Drop a new `.mp3` (or `.ogg`) here with the **exact game id** as the filename.
+2. Refresh / restart the game — the new file is picked up automatically.
+3. If a file is missing, the procedural composition for that id plays instead.
 
-## Special tracks
+## License note
 
-| File name     | Plays during                                |
-| ------------- | ------------------------------------------- |
-| `banner.mp3`  | Title screen + character select (epic anthem) |
-| `boss.mp3`    | Any boss fight                              |
-| `menu.mp3`    | "Wandering Minstrel" ballad (selectable track) |
-| `theme.mp3`   | Legacy fallback (crypt)                     |
-
-`.ogg` is also accepted (e.g. `molten.ogg`). If a file is missing, the
-procedural composition plays automatically — no code changes needed.
-
-## Where to find epic, properly-licensed free music
-
-- **incompetech.com** (Kevin MacLeod) — CC-BY, attribute the author.
-- **OpenGameArt.org** — filter by CC0 / CC-BY.
-- **freepd.com** — public domain (CC0).
-- **Pixabay Music** — free for commercial use, no attribution required.
-
-Look for "epic", "heroic", "dungeon", "dark fantasy", "medieval tavern", or
-"battle" themes. Full songs (2–4 minutes) work great — they loop seamlessly.
-Always check each track's license and provide attribution where required.
+HydroGene’s music is **CC0**. Credits are not required; we still list the
+composer in `CREDITS.md` because the work is excellent and free.

@@ -16,7 +16,7 @@ export function createGameConfig(): Phaser.Types.Core.GameConfig {
   input: { gamepad: true },
   width: GAME_WIDTH,
   height: GAME_HEIGHT,
-  backgroundColor: '#05060a',
+  backgroundColor: '#03050c',
   // Crisp nearest-neighbour pipeline everywhere: linear filtering muddied and
   // darkened the scaled pixel art game-wide (menus included). Enhanced FX is
   // scene-scoped (lights + bloom + vignette in the dungeon) and never touches

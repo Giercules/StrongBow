@@ -265,6 +265,14 @@ export function buildDungeon(opts: DungeonOptions): LevelData {
   const bossRoom = path[path.length - 1];
   for (let j = bossRoom.y - 1; j < bossRoom.y + bossRoom.h + 1; j++)
     for (let i = bossRoom.x - 1; i < bossRoom.x + bossRoom.w + 1; i++) setFloor(i, j);
+  // ceremonial boss chamber: clear centre pad, light the perimeter, frame the exit
+  for (let dy = -2; dy <= 2; dy++)
+    for (let dx = -2; dx <= 2; dx++) setFloor(bossRoom.cx + dx, bossRoom.cy + dy);
+  for (let x = bossRoom.x + 2; x < bossRoom.x + bossRoom.w - 2; x += 3) {
+    decor.push({ x, y: bossRoom.y + 1, key: 'pillar' });
+    decor.push({ x, y: bossRoom.y + bossRoom.h - 2, key: 'brazier' });
+  }
+  decor.push({ x: bossRoom.cx, y: bossRoom.y + 1, key: 'banner' });
   const exitX = bossRoom.x + bossRoom.w - 2;
   const exitY = bossRoom.y + 1;
   if (inB(exitX, exitY)) tiles[exitY][exitX] = Tile.EXIT;
@@ -288,8 +296,17 @@ export function buildDungeon(opts: DungeonOptions): LevelData {
   if (inB(door0X, door0Y + 1) && tiles[door0Y + 1][door0X] === Tile.FLOOR) tiles[door0Y + 1][door0X] = Tile.DOOR;
 
   // ---- core spawns ----
-  spawns.push({ kind: 'playerStart', x: path[0].cx, y: path[0].cy });
-  spawns.push({ kind: 'npc', x: path[0].cx - 2, y: path[0].cy - 1 });
+  const startRoom = path[0];
+  // dress the entry hall: clear pad, welcoming light, a key-side shrine
+  for (let dy = -1; dy <= 1; dy++)
+    for (let dx = -1; dx <= 1; dx++) setFloor(startRoom.cx + dx, startRoom.cy + dy);
+  decor.push(
+    { x: startRoom.cx - 3, y: startRoom.cy, key: 'brazier' },
+    { x: startRoom.cx + 3, y: startRoom.cy, key: 'brazier' },
+    { x: startRoom.cx, y: startRoom.y + 1, key: 'banner' },
+  );
+  spawns.push({ kind: 'playerStart', x: startRoom.cx, y: startRoom.cy });
+  spawns.push({ kind: 'npc', x: startRoom.cx - 2, y: startRoom.cy - 1 });
 
   let placed = 0;
   for (let i = 1; i < path.length - 1 && placed < opts.maxGenerators; i++) {
@@ -348,13 +365,20 @@ export function buildDungeon(opts: DungeonOptions): LevelData {
   }
   if (opts.startWeapon) pickups.push({ kind: 'item', itemId: opts.startWeapon, x: path[0].cx + 1, y: path[0].cy });
 
-  // ---- ambient theme decor sprinkled on open floor ----
+  // ---- ambient theme decor: a few deliberate pieces per path room ----
   if (theme.decorKeys.length) {
     for (let i = 1; i < path.length - 1; i++) {
-      if (rng() < 0.11) {
-        const room = path[i];
-        const x = room.x + 1 + Math.floor(rng() * Math.max(1, room.w - 2));
-        const y = room.y + 1 + Math.floor(rng() * Math.max(1, room.h - 2));
+      const room = path[i];
+      // 1–2 props near walls so floors stay playable
+      const n = rng() < 0.55 ? 1 : rng() < 0.35 ? 2 : 0;
+      for (let k = 0; k < n; k++) {
+        const alongWall = rng() < 0.65;
+        const x = alongWall
+          ? (rng() < 0.5 ? room.x + 1 : room.x + room.w - 2)
+          : room.x + 2 + Math.floor(rng() * Math.max(1, room.w - 4));
+        const y = alongWall
+          ? room.y + 2 + Math.floor(rng() * Math.max(1, room.h - 4))
+          : (rng() < 0.5 ? room.y + 1 : room.y + room.h - 2);
         if (inB(x, y) && tiles[y][x] === Tile.FLOOR) {
           decor.push({ x, y, key: theme.decorKeys[Math.floor(rng() * theme.decorKeys.length)] });
         }

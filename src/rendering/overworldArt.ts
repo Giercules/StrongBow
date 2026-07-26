@@ -27,14 +27,16 @@ function rng(seed: number): () => number {
 // ---- biome ground tiles (16x16, opaque, drawn onto the level bake) ----------
 
 export function drawGrassGround(ctx: Ctx, ox: number, oy: number, seed = 0): void {
+  // Soft meadow base with subtle tile-edge blend so large plains don't grid.
   R(ctx, ox, oy, 16, 16, '#3a5a2c');
   const r = rng(seed + 11);
-  const shades = ['#456a32', '#33502a', '#4f7838', '#2e4a26'];
-  for (let i = 0; i < 22; i++) {
+  const shades = ['#456a32', '#33502a', '#4f7838', '#2e4a26', '#3f6430'];
+  for (let i = 0; i < 18; i++) {
     const x = Math.floor(r() * 16), y = Math.floor(r() * 16);
     PX(ctx, ox + x, oy + y, shades[Math.floor(r() * shades.length)]);
   }
-  // a couple of blade tufts
+  R(ctx, ox, oy, 16, 1, 'rgba(30,50,24,0.15)');
+  R(ctx, ox, oy + 15, 16, 1, 'rgba(20,36,16,0.12)');
   for (let i = 0; i < 3; i++) {
     const x = ox + 2 + Math.floor(r() * 12), y = oy + 6 + Math.floor(r() * 8);
     R(ctx, x, y - 2, 1, 2, '#5f9a44');
@@ -45,14 +47,13 @@ export function drawSandGround(ctx: Ctx, ox: number, oy: number, seed = 0): void
   R(ctx, ox, oy, 16, 16, '#c9aa6a');
   const r = rng(seed + 23);
   const shades = ['#d8bd80', '#bb9858', '#cdb070', '#a8854c'];
-  for (let i = 0; i < 18; i++) {
+  for (let i = 0; i < 14; i++) {
     const x = Math.floor(r() * 16), y = Math.floor(r() * 16);
     PX(ctx, ox + x, oy + y, shades[Math.floor(r() * shades.length)]);
   }
-  // wind ripples
-  for (let y = 3; y < 16; y += 5) {
-    const off = Math.floor(r() * 4);
-    R(ctx, ox + off, oy + y, 10, 1, '#b59556');
+  for (let y = 4; y < 16; y += 5) {
+    const off = Math.floor(r() * 3);
+    R(ctx, ox + off, oy + y, 11, 1, '#b59556');
   }
 }
 
@@ -60,11 +61,10 @@ export function drawMudGround(ctx: Ctx, ox: number, oy: number, seed = 0): void 
   R(ctx, ox, oy, 16, 16, '#3f3a2a');
   const r = rng(seed + 31);
   const shades = ['#4a4430', '#332f22', '#514a33', '#2a2719'];
-  for (let i = 0; i < 20; i++) {
+  for (let i = 0; i < 16; i++) {
     const x = Math.floor(r() * 16), y = Math.floor(r() * 16);
     PX(ctx, ox + x, oy + y, shades[Math.floor(r() * shades.length)]);
   }
-  // scummy puddles with a sickly tint
   for (let i = 0; i < 2; i++) {
     const x = ox + 2 + Math.floor(r() * 9), y = oy + 2 + Math.floor(r() * 9);
     R(ctx, x, y, 4, 2, '#3b4a36');
@@ -76,7 +76,7 @@ export function drawRockGround(ctx: Ctx, ox: number, oy: number, seed = 0): void
   R(ctx, ox, oy, 16, 16, '#5b5852');
   const r = rng(seed + 47);
   const shades = ['#6a665e', '#4c4943', '#736f66', '#403d38'];
-  for (let i = 0; i < 22; i++) {
+  for (let i = 0; i < 18; i++) {
     const x = Math.floor(r() * 16), y = Math.floor(r() * 16);
     PX(ctx, ox + x, oy + y, shades[Math.floor(r() * shades.length)]);
   }

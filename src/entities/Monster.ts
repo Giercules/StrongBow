@@ -3,6 +3,7 @@ import type { EnemyBehavior, EnemyDef, EnemyId } from '../core/types';
 import { ENEMIES, BOSS_PHASE2 } from '../data/enemies';
 import { audio } from '../systems/AudioSystem';
 import { settings } from '../core/GameSettings';
+import { ENEMY_SCALE_DEFAULT, ENEMY_SPRITE_BASE, SPRITE_SCALE_DEFAULT } from '../core/constants';
 import { Hero } from './Hero';
 
 type ArcadeBody = Phaser.Physics.Arcade.Body;
@@ -107,7 +108,12 @@ export class Monster extends Phaser.Physics.Arcade.Sprite {
     // opt into the real-light pipeline when the scene runs enhanced graphics
     if ((scene as unknown as { lightingOn?: boolean }).lightingOn) this.setLighting(true);
     this.setOrigin(0.5, 0.82);
-    const scale = (this.def.scale ?? 1) * 0.56 * settings.spriteScale();
+    // Enemies default to 200%; heroes use the global 150% slider independently.
+    const scale =
+      (this.def.scale ?? 1) *
+      ENEMY_SPRITE_BASE *
+      ENEMY_SCALE_DEFAULT *
+      (settings.spriteScale() / SPRITE_SCALE_DEFAULT);
     this.setScale(scale);
     const body = this.body as ArcadeBody;
     const bw = this.width * 0.42;
@@ -124,23 +130,28 @@ export class Monster extends Phaser.Physics.Arcade.Sprite {
     return Phaser.Math.Clamp(this.health / this.maxHealth, 0, 1);
   }
 
-  /** Small floating HP meter pinned above the monster's head. */
+  /** Small floating HP meter pinned above the monster's head — arcade chip style. */
   private drawHpBar(): void {
     if (!this.hpBar) return;
     const ratio = this.healthRatio();
-    const w = Phaser.Math.Clamp(this.displayWidth * 0.5, 14, 56);
-    const h = 3;
+    const w = Phaser.Math.Clamp(this.displayWidth * 0.55, 16, 64);
+    const h = this.isBoss ? 5 : 4;
     const x = this.x - w / 2;
-    const y = this.y - this.displayHeight * 0.82 - 7;
-    const col = ratio > 0.5 ? 0x6fe06a : ratio > 0.25 ? 0xffcf5a : 0xff5a5a;
+    const y = this.y - this.displayHeight * 0.82 - 8;
+    const col = ratio > 0.5 ? 0x3dff6a : ratio > 0.25 ? 0xffd020 : 0xff3a3a;
     this.hpBar
       .clear()
       .setVisible(true)
       .setDepth(this.y + 20)
-      .fillStyle(0x000000, 0.65)
+      .fillStyle(0x000000, 0.78)
       .fillRect(x - 1, y - 1, w + 2, h + 2)
+      .lineStyle(1, 0x8a6418, 0.7)
+      .strokeRect(x - 1, y - 1, w + 2, h + 2)
       .fillStyle(col, 1)
       .fillRect(x, y, w * ratio, h);
+    if (ratio > 0.02 && h >= 3) {
+      this.hpBar.fillStyle(0xffffff, 0.35).fillRect(x, y, w * ratio, 1);
+    }
   }
 
   tick(time: number, delta: number, heroes: Hero[]): void {

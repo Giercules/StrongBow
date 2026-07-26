@@ -96,12 +96,13 @@ export class MenuScene extends Phaser.Scene {
     });
 
     // darkened plate behind the menu buttons for readability
-    this.add.rectangle(cx, 280, 230, 150, 0x05060a, 0.5).setStrokeStyle(1, 0x6e521f, 0.6).setDepth(9.2);
+    this.add.rectangle(cx, 280, 230, 150, 0x05060a, 0.58).setStrokeStyle(1.5, 0xcfa64e, 0.75).setDepth(9.2);
 
     const frame = this.add.graphics().setDepth(9.3);
     frame.lineStyle(4, 0x2a1c0a, 1); frame.strokeRect(10, 10, GAME_WIDTH - 20, GAME_HEIGHT - 20);
-    frame.lineStyle(2, 0xcfa64e, 0.9); frame.strokeRect(15, 15, GAME_WIDTH - 30, GAME_HEIGHT - 30);
-    frame.lineStyle(1, 0x6e521f, 0.8); frame.strokeRect(19, 19, GAME_WIDTH - 38, GAME_HEIGHT - 38);
+    frame.lineStyle(2.5, 0xffd24a, 0.95); frame.strokeRect(15, 15, GAME_WIDTH - 30, GAME_HEIGHT - 30);
+    frame.lineStyle(1, 0x8a6418, 0.9); frame.strokeRect(19, 19, GAME_WIDTH - 38, GAME_HEIGHT - 38);
+    frame.lineStyle(1, 0xffe9a0, 0.4); frame.strokeRect(17, 17, GAME_WIDTH - 34, GAME_HEIGHT - 34);
     const bracket = (px: number, py: number, dx: number, dy: number): void => {
       frame.fillStyle(0xcfa64e, 1);
       frame.fillRect(dx > 0 ? px : px - 30, py - 2, 30, 4);

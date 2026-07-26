@@ -8,7 +8,7 @@ import { TOWN } from '../data/town';
 import { DESERT_TOWN } from '../data/desertTown';
 import { OVERWORLD } from '../data/overworld';
 import { CAVES } from '../data/caves';
-import { INTERIOR_TANKARD, INTERIOR_GUILD, INTERIOR_FORGE, INTERIOR_APOTHECARY } from '../data/interiors';
+import { INTERIOR_TANKARD, INTERIOR_GUILD, INTERIOR_FORGE, INTERIOR_APOTHECARY, INTERIOR_LODGE } from '../data/interiors';
 import {
   LEVEL_FROST,
   LEVEL_TOXIC,
@@ -41,6 +41,7 @@ class Registry {
     interior_guild: INTERIOR_GUILD,
     interior_forge: INTERIOR_FORGE,
     interior_apothecary: INTERIOR_APOTHECARY,
+    interior_lodge: INTERIOR_LODGE,
     sunken_crypt: LEVEL1,
     molten_deep: LEVEL2,
     frozen_cathedral: LEVEL_FROST,

@@ -484,23 +484,53 @@ class AudioSystem {
       const el = document.createElement('audio');
       el.loop = true;
       el.preload = 'auto';
+      el.crossOrigin = 'anonymous';
       el.src = `${base}audio/${id}.${ext}`;
-      el.addEventListener('canplaythrough', () => {
-        this.realReady.add(id);
-        if (!this.realSource.has(id) && this.ctx) {
-          try {
-            const node = this.ctx.createMediaElementSource(el);
-            node.connect(this.musicBus);
-            this.realSource.set(id, node);
-          } catch {
-            /* already connected */
-          }
-        }
-      });
+      const markReady = () => this.markRealTrackReady(id, el);
+      el.addEventListener('canplaythrough', markReady);
+      el.addEventListener('loadeddata', markReady);
       el.addEventListener('error', () => {
         this.realReady.delete(id);
       });
       this.realTracks.set(id, el);
+      try {
+        el.load();
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+
+  /** Wire a successfully loaded MP3/OGG into the music bus and, if we were
+   *  already playing the procedural stand-in for this track, swap over live. */
+  private markRealTrackReady(id: string, el: HTMLMediaElement): void {
+    if (this.realReady.has(id)) return;
+    if (el.readyState < 2) return; // HAVE_CURRENT_DATA
+    this.realReady.add(id);
+    if (!this.realSource.has(id) && this.ctx) {
+      try {
+        const node = this.ctx.createMediaElementSource(el);
+        node.connect(this.musicBus);
+        this.realSource.set(id, node);
+      } catch {
+        /* already connected in this session */
+      }
+    }
+    // Hot-swap: if the procedural engine is playing this exact track, take over.
+    if (this.playingSlot && this.timer !== null && !this.activeReal) {
+      const want = this.trackIdForSlot(this.playingSlot);
+      if (want === id) {
+        if (this.timer !== null) {
+          clearInterval(this.timer);
+          this.timer = null;
+        }
+        this.activeReal = el;
+        el.currentTime = 0;
+        void el.play().catch(() => {
+          this.activeReal = null;
+          this.startProcedural(this.playingSlot!);
+        });
+      }
     }
   }
 }

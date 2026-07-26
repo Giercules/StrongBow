@@ -28,6 +28,7 @@ export function applyViewportSize(winW: number, winH: number): void {
 
 export const SPRITE_SCALE_MIN = 1.0;
 export const SPRITE_SCALE_MAX = 2.0;
+/** Global slider default — heroes/NPCs read at 150%. */
 export const SPRITE_SCALE_DEFAULT = 1.5;
 
 /** On-screen scale for hero-class sprites (64×64 sheets on 16px tiles). 25% smaller than the original 0.58. */
@@ -38,6 +39,15 @@ export const HERO_SPRITE_SCALE_LARGE = 0.48;
 export const SUMMON_SPRITE_SCALE = 0.42;
 /** Townsfolk and other humanoid NPCs in the dungeon view. */
 export const NPC_SPRITE_SCALE = 0.465;
+/** Base unit for enemy scale (pre-percentage). */
+export const ENEMY_SPRITE_BASE = 0.56;
+/**
+ * Default enemy size as a fraction of 100% — 2.0 = 200%.
+ * Final: (def.scale ?? 1) * ENEMY_SPRITE_BASE * ENEMY_SCALE_DEFAULT
+ *   * (settings.spriteScale() / SPRITE_SCALE_DEFAULT)
+ * so the global slider still scales enemies proportionally while heroes stay on 150%.
+ */
+export const ENEMY_SCALE_DEFAULT = 2.0;
 
 // Camera zoom is fixed (no in-game slider) for a consistent arcade framing.
 export const OPTIMAL_ZOOM = 1.0;

@@ -371,7 +371,7 @@ export class SettingsUI {
     this.focusRow(y, { activate: toggleFx, left: toggleFx, right: toggleFx });
     this.rowLabel('');
     const x0 = this.modal!.cx - PANEL_W / 2 + 24;
-    this.text(x0, this.rowY, `Sprite size ranges ${Math.round(SPRITE_SCALE_MIN * 100)}-${Math.round(SPRITE_SCALE_MAX * 100)}% (default 150%).`, C.inkDim, 10);
+    this.text(x0, this.rowY, `Heroes default 150%; enemies default 200% (slider scales both).`, C.inkDim, 10);
     this.rowY += 18;
     this.text(x0, this.rowY, 'Map toggles live. Sprite size applies next descent.', C.inkDim, 10);
     this.rowY += 18;

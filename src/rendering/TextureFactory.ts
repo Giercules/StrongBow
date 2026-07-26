@@ -77,14 +77,17 @@ export class TextureFactory {
   // other key is generated procedurally exactly as before.
   static generateAll(scene: Phaser.Scene, provided: ReadonlySet<string> = new Set()): number {
     let count = 0;
+    // Outlined props ≥24px get softShade so they pop with the same arcade depth as heroes.
     const img = (k: string, w: number, h: number, d: (c: Ctx) => void, outline = false) => {
       if (provided.has(k)) return;
-      addImg(scene, k, w, h, d, outline);
+      const shade = outline && (w >= 24 || h >= 24);
+      addImg(scene, k, w, h, d, outline, shade);
       count++;
     };
     const sheet = (k: string, fw: number, fh: number, n: number, d: (c: Ctx, ox: number, f: number) => void, outline = false) => {
       if (provided.has(k)) return;
-      addSheet(scene, k, fw, fh, n, d, outline);
+      const shade = outline && (fw >= 24 || fh >= 24);
+      addSheet(scene, k, fw, fh, n, d, outline, shade);
       count++;
     };
 
@@ -102,8 +105,8 @@ export class TextureFactory {
     sheet('portal-sheet', 16, 16, 6, (c, ox, f) => art.drawPortal(c, ox, f));
 
     // ---- objects / decor (outlined) ----
-    sheet('torch-sheet', 16, 16, 4, (c, ox, f) => art.drawTorch(c, ox, f));
-    sheet('generator-sheet', 24, 24, 4, (c, ox, f) => art.drawGenerator(c, ox, f));
+    sheet('torch-sheet', 16, 16, 4, (c, ox, f) => art.drawTorch(c, ox, f), true);
+    sheet('generator-sheet', 24, 24, 4, (c, ox, f) => art.drawGenerator(c, ox, f), true);
     img('chest', 16, 16, (c) => art.drawChest(c, 0, 0, false), true);
     img('chest-open', 16, 16, (c) => art.drawChest(c, 0, 0, true), true);
     img('shrine', 16, 16, (c) => art.drawShrine(c, 0, 0, false), true);
@@ -189,6 +192,40 @@ export class TextureFactory {
     img('guild-wall', 32, 32, (c) => townArt.drawGuildWall(c, 0, 0));
     img('training-dummy', 32, 32, (c) => townArt.drawTrainingDummy(c, 0, 0), true);
     img('anvil', 32, 32, (c) => townArt.drawAnvil(c, 0, 0), true);
+    // Brunda's Forge — sooty stone hall + grand furnace set-pieces
+    img('forge-wall', 32, 32, (c) => townArt.drawForgeWall(c, 0, 0));
+    img('forge-floor', 32, 32, (c) => townArt.drawForgeFloor(c, 0, 0));
+    img('forge-embers', 32, 32, (c) => townArt.drawForgeEmbers(c, 0, 0));
+    img('forge-furnace', 32, 32, (c) => townArt.drawForgeFurnace(c, 0, 0), true);
+    img('forge-hood', 32, 32, (c) => townArt.drawForgeHood(c, 0, 0), true);
+    img('forge-bellows', 32, 32, (c) => townArt.drawForgeBellows(c, 0, 0), true);
+    img('forge-trough', 32, 32, (c) => townArt.drawForgeTrough(c, 0, 0), true);
+    img('forge-workbench', 32, 32, (c) => townArt.drawForgeWorkbench(c, 0, 0), true);
+    img('forge-ingots', 32, 32, (c) => townArt.drawForgeIngots(c, 0, 0), true);
+    img('forge-ore', 32, 32, (c) => townArt.drawForgeOre(c, 0, 0), true);
+    img('forge-slag', 32, 32, (c) => townArt.drawForgeSlag(c, 0, 0), true);
+    img('forge-weapon-wall', 32, 32, (c) => townArt.drawForgeWeaponWall(c, 0, 0), true);
+    // Tankard / Guild / Apothecary interiors
+    img('guild-floor', 32, 32, (c) => townArt.drawGuildFloor(c, 0, 0));
+    img('guild-ring', 32, 32, (c) => townArt.drawGuildRing(c, 0, 0));
+    img('guild-desk', 32, 32, (c) => townArt.drawGuildDesk(c, 0, 0), true);
+    img('guild-trophy', 32, 32, (c) => townArt.drawGuildTrophy(c, 0, 0), true);
+    img('apothecary-wall', 32, 32, (c) => townArt.drawApothecaryWall(c, 0, 0));
+    img('apothecary-floor', 32, 32, (c) => townArt.drawApothecaryFloor(c, 0, 0));
+    img('herb-bundle', 32, 32, (c) => townArt.drawHerbBundle(c, 0, 0), true);
+    img('mortar-pestle', 32, 32, (c) => townArt.drawMortarPestle(c, 0, 0), true);
+    img('potion-case', 32, 32, (c) => townArt.drawPotionCase(c, 0, 0), true);
+    img('tavern-stage', 32, 32, (c) => townArt.drawTavernStage(c, 0, 0), true);
+    img('ale-kegs', 32, 32, (c) => townArt.drawAleKegs(c, 0, 0), true);
+    img('bar-back', 32, 32, (c) => townArt.drawBarBack(c, 0, 0), true);
+    // Heroes' Lodge
+    img('lodge-wall', 32, 32, (c) => townArt.drawLodgeWall(c, 0, 0));
+    img('lodge-floor', 32, 32, (c) => townArt.drawLodgeFloor(c, 0, 0));
+    img('lodge-bed', 32, 32, (c) => townArt.drawLodgeBed(c, 0, 0), true);
+    img('lodge-wardrobe', 32, 32, (c) => townArt.drawLodgeWardrobe(c, 0, 0), true);
+    img('lodge-table', 32, 32, (c) => townArt.drawLodgeTable(c, 0, 0), true);
+    img('lodge-chair', 32, 32, (c) => townArt.drawLodgeChair(c, 0, 0), true);
+    img('trophy-plinth', 32, 32, (c) => townArt.drawTrophyPlinth(c, 0, 0), true);
     img('crate', 32, 32, (c) => townArt.drawCrate(c, 0, 0), true);
     img('cauldron', 32, 32, (c) => townArt.drawCauldron(c, 0, 0), true);
     img('fence-h', 32, 32, (c) => townArt.drawFenceH(c, 0, 0), true);
